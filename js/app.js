@@ -66,8 +66,7 @@
       const cell = document.createElement("div");
       cell.className = "progress-cell combo-cell";
       if (c.resolved >= c.needed) cell.classList.add("filled");
-      else if (c.resolved === 2) cell.classList.add("partial-2");
-      else if (c.resolved === 1) cell.classList.add("partial-1");
+      else if (c.resolved >= 1) cell.classList.add("partial-1");
       cell.title = c.title;
       cell.setAttribute("aria-label", c.title);
       dom.comboTrackEl.appendChild(cell);

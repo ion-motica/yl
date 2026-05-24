@@ -2,12 +2,12 @@
   "use strict";
 
   /**
-   * Progres comun pe nivel: 5 runde perfecte + combo greșite × N.
+   * Progres comun pe nivel: 5 runde perfecte + combo greșite ×2 (implicit).
    * Quiz-urile furnizează doar cum se formează cheia și eticheta combo.
    */
   function createLevelProgress(config) {
     const flawlessNeeded = config.flawlessNeeded ?? 5;
-    const comboNeeded = config.comboNeeded ?? 3;
+    const comboNeeded = config.comboNeeded ?? 2;
     const comboKey = config.comboKey;
     const comboTitle = config.comboTitle;
 
@@ -60,8 +60,19 @@
         return [...combos.values()].every((c) => c.resolved >= comboNeeded);
       },
 
-      canAdvanceLevel() {
-        return flawlessRunsStreak >= flawlessNeeded && this.allCombosMastered();
+      /** Combo-uri cu număr ≥ minNumber trebuie rezolvate de comboNeeded ori. */
+      allCombosMasteredAtLeast(minNumber = 1) {
+        const relevant = [...combos.values()].filter((c) => c.number >= minNumber);
+        if (relevant.length === 0) return true;
+        return relevant.every((c) => c.resolved >= comboNeeded);
+      },
+
+      canAdvanceLevel(opts = {}) {
+        const minComboNumber = opts.minComboNumber ?? 1;
+        return (
+          flawlessRunsStreak >= flawlessNeeded &&
+          this.allCombosMasteredAtLeast(minComboNumber)
+        );
       },
 
       onLevelAdvanced() {
@@ -73,11 +84,13 @@
         return flawlessRunsStreak;
       },
 
-      getProgressView() {
+      getProgressView(opts = {}) {
+        const minNumber = opts.minComboNumber ?? 1;
+        const visible = [...combos.values()].filter((c) => c.number >= minNumber);
         return {
           flawlessRunsStreak,
           flawlessNeeded,
-          combos: [...combos.values()].map((c) => ({
+          combos: visible.map((c) => ({
             resolved: c.resolved,
             needed: comboNeeded,
             title: comboTitle(c),
@@ -85,9 +98,12 @@
         };
       },
 
-      pendingCombos(excludeKey) {
+      pendingCombos(excludeKey, minNumber = 1) {
         return [...combos.values()].filter(
-          (c) => c.resolved < comboNeeded && comboKey(c) !== excludeKey
+          (c) =>
+            c.number >= minNumber &&
+            c.resolved < comboNeeded &&
+            comboKey(c) !== excludeKey
         );
       },
     };

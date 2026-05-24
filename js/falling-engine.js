@@ -3,8 +3,8 @@
 
   const ARENA_H = 420;
   const BOX_MIN = 112;
-  const FALL_SPEED = 72;
-  const RISE_SPEED = 140;
+  const FALL_SPEED = 54;
+  const RISE_SPEED = 186;
   const BOUNCE_UP = 48;
   const FLASH_MS = 420;
   const RUN_DONE_MS = 450;
@@ -20,6 +20,8 @@
     let bouncing = false;
     let paused = false;
     let rafId = null;
+    /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
+    const wrongPicksThisStep = new Set();
 
     function syncBoxHeight() {
       boxH = Math.max(BOX_MIN, Math.ceil(dom.falling.getBoundingClientRect().height));
@@ -46,6 +48,28 @@
       }, FLASH_MS);
     }
 
+    function syncWrongMarks() {
+      dom.optionBtns.forEach((btn, i) => {
+        btn.classList.toggle("picked-wrong", wrongPicksThisStep.has(i));
+      });
+      dom.fallingPrimes.forEach((pill, i) => {
+        pill.classList.toggle("picked-wrong", wrongPicksThisStep.has(i));
+      });
+    }
+
+    function clearWrongMarks() {
+      wrongPicksThisStep.clear();
+      dom.optionBtns.forEach((b) => b.classList.remove("picked-wrong", "selected"));
+      dom.fallingPrimes.forEach((el) => el.classList.remove("picked-wrong", "highlight"));
+    }
+
+    function markWrongOption(index) {
+      wrongPicksThisStep.add(index);
+      dom.optionBtns.forEach((btn) => btn.classList.remove("selected"));
+      dom.fallingPrimes.forEach((pill) => pill.classList.remove("highlight"));
+      syncWrongMarks();
+    }
+
     function renderRound(state) {
       const fm = dom.fallingMainEl;
       if (state.questionFormat === "division-eq") {
@@ -57,12 +81,16 @@
       }
 
       dom.optionBtns.forEach((btn, i) => {
-        btn.querySelector(".prime").textContent = state.options?.[i] ?? "—";
-        btn.classList.remove("selected");
+        const val = state.options?.[i];
+        btn.querySelector(".prime").textContent =
+          val != null && String(val) !== "undefined" ? String(val) : "—";
+        btn.classList.remove("selected", "picked-wrong");
       });
       dom.fallingPrimes.forEach((el, i) => {
-        el.textContent = state.options?.[i] ?? "—";
-        el.classList.remove("highlight");
+        const val = state.options?.[i];
+        el.textContent =
+          val != null && String(val) !== "undefined" ? String(val) : "—";
+        el.classList.remove("highlight", "picked-wrong");
       });
 
       dom.divisionHistoryEl.replaceChildren();
@@ -82,14 +110,11 @@
     function cancelRisingAnimation() {
       animating = false;
       dom.rising.classList.add("hidden");
-      dom.optionBtns.forEach((b) => b.classList.remove("selected"));
-      dom.fallingPrimes.forEach((el) => el.classList.remove("highlight"));
+      clearWrongMarks();
     }
 
     function finishRun(result) {
       if (result.gameComplete) {
-        renderRound(result);
-        config.onProgressUpdate?.();
         if (rafId) cancelAnimationFrame(rafId);
         rafId = null;
         dom.playPauseBtn.disabled = true;
@@ -97,15 +122,18 @@
         return;
       }
 
-      const delay = result.levelAdvanced ? LEVEL_ADV_MS : RUN_DONE_MS;
+      const delay = result.levelAdvanced ? LEVEL_ADV_MS : 0;
       setTimeout(() => {
         if (getQuiz().isCompleted()) return;
         startRound(result.nextRound ?? getQuiz().beginRound(getQuiz().pickNextRound()));
       }, delay);
     }
 
-    function applyAnswerResult(result) {
-      if (result.flash) flash(result.flash);
+    function applyAnswerResult(result, pickedIndex) {
+      const wrongPick =
+        pickedIndex != null && result.correct === false && !result.runComplete;
+
+      if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
       if (result.banner) config.showBanner(result.banner);
       dom.messageEl.classList.toggle("win", result.flash === "win");
@@ -113,6 +141,7 @@
       if (result.resetFall) setFallPosition(0);
 
       if (result.bounce) {
+        clearWrongMarks();
         bouncing = true;
         dom.falling.classList.add("bounce");
         setFallPosition(Math.max(0, fallY - BOUNCE_UP));
@@ -123,9 +152,15 @@
       }
 
       if (result.runComplete) {
-        renderRound(result);
         config.onProgressUpdate?.();
         finishRun(result);
+        return;
+      }
+
+      if (wrongPick) {
+        markWrongOption(pickedIndex);
+        if (!result.gameComplete) setInputEnabled(true);
+        config.onProgressUpdate?.();
         return;
       }
 
@@ -137,7 +172,7 @@
     function resolveChoice(index) {
       dom.rising.classList.add("hidden");
       animating = false;
-      applyAnswerResult(getQuiz().onAnswer(index));
+      applyAnswerResult(getQuiz().onAnswer(index), index);
     }
 
     function handleBottomMiss() {
@@ -197,6 +232,7 @@
 
     function startRound(state) {
       cancelRisingAnimation();
+      clearWrongMarks();
       setFallPosition(0);
       dom.falling.classList.remove("bounce");
       dom.rising.classList.add("hidden");
