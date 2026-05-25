@@ -183,10 +183,22 @@
       }, delay);
     }
 
+    function hasRenderableState(result = {}) {
+      return (
+        result.prompt !== undefined ||
+        result.questionFormat !== undefined ||
+        result.options !== undefined ||
+        result.divisionHistory !== undefined ||
+        result.hintMessage !== undefined ||
+        result.dividend !== undefined ||
+        result.divisor !== undefined
+      );
+    }
+
     function applyAnswerResult(result, pickedIndex) {
+      const shouldRender = hasRenderableState(result);
       result = normalizeResult(result);
       const wrongPick = pickedIndex != null && result.outcome === "wrong-answer";
-      const shouldRender = result.outcome !== "wrong-answer";
 
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
