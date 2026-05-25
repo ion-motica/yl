@@ -3,18 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Împărțire cu numere prime</title>
+    <title>Quizuri de matematică</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div id="game" class="game">
       <header class="hud">
         <div class="hud-row">
-          <h1>Împarte până la 1</h1>
+          <h1>Quizuri de matematică</h1>
           <button type="button" id="play-pause" class="play-pause" aria-label="Pauză" title="Pauză (Space)">⏸</button>
         </div>
-        <p id="quiz-title" class="quiz-title">Găsire divizori primi</p>
-        <p id="level-info" class="level-info">Nivel 1 · 1–10</p>
+        <p id="quiz-title" class="quiz-title">Tabla adunării</p>
+        <p id="level-info" class="level-info">Nivel 1 · 1+1..10</p>
         <p class="hint">Apasă <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pentru stânga, mijloc, dreapta</p>
       </header>
 
@@ -59,7 +59,7 @@
         </div>
       </div>
 
-      <div id="options" class="options" role="group" aria-label="Numere prime">
+      <div id="options" class="options" role="group" aria-label="Opțiuni răspuns">
         <button type="button" class="option" data-index="0" disabled>
           <kbd>1</kbd><span class="prime">—</span>
         </button>
@@ -78,6 +78,10 @@
     <script src="js/quiz-math.js"></script>
     <script src="js/progress.js"></script>
     <script src="js/quiz-registry.js"></script>
+    <script src="js/fact-catalog.js"></script>
+    <script src="js/fact-stats.js"></script>
+    <script src="js/fact-store.js"></script>
+    <script src="js/quizzes/addition-table.js"></script>
     <script src="js/quizzes/prime-divisors.js"></script>
     <script src="js/quizzes/prime-divisions.js"></script>
     <script src="js/falling-engine.js"></script>

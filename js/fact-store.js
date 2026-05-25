@@ -1,0 +1,255 @@
+(function (global) {
+  "use strict";
+
+  const STORAGE_KEY = "prime-divisor-game:facts:v1";
+  const MAX_RECENT_ATTEMPTS = 5;
+  const MAX_DAILY_STATS = 5;
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function createMemoryStorage() {
+    let data = {};
+    return {
+      getItem(key) {
+        return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null;
+      },
+      setItem(key, value) {
+        data[key] = String(value);
+      },
+      removeItem(key) {
+        delete data[key];
+      },
+      clear() {
+        data = {};
+      },
+    };
+  }
+
+  function getStorage() {
+    try {
+      if (global.localStorage) return global.localStorage;
+    } catch (error) {
+      // Fallback in environments without localStorage access.
+    }
+    if (!getStorage.memory) getStorage.memory = createMemoryStorage();
+    return getStorage.memory;
+  }
+
+  function readState() {
+    const raw = getStorage().getItem(STORAGE_KEY);
+    if (!raw) return { version: 1, facts: {} };
+
+    try {
+      const parsed = JSON.parse(raw);
+      return {
+        version: parsed.version ?? 1,
+        facts: parsed.facts && typeof parsed.facts === "object" ? parsed.facts : {},
+      };
+    } catch (error) {
+      return { version: 1, facts: {} };
+    }
+  }
+
+  function writeState(state) {
+    getStorage().setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function normalizeAttempt(attempt = {}) {
+    const at = attempt.at ?? new Date().toISOString();
+    const responseMs = Number(attempt.responseMs);
+
+    return {
+      at,
+      correct: Boolean(attempt.correct),
+      responseMs: Number.isFinite(responseMs) ? Math.max(0, Math.round(responseMs)) : null,
+      answer: attempt.answer ?? null,
+      timedOut: Boolean(attempt.timedOut),
+      quizId: attempt.quizId ?? null,
+    };
+  }
+
+  function createEmptyRecord(factSeed) {
+    const fact = global.FactCatalog.createFact(factSeed);
+    return {
+      factId: fact.factId,
+      familyKey: fact.familyKey,
+      operation: fact.operation,
+      promptForm: fact.promptForm,
+      values: clone(fact.values),
+      recentAttempts: [],
+      dailyStats: [],
+      totals: {
+        attempts: 0,
+        correct: 0,
+        wrong: 0,
+        lastSeenAt: null,
+      },
+    };
+  }
+
+  function normalizeRecord(record, factSeed) {
+    const base = createEmptyRecord(
+      factSeed ?? {
+        factId: record.factId,
+        familyKey: record.familyKey,
+        operation: record.operation,
+        promptForm: record.promptForm,
+        values: record.values,
+      }
+    );
+
+    const normalized = {
+      ...base,
+      ...record,
+      values: clone(record.values ?? base.values),
+      recentAttempts: Array.isArray(record.recentAttempts)
+        ? record.recentAttempts.slice(0, MAX_RECENT_ATTEMPTS)
+        : [],
+      dailyStats: Array.isArray(record.dailyStats)
+        ? record.dailyStats.slice(0, MAX_DAILY_STATS)
+        : [],
+      totals: {
+        ...base.totals,
+        ...(record.totals ?? {}),
+      },
+    };
+
+    return normalized;
+  }
+
+  function getRecordFromState(state, factId, factSeed) {
+    const existing = state.facts[factId];
+    if (existing) return normalizeRecord(existing, factSeed);
+    if (factSeed) return createEmptyRecord(factSeed);
+    return null;
+  }
+
+  function upsertDailyStats(record, attempt) {
+    const day = String(attempt.at).slice(0, 10);
+    const stats = Array.isArray(record.dailyStats) ? [...record.dailyStats] : [];
+    let entry = stats.find((item) => item.day === day);
+
+    if (!entry) {
+      entry = {
+        day,
+        attempts: 0,
+        correct: 0,
+        wrong: 0,
+        avgResponseMs: null,
+        lastAttemptAt: attempt.at,
+      };
+      stats.push(entry);
+    }
+
+    const previousAttempts = entry.attempts;
+    entry.attempts += 1;
+    if (attempt.correct) entry.correct += 1;
+    else entry.wrong += 1;
+    entry.lastAttemptAt = attempt.at;
+
+    if (Number.isFinite(attempt.responseMs)) {
+      entry.avgResponseMs =
+        previousAttempts === 0 || !Number.isFinite(entry.avgResponseMs)
+          ? attempt.responseMs
+          : Math.round(
+              (entry.avgResponseMs * previousAttempts + attempt.responseMs) / entry.attempts
+            );
+    }
+
+    stats.sort((left, right) => String(right.day).localeCompare(String(left.day)));
+    record.dailyStats = stats.slice(0, MAX_DAILY_STATS);
+  }
+
+  function applyAttempt(record, attempt) {
+    record.recentAttempts = [attempt, ...(record.recentAttempts ?? [])].slice(
+      0,
+      MAX_RECENT_ATTEMPTS
+    );
+    record.totals.attempts += 1;
+    if (attempt.correct) record.totals.correct += 1;
+    else record.totals.wrong += 1;
+    record.totals.lastSeenAt = attempt.at;
+    upsertDailyStats(record, attempt);
+  }
+
+  function getFact(factId, factSeed) {
+    const state = readState();
+    const record = getRecordFromState(state, factId, factSeed);
+    return record ? clone(record) : null;
+  }
+
+  function saveFact(fact) {
+    const state = readState();
+    const normalized = normalizeRecord(fact, fact);
+    state.facts[normalized.factId] = normalized;
+    writeState(state);
+    return clone(normalized);
+  }
+
+  function recordAttempt(factId, attempt, factSeed) {
+    const state = readState();
+    const normalizedAttempt = normalizeAttempt(attempt);
+    const existingRecord =
+      typeof factId === "string" ? getRecordFromState(state, factId) : null;
+    const normalizedFact =
+      existingRecord
+        ? global.FactCatalog.createFact(existingRecord)
+        : global.FactCatalog.createFact(
+            typeof factId === "object" ? factId : factSeed
+          );
+    const record = existingRecord
+      ? normalizeRecord(existingRecord, normalizedFact)
+      : getRecordFromState(state, normalizedFact.factId, normalizedFact) ??
+        createEmptyRecord(normalizedFact);
+
+    applyAttempt(record, normalizedAttempt);
+    state.facts[record.factId] = record;
+    writeState(state);
+    return clone(record);
+  }
+
+  function listFactsByOperation(operation) {
+    const state = readState();
+    return Object.values(state.facts)
+      .map((record) => normalizeRecord(record))
+      .filter((record) => record.operation === operation)
+      .map((record) => clone(record));
+  }
+
+  function getFactsByOperation(operation) {
+    return listFactsByOperation(operation);
+  }
+
+  function getFactsByFamily(familyKey) {
+    const state = readState();
+    return Object.values(state.facts)
+      .map((record) => normalizeRecord(record))
+      .filter((record) => record.familyKey === familyKey)
+      .map((record) => clone(record));
+  }
+
+  function getFactSummary(factId, factSeed) {
+    const fact =
+      typeof factId === "object" ? getFact(factId.factId, factId) : getFact(factId, factSeed);
+    if (!fact) return null;
+    return global.FactStats ? global.FactStats.getFactSummary(fact) : fact;
+  }
+
+  function resetAll() {
+    getStorage().removeItem(STORAGE_KEY);
+  }
+
+  global.FactStore = {
+    STORAGE_KEY,
+    getFact,
+    saveFact,
+    recordAttempt,
+    listFactsByOperation,
+    getFactsByOperation,
+    getFactsByFamily,
+    getFactSummary,
+    resetAll,
+  };
+})(window);

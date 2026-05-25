@@ -95,7 +95,7 @@
       btn.dataset.level = String(lv);
       btn.textContent = String(lv);
       const { min, max } = GameUtils.levelRange(lv);
-      btn.title = `Nivel ${lv}: ${min}–${max}`;
+      btn.title = quiz.getLevelButtonTitle?.(lv) ?? `Nivel ${lv}: ${min}–${max}`;
       btn.addEventListener("click", () => {
         quiz.switchLevel(lv);
         dom.playPauseBtn.disabled = false;
@@ -135,7 +135,9 @@
     engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   }
 
-  QuizRegistry.setActive("prime-divisions") || QuizRegistry.setActive(QuizRegistry.getDefaultId());
+  QuizRegistry.setActive("addition-table") ||
+    QuizRegistry.setActive("prime-divisions") ||
+    QuizRegistry.setActive(QuizRegistry.getDefaultId());
   quiz = QuizRegistry.createActive();
 
   engine = new FallingEngine({

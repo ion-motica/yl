@@ -20,8 +20,24 @@
     let bouncing = false;
     let paused = false;
     let rafId = null;
+    let roundStartedAt = null;
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
+
+    function nowMs() {
+      if (global.performance && typeof global.performance.now === "function") {
+        return global.performance.now();
+      }
+      return Date.now();
+    }
+
+    function attemptMeta(extra = {}) {
+      return {
+        at: new Date().toISOString(),
+        responseMs: roundStartedAt == null ? null : Math.max(0, Math.round(nowMs() - roundStartedAt)),
+        ...extra,
+      };
+    }
 
     function syncBoxHeight() {
       boxH = Math.max(BOX_MIN, Math.ceil(dom.falling.getBoundingClientRect().height));
@@ -160,7 +176,7 @@
         return;
       }
 
-      const delay = result.levelAdvanced ? LEVEL_ADV_MS : 0;
+      const delay = result.levelAdvanced ? LEVEL_ADV_MS : result.runDelayMs ?? RUN_DONE_MS;
       setTimeout(() => {
         if (getQuiz().isCompleted()) return;
         startRound(result.nextRound ?? getQuiz().beginRound(getQuiz().pickNextRound()));
@@ -212,13 +228,13 @@
     function resolveChoice(index) {
       dom.rising.classList.add("hidden");
       animating = false;
-      applyAnswerResult(getQuiz().onAnswer(index), index);
+      applyAnswerResult(getQuiz().onAnswer(index, attemptMeta()), index);
     }
 
     function handleBottomMiss() {
       if (locked || getQuiz().isCompleted()) return;
       cancelRisingAnimation();
-      applyAnswerResult(getQuiz().onTimeout());
+      applyAnswerResult(getQuiz().onTimeout(attemptMeta({ timedOut: true })));
       setInputEnabled(true);
     }
 
@@ -281,6 +297,7 @@
       setInputEnabled(true);
       dom.messageEl.classList.remove("win");
       dom.playPauseBtn.disabled = false;
+      roundStartedAt = nowMs();
     }
 
     function startFallLoop() {
