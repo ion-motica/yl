@@ -132,6 +132,12 @@
     function applyAnswerResult(result, pickedIndex) {
       const wrongPick =
         pickedIndex != null && result.correct === false && !result.runComplete;
+      const shouldRender =
+        result.prompt !== undefined ||
+        result.questionFormat !== undefined ||
+        result.options !== undefined ||
+        result.divisionHistory !== undefined ||
+        result.hintMessage !== undefined;
 
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
@@ -151,6 +157,8 @@
         }, 380);
       }
 
+      if (shouldRender && !wrongPick) renderRound(result);
+
       if (result.runComplete) {
         config.onProgressUpdate?.();
         finishRun(result);
@@ -164,7 +172,6 @@
         return;
       }
 
-      if (result.prompt || result.questionFormat || result.options) renderRound(result);
       if (!result.gameComplete) setInputEnabled(true);
       config.onProgressUpdate?.();
     }
