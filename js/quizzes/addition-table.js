@@ -4,6 +4,15 @@
   const MAX_LEVEL = 10;
   const REPLAY_CHANCE = 0.65;
   const RUN_DELAY_MS = 500;
+  const MIX_CONFIG = {
+    unknown: 1,
+    weak: 1,
+    fragile: 2,
+    strong: 1,
+  };
+  const BUCKET_ORDER = ["unknown", "weak", "fragile", "strong"];
+  const RECENT_WINDOW = 4;
+  const ACTIVE_POOL_SIZE = Object.values(MIX_CONFIG).reduce((sum, count) => sum + count, 0);
 
   function createAdditionTableQuiz(config = {}) {
     const { randomInt, shuffle } = global.GameUtils;
@@ -16,6 +25,8 @@
     let activeComboTrap = null;
     let lastFactId = null;
     let gameCompleted = false;
+    const recentQuestionIds = [];
+    const recentChosenBuckets = [];
 
     const mistakes = global.QuizMistakes.create(config, {
       comboTitle: (combo) => {
@@ -36,6 +47,13 @@
 
     function progressOpts() {
       return { comboRelevant: (combo) => combo.level === level };
+    }
+
+    function pushRecent(list, value, limit = ACTIVE_POOL_SIZE) {
+      list.push(value);
+      if (list.length > limit) {
+        list.splice(0, list.length - limit);
+      }
     }
 
     function formatOptionsForView(source = options) {
@@ -85,6 +103,192 @@
         promptForm: combo.promptForm,
         values: combo.values,
       });
+    }
+
+    function getDifficultyScore(fact) {
+      const { a, b, result } = fact.values;
+      const maxOperand = Math.max(a, b);
+      const minOperand = Math.min(a, b);
+      return result * 100 + maxOperand * 10 + minOperand;
+    }
+
+    function compareFactsByDifficulty(left, right) {
+      const delta = getDifficultyScore(left) - getDifficultyScore(right);
+      if (delta !== 0) return delta;
+      return String(left.factId).localeCompare(String(right.factId));
+    }
+
+    function getFactSummaryMap(facts) {
+      const map = new Map();
+      facts.forEach((fact) => {
+        map.set(fact.factId, FactStore.getFactSummary(fact.factId, fact));
+      });
+      return map;
+    }
+
+    function getFactBucket(fact, summary) {
+      if (!summary || summary.recentAttemptsCount === 0) return "unknown";
+      if (summary.accuracyStatus === "slab" || summary.speedStatus === "lent") return "weak";
+      if (summary.accuracyStatus === "fragil" || summary.speedStatus === "mediu") return "fragile";
+      return "strong";
+    }
+
+    function addBucketFacts(pool, grouped, bucket, count) {
+      const source = grouped[bucket] || [];
+      let added = 0;
+      for (const fact of source) {
+        if (added >= count) break;
+        if (!pool.some((item) => item.factId === fact.factId)) {
+          pool.push(fact);
+          added++;
+        }
+      }
+    }
+
+    function fillRemainingPool(pool, grouped) {
+      for (const bucket of BUCKET_ORDER) {
+        for (const fact of grouped[bucket]) {
+          if (pool.length >= ACTIVE_POOL_SIZE) return;
+          if (!pool.some((item) => item.factId === fact.factId)) {
+            pool.push(fact);
+          }
+        }
+      }
+    }
+
+    function groupFactsByBucket(facts, summaryMap) {
+      const grouped = {
+        unknown: [],
+        weak: [],
+        fragile: [],
+        strong: [],
+      };
+
+      facts.forEach((fact) => {
+        const bucket = getFactBucket(fact, summaryMap.get(fact.factId));
+        grouped[bucket].push(fact);
+      });
+
+      BUCKET_ORDER.forEach((bucket) => {
+        grouped[bucket].sort(compareFactsByDifficulty);
+      });
+
+      return grouped;
+    }
+
+    function buildActivePool(facts, summaryMap) {
+      const grouped = groupFactsByBucket(facts, summaryMap);
+      const pool = [];
+
+      addBucketFacts(pool, grouped, "unknown", MIX_CONFIG.unknown);
+      addBucketFacts(pool, grouped, "weak", MIX_CONFIG.weak);
+      addBucketFacts(pool, grouped, "fragile", MIX_CONFIG.fragile);
+      addBucketFacts(pool, grouped, "strong", MIX_CONFIG.strong);
+      fillRemainingPool(pool, grouped);
+
+      return pool.slice(0, ACTIVE_POOL_SIZE);
+    }
+
+    function countRecentBuckets() {
+      const counts = {
+        unknown: 0,
+        weak: 0,
+        fragile: 0,
+        strong: 0,
+      };
+
+      recentChosenBuckets.slice(-ACTIVE_POOL_SIZE).forEach((bucket) => {
+        if (counts[bucket] != null) counts[bucket]++;
+      });
+
+      return counts;
+    }
+
+    function chooseBucket(grouped) {
+      const counts = countRecentBuckets();
+      const candidates = [];
+
+      BUCKET_ORDER.forEach((bucket) => {
+        if (!grouped[bucket].length) return;
+        const need = MIX_CONFIG[bucket] - counts[bucket];
+        if (need > 0) {
+          candidates.push({
+            bucket,
+            need,
+            fact: grouped[bucket][0],
+          });
+        }
+      });
+
+      if (!candidates.length) {
+        BUCKET_ORDER.forEach((bucket) => {
+          if (!grouped[bucket].length) return;
+          candidates.push({
+            bucket,
+            need: 0,
+            fact: grouped[bucket][0],
+          });
+        });
+      }
+
+      candidates.sort((left, right) => {
+        const difficultyDelta = compareFactsByDifficulty(left.fact, right.fact);
+        if (difficultyDelta !== 0) return difficultyDelta;
+        return BUCKET_ORDER.indexOf(left.bucket) - BUCKET_ORDER.indexOf(right.bucket);
+      });
+
+      return candidates[0]?.bucket ?? "strong";
+    }
+
+    function pickEasiestFact(bucketFacts) {
+      const blockedIds = new Set(recentQuestionIds.slice(-RECENT_WINDOW));
+      const fresh = bucketFacts.filter((fact) => !blockedIds.has(fact.factId));
+      if (fresh.length) return fresh[0];
+      return bucketFacts[0] ?? null;
+    }
+
+    function chooseNextQuestion() {
+      const facts = levelFacts().filter((fact, _, allFacts) => {
+        if (allFacts.length <= 1) return true;
+        return fact.factId !== lastFactId;
+      });
+      const summaryMap = getFactSummaryMap(facts);
+      const activePool = buildActivePool(facts, summaryMap);
+      const grouped = groupFactsByBucket(activePool, summaryMap);
+      const seenCount = levelFacts().filter((fact) => {
+        const stored = FactStore.getFact(fact.factId, fact);
+        return Boolean(stored?.totals?.attempts);
+      }).length;
+      const minSeenForMix = Math.min(ACTIVE_POOL_SIZE, levelFacts().length);
+
+      if (seenCount < minSeenForMix && grouped.unknown.length) {
+        const fact = pickEasiestFact(grouped.unknown);
+        return {
+          fact,
+          combo: null,
+          bucket: "unknown",
+          difficultyScore: fact ? getDifficultyScore(fact) : null,
+        };
+      }
+
+      const bucket = chooseBucket(grouped);
+      const fact = pickEasiestFact(grouped[bucket] || []);
+
+      if (fact) {
+        return {
+          fact,
+          combo: null,
+          bucket,
+          difficultyScore: getDifficultyScore(fact),
+        };
+      }
+
+      return {
+        fact: facts.sort(compareFactsByDifficulty)[0],
+        combo: null,
+        bucket: "strong",
+        difficultyScore: null,
+      };
     }
 
     function pickWrongAnswers(correctAnswer, count, exclude = []) {
@@ -148,50 +352,27 @@
       return pending[randomInt(0, pending.length - 1)];
     }
 
-    function allLevelFactsSeen(targetLevel = level) {
-      return levelFacts(targetLevel).every((fact) => {
-        const stored = FactStore.getFact(fact.factId, fact);
-        return Boolean(stored?.totals?.attempts);
-      });
-    }
-
     function canAdvanceNow() {
-      return mistakes.canAdvanceLevel(progressOpts()) && allLevelFactsSeen(level);
-    }
-
-    function pickFreshFact() {
-      const facts = levelFacts().filter((fact, _, allFacts) => {
-        if (allFacts.length <= 1) return true;
-        return fact.factId !== lastFactId;
-      });
-
-      const unseen = [];
-      const weak = [];
-      const strong = [];
-
-      facts.forEach((fact) => {
-        const summary = FactStore.getFactSummary(fact.factId, fact);
-        const bucket = summary?.practiceBucket ?? FactStats.getPracticeBucket(null);
-        if (bucket === "unseen") unseen.push(fact);
-        else if (bucket === "weak") weak.push(fact);
-        else strong.push(fact);
-      });
-
-      const pool = unseen.length ? unseen : weak.length ? weak : strong.length ? strong : facts;
-      return pool[randomInt(0, pool.length - 1)];
+      return mistakes.canAdvanceLevel(progressOpts());
     }
 
     function pickRoundStart() {
       const combo = pickReplayCombo();
       if (combo) return { fact: factFromCombo(combo), combo };
-      return { fact: pickFreshFact(), combo: null };
+      return chooseNextQuestion();
     }
 
-    function beginFactRound(fact, combo) {
+    function beginFactRound(fact, combo, bucket) {
       currentFact = FactCatalog.createFact(fact);
       activeComboTrap = null;
       buildOptionsForFact(currentFact, combo);
       lastFactId = currentFact.factId;
+      pushRecent(recentQuestionIds, currentFact.factId, RECENT_WINDOW);
+      if (bucket) pushRecent(recentChosenBuckets, bucket, ACTIVE_POOL_SIZE);
+      else {
+        const summary = FactStore.getFactSummary(currentFact.factId, currentFact);
+        pushRecent(recentChosenBuckets, getFactBucket(currentFact, summary), ACTIVE_POOL_SIZE);
+      }
       return roundView({
         hintMessage: combo ? "Exersează combinația greșită!" : "Alege suma corectă.",
       });
@@ -277,6 +458,8 @@
         correctIndex = 0;
         activeComboTrap = null;
         lastFactId = null;
+        recentQuestionIds.length = 0;
+        recentChosenBuckets.length = 0;
       },
 
       switchLevel(nextLevel) {
@@ -285,9 +468,9 @@
         this.resetLevelState();
       },
 
-      beginRound({ fact, combo } = pickRoundStart()) {
+      beginRound({ fact, combo, bucket } = pickRoundStart()) {
         mistakes.startRun();
-        return beginFactRound(fact, combo);
+        return beginFactRound(fact, combo, bucket);
       },
 
       onTimeout(meta = {}) {
