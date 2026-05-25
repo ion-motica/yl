@@ -2,7 +2,7 @@
   "use strict";
 
   const MAX_LEVEL = 10;
-  const { primeFactors, randomCompositeAtLeast } = global.QuizMath;
+  const { isPrime, primeFactors, randomCompositeAtLeast } = global.QuizMath;
 
   function createPrimeDivisionsQuiz() {
     const { randomInt, shuffle, levelRange, levelLabel } = global.GameUtils;
@@ -24,18 +24,23 @@
       comboTitle: (payload) => `Împărțire ${payload.number}`,
     });
 
-    function minQuestionForLevel(lv) {
+    function nextSetFloorForLevel(lv) {
       if (lv >= 5) return 20;
       if (lv >= 3) return 10;
-      return 1;
+      return 0;
     }
 
     function isBelowLevelFloor(n) {
-      return n > 1 && n < minQuestionForLevel(level);
+      const floor = nextSetFloorForLevel(level);
+      return floor > 0 && n > 1 && n < floor;
+    }
+
+    function shouldSkipFinalPrimeStep(n) {
+      return n > 1 && isPrime(n);
     }
 
     function progressOpts() {
-      return { minComboNumber: minQuestionForLevel(level) };
+      return { minComboNumber: nextSetFloorForLevel(level) };
     }
 
     function canAdvanceNow() {
@@ -187,7 +192,7 @@
 
     function pickCompositeStart(exclude) {
       const { min, max } = levelRange(level);
-      const floor = minQuestionForLevel(level);
+      const floor = nextSetFloorForLevel(level);
       return randomCompositeAtLeast(floor, min, max, exclude);
     }
 
@@ -275,7 +280,7 @@
           return finishSeriesRun.call(this, true, solvedStepView(dividendBefore, divisorBefore));
         }
 
-        if (isBelowLevelFloor(quotientBefore)) {
+        if (shouldSkipFinalPrimeStep(quotientBefore) || isBelowLevelFloor(quotientBefore)) {
           return finishSeriesRun.call(this, false, solvedStepView(dividendBefore, divisorBefore));
         }
 

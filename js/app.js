@@ -126,7 +126,7 @@
     engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   }
 
-  QuizRegistry.setActive(QuizRegistry.getDefaultId());
+  QuizRegistry.setActive("prime-divisions") || QuizRegistry.setActive(QuizRegistry.getDefaultId());
   quiz = QuizRegistry.createActive();
 
   engine = new FallingEngine({
