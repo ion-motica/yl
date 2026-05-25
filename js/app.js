@@ -122,7 +122,7 @@
   }
 
   function switchQuiz(id) {
-    if (id === QuizRegistry.getActiveId() && quiz) return;
+    if (id === QuizRegistry.getActiveId() && quiz && !quiz.isCompleted()) return;
     QuizRegistry.setActive(id);
     const meta = QuizRegistry.get(id);
     dom.quizTitleEl.textContent = meta.title;

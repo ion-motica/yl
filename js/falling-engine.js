@@ -300,6 +300,7 @@
 
     function startRound(state) {
       state = normalizeRoundState(state);
+      if (rafId == null) startFallLoop();
       cancelRisingAnimation();
       clearWrongMarks();
       setFallPosition(0);
