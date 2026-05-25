@@ -33,7 +33,7 @@
 
     createActive() {
       const meta = quizzes.get(activeId);
-      return meta ? meta.create() : null;
+      return meta ? meta.create(meta) : null;
     },
   };
 })(window);

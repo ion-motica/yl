@@ -2,9 +2,10 @@
   "use strict";
 
   const MAX_LEVEL = 10;
+  const REPLAY_CHANCE = 0.65;
   const { isPrime, primeFactors, randomCompositeAtLeast } = global.QuizMath;
 
-  function createPrimeDivisionsQuiz() {
+  function createPrimeDivisionsQuiz(config = {}) {
     const { randomInt, shuffle, levelRange, levelLabel } = global.GameUtils;
 
     let level = 1;
@@ -14,15 +15,13 @@
     let currentQuotient = 0;
     let options = [];
     let correctIndex = 0;
+    let activeComboTrap = null;
     let lastRoundStartNum = null;
     let gameCompleted = false;
     const solvedFactors = [];
     const divisionHistory = [];
 
-    const progress = global.LevelProgress.create({
-      comboKey: (payload) => `${payload.number}:${payload.kind ?? "division"}`,
-      comboTitle: (payload) => `Împărțire ${payload.number}`,
-    });
+    const mistakes = global.QuizMistakes.create(config);
 
     function nextSetFloorForLevel(lv) {
       if (lv >= 5) return 20;
@@ -40,11 +39,12 @@
     }
 
     function progressOpts() {
-      return { minComboNumber: nextSetFloorForLevel(level) };
+      const floor = nextSetFloorForLevel(level);
+      return { comboRelevant: (combo) => (combo.dividend ?? combo.number) >= floor };
     }
 
     function canAdvanceNow() {
-      return progress.canAdvanceLevel(progressOpts());
+      return mistakes.canAdvanceLevel(progressOpts());
     }
 
     function uniquePrimeDivisorsOf(n) {
@@ -57,9 +57,9 @@
       return divisors[randomInt(0, divisors.length - 1)];
     }
 
-    function pickWrongQuotients(dividend, correctQuotient, count) {
+    function pickWrongQuotients(dividend, correctQuotient, count, exclude = []) {
       const picked = [];
-      const used = new Set([correctQuotient]);
+      const used = new Set([correctQuotient, ...exclude]);
       const half = Math.floor(dividend / 2);
 
       function tryAdd(value) {
@@ -109,6 +109,47 @@
       return `${currentDividend}/${currentDivisor}`;
     }
 
+    function comboDividend(combo) {
+      return combo.dividend ?? combo.number;
+    }
+
+    function buildMistakePayload({
+      dividend = currentDividend,
+      divisor = currentDivisor,
+      correct = currentQuotient,
+      wrong = null,
+    } = {}) {
+      const questionText = `${dividend}/${divisor}`;
+      return {
+        questionId: questionText,
+        questionLabel: questionText,
+        number: dividend,
+        dividend,
+        divisor,
+        correct,
+        wrong,
+      };
+    }
+
+    function listPendingCombos() {
+      return mistakes.pendingCombos(undefined, progressOpts());
+    }
+
+    function pickReplayStartCombo() {
+      const pending = listPendingCombos().filter((combo) => comboDividend(combo) !== lastRoundStartNum);
+      if (!pending.length || Math.random() >= REPLAY_CHANCE) return null;
+      return pending[randomInt(0, pending.length - 1)];
+    }
+
+    function isResolvedCombo(combo, dividend, divisor, chosen, fallbackCorrect) {
+      return Boolean(
+        combo &&
+          dividend === comboDividend(combo) &&
+          divisor === combo.divisor &&
+          chosen === (combo.correct ?? fallbackCorrect)
+      );
+    }
+
     function roundView(extra = {}) {
       return {
         prompt: currentPrompt(),
@@ -130,7 +171,41 @@
       };
     }
 
+    function buildStepFromCombo(combo) {
+      const dividend = comboDividend(combo);
+      const divisor = combo.divisor;
+      const correctQuotient = combo.correct ?? Math.floor(dividend / divisor);
+
+      currentDividend = dividend;
+      currentDivisor = divisor;
+      currentQuotient = correctQuotient;
+
+      let triple;
+      if (combo.wrong !== null && combo.wrong !== correctQuotient) {
+        const extra = pickWrongQuotients(dividend, correctQuotient, 1, [combo.wrong]);
+        triple = shuffle([correctQuotient, combo.wrong, extra[0]]);
+      } else {
+        const wrong = pickWrongQuotients(dividend, correctQuotient, 2);
+        triple = shuffle([correctQuotient, wrong[0], wrong[1]]);
+      }
+
+      options = triple.map((value) => Number(value));
+      correctIndex = options.indexOf(correctQuotient);
+      activeComboTrap = combo;
+    }
+
+    function findPendingComboForDividend(dividend) {
+      return listPendingCombos().find((combo) => comboDividend(combo) === dividend);
+    }
+
     function buildStep(dividend) {
+      activeComboTrap = null;
+      const trap = findPendingComboForDividend(dividend);
+      if (trap) {
+        buildStepFromCombo(trap);
+        return;
+      }
+
       currentDividend = dividend;
       currentDivisor = pickPrimeDivisor(dividend);
       currentQuotient = Math.floor(currentDividend / currentDivisor);
@@ -143,11 +218,12 @@
 
     function finishSeriesRun(reachedOne, finalView) {
       const snapshot = { ...finalView, divisionHistory: [...finalView.divisionHistory] };
-      progress.noteRunFlawless();
+      mistakes.noteRunFlawless();
 
       if (canAdvanceNow() && level >= MAX_LEVEL) {
         gameCompleted = true;
         return {
+          outcome: "run-complete",
           ...snapshot,
           correct: true,
           runComplete: true,
@@ -160,9 +236,10 @@
 
       if (canAdvanceNow()) {
         level++;
-        progress.onLevelAdvanced();
+        mistakes.onLevelAdvanced();
         const next = pickRoundStart();
         return {
+          outcome: "run-complete",
           ...snapshot,
           correct: true,
           runComplete: true,
@@ -175,8 +252,9 @@
       }
 
       const next = pickRoundStart();
-      const flawless = progress.isRunFlawless();
+      const flawless = mistakes.isRunFlawless();
       return {
+        outcome: "run-complete",
         ...snapshot,
         correct: true,
         runComplete: true,
@@ -197,7 +275,10 @@
     }
 
     function pickRoundStart() {
-      return { startNum: pickCompositeStart(lastRoundStartNum) };
+      const combo = pickReplayStartCombo();
+      if (combo) return { startNum: comboDividend(combo), combo };
+
+      return { startNum: pickCompositeStart(lastRoundStartNum), combo: null };
     }
 
     return {
@@ -209,7 +290,7 @@
       },
 
       resetLevelState() {
-        progress.reset();
+        mistakes.reset();
         lastRoundStartNum = null;
         roundStartNumber = 0;
         currentDividend = 0;
@@ -217,6 +298,7 @@
         currentQuotient = 0;
         options = [];
         correctIndex = 0;
+        activeComboTrap = null;
         solvedFactors.length = 0;
         divisionHistory.length = 0;
       },
@@ -228,9 +310,9 @@
       },
 
       getLevelLabel: () => levelLabel(level),
-      getProgress: () => progress.getProgressView(progressOpts()),
+      getProgress: () => mistakes.getProgressView(progressOpts()),
 
-      beginRound({ startNum } = pickRoundStart()) {
+      beginRound({ startNum, combo } = pickRoundStart()) {
         if (isBelowLevelFloor(startNum)) {
           return this.beginRound(pickRoundStart());
         }
@@ -239,17 +321,22 @@
         roundStartNumber = startNum;
         solvedFactors.length = 0;
         divisionHistory.length = 0;
-        progress.startRun();
-        buildStep(startNum);
+        mistakes.startRun();
+        activeComboTrap = null;
+        if (combo) buildStepFromCombo(combo);
+        else buildStep(startNum);
 
         return roundView({
-          hintMessage: "Rezolvă împărțirea și continuă cu câtul obținut.",
+          hintMessage: combo
+            ? "Exersează combinația greșită!"
+            : "Rezolvă împărțirea și continuă cu câtul obținut.",
         });
       },
 
       onTimeout() {
-        progress.markRunImperfect();
+        mistakes.recordMistake(buildMistakePayload());
         return {
+          outcome: "timeout",
           flash: "wrong",
           message: "Prea târziu! Alege câtul corect înainte să ajungă jos.",
           resetFall: true,
@@ -264,13 +351,25 @@
         const chosen = options[index];
 
         if (chosen !== quotientBefore) {
-          progress.markRunImperfect();
+          mistakes.recordMistake(
+            buildMistakePayload({
+              dividend: dividendBefore,
+              divisor: divisorBefore,
+              correct: quotientBefore,
+              wrong: chosen,
+            })
+          );
           return {
+            outcome: "wrong-answer",
             correct: false,
             flash: "wrong",
             message: `${dividendBefore}/${divisorBefore} nu este ${chosen}. Încearcă din nou!`,
             ...roundView(),
           };
+        }
+
+        if (isResolvedCombo(activeComboTrap, dividendBefore, divisorBefore, chosen, quotientBefore)) {
+          mistakes.resolveCombo(activeComboTrap);
         }
 
         solvedFactors.push(divisorBefore);
@@ -286,6 +385,7 @@
 
         buildStep(quotientBefore);
         return {
+          outcome: "step-correct",
           correct: true,
           bounce: true,
           message: `Corect! ${dividendBefore}/${divisorBefore}=${quotientBefore}`,
@@ -302,6 +402,7 @@
     title: "Împărțiri la numere prime",
     description: "Alege câtul corect pentru împărțiri succesive cu divizori primi.",
     order: 1,
+    gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },
     create: createPrimeDivisionsQuiz,
   });
 })(window);

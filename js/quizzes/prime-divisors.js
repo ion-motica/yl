@@ -2,13 +2,10 @@
   "use strict";
 
   const MAX_LEVEL = 10;
+  const REPLAY_CHANCE = 0.65;
   const { isPrime, primeFactors, pickWrongPrimes, randomCompositeAtLeast } = global.QuizMath;
 
-  function comboKey({ number, wrong }) {
-    return `${number}:${wrong === null ? "t" : wrong}`;
-  }
-
-  function createPrimeDivisorsQuiz() {
+  function createPrimeDivisorsQuiz(config = {}) {
     const { randomInt, shuffle, levelRange, levelLabel } = global.GameUtils;
 
     let level = 1;
@@ -20,13 +17,10 @@
     let lastRoundStartNum = null;
     let gameCompleted = false;
 
-    const COMBO_NEEDED = 2;
-    const progress = global.LevelProgress.create({
-      comboNeeded: COMBO_NEEDED,
-      comboKey,
+    const mistakes = global.QuizMistakes.create(config, {
       comboTitle: (c) => {
         const wrongLabel = c.wrong === null ? "timp" : c.wrong;
-        return `${c.number} ÷ ${wrongLabel} — ${c.resolved}/${COMBO_NEEDED}`;
+        return `${c.number} ÷ ${wrongLabel} — ${c.resolved}/${mistakes.comboNeeded}`;
       },
     });
 
@@ -60,9 +54,7 @@
 
     function buildOptions(n, preferredCorrect) {
       activeComboTrap = null;
-      const trap = progress
-        .pendingCombos(undefined, minQuestionForLevel(level))
-        .find((c) => c.number === n);
+      const trap = findPendingComboForNumber(n);
       if (trap) {
         buildOptionsFromCombo(trap);
         return;
@@ -89,19 +81,48 @@
     }
 
     function progressOpts() {
-      return { minComboNumber: minQuestionForLevel(level) };
+      const floor = minQuestionForLevel(level);
+      return { comboRelevant: (combo) => combo.number >= floor };
+    }
+
+    function buildMistakePayload(number, correct, wrong) {
+      const questionText = String(number);
+      return {
+        questionId: questionText,
+        questionLabel: questionText,
+        number,
+        correct,
+        wrong,
+      };
+    }
+
+    function findPendingComboForNumber(number) {
+      return mistakes.pendingCombos(undefined, progressOpts()).find((combo) => combo.number === number);
+    }
+
+    function pickReplayStartCombo() {
+      const pending = mistakes
+        .pendingCombos(undefined, progressOpts())
+        .filter((combo) => combo.number !== lastRoundStartNum);
+      if (!pending.length || Math.random() >= REPLAY_CHANCE) return null;
+      return pending[randomInt(0, pending.length - 1)];
+    }
+
+    function isResolvedCombo(combo, number, chosen) {
+      return Boolean(combo && number === combo.number && chosen === combo.correct);
     }
 
     function canAdvanceNow() {
-      return progress.canAdvanceLevel(progressOpts());
+      return mistakes.canAdvanceLevel(progressOpts());
     }
 
     function finishSeriesRun(reachedOne) {
-      progress.noteRunFlawless();
+      mistakes.noteRunFlawless();
 
       if (canAdvanceNow() && level >= MAX_LEVEL) {
         gameCompleted = true;
         return {
+          outcome: "run-complete",
           correct: true,
           runComplete: true,
           gameComplete: true,
@@ -113,9 +134,10 @@
 
       if (canAdvanceNow()) {
         level++;
-        progress.onLevelAdvanced();
+        mistakes.onLevelAdvanced();
         const next = pickRoundStart();
         return {
+          outcome: "run-complete",
           correct: true,
           runComplete: true,
           levelAdvanced: true,
@@ -127,8 +149,9 @@
       }
 
       const next = pickRoundStart();
-      const flawless = progress.isRunFlawless();
+      const flawless = mistakes.isRunFlawless();
       return {
+        outcome: "run-complete",
         correct: true,
         runComplete: true,
         flash: flawless ? "win" : undefined,
@@ -148,12 +171,8 @@
     }
 
     function pickRoundStart() {
-      const floor = minQuestionForLevel(level);
-      const pending = progress
-        .pendingCombos(undefined, floor)
-        .filter((c) => c.number !== lastRoundStartNum);
-      if (pending.length && Math.random() < 0.65) {
-        const combo = pending[randomInt(0, pending.length - 1)];
+      const combo = pickReplayStartCombo();
+      if (combo) {
         return { startNum: combo.number, combo };
       }
       return {
@@ -190,7 +209,7 @@
       },
 
       resetLevelState() {
-        progress.reset();
+        mistakes.reset();
         lastRoundStartNum = null;
         divisionHistory.length = 0;
         activeComboTrap = null;
@@ -203,7 +222,7 @@
       },
 
       getLevelLabel: () => levelLabel(level),
-      getProgress: () => progress.getProgressView(progressOpts()),
+      getProgress: () => mistakes.getProgressView(progressOpts()),
 
       beginRound({ startNum, combo } = pickRoundStart()) {
         if (isBelowLevelFloor(startNum)) {
@@ -211,7 +230,7 @@
         }
         lastRoundStartNum = startNum;
         currentNumber = startNum;
-        progress.startRun();
+        mistakes.startRun();
         divisionHistory.length = 0;
         activeComboTrap = null;
         if (combo) buildOptionsFromCombo(combo);
@@ -222,12 +241,9 @@
       },
 
       onTimeout() {
-        progress.recordMistake({
-          number: currentNumber,
-          correct: options[correctIndex],
-          wrong: null,
-        });
+        mistakes.recordMistake(buildMistakePayload(currentNumber, options[correctIndex], null));
         return {
+          outcome: "timeout",
           flash: "wrong",
           message: "Prea târziu! Alege înainte să ajungă jos.",
           resetFall: true,
@@ -241,12 +257,9 @@
         const correct = options[correctIndex];
 
         if (numberBefore % chosen !== 0) {
-          progress.recordMistake({
-            number: numberBefore,
-            correct,
-            wrong: chosen,
-          });
+          mistakes.recordMistake(buildMistakePayload(numberBefore, correct, chosen));
           return {
+            outcome: "wrong-answer",
             correct: false,
             flash: "wrong",
             message: `${chosen} nu divide ${numberBefore}. Încearcă din nou!`,
@@ -254,12 +267,8 @@
           };
         }
 
-        if (
-          activeComboTrap &&
-          numberBefore === activeComboTrap.number &&
-          chosen === activeComboTrap.correct
-        ) {
-          progress.resolveCombo(activeComboTrap);
+        if (isResolvedCombo(activeComboTrap, numberBefore, chosen)) {
+          mistakes.resolveCombo(activeComboTrap);
         }
 
         const quotient = Math.floor(numberBefore / chosen);
@@ -276,6 +285,7 @@
 
         buildOptions(currentNumber);
         return {
+          outcome: "step-correct",
           correct: true,
           bounce: true,
           message: `${chosen} divide! Noul număr: ${currentNumber}`,
@@ -292,6 +302,7 @@
     title: "Găsire divizori primi",
     description: "Număr compus — alege divizorul prim care îl divide.",
     order: 0,
+    gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },
     create: createPrimeDivisorsQuiz,
   });
 })(window);

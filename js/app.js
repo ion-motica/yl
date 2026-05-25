@@ -49,6 +49,15 @@
     }
   }
 
+  function comboProgressClass(resolved, needed) {
+    if (resolved >= needed) return "filled";
+    if (resolved <= 0 || needed <= 1) return "";
+    if (needed <= 2) return "partial-1";
+
+    const ratio = resolved / needed;
+    return ratio >= 0.67 ? "partial-2" : "partial-1";
+  }
+
   function renderProgress() {
     if (!quiz) return;
     const { flawlessRunsStreak, flawlessNeeded, combos } = quiz.getProgress();
@@ -65,8 +74,8 @@
     combos.forEach((c) => {
       const cell = document.createElement("div");
       cell.className = "progress-cell combo-cell";
-      if (c.resolved >= c.needed) cell.classList.add("filled");
-      else if (c.resolved >= 1) cell.classList.add("partial-1");
+      const stateClass = comboProgressClass(c.resolved, c.needed);
+      if (stateClass) cell.classList.add(stateClass);
       cell.title = c.title;
       cell.setAttribute("aria-label", c.title);
       dom.comboTrackEl.appendChild(cell);

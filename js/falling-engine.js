@@ -70,7 +70,45 @@
       syncWrongMarks();
     }
 
+    function normalizeRoundState(state = {}) {
+      return {
+        prompt: state.prompt ?? "—",
+        options: Array.isArray(state.options) ? state.options : [],
+        correctIndex: state.correctIndex ?? null,
+        divisionHistory: Array.isArray(state.divisionHistory) ? state.divisionHistory : [],
+        hintMessage: state.hintMessage ?? "",
+        questionFormat: state.questionFormat ?? null,
+        dividend: state.dividend,
+        divisor: state.divisor,
+        message: state.message ?? "",
+        ...state,
+      };
+    }
+
+    function normalizeResult(result = {}) {
+      const normalized = normalizeRoundState(result);
+      if (!normalized.outcome) {
+        if (normalized.runComplete) normalized.outcome = "run-complete";
+        else if (normalized.correct === false) normalized.outcome = "wrong-answer";
+        else if (normalized.resetFall && normalized.flash === "wrong") normalized.outcome = "timeout";
+        else if (normalized.bounce) normalized.outcome = "step-correct";
+        else normalized.outcome = "round";
+      }
+
+      normalized.correct =
+        normalized.correct ?? !["wrong-answer", "timeout"].includes(normalized.outcome);
+      normalized.runComplete =
+        Boolean(normalized.runComplete) || normalized.outcome === "run-complete";
+      normalized.gameComplete = Boolean(normalized.gameComplete);
+      normalized.levelAdvanced = Boolean(normalized.levelAdvanced);
+      normalized.resetFall = Boolean(normalized.resetFall);
+      normalized.bounce = Boolean(normalized.bounce);
+
+      return normalized;
+    }
+
     function renderRound(state) {
+      state = normalizeRoundState(state);
       const fm = dom.fallingMainEl;
       if (state.questionFormat === "division-eq") {
         dom.topNumberEl.innerHTML = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span><span class="q-q">?</span>`;
@@ -130,14 +168,9 @@
     }
 
     function applyAnswerResult(result, pickedIndex) {
-      const wrongPick =
-        pickedIndex != null && result.correct === false && !result.runComplete;
-      const shouldRender =
-        result.prompt !== undefined ||
-        result.questionFormat !== undefined ||
-        result.options !== undefined ||
-        result.divisionHistory !== undefined ||
-        result.hintMessage !== undefined;
+      result = normalizeResult(result);
+      const wrongPick = pickedIndex != null && result.outcome === "wrong-answer";
+      const shouldRender = result.outcome !== "wrong-answer";
 
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
@@ -238,6 +271,7 @@
     }
 
     function startRound(state) {
+      state = normalizeRoundState(state);
       cancelRisingAnimation();
       clearWrongMarks();
       setFallPosition(0);
