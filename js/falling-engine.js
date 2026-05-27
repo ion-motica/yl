@@ -133,7 +133,13 @@
           .join("");
         dom.topNumberEl.innerHTML = `<div class="singapore-prompt">${
           historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : ""
-        }<div class="singapore-current">${state.targetSum}=</div></div>`;
+        }<div class="singapore-current">${
+          state.bondKnownAddend != null
+            ? state.bondMissingSide === "right"
+              ? `${state.targetSum}=${state.bondKnownAddend}+?`
+              : `${state.targetSum}=?+${state.bondKnownAddend}`
+            : `${state.targetSum}=`
+        }</div></div>`;
         fm?.classList.add("has-singapore-bond");
       } else if (state.questionFormat === "division-eq") {
         dom.topNumberEl.innerHTML = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span><span class="q-q">?</span>`;
