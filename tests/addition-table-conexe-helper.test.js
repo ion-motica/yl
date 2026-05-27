@@ -40,18 +40,23 @@ describe("addition-table-conexe-helper quiz", () => {
     assert.equal(display.red.mode, "none");
   });
 
-  it("renders all four conexe prompt formats during M1", () => {
+  it("uses at most three conexe prompts per M1 series", () => {
     seedLevel2PerformantPool();
     const quiz = setupTestEnv();
     const prompts = new Set();
     let state = quiz.beginRound();
 
-    for (let step = 0; step < 4; step += 1) {
+    for (let step = 0; step < 3; step += 1) {
       prompts.add(state.prompt);
       state = answerCorrect(quiz, state);
     }
 
-    assert.deepEqual([...prompts].sort(), ["2+?=3", "3=2+?", "3=?+1", "?+1=3"].sort());
+    assert.equal(prompts.size, 3);
+    assert.ok(
+      [...prompts].every((prompt) =>
+        /^(\?\+\d+=\d+|\d+\+\?=\d+|\d+=\?\+\d+|\d+=\d+\+\?)$/.test(prompt)
+      )
+    );
   });
 
   it("uses singapore-bond format for bond conexe prompts", () => {
@@ -59,12 +64,13 @@ describe("addition-table-conexe-helper quiz", () => {
     const quiz = setupTestEnv();
     let state = quiz.beginRound();
 
-    while (!state.questionFormat && state.correctIndex != null) {
+    for (let i = 0; i < 20; i++) {
+      if (state.questionFormat === "singapore-bond") break;
       state = answerCorrect(quiz, state);
     }
 
     assert.equal(state.questionFormat, "singapore-bond");
-    assert.match(state.prompt, /^3=(\?\+1|2=\?)$/);
+    assert.match(state.prompt, /^3=(\?\+1|\d+\+\?)$/);
     assert.equal(state.bondHistory.length, 0);
   });
 
@@ -98,7 +104,7 @@ describe("addition-table-conexe-helper quiz", () => {
     const quiz = setupTestEnv();
     let state = quiz.beginRound();
 
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 7));
 
     const record = globalThis.FactStore.getFact(fact.factId, fact);
     assert.equal(record.performantaLaConexeFact, "performant");
@@ -113,9 +119,7 @@ describe("addition-table-conexe-helper quiz", () => {
 
     state = answerWrong(quiz, state);
     state = answerCorrect(quiz, state);
-    state = answerWrong(quiz, state);
-    state = answerCorrect(quiz, state);
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 7));
 
     const record = globalThis.FactStore.getFact(fact.factId, fact);
     assert.equal(record.performantaLaConexeFact, "slab");
@@ -127,7 +131,7 @@ describe("addition-table-conexe-helper quiz", () => {
     const quiz = setupTestEnv();
     let state = quiz.beginRound();
 
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 7));
     globalThis.FactStore.saveFact({
       ...globalThis.FactStore.getFact(fact.factId, fact),
       performantaLaConexeFact: "praf",
@@ -136,7 +140,7 @@ describe("addition-table-conexe-helper quiz", () => {
 
     quiz.switchLevel(2);
     state = quiz.beginRound();
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 7));
 
     const record = globalThis.FactStore.getFact(fact.factId, fact);
     assert.equal(record.performantaLaConexeFact, "praf");
@@ -157,12 +161,12 @@ describe("addition-table-conexe-helper quiz", () => {
     const seenPrompts = new Set();
     let state = quiz.beginRound();
 
-    for (let step = 0; step < 4; step += 1) {
+    for (let step = 0; step < 3; step += 1) {
       seenPrompts.add(state.prompt);
       state = answerCorrect(quiz, state);
     }
 
-    assert.equal(seenPrompts.size, 4);
+    assert.equal(seenPrompts.size, 3);
     assert.ok(
       [...seenPrompts].every((prompt) =>
         /^(\?\+\d+=\d+|\d+\+\?=\d+|\d+=\?\+\d+|\d+=\d+\+\?)$/.test(prompt)
@@ -170,12 +174,12 @@ describe("addition-table-conexe-helper quiz", () => {
     );
   });
 
-  it("alternates from M1 into M2 after four conexe answers", () => {
+  it("alternates from M1 into M2 after three conexe answers", () => {
     seedLevel2PerformantPool();
     const quiz = setupTestEnv();
     let state = quiz.beginRound();
 
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 3));
 
     const m2Prompts = new Set();
     for (let step = 0; step < 3; step += 1) {
@@ -192,14 +196,14 @@ describe("addition-table-conexe-helper quiz", () => {
     const quiz = setupTestEnv();
     let state = quiz.beginRound();
 
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 3));
     const m2FirstPrompt = state.prompt;
 
     state = answerWrong(quiz, state);
     assert.equal(state.prompt, m2FirstPrompt);
 
     ({ state } = drainPerfectAnswers(quiz, state, 2));
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 3));
 
     assert.ok(state.prompt);
     assert.notEqual(state.outcome, "wrong-answer");
@@ -210,9 +214,9 @@ describe("addition-table-conexe-helper quiz", () => {
     const quiz = setupTestEnv();
     let state = quiz.beginRound();
 
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
     ({ state } = drainPerfectAnswers(quiz, state, 3));
-    ({ state } = drainPerfectAnswers(quiz, state, 4));
+    ({ state } = drainPerfectAnswers(quiz, state, 3));
+    ({ state } = drainPerfectAnswers(quiz, state, 3));
 
     state = answerWrong(quiz, state);
     state = answerCorrect(quiz, state);

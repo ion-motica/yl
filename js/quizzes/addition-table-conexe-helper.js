@@ -5,7 +5,7 @@
   const MIN_LEVEL = 2;
   const MAX_LEVEL = 10;
   const MIN_POOL_SIZE = 3;
-  const M2_MAX_FACTS = 5;
+  const MAX_QUESTIONS_PER_SERIES = 3;
   const CONEXE_FAST_MS = 2000;
   const PERFORMANT_CONEXE_LIMIT = 3;
   const OPTION_MIN = 1;
@@ -65,6 +65,8 @@
 
     let m1GradeResults = [];
     let m1GradingFactId = null;
+    let m1PendingConexeTypes = new Set();
+    let m1FactRunOrigin = "m1";
     let m2WrongFactIds = new Set();
 
     function levelFacts(targetLevel = level) {
@@ -234,14 +236,32 @@
     function beginM1ForFact(factId) {
       m1GradingFactId = factId;
       m1GradeResults = [];
-      activeQueue = shuffle(CONEXE_TYPES.map((conexeType) => stepItem(factId, conexeType)));
+      m1PendingConexeTypes = new Set(CONEXE_TYPES);
+      activeQueue = shuffle([...m1PendingConexeTypes])
+        .map((conexeType) => stepItem(factId, conexeType))
+        .slice(0, MAX_QUESTIONS_PER_SERIES);
+      wrongQueue = [];
+      phase = "main";
+      return beginCurrentStep();
+    }
+
+    function beginM1ResumePending() {
+      activeQueue = shuffle([...m1PendingConexeTypes])
+        .map((conexeType) => stepItem(m1GradingFactId, conexeType))
+        .slice(0, MAX_QUESTIONS_PER_SERIES);
       wrongQueue = [];
       phase = "main";
       return beginCurrentStep();
     }
 
     function beginM1Block() {
+      if (m1GradingFactId && m1PendingConexeTypes.size > 0) {
+        blockMode = m1FactRunOrigin;
+        return beginM1ResumePending();
+      }
+
       blockMode = "m1";
+      m1FactRunOrigin = "m1";
       const fact = pickM1Fact();
       if (!fact) return beginRound();
       return beginM1ForFact(fact.factId);
@@ -252,7 +272,7 @@
       recoveryFactIds = [];
       m2WrongFactIds = new Set();
       const format = pickM2Format();
-      const facts = shuffle(levelPool).slice(0, M2_MAX_FACTS);
+      const facts = shuffle(levelPool).slice(0, MAX_QUESTIONS_PER_SERIES);
       activeQueue = facts.map((fact) => stepItem(fact.factId, format));
       wrongQueue = [];
       phase = "main";
@@ -263,6 +283,7 @@
       blockMode = "m1-recovery";
       const factId = recoveryFactIds.shift();
       if (!factId) return finishBlock();
+      m1FactRunOrigin = "m1-recovery";
       return beginM1ForFact(factId);
     }
 
@@ -371,6 +392,8 @@
       sessionDoneIds.add(factId);
       m1GradingFactId = null;
       m1GradeResults = [];
+      m1PendingConexeTypes = new Set();
+      m1FactRunOrigin = "m1";
 
       if (blockMode === "m1-recovery") {
         if (recoveryFactIds.length) return beginRecoveryM1();
@@ -409,8 +432,11 @@
         return finishBlock();
       }
 
-      if (blockMode === "m1" && m1GradingFactId) {
-        return completeM1ForFact(m1GradingFactId);
+      if ((blockMode === "m1" || blockMode === "m1-recovery") && m1GradingFactId) {
+        if (m1PendingConexeTypes.size === 0) {
+          return completeM1ForFact(m1GradingFactId);
+        }
+        return finishBlock();
       }
 
       return finishBlock();
@@ -478,6 +504,8 @@
       phase = "main";
       m1GradeResults = [];
       m1GradingFactId = null;
+      m1PendingConexeTypes = new Set();
+      m1FactRunOrigin = "m1";
       m2WrongFactIds = new Set();
     }
 
@@ -499,6 +527,8 @@
       correctIndex = 0;
       m1GradeResults = [];
       m1GradingFactId = null;
+      m1PendingConexeTypes = new Set();
+      m1FactRunOrigin = "m1";
       m2WrongFactIds = new Set();
     }
 
@@ -507,6 +537,9 @@
 
       const label = promptLabelFor(currentFact, currentConexeType);
       activeQueue.shift();
+      if (blockMode === "m1" || blockMode === "m1-recovery") {
+        m1PendingConexeTypes.delete(currentConexeType);
+      }
 
       if (activeQueue.length) {
         return {

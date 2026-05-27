@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const MAX_QUESTIONS_PER_SERIES = 3;
 
 const CORE_SCRIPTS = [
   "js/utils.js",
@@ -106,13 +107,12 @@ export function drainPerfectAnswers(quiz, startState, maxSteps = 200) {
 
 export function completeMacroCycle(quiz, startState, poolSize = 3) {
   let state = startState;
-  const m1Steps = 4;
-  const m2Steps = Math.min(5, poolSize);
+  const seriesSize = Math.min(MAX_QUESTIONS_PER_SERIES, poolSize);
 
-  ({ state } = drainPerfectAnswers(quiz, state, m1Steps));
-  ({ state } = drainPerfectAnswers(quiz, state, m2Steps));
-  ({ state } = drainPerfectAnswers(quiz, state, m1Steps));
-  ({ state } = drainPerfectAnswers(quiz, state, m2Steps));
+  ({ state } = drainPerfectAnswers(quiz, state, seriesSize));
+  ({ state } = drainPerfectAnswers(quiz, state, seriesSize));
+  ({ state } = drainPerfectAnswers(quiz, state, seriesSize));
+  ({ state } = drainPerfectAnswers(quiz, state, seriesSize));
 
   return state;
 }
