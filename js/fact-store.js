@@ -2,8 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "prime-divisor-game:facts:v1";
-  const MAX_RECENT_ATTEMPTS = 5;
-  const MAX_DAILY_STATS = 5;
+  const MAX_DAILY_STATS = 14;
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -78,7 +77,6 @@
       operation: fact.operation,
       promptForm: fact.promptForm,
       values: clone(fact.values),
-      recentAttempts: [],
       dailyStats: [],
       totals: {
         attempts: 0,
@@ -104,11 +102,19 @@
       ...base,
       ...record,
       values: clone(record.values ?? base.values),
-      recentAttempts: Array.isArray(record.recentAttempts)
-        ? record.recentAttempts.slice(0, MAX_RECENT_ATTEMPTS)
-        : [],
       dailyStats: Array.isArray(record.dailyStats)
-        ? record.dailyStats.slice(0, MAX_DAILY_STATS)
+        ? record.dailyStats
+            .map((entry) => ({
+              day: entry.day,
+              attempts: entry.attempts ?? 0,
+              correct: entry.correct ?? 0,
+              wrong: entry.wrong ?? 0,
+              avgResponseMs: entry.avgResponseMs ?? null,
+              lastAttemptAt: entry.lastAttemptAt ?? null,
+              sdp: entry.sdp ?? null,
+              sdpResponseMs: entry.sdpResponseMs ?? null,
+            }))
+            .slice(0, MAX_DAILY_STATS)
         : [],
       totals: {
         ...base.totals,
@@ -131,6 +137,8 @@
     const stats = Array.isArray(record.dailyStats) ? [...record.dailyStats] : [];
     let entry = stats.find((item) => item.day === day);
 
+    const isFirstAttemptOfDay = !entry;
+
     if (!entry) {
       entry = {
         day,
@@ -139,6 +147,8 @@
         wrong: 0,
         avgResponseMs: null,
         lastAttemptAt: attempt.at,
+        sdp: null,
+        sdpResponseMs: null,
       };
       stats.push(entry);
     }
@@ -148,6 +158,14 @@
     if (attempt.correct) entry.correct += 1;
     else entry.wrong += 1;
     entry.lastAttemptAt = attempt.at;
+
+    if (isFirstAttemptOfDay) {
+      entry.sdp = attempt.correct;
+      entry.sdpResponseMs =
+        attempt.correct && Number.isFinite(attempt.responseMs)
+          ? Math.max(0, Math.round(attempt.responseMs))
+          : null;
+    }
 
     if (Number.isFinite(attempt.responseMs)) {
       entry.avgResponseMs =
@@ -163,10 +181,6 @@
   }
 
   function applyAttempt(record, attempt) {
-    record.recentAttempts = [attempt, ...(record.recentAttempts ?? [])].slice(
-      0,
-      MAX_RECENT_ATTEMPTS
-    );
     record.totals.attempts += 1;
     if (attempt.correct) record.totals.correct += 1;
     else record.totals.wrong += 1;
@@ -230,11 +244,11 @@
       .map((record) => clone(record));
   }
 
-  function getFactSummary(factId, factSeed) {
+  function getFactSummary(factId, factSeed, config) {
     const fact =
       typeof factId === "object" ? getFact(factId.factId, factId) : getFact(factId, factSeed);
     if (!fact) return null;
-    return global.FactStats ? global.FactStats.getFactSummary(fact) : fact;
+    return global.FactStats ? global.FactStats.getFactSummary(fact, config) : fact;
   }
 
   function resetAll() {

@@ -14,6 +14,16 @@
   const RECENT_WINDOW = 4;
   const ACTIVE_POOL_SIZE = Object.values(MIX_CONFIG).reduce((sum, count) => sum + count, 0);
 
+  function getAdditionFastResponseMs(fact) {
+    const { a, b, result } = fact.values;
+    const maxOperand = Math.max(a, b);
+    return 1400 + result * 90 + maxOperand * 50;
+  }
+
+  const FACT_STATS_CONFIG = {
+    getFastResponseMs: getAdditionFastResponseMs,
+  };
+
   function createAdditionTableQuiz(config = {}) {
     const { randomInt, shuffle } = global.GameUtils;
     const { FactCatalog, FactStore, FactStats } = global;
@@ -121,15 +131,27 @@
     function getFactSummaryMap(facts) {
       const map = new Map();
       facts.forEach((fact) => {
-        map.set(fact.factId, FactStore.getFactSummary(fact.factId, fact));
+        map.set(
+          fact.factId,
+          FactStats.getFactSummary(FactStore.getFact(fact.factId, fact) ?? fact, FACT_STATS_CONFIG)
+        );
       });
       return map;
     }
 
     function getFactBucket(fact, summary) {
-      if (!summary || summary.recentAttemptsCount === 0) return "unknown";
-      if (summary.accuracyStatus === "slab" || summary.speedStatus === "lent") return "weak";
-      if (summary.accuracyStatus === "fragil" || summary.speedStatus === "mediu") return "fragile";
+      if (!summary || summary.knowledgeLevel === FactStats.KNOWLEDGE_LEVEL.NOU) {
+        return "unknown";
+      }
+      if (
+        summary.knowledgeLevel === FactStats.KNOWLEDGE_LEVEL.PRAF ||
+        summary.knowledgeLevel === FactStats.KNOWLEDGE_LEVEL.SLAB
+      ) {
+        return "weak";
+      }
+      if (summary.knowledgeLevel === FactStats.KNOWLEDGE_LEVEL.CORECT_DAR_LENT) {
+        return "fragile";
+      }
       return "strong";
     }
 
@@ -370,7 +392,10 @@
       pushRecent(recentQuestionIds, currentFact.factId, RECENT_WINDOW);
       if (bucket) pushRecent(recentChosenBuckets, bucket, ACTIVE_POOL_SIZE);
       else {
-        const summary = FactStore.getFactSummary(currentFact.factId, currentFact);
+        const summary = FactStats.getFactSummary(
+          FactStore.getFact(currentFact.factId, currentFact) ?? currentFact,
+          FACT_STATS_CONFIG
+        );
         pushRecent(recentChosenBuckets, getFactBucket(currentFact, summary), ACTIVE_POOL_SIZE);
       }
       return roundView({
