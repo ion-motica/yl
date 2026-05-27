@@ -69,6 +69,10 @@
     let m1FactRunOrigin = "m1";
     let m2WrongFactIds = new Set();
 
+    function withResetFall(view) {
+      return view && typeof view === "object" ? { resetFall: true, ...view } : view;
+    }
+
     function levelFacts(targetLevel = level) {
       return FactCatalog.listTableFacts({
         operation: "add",
@@ -294,7 +298,7 @@
           phase = "retry";
           activeQueue = [...wrongQueue];
           wrongQueue = [];
-          return beginCurrentStep();
+          return withResetFall(beginCurrentStep());
         }
         return completeCurrentBlock();
       }
@@ -427,7 +431,7 @@
         if (m2WrongFactIds.size) {
           recoveryFactIds = [...m2WrongFactIds];
           m2WrongFactIds = new Set();
-          return beginRecoveryM1();
+          return withResetFall(beginRecoveryM1());
         }
         return finishBlock();
       }
@@ -455,10 +459,10 @@
       currentBlockHadMistake = false;
       if (blockMode === "m1" || blockMode === "m1-recovery") {
         blockMode = "m2";
-        return beginM2Block();
+        return withResetFall(beginM2Block());
       }
       blockMode = "m1";
-      return beginM1Block();
+      return withResetFall(beginM1Block());
     }
 
     function advanceLevel() {

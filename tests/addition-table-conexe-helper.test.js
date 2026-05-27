@@ -174,6 +174,20 @@ describe("addition-table-conexe-helper quiz", () => {
     );
   });
 
+  it("resets fall position after a three-question series ends", () => {
+    seedLevel2PerformantPool();
+    const quiz = setupTestEnv();
+    let state = quiz.beginRound();
+
+    for (let step = 0; step < 2; step += 1) {
+      state = answerCorrect(quiz, state);
+      assert.notEqual(state.resetFall, true);
+    }
+
+    state = answerCorrect(quiz, state);
+    assert.equal(state.resetFall, true);
+  });
+
   it("alternates from M1 into M2 after three conexe answers", () => {
     seedLevel2PerformantPool();
     const quiz = setupTestEnv();
