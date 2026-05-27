@@ -4,6 +4,7 @@
   const MAX_LEVEL = 10;
   const REPLAY_CHANCE = 0.65;
   const RUN_DELAY_MS = 500;
+  const CORRECT_PROMPT_HOLD_MS = 160;
   const MIX_CONFIG = {
     unknown: 1,
     weak: 1,
@@ -263,10 +264,15 @@
     }
 
     function pickEasiestFact(bucketFacts) {
+      const sorted = [...bucketFacts].sort(compareFactsByDifficulty);
       const blockedIds = new Set(recentQuestionIds.slice(-RECENT_WINDOW));
-      const fresh = bucketFacts.filter((fact) => !blockedIds.has(fact.factId));
-      if (fresh.length) return fresh[0];
-      return bucketFacts[0] ?? null;
+      const fresh = sorted.filter((fact) => !blockedIds.has(fact.factId));
+      const source = fresh.length ? fresh : sorted;
+      if (!source.length) return null;
+
+      const TOP_K = 5;
+      const pool = source.slice(0, Math.min(TOP_K, source.length));
+      return pool[randomInt(0, pool.length - 1)];
     }
 
     function chooseNextQuestion() {
@@ -305,11 +311,12 @@
         };
       }
 
+      const fallback = pickEasiestFact(facts);
       return {
-        fact: facts.sort(compareFactsByDifficulty)[0],
+        fact: fallback ?? facts.sort(compareFactsByDifficulty)[0],
         combo: null,
         bucket: "strong",
-        difficultyScore: null,
+        difficultyScore: fallback ? getDifficultyScore(fallback) : null,
       };
     }
 
@@ -536,7 +543,29 @@
           mistakes.resolveCombo(activeComboTrap);
         }
 
-        return finishSolvedFact.call(this);
+        const promptWithAnswerText = currentFact.prompt.includes("=?")
+          ? currentFact.prompt.replace("=?", `=${correctAnswer}`)
+          : currentFact.prompt.replace("?", String(correctAnswer));
+
+        const promptWithAnswerHtml = currentFact.prompt.includes("=?")
+          ? currentFact.prompt.replace(
+              "=?",
+              `=<span class="q-correct">${correctAnswer}</span>`
+            )
+          : currentFact.prompt.replace(
+              "?",
+              `<span class="q-correct">${correctAnswer}</span>`
+            );
+
+        const result = finishSolvedFact.call(this);
+        result.prompt = promptWithAnswerText;
+        result.promptHtml = promptWithAnswerHtml;
+        result.options = options;
+        result.correctIndex = correctIndex;
+        result.hintMessage = "";
+        result.levelAdvanced = false;
+        result.runDelayMs = CORRECT_PROMPT_HOLD_MS;
+        return result;
       },
 
       pickNextRound: () => pickRoundStart(),

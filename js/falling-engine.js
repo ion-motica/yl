@@ -4,7 +4,7 @@
   const ARENA_H = 420;
   const BOX_MIN = 112;
   const FALL_SPEED = 54;
-  const RISE_SPEED = 186;
+  const RISE_SPEED = 240;
   const BOUNCE_UP = 48;
   const FLASH_MS = 420;
   const RUN_DONE_MS = 450;
@@ -89,6 +89,7 @@
     function normalizeRoundState(state = {}) {
       return {
         prompt: state.prompt ?? "—",
+        promptHtml: state.promptHtml,
         options: Array.isArray(state.options) ? state.options : [],
         correctIndex: state.correctIndex ?? null,
         divisionHistory: Array.isArray(state.divisionHistory) ? state.divisionHistory : [],
@@ -130,7 +131,11 @@
         dom.topNumberEl.innerHTML = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span><span class="q-q">?</span>`;
         fm?.classList.add("has-division-eq");
       } else {
-        dom.topNumberEl.textContent = state.prompt ?? "—";
+        if (state.promptHtml !== undefined) {
+          dom.topNumberEl.innerHTML = state.promptHtml ?? "—";
+        } else {
+          dom.topNumberEl.textContent = state.prompt ?? "—";
+        }
         fm?.classList.remove("has-division-eq");
       }
 
@@ -186,6 +191,7 @@
     function hasRenderableState(result = {}) {
       return (
         result.prompt !== undefined ||
+        result.promptHtml !== undefined ||
         result.questionFormat !== undefined ||
         result.options !== undefined ||
         result.divisionHistory !== undefined ||
@@ -219,6 +225,16 @@
       }
 
       if (shouldRender && !wrongPick) renderRound(result);
+
+      if (result.promptHoldMs && result.continueStep) {
+        setInputEnabled(false);
+        setTimeout(() => {
+          renderRound(normalizeRoundState(result.continueStep));
+          if (!getQuiz().isCompleted()) setInputEnabled(true);
+          config.onProgressUpdate?.();
+        }, result.promptHoldMs);
+        return;
+      }
 
       if (result.runComplete) {
         config.onProgressUpdate?.();

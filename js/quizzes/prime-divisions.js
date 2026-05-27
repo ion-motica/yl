@@ -3,6 +3,7 @@
 
   const MAX_LEVEL = 10;
   const REPLAY_CHANCE = 0.65;
+  const CORRECT_PROMPT_HOLD_MS = 160;
   const { isPrime, primeFactors, randomCompositeAtLeast } = global.QuizMath;
 
   function createPrimeDivisionsQuiz(config = {}) {
@@ -105,8 +106,24 @@
       });
     }
 
+    function divisionPrompt(dividend, divisor) {
+      return `${dividend}:${divisor}=?`;
+    }
+
+    function divisionPromptHtml(dividend, divisor, quotient) {
+      return `${dividend}:${divisor}=<span class="q-correct">${quotient}</span>`;
+    }
+
     function currentPrompt() {
-      return `${currentDividend}/${currentDivisor}`;
+      return divisionPrompt(currentDividend, currentDivisor);
+    }
+
+    function applyCorrectRevealToResult(result, dividend, divisor, quotient) {
+      result.prompt = `${dividend}:${divisor}=${quotient}`;
+      result.promptHtml = divisionPromptHtml(dividend, divisor, quotient);
+      result.levelAdvanced = false;
+      result.runDelayMs = CORRECT_PROMPT_HOLD_MS;
+      return result;
     }
 
     function comboDividend(combo) {
@@ -119,7 +136,7 @@
       correct = currentQuotient,
       wrong = null,
     } = {}) {
-      const questionText = `${dividend}/${divisor}`;
+      const questionText = divisionPrompt(dividend, divisor);
       return {
         questionId: questionText,
         questionLabel: questionText,
@@ -163,7 +180,7 @@
 
     function solvedStepView(dividend, divisor) {
       return {
-        prompt: `${dividend}/${divisor}`,
+        prompt: divisionPrompt(dividend, divisor),
         options: formatOptionsForView(),
         correctIndex,
         divisionHistory: [...divisionHistory],
@@ -367,7 +384,7 @@
             outcome: "wrong-answer",
             correct: false,
             flash: "wrong",
-            message: `${dividendBefore}/${divisorBefore} nu este ${chosen}. Încearcă din nou!`,
+            message: `La ${dividendBefore}:${divisorBefore}=?, ${chosen} nu e corect. Încearcă din nou!`,
             ...roundView(),
           };
         }
@@ -380,20 +397,51 @@
         divisionHistory.push(buildFactorizationLine(quotientBefore));
 
         if (quotientBefore === 1) {
-          return finishSeriesRun.call(this, true, solvedStepView(dividendBefore, divisorBefore));
+          const result = finishSeriesRun.call(
+            this,
+            true,
+            solvedStepView(dividendBefore, divisorBefore)
+          );
+          return applyCorrectRevealToResult(
+            result,
+            dividendBefore,
+            divisorBefore,
+            quotientBefore
+          );
         }
 
         if (shouldSkipFinalPrimeStep(quotientBefore) || isBelowLevelFloor(quotientBefore)) {
-          return finishSeriesRun.call(this, false, solvedStepView(dividendBefore, divisorBefore));
+          const result = finishSeriesRun.call(
+            this,
+            false,
+            solvedStepView(dividendBefore, divisorBefore)
+          );
+          return applyCorrectRevealToResult(
+            result,
+            dividendBefore,
+            divisorBefore,
+            quotientBefore
+          );
         }
+
+        const answeredStep = {
+          prompt: `${dividendBefore}:${divisorBefore}=${quotientBefore}`,
+          promptHtml: divisionPromptHtml(dividendBefore, divisorBefore, quotientBefore),
+          options: formatOptionsForView(),
+          correctIndex,
+          divisionHistory: [...divisionHistory],
+          hintMessage: "",
+        };
 
         buildStep(quotientBefore);
         return {
           outcome: "step-correct",
           correct: true,
           bounce: true,
-          message: `Corect! ${dividendBefore}/${divisorBefore}=${quotientBefore}`,
-          ...roundView({ hintMessage: "" }),
+          promptHoldMs: CORRECT_PROMPT_HOLD_MS,
+          message: `Corect! ${dividendBefore}:${divisorBefore}=${quotientBefore}`,
+          ...answeredStep,
+          continueStep: roundView({ hintMessage: "" }),
         };
       },
 

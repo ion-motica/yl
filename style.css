@@ -16,6 +16,12 @@
   --muted: #8b9cb3;
 }
 
+.q-correct {
+  color: var(--win);
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
+}
+
 html,
 body {
   margin: 0;

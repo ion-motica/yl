@@ -4,6 +4,7 @@
   const QUIZ_ID = "addition-table-range";
   const MAX_LEVEL = 10;
   const RUN_DELAY_MS = 500;
+  const CORRECT_PROMPT_HOLD_MS = 160;
   const RECENT_WINDOW = 4;
 
   function getAdditionFastResponseMs(fact) {
@@ -388,7 +389,31 @@
 
         learnedSetForLevel(level).add(currentFact.factId);
 
-        return finishSolvedFact.call(this);
+        const promptWithAnswerText = currentFact.prompt.includes("=?")
+          ? currentFact.prompt.replace("=?", `=${correctAnswer}`)
+          : currentFact.prompt.replace("?", String(correctAnswer));
+
+        const promptWithAnswerHtml = currentFact.prompt.includes("=?")
+          ? currentFact.prompt.replace(
+              "=?",
+              `=<span class="q-correct">${correctAnswer}</span>`
+            )
+          : currentFact.prompt.replace(
+              "?",
+              `<span class="q-correct">${correctAnswer}</span>`
+            );
+
+        const result = finishSolvedFact.call(this);
+        result.prompt = promptWithAnswerText;
+        result.promptHtml = promptWithAnswerHtml;
+        // Ca FallingEngine să nu șteargă temporar opțiunile în fereastra scurtă dintre răspuns și nextRound.
+        result.options = options;
+        result.correctIndex = correctIndex;
+        result.hintMessage = "";
+        // În acest quiz vrem o pauză scurtă după răspuns corect, chiar dacă dă next level.
+        result.levelAdvanced = false;
+        result.runDelayMs = CORRECT_PROMPT_HOLD_MS;
+        return result;
       },
 
       pickNextRound: () => pickRoundStart(),
