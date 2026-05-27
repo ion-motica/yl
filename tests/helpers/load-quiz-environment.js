@@ -16,8 +16,10 @@ const CORE_SCRIPTS = [
   "js/conexe-table-quiz/engine.js",
   "js/conexe-table-quiz/adapters/addition.js",
   "js/conexe-table-quiz/adapters/division.js",
+  "js/conexe-table-quiz/adapters/subtraction.js",
   "js/quizzes/addition-table-conexe-helper.js",
   "js/quizzes/division-table-conexe-helper.js",
+  "js/quizzes/subtraction-table-conexe-helper.js",
 ];
 
 let scriptsLoaded = false;
@@ -158,6 +160,20 @@ export function seedLevel2PerformantPool() {
   return facts;
 }
 
+export function seedSubtractionFactRecord(minuend, subtrahend, overrides = {}) {
+  const fact = globalThis.FactCatalog.createFact({
+    operation: "sub",
+    promptForm: globalThis.FactCatalog.PROMPT_FORMS.result,
+    values: { a: minuend, b: subtrahend },
+  });
+  const record = {
+    ...(globalThis.FactStore.getFact(fact.factId, fact) ?? {}),
+    ...overrides,
+  };
+  globalThis.FactStore.saveFact(record);
+  return fact;
+}
+
 export function seedLevel2DivisionPerformantPool() {
   const facts = [];
   for (let quotient = 1; quotient <= 3; quotient += 1) {
@@ -171,6 +187,27 @@ export function seedLevel2DivisionPerformantPool() {
 
   for (let quotient = 4; quotient <= 10; quotient += 1) {
     seedDivisionFactRecord(2 * quotient, 2, {
+      performantaLaConexeFact: "nou",
+      deCateOriAavutPerformantLaConexe: 4,
+    });
+  }
+
+  return facts;
+}
+
+export function seedLevel2SubtractionPerformantPool() {
+  const facts = [];
+  for (let difference = 0; difference <= 2; difference += 1) {
+    facts.push(
+      seedSubtractionFactRecord(2 + difference, 2, {
+        performantaLaConexeFact: "performant",
+        deCateOriAavutPerformantLaConexe: 0,
+      })
+    );
+  }
+
+  for (let difference = 3; difference <= 10; difference += 1) {
+    seedSubtractionFactRecord(2 + difference, 2, {
       performantaLaConexeFact: "nou",
       deCateOriAavutPerformantLaConexe: 4,
     });
