@@ -84,6 +84,9 @@
         wrong: 0,
         lastSeenAt: null,
       },
+      performantaLaConexeFact: "nou",
+      deCateOriAavutPerformantLaConexe: 0,
+      conexeM1GradedDay: null,
     };
   }
 
@@ -120,6 +123,17 @@
         ...base.totals,
         ...(record.totals ?? {}),
       },
+      performantaLaConexeFact:
+        typeof record.performantaLaConexeFact === "string"
+          ? record.performantaLaConexeFact
+          : base.performantaLaConexeFact,
+      deCateOriAavutPerformantLaConexe: Number.isFinite(
+        record.deCateOriAavutPerformantLaConexe
+      )
+        ? Math.max(0, Math.round(record.deCateOriAavutPerformantLaConexe))
+        : base.deCateOriAavutPerformantLaConexe,
+      conexeM1GradedDay:
+        typeof record.conexeM1GradedDay === "string" ? record.conexeM1GradedDay : null,
     };
 
     return normalized;
