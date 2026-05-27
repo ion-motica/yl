@@ -29,11 +29,16 @@
     [CONEXE_LEVEL.NOU]: 1,
   };
 
-  const FILL_TIERS = [
+  const EXPANDED_POOL_TIERS = [
     CONEXE_LEVEL.CORECT_DAR_LENT,
     CONEXE_LEVEL.SLAB,
     CONEXE_LEVEL.PRAF,
     CONEXE_LEVEL.NOU,
+  ];
+
+  const CONEXE_PICK_ORDER = [
+    CONEXE_LEVEL.PERFORMANT,
+    ...EXPANDED_POOL_TIERS,
   ];
 
   function createAdditionTableConexeHelperQuiz() {
@@ -44,6 +49,7 @@
     let gameCompleted = false;
 
     let levelPool = [];
+    let expandedFactPool = false;
     let sessionDoneIds = new Set();
 
     let blockMode = "m1";
@@ -115,16 +121,16 @@
         .map((item) => item.fact);
 
       if (performant.length >= MIN_POOL_SIZE) {
+        expandedFactPool = false;
         return performant;
       }
 
+      expandedFactPool = true;
       const pool = [...performant];
       const used = new Set(pool.map((fact) => fact.factId));
 
-      for (const tier of FILL_TIERS) {
-        if (pool.length >= MIN_POOL_SIZE) break;
+      for (const tier of EXPANDED_POOL_TIERS) {
         for (const item of ranked) {
-          if (pool.length >= MIN_POOL_SIZE) break;
           if (item.conexeLevel !== tier) continue;
           if (used.has(item.fact.factId)) continue;
           pool.push(item.fact);
@@ -135,24 +141,32 @@
       return pool;
     }
 
-    function pickM1Fact() {
-      const candidates = levelPool
-        .filter((fact) => !sessionDoneIds.has(fact.factId))
-        .sort((left, right) => {
-          const rankDiff = CONEXE_RANK[conexeLevelOf(right)] - CONEXE_RANK[conexeLevelOf(left)];
-          if (rankDiff !== 0) return rankDiff;
-          return deCatePerformantOf(left) - deCatePerformantOf(right);
-        });
+    function pickFactByConexePriority(candidates) {
+      for (const tier of CONEXE_PICK_ORDER) {
+        const tierFacts = candidates.filter((fact) => conexeLevelOf(fact) === tier);
+        if (tierFacts.length) return shuffle(tierFacts)[0];
+      }
+      return shuffle(candidates)[0];
+    }
 
-      if (candidates.length) return candidates[0];
-      sessionDoneIds = new Set();
-      return levelPool
-        .slice()
-        .sort((left, right) => {
-          const rankDiff = CONEXE_RANK[conexeLevelOf(right)] - CONEXE_RANK[conexeLevelOf(left)];
-          if (rankDiff !== 0) return rankDiff;
-          return deCatePerformantOf(left) - deCatePerformantOf(right);
-        })[0];
+    function sortFactsByConexePriority(facts) {
+      return facts.slice().sort((left, right) => {
+        const rankDiff = CONEXE_RANK[conexeLevelOf(right)] - CONEXE_RANK[conexeLevelOf(left)];
+        if (rankDiff !== 0) return rankDiff;
+        return deCatePerformantOf(left) - deCatePerformantOf(right);
+      });
+    }
+
+    function pickM1Fact() {
+      let candidates = levelPool.filter((fact) => !sessionDoneIds.has(fact.factId));
+      if (!candidates.length) {
+        sessionDoneIds = new Set();
+        candidates = [...levelPool];
+      }
+      if (!candidates.length) return null;
+
+      if (expandedFactPool) return pickFactByConexePriority(candidates);
+      return sortFactsByConexePriority(candidates)[0];
     }
 
     function pickM2Format() {

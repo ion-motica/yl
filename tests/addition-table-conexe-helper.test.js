@@ -13,6 +13,28 @@ import {
 
 const QUIZ_ID = "addition-table-conexe-helper";
 
+function promptUsesAddFact(a, b, prompt) {
+  const c = a + b;
+  return [
+    `?+${b}=${c}`,
+    `${a}+?=${c}`,
+    `${c}=?+${b}`,
+    `${c}=${a}+?`,
+  ].includes(prompt);
+}
+
+function secondAddendFromPrompt(prompt, a = 2) {
+  let match = prompt.match(/^(\d+)\+\?=(\d+)$/);
+  if (match) return Number(match[2]) - Number(match[1]);
+  match = prompt.match(/^\?\+(\d+)=(\d+)$/);
+  if (match) return Number(match[1]);
+  match = prompt.match(/^(\d+)=\?\+(\d+)$/);
+  if (match) return Number(match[2]);
+  match = prompt.match(/^(\d+)=(\d+)\+\?$/);
+  if (match) return Number(match[2]) - Number(match[1]);
+  return null;
+}
+
 describe("addition-table-conexe-helper quiz", () => {
   beforeEach(() => {
     setupTestEnv();
@@ -145,6 +167,52 @@ describe("addition-table-conexe-helper quiz", () => {
     const record = globalThis.FactStore.getFact(fact.factId, fact);
     assert.equal(record.performantaLaConexeFact, "praf");
     assert.equal(record.deCateOriAavutPerformantLaConexe, 0);
+  });
+
+  it("prioritizes corect_dar_lent over nou when fewer than three performant", () => {
+    const quiz = setupTestEnv();
+    seedFactRecord(2, 8, { performantaLaConexeFact: "corect_dar_lent" });
+    for (let b = 1; b <= 3; b++) {
+      seedFactRecord(2, b, { performantaLaConexeFact: "nou" });
+    }
+    quiz.switchLevel(2);
+
+    const state = quiz.beginRound();
+
+    assert.ok(promptUsesAddFact(2, 8, state.prompt), state.prompt);
+  });
+
+  it("prioritizes slab over praf and nou when fewer than three performant", () => {
+    const quiz = setupTestEnv();
+    seedFactRecord(2, 7, { performantaLaConexeFact: "slab" });
+    seedFactRecord(2, 6, { performantaLaConexeFact: "praf" });
+    for (let b = 1; b <= 3; b++) {
+      seedFactRecord(2, b, { performantaLaConexeFact: "nou" });
+    }
+    quiz.switchLevel(2);
+
+    const state = quiz.beginRound();
+
+    assert.ok(promptUsesAddFact(2, 7, state.prompt), state.prompt);
+  });
+
+  it("can surface facts beyond b=3 when fewer than three performant", () => {
+    const quiz = setupTestEnv({ deterministic: false });
+    for (let b = 1; b <= 10; b++) {
+      seedFactRecord(2, b, { performantaLaConexeFact: "nou" });
+    }
+    quiz.switchLevel(2);
+    let state = quiz.beginRound();
+    const seenB = new Set();
+
+    for (let step = 0; step < 80; step++) {
+      const b = secondAddendFromPrompt(state.prompt, 2);
+      if (b != null) seenB.add(b);
+      state = answerCorrect(quiz, state);
+      if (state.gameComplete || state.levelAdvanced) break;
+    }
+
+    assert.ok([...seenB].some((b) => b > 3), `expected b>3 in ${[...seenB]}`);
   });
 
   it("excludes over-trained facts unless every fact is over-trained", () => {
