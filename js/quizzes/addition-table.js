@@ -471,6 +471,10 @@
       getLevelLabel: () => getLevelLabel(level),
       getLevelButtonTitle,
       getProgress: () => mistakes.getProgressView(progressOpts()),
+
+      getProgressDisplay() {
+        return ProgressDisplay.fromMistakeProgress(mistakes.getProgressView(progressOpts()));
+      },
       isCompleted: () => gameCompleted,
       setCompleted: (value) => {
         gameCompleted = value;

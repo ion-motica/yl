@@ -312,6 +312,10 @@
       getLevelLabel: () => levelLabel(level),
       getProgress: () => mistakes.getProgressView(progressOpts()),
 
+      getProgressDisplay() {
+        return ProgressDisplay.fromMistakeProgress(mistakes.getProgressView(progressOpts()));
+      },
+
       beginRound({ startNum, combo } = pickRoundStart()) {
         if (isBelowLevelFloor(startNum)) {
           return this.beginRound(pickRoundStart());

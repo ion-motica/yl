@@ -223,6 +223,11 @@ body {
   min-height: 1.5rem;
 }
 
+.progress-visual.red-hidden .progress-sep,
+.progress-visual.red-hidden .combo-track {
+  display: none;
+}
+
 .streak-track,
 .combo-track {
   display: flex;

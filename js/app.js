@@ -7,6 +7,7 @@
     levelInfoEl: document.getElementById("level-info"),
     messageEl: document.getElementById("message"),
     playPauseBtn: document.getElementById("play-pause"),
+    progressVisualEl: document.querySelector(".progress-visual"),
     streakTrackEl: document.getElementById("streak-track"),
     comboTrackEl: document.getElementById("combo-track"),
     levelBannerEl: document.getElementById("level-banner"),
@@ -26,6 +27,7 @@
 
   let quiz = null;
   let engine = null;
+  let lastGreenCells = null;
 
   function showBanner(text) {
     if (!text) return;
@@ -38,15 +40,19 @@
     }, 1600);
   }
 
-  function initStreakTrack() {
+  function initGreenTrack(green) {
     dom.streakTrackEl.replaceChildren();
-    const needed = quiz.getProgress().flawlessNeeded ?? 5;
-    for (let i = 0; i < needed; i++) {
+    for (let i = 0; i < green.cells; i++) {
       const cell = document.createElement("div");
+      const meta = ProgressDisplay.cellMeta(green, i);
       cell.className = "progress-cell streak-cell";
-      cell.setAttribute("aria-label", `Rundă perfectă ${i + 1}`);
+      cell.setAttribute("aria-label", meta.aria);
+      if (meta.title) cell.title = meta.title;
       dom.streakTrackEl.appendChild(cell);
     }
+    lastGreenCells = green.cells;
+    if (green.title) dom.streakTrackEl.title = green.title;
+    else dom.streakTrackEl.removeAttribute("title");
   }
 
   function comboProgressClass(resolved, needed) {
@@ -60,26 +66,33 @@
 
   function renderProgress() {
     if (!quiz) return;
-    const { flawlessRunsStreak, flawlessNeeded, combos } = quiz.getProgress();
+    const display = ProgressDisplay.resolve(quiz);
     dom.levelInfoEl.textContent = quiz.getLevelLabel();
 
     const streakCells = dom.streakTrackEl.querySelectorAll(".streak-cell");
-    if (streakCells.length !== flawlessNeeded) initStreakTrack();
+    if (streakCells.length !== display.green.cells || lastGreenCells !== display.green.cells) {
+      initGreenTrack(display.green);
+    }
 
     dom.streakTrackEl.querySelectorAll(".streak-cell").forEach((cell, i) => {
-      cell.classList.toggle("filled", i < flawlessRunsStreak);
+      cell.classList.toggle("filled", i < display.green.filled);
     });
 
+    const redHidden = display.red.mode === "none";
+    dom.progressVisualEl?.classList.toggle("red-hidden", redHidden);
+
     dom.comboTrackEl.replaceChildren();
-    combos.forEach((c) => {
-      const cell = document.createElement("div");
-      cell.className = "progress-cell combo-cell";
-      const stateClass = comboProgressClass(c.resolved, c.needed);
-      if (stateClass) cell.classList.add(stateClass);
-      cell.title = c.title;
-      cell.setAttribute("aria-label", c.title);
-      dom.comboTrackEl.appendChild(cell);
-    });
+    if (!redHidden) {
+      display.red.items.forEach((item) => {
+        const cell = document.createElement("div");
+        cell.className = "progress-cell combo-cell";
+        const stateClass = comboProgressClass(item.resolved, item.needed);
+        if (stateClass) cell.classList.add(stateClass);
+        cell.title = item.title;
+        cell.setAttribute("aria-label", item.title);
+        dom.comboTrackEl.appendChild(cell);
+      });
+    }
 
     dom.levelPickerEl.querySelectorAll(".level-btn").forEach((btn) => {
       btn.classList.toggle("active", Number(btn.dataset.level) === quiz.getLevel());
@@ -100,6 +113,7 @@
         quiz.switchLevel(lv);
         dom.playPauseBtn.disabled = false;
         engine.cancelRisingAnimation();
+        lastGreenCells = null;
         renderProgress();
         engine.startRound(quiz.beginRound(quiz.pickNextRound()));
       });
@@ -129,7 +143,7 @@
     quiz = QuizRegistry.createActive();
     buildQuizPicker();
     buildLevelPicker();
-    initStreakTrack();
+    lastGreenCells = null;
     renderProgress();
     dom.playPauseBtn.disabled = false;
     engine.startRound(quiz.beginRound(quiz.pickNextRound()));
@@ -150,7 +164,6 @@
   dom.quizTitleEl.textContent = QuizRegistry.get(QuizRegistry.getActiveId()).title;
   buildQuizPicker();
   buildLevelPicker();
-  initStreakTrack();
   renderProgress();
   engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   engine.startFallLoop();
