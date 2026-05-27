@@ -78,8 +78,11 @@
       cell.classList.toggle("filled", i < display.green.filled);
     });
 
+    const progressHidden = display.green.hidden === true;
+    dom.progressVisualEl?.classList.toggle("hidden", progressHidden);
+
     const redHidden = display.red.mode === "none";
-    dom.progressVisualEl?.classList.toggle("red-hidden", redHidden);
+    dom.progressVisualEl?.classList.toggle("red-hidden", redHidden && !progressHidden);
 
     dom.comboTrackEl.replaceChildren();
     if (!redHidden) {
@@ -110,7 +113,8 @@
       const { min, max } = GameUtils.levelRange(lv);
       btn.title = quiz.getLevelButtonTitle?.(lv) ?? `Nivel ${lv}: ${min}–${max}`;
       btn.addEventListener("click", () => {
-        quiz.switchLevel(lv);
+        const levelMessage = quiz.switchLevel(lv);
+        if (levelMessage) dom.messageEl.textContent = levelMessage;
         dom.playPauseBtn.disabled = false;
         engine.cancelRisingAnimation();
         lastGreenCells = null;

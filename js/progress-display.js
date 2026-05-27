@@ -42,6 +42,13 @@
     return { mode: "none", items: [] };
   }
 
+  function hidden() {
+    return {
+      green: { mode: "hidden", cells: 0, filled: 0, hidden: true },
+      red: { mode: "none", items: [], hidden: true },
+    };
+  }
+
   function redCombos(items) {
     return {
       mode: "combos",
@@ -98,6 +105,7 @@
     greenStreak,
     greenPercent,
     redNone,
+    hidden,
     redCombos,
     fromMistakeProgress,
     resolve,

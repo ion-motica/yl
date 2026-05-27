@@ -127,7 +127,15 @@
     function renderRound(state) {
       state = normalizeRoundState(state);
       const fm = dom.fallingMainEl;
-      if (state.questionFormat === "division-eq") {
+      if (state.questionFormat === "singapore-bond") {
+        const historyHtml = (state.bondHistory || [])
+          .map((line) => `<div class="singapore-history-line">${line}</div>`)
+          .join("");
+        dom.topNumberEl.innerHTML = `<div class="singapore-prompt">${
+          historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : ""
+        }<div class="singapore-current">${state.targetSum}=</div></div>`;
+        fm?.classList.add("has-singapore-bond");
+      } else if (state.questionFormat === "division-eq") {
         dom.topNumberEl.innerHTML = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span><span class="q-q">?</span>`;
         fm?.classList.add("has-division-eq");
       } else {
@@ -136,7 +144,7 @@
         } else {
           dom.topNumberEl.textContent = state.prompt ?? "—";
         }
-        fm?.classList.remove("has-division-eq");
+        fm?.classList.remove("has-division-eq", "has-singapore-bond");
       }
 
       dom.optionBtns.forEach((btn, i) => {
@@ -193,6 +201,8 @@
         result.prompt !== undefined ||
         result.promptHtml !== undefined ||
         result.questionFormat !== undefined ||
+        result.bondHistory !== undefined ||
+        result.targetSum !== undefined ||
         result.options !== undefined ||
         result.divisionHistory !== undefined ||
         result.hintMessage !== undefined ||
@@ -208,7 +218,7 @@
 
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
-      if (result.banner) config.showBanner(result.banner);
+      if (result.banner && !result.promptHoldMs) config.showBanner(result.banner);
       dom.messageEl.classList.toggle("win", result.flash === "win");
 
       if (result.resetFall) setFallPosition(0);
@@ -226,10 +236,20 @@
 
       if (shouldRender && !wrongPick) renderRound(result);
 
-      if (result.promptHoldMs && result.continueStep) {
+      if (result.promptHoldMs && result.continueStep !== undefined) {
         setInputEnabled(false);
         setTimeout(() => {
-          renderRound(normalizeRoundState(result.continueStep));
+          const next = normalizeResult(result.continueStep);
+          if (next.resetFall) setFallPosition(0);
+
+          if (next.runComplete) {
+            if (next.banner) config.showBanner(next.banner);
+            config.onProgressUpdate?.();
+            finishRun(next);
+            return;
+          }
+
+          renderRound(next);
           if (!getQuiz().isCompleted()) setInputEnabled(true);
           config.onProgressUpdate?.();
         }, result.promptHoldMs);
