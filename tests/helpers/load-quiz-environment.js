@@ -17,9 +17,11 @@ const CORE_SCRIPTS = [
   "js/conexe-table-quiz/adapters/addition.js",
   "js/conexe-table-quiz/adapters/division.js",
   "js/conexe-table-quiz/adapters/subtraction.js",
+  "js/conexe-table-quiz/adapters/multiplication.js",
   "js/quizzes/addition-table-conexe-helper.js",
   "js/quizzes/division-table-conexe-helper.js",
   "js/quizzes/subtraction-table-conexe-helper.js",
+  "js/quizzes/multiplication-table-conexe-helper.js",
 ];
 
 let scriptsLoaded = false;
@@ -187,6 +189,41 @@ export function seedLevel2DivisionPerformantPool() {
 
   for (let quotient = 4; quotient <= 10; quotient += 1) {
     seedDivisionFactRecord(2 * quotient, 2, {
+      performantaLaConexeFact: "nou",
+      deCateOriAavutPerformantLaConexe: 4,
+    });
+  }
+
+  return facts;
+}
+
+export function seedMultiplicationFactRecord(a, b, overrides = {}) {
+  const fact = globalThis.FactCatalog.createFact({
+    operation: "mul",
+    promptForm: globalThis.FactCatalog.PROMPT_FORMS.result,
+    values: { a, b },
+  });
+  const record = {
+    ...(globalThis.FactStore.getFact(fact.factId, fact) ?? {}),
+    ...overrides,
+  };
+  globalThis.FactStore.saveFact(record);
+  return fact;
+}
+
+export function seedLevel2MultiplicationPerformantPool() {
+  const facts = [];
+  for (let b = 1; b <= 3; b++) {
+    facts.push(
+      seedMultiplicationFactRecord(2, b, {
+        performantaLaConexeFact: "performant",
+        deCateOriAavutPerformantLaConexe: 0,
+      })
+    );
+  }
+
+  for (let b = 4; b <= 10; b++) {
+    seedMultiplicationFactRecord(2, b, {
       performantaLaConexeFact: "nou",
       deCateOriAavutPerformantLaConexe: 4,
     });
