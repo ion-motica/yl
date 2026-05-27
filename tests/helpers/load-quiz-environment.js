@@ -15,7 +15,9 @@ const CORE_SCRIPTS = [
   "js/conexe-table-quiz/constants.js",
   "js/conexe-table-quiz/engine.js",
   "js/conexe-table-quiz/adapters/addition.js",
+  "js/conexe-table-quiz/adapters/division.js",
   "js/quizzes/addition-table-conexe-helper.js",
+  "js/quizzes/division-table-conexe-helper.js",
 ];
 
 let scriptsLoaded = false;
@@ -43,6 +45,7 @@ export function setupDeterministicRandom(values = [0]) {
 }
 
 export function setupTestEnv(options = {}) {
+  const quizId = options.quizId ?? "addition-table-conexe-helper";
   loadCoreScripts();
 
   if (originalShuffle == null) {
@@ -60,9 +63,9 @@ export function setupTestEnv(options = {}) {
     globalThis.Math.random = originalRandom;
   }
 
-  const meta = globalThis.QuizRegistry.get("addition-table-conexe-helper");
+  const meta = globalThis.QuizRegistry.get(quizId);
   if (!meta) {
-    throw new Error("Quiz addition-table-conexe-helper is not registered");
+    throw new Error(`Quiz ${quizId} is not registered`);
   }
 
   return meta.create();
@@ -73,6 +76,20 @@ export function seedFactRecord(a, b, overrides = {}) {
     operation: "add",
     promptForm: globalThis.FactCatalog.PROMPT_FORMS.result,
     values: { a, b },
+  });
+  const record = {
+    ...(globalThis.FactStore.getFact(fact.factId, fact) ?? {}),
+    ...overrides,
+  };
+  globalThis.FactStore.saveFact(record);
+  return fact;
+}
+
+export function seedDivisionFactRecord(dividend, divisor, overrides = {}) {
+  const fact = globalThis.FactCatalog.createFact({
+    operation: "div",
+    promptForm: globalThis.FactCatalog.PROMPT_FORMS.result,
+    values: { a: dividend, b: divisor },
   });
   const record = {
     ...(globalThis.FactStore.getFact(fact.factId, fact) ?? {}),
@@ -133,6 +150,27 @@ export function seedLevel2PerformantPool() {
 
   for (let b = 4; b <= 10; b++) {
     seedFactRecord(2, b, {
+      performantaLaConexeFact: "nou",
+      deCateOriAavutPerformantLaConexe: 4,
+    });
+  }
+
+  return facts;
+}
+
+export function seedLevel2DivisionPerformantPool() {
+  const facts = [];
+  for (let quotient = 1; quotient <= 3; quotient += 1) {
+    facts.push(
+      seedDivisionFactRecord(2 * quotient, 2, {
+        performantaLaConexeFact: "performant",
+        deCateOriAavutPerformantLaConexe: 0,
+      })
+    );
+  }
+
+  for (let quotient = 4; quotient <= 10; quotient += 1) {
+    seedDivisionFactRecord(2 * quotient, 2, {
       performantaLaConexeFact: "nou",
       deCateOriAavutPerformantLaConexe: 4,
     });

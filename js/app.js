@@ -153,9 +153,9 @@
     engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   }
 
-  QuizRegistry.setActive("addition-table") ||
-    QuizRegistry.setActive("prime-divisions") ||
-    QuizRegistry.setActive(QuizRegistry.getDefaultId());
+  QuizRegistry.setActive(QuizRegistry.getDefaultId()) ||
+    QuizRegistry.setActive("addition-table") ||
+    QuizRegistry.setActive("prime-divisions");
   quiz = QuizRegistry.createActive();
 
   engine = new FallingEngine({
