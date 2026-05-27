@@ -334,12 +334,15 @@
     }
 
     function computeConexeGrade(results) {
-      const correctCount = results.filter((entry) => entry.correct).length;
+      const correctCount = results.filter((entry) => entry.firstAttemptCorrect).length;
       if (correctCount <= 1) return CONEXE_LEVEL.PRAF;
       if (correctCount <= 3) return CONEXE_LEVEL.SLAB;
       if (
         results.every(
-          (entry) => entry.correct && Number.isFinite(entry.responseMs) && entry.responseMs < CONEXE_FAST_MS
+          (entry) =>
+            entry.firstAttemptCorrect &&
+            Number.isFinite(entry.responseMs) &&
+            entry.responseMs < CONEXE_FAST_MS
         )
       ) {
         return CONEXE_LEVEL.PERFORMANT;
@@ -384,7 +387,6 @@
       const existing = m1GradeResults.find((entry) => entry.conexeType === currentConexeType);
       if (existing) {
         if (correct) {
-          existing.correct = true;
           existing.responseMs = meta.responseMs ?? existing.responseMs;
         }
         return;
@@ -392,7 +394,7 @@
 
       m1GradeResults.push({
         conexeType: currentConexeType,
-        correct,
+        firstAttemptCorrect: correct,
         responseMs: meta.responseMs ?? null,
       });
     }
