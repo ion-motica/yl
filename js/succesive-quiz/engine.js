@@ -75,8 +75,13 @@
       const totalWidth = numWidth + 2; // „+ " prefix pe linia a doua
       const topLine = aStr.padStart(totalWidth);
       const midLine = `+ ${bStr.padStart(numWidth)}`;
-      const sepLine = "\u2500".repeat(totalWidth); // ─────
-      return `<pre class="vertical-addition">${topLine}\n${midLine}\n${sepLine}</pre>`;
+      return [
+        `<div class="vertical-addition">`,
+        `<div class="va-row">${topLine}</div>`,
+        `<div class="va-row">${midLine}</div>`,
+        `<div class="va-line"></div>`,
+        `</div>`,
+      ].join("");
     }
 
     function isRecoveryToday(a) {
