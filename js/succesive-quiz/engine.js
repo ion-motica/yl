@@ -57,6 +57,7 @@
     let options = [];
     let correctIndex = 0;
     let seriesFlawless = true;
+    let consecutivePerfectSeries = 0; // câte serii perfecte consecutive s-au acumulat
     let seriesHistory = [];
     let currentStepWrongRecorded = false;
 
@@ -238,10 +239,16 @@
 
     function canAdvanceLevel() {
       const r = reg();
-      return seriesFlawless && (!r || r.allMasteredForLevel(level));
+      return consecutivePerfectSeries >= 2 && (!r || r.allMasteredForLevel(level));
     }
 
     function completeSeries() {
+      if (seriesFlawless) {
+        consecutivePerfectSeries += 1;
+      } else {
+        consecutivePerfectSeries = 0;
+      }
+
       if (!canAdvanceLevel()) {
         const r = reg();
         const hasOpen = r && !r.allMasteredForLevel(level);
@@ -277,6 +284,7 @@
       }
 
       level += 1;
+      consecutivePerfectSeries = 0;
       return {
         outcome: "run-complete",
         correct: true,
@@ -314,14 +322,13 @@
       }
 
       // Răspuns corect — notează dacă pasul era o restanță activă.
-      // SDP = corect din prima (nicio greșeală pe pasul curent) → mastered imediat.
-      // Non-SDP → fără progres.
+      // SDP per zi = corect din prima în această serie ȘI nu a mai fost greșit azi.
       const isRestanta = activeMistakeAs.has(currentStep.a);
       if (isRestanta) {
-        const isSDP = !currentStepWrongRecorded;
-        reg()?.addCorrect(level, currentStep.a, isSDP);
+        reg()?.addCorrect(level, currentStep.a);
       }
-      global.SpeedManager?.recordCorrect(quizId, level, currentStep.a, meta.responseMs, isRestanta);
+      const isSDP = !currentStepWrongRecorded && !(reg()?.isFromToday(level, currentStep.a) ?? false);
+      global.SpeedManager?.recordCorrect(quizId, level, currentStep.a, meta.responseMs, isRestanta && isSDP);
 
       const solvedPrompt = currentStep.prompt;
       const solvedAnswer = currentStep.correctAnswer;
@@ -374,6 +381,7 @@
         gameCompleted = false;
         stepIndex = 0;
         seriesFlawless = true;
+        consecutivePerfectSeries = 0;
         seriesHistory = [];
         stepsQueue = [];
         activeMistakeAs = new Set();
@@ -386,6 +394,7 @@
       switchLevel(nextLevel) {
         level = Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, nextLevel));
         gameCompleted = false;
+        consecutivePerfectSeries = 0;
         return null;
       },
 
