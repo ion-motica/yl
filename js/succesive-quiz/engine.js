@@ -302,6 +302,8 @@
           reg()?.addWrong(level, currentStep.a);
           currentStepWrongRecorded = true;
         }
+        // SpeedManager — apelat la fiecare greșeală (inclusiv repetiții pe același pas).
+        global.SpeedManager?.recordWrong(quizId, level, currentStep.a);
         return {
           outcome: "wrong-answer",
           correct: false,
@@ -314,10 +316,12 @@
       // Răspuns corect — notează dacă pasul era o restanță activă.
       // SDP = corect din prima (nicio greșeală pe pasul curent) → mastered imediat.
       // Non-SDP → fără progres.
-      if (activeMistakeAs.has(currentStep.a)) {
+      const isRestanta = activeMistakeAs.has(currentStep.a);
+      if (isRestanta) {
         const isSDP = !currentStepWrongRecorded;
         reg()?.addCorrect(level, currentStep.a, isSDP);
       }
+      global.SpeedManager?.recordCorrect(quizId, level, currentStep.a, meta.responseMs, isRestanta);
 
       const solvedPrompt = currentStep.prompt;
       const solvedAnswer = currentStep.correctAnswer;
@@ -349,10 +353,17 @@
 
       getProgressDisplay: () => global.ProgressDisplay.hidden(),
 
-      // Viteză redusă cu 20% pentru întrebările de recuperare din ziua curentă.
+      // Factor de viteză combinat: SpeedManager (dificultate) × recuperare azi (−20%).
       getFallSpeedFactor() {
         if (!currentStep) return 1.0;
-        return isRecoveryToday(currentStep.a) ? 0.8 : 1.0;
+        const difficultyFactor = global.SpeedManager?.getEffectiveFactor(quizId, level, currentStep.a) ?? 1.0;
+        const recoveryFactor = isRecoveryToday(currentStep.a) ? 0.8 : 1.0;
+        return Math.max(0.40, difficultyFactor * recoveryFactor);
+      },
+
+      // Bounce la vârf dacă nivelul a acumulat greșeli (levelFactor < 1).
+      shouldBounceToTop() {
+        return global.SpeedManager?.shouldBounceToTop(quizId, level) ?? false;
       },
 
       isCompleted: () => gameCompleted,
@@ -388,6 +399,9 @@
         if (!currentStepWrongRecorded) {
           reg()?.addWrong(level, currentStep?.a);
           currentStepWrongRecorded = true;
+        }
+        if (currentStep?.a != null) {
+          global.SpeedManager?.recordWrong(quizId, level, currentStep.a);
         }
         return {
           outcome: "timeout",

@@ -233,7 +233,9 @@
         clearWrongMarks();
         bouncing = true;
         dom.falling.classList.add("bounce");
-        setFallPosition(Math.max(0, fallY - BOUNCE_UP));
+        const bounceToTop = getQuiz().shouldBounceToTop?.() ?? false;
+        const bounceAmount = bounceToTop ? fallY : BOUNCE_UP;
+        setFallPosition(Math.max(0, fallY - bounceAmount));
         setTimeout(() => {
           bouncing = false;
           dom.falling.classList.remove("bounce");
