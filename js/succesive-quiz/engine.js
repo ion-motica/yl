@@ -1,11 +1,17 @@
 (function (global) {
   "use strict";
 
-  // Motor reutilizabil pentru quiz-uri de tip "operații succesive în același lift":
-  // ex. 20+5=?, apoi 25+5=?, apoi 30+5=? ... O serie (lift) are 3/5/7 întrebări.
-  // Fiecare răspuns corect saltă liftul puțin în sus și afișează următoarea întrebare.
-  // Avansare nivel: o serie perfect fără greșeli ȘI toate restanțele rezolvate de ≥2 ori.
-  // Restanțele (adunări greșite) sunt injectate în seria următoare și stocate cross-session.
+  // Motor reutilizabil pentru quiz-uri de tip "operații succesive în același lift".
+  //
+  // Planificarea seriei (planNextSeries):
+  //   - Dacă nu sunt restanțe: serie normală aleatoare (3/5/7 pași, start aleator).
+  //   - Dacă există restanțe apropiate (≤5 pași distanță): serie cluster — startul e la
+  //     cea mai mică restanță din pereche, lanțul trece natural prin toate restanțele
+  //     clustered, lungime = pași necesari (max 7).
+  //   - Dacă restanțele sunt prea depărtate: serie de exact 3 pași, cu restanța injectată
+  //     la o poziție aleatoare.
+  //
+  // Avansare nivel: o serie perfectă (fără greșeli) ȘI toate restanțele rezolvate de ≥2 ori.
 
   const DEFAULTS = {
     MIN_LEVEL: 1,
@@ -15,6 +21,7 @@
     HINT_MESSAGE: "Alege rezultatul corect.",
     TIMEOUT_MESSAGE: "Prea târziu! Alege rezultatul corect înainte să ajungă jos.",
     LEVEL_ADVANCED_BANNER: "Felicitări! Next level!",
+    CLUSTER_MAX_STEPS: 5,
   };
 
   function createSuccesiveQuiz(config) {
@@ -26,10 +33,10 @@
     const RUN_DELAY_MS = config.runDelayMs ?? DEFAULTS.RUN_DELAY_MS;
     const HINT_MESSAGE = config.hintMessage ?? DEFAULTS.HINT_MESSAGE;
     const TIMEOUT_MESSAGE = config.timeoutMessage ?? DEFAULTS.TIMEOUT_MESSAGE;
-    const LEVEL_ADVANCED_BANNER =
-      config.levelAdvancedBanner ?? DEFAULTS.LEVEL_ADVANCED_BANNER;
+    const LEVEL_ADVANCED_BANNER = config.levelAdvancedBanner ?? DEFAULTS.LEVEL_ADVANCED_BANNER;
     const GAME_COMPLETE_BANNER =
       config.gameCompleteBanner ?? `Felicitări! Ai terminat nivelul ${MAX_LEVEL}!`;
+    const CLUSTER_MAX_STEPS = config.clusterMaxSteps ?? DEFAULTS.CLUSTER_MAX_STEPS;
 
     const { randomInt, shuffle } = global.GameUtils;
     const { FactStore } = global;
@@ -45,6 +52,7 @@
     let stepIndex = 0;
     let currentValue = 0;       // valoarea curentă în lanțul succesiv
     let stepsQueue = [];        // [{ type:'chain' } | { type:'mistake', a:number }]
+    let activeMistakeAs = new Set(); // valorile 'a' care sunt restanțe în seria curentă
     let currentStep = null;     // { prompt, correctAnswer, a, b, factSeed }
     let options = [];
     let correctIndex = 0;
@@ -60,35 +68,76 @@
       return SERIES_LENGTHS[randomInt(0, SERIES_LENGTHS.length - 1)];
     }
 
-    // Construiește lista de pași pentru o serie:
-    // 2-3 restanțe din registru injectate la poziții aleatoare, restul pași de lanț.
-    function buildStepsQueue() {
+    // Planifică tipul și conținutul seriei următoare.
+    function planNextSeries() {
       const r = reg();
-      const pending = r ? r.getPrioritized(level, 3) : [];
-      const injectCount = Math.min(pending.length, Math.max(0, seriesLength - 1));
-      const mistakesToInject = pending.slice(0, injectCount);
+      const pendingByPriority = r ? r.getPrioritized(level, 50) : [];
 
-      // Alege poziții aleatoare pentru restanțe, sortate crescător
-      const positions = shuffle(Array.from({ length: seriesLength }, (_, i) => i))
-        .slice(0, injectCount)
-        .sort((x, y) => x - y);
-      const posSet = new Set(positions);
+      if (pendingByPriority.length === 0) {
+        return {
+          type: "normal",
+          startValue: adapter.pickStartValue(level, helpers()),
+          len: pickSeriesLength(),
+        };
+      }
 
-      const steps = [];
-      let mi = 0;
-      for (let i = 0; i < seriesLength; i++) {
-        if (posSet.has(i) && mi < mistakesToInject.length) {
-          steps.push({ type: "mistake", a: mistakesToInject[mi++] });
-        } else {
-          steps.push({ type: "chain" });
+      // Sortează după a pentru detecția clusterului.
+      const sortedByA = [...pendingByPriority].sort((x, y) => x - y);
+
+      // Găsește perechea cea mai apropiată.
+      let minDist = Infinity;
+      let closestIdx = -1;
+      for (let i = 0; i < sortedByA.length - 1; i++) {
+        const dist = (sortedByA[i + 1] - sortedByA[i]) / level;
+        if (dist < minDist) {
+          minDist = dist;
+          closestIdx = i;
         }
       }
-      return steps;
+
+      if (minDist <= CLUSTER_MAX_STEPS) {
+        // Construiește cluster: extinde în ambele direcții față de perechea apropiată.
+        const clusterSet = new Set([sortedByA[closestIdx], sortedByA[closestIdx + 1]]);
+
+        // Extinde spre dreapta
+        let prev = sortedByA[closestIdx + 1];
+        for (let i = closestIdx + 2; i < sortedByA.length; i++) {
+          if ((sortedByA[i] - prev) / level <= CLUSTER_MAX_STEPS) {
+            clusterSet.add(sortedByA[i]);
+            prev = sortedByA[i];
+          } else break;
+        }
+        // Extinde spre stânga
+        let next = sortedByA[closestIdx];
+        for (let i = closestIdx - 1; i >= 0; i--) {
+          if ((next - sortedByA[i]) / level <= CLUSTER_MAX_STEPS) {
+            clusterSet.add(sortedByA[i]);
+            next = sortedByA[i];
+          } else break;
+        }
+
+        const clusterArr = [...clusterSet].sort((x, y) => x - y);
+        const startA = clusterArr[0];
+        const endA = clusterArr[clusterArr.length - 1];
+        const stepsNeeded = Math.round((endA - startA) / level) + 1;
+        const len = Math.min(7, Math.max(2, stepsNeeded));
+
+        return { type: "cluster", startValue: startA, len, mistakeAs: clusterSet };
+      }
+
+      // Restanță izolată: serie de 3, injectată la poziție aleatoare.
+      return {
+        type: "isolated",
+        startValue: adapter.pickStartValue(level, helpers()),
+        len: 3,
+        mistakeA: pendingByPriority[0], // cea mai prioritară
+        injectPos: randomInt(0, 2),
+      };
     }
 
     function prepareStep() {
       const qStep = stepsQueue[stepIndex];
-      const valueToUse = qStep && qStep.type === "mistake" ? qStep.a : currentValue;
+      const valueToUse = qStep?.type === "mistake" ? qStep.a : currentValue;
       currentStep = adapter.buildStep(valueToUse, level);
       const built = adapter.buildOptions(currentStep.correctAnswer, level, helpers());
       options = built.options.map(String);
@@ -97,12 +146,31 @@
     }
 
     function startSeries() {
-      seriesLength = pickSeriesLength();
-      currentValue = adapter.pickStartValue(level, helpers());
+      const plan = planNextSeries();
+
+      if (plan.type === "cluster") {
+        seriesLength = plan.len;
+        currentValue = plan.startValue;
+        stepsQueue = Array.from({ length: seriesLength }, () => ({ type: "chain" }));
+        activeMistakeAs = plan.mistakeAs;
+      } else if (plan.type === "isolated") {
+        seriesLength = 3;
+        currentValue = plan.startValue;
+        stepsQueue = Array.from({ length: 3 }, (_, i) =>
+          i === plan.injectPos ? { type: "mistake", a: plan.mistakeA } : { type: "chain" }
+        );
+        activeMistakeAs = new Set([plan.mistakeA]);
+      } else {
+        // normal
+        seriesLength = plan.len;
+        currentValue = plan.startValue;
+        stepsQueue = Array.from({ length: seriesLength }, () => ({ type: "chain" }));
+        activeMistakeAs = new Set();
+      }
+
       stepIndex = 0;
       seriesFlawless = true;
       seriesHistory = [];
-      stepsQueue = buildStepsQueue();
       currentStepWrongRecorded = false;
       prepareStep();
       return roundView();
@@ -149,9 +217,9 @@
     function completeSeries() {
       if (!canAdvanceLevel()) {
         const r = reg();
-        const hasOpenMistakes = r && !r.allMasteredForLevel(level);
+        const hasOpen = r && !r.allMasteredForLevel(level);
         let message;
-        if (!seriesFlawless && hasOpenMistakes) {
+        if (!seriesFlawless && hasOpen) {
           message = "Serie cu greșeli și restanțe. Continuă!";
         } else if (!seriesFlawless) {
           message = "Serie cu greșeli! Mai e nevoie de o serie perfectă ca să avansezi.";
@@ -216,10 +284,9 @@
         };
       }
 
-      // Răspuns corect
-      const qStep = stepsQueue[stepIndex];
-      if (qStep?.type === "mistake") {
-        reg()?.addCorrect(level, qStep.a);
+      // Răspuns corect — notează dacă pasul era o restanță activă.
+      if (activeMistakeAs.has(currentStep.a)) {
+        reg()?.addCorrect(level, currentStep.a);
       }
 
       const solvedPrompt = currentStep.prompt;
@@ -227,7 +294,7 @@
 
       seriesHistory.push(promptWithAnswer(solvedPrompt, solvedAnswer));
       stepIndex += 1;
-      currentValue = solvedAnswer; // lanțul continuă de la rezultatul curent
+      currentValue = solvedAnswer;
 
       if (stepIndex >= seriesLength) {
         return completeSeries();
@@ -262,6 +329,7 @@
         seriesFlawless = true;
         seriesHistory = [];
         stepsQueue = [];
+        activeMistakeAs = new Set();
         currentStep = null;
         options = [];
         correctIndex = 0;
@@ -295,10 +363,7 @@
       },
 
       onAnswer,
-
-      pickNextRound() {
-        return null;
-      },
+      pickNextRound() { return null; },
     };
   }
 
