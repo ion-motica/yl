@@ -181,8 +181,9 @@ body {
 }
 
 .level-picker {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(10, auto);
   gap: 0.32rem;
   flex-shrink: 0;
   padding-top: 2rem;
@@ -400,7 +401,7 @@ body {
 
 .division-history {
   width: 100%;
-  font-size: 1.56rem;
+  font-size: 1rem;
   color: var(--muted);
   text-align: center;
   line-height: 1.35;

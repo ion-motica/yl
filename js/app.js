@@ -102,26 +102,44 @@
     });
   }
 
+  const LEVELS_PER_COLUMN = 10;
+
+  function createLevelButton(lv) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "level-btn";
+    btn.dataset.level = String(lv);
+    btn.textContent = String(lv);
+    const { min, max } = GameUtils.levelRange(lv);
+    btn.title = quiz.getLevelButtonTitle?.(lv) ?? `Nivel ${lv}: ${min}–${max}`;
+    btn.addEventListener("click", () => {
+      const levelMessage = quiz.switchLevel(lv);
+      if (levelMessage) dom.messageEl.textContent = levelMessage;
+      dom.playPauseBtn.disabled = false;
+      engine.cancelRisingAnimation();
+      lastGreenCells = null;
+      renderProgress();
+      engine.startRound(quiz.beginRound(quiz.pickNextRound()));
+    });
+    return btn;
+  }
+
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
-    for (let lv = quiz.getMaxLevel(); lv >= 1; lv--) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "level-btn";
-      btn.dataset.level = String(lv);
-      btn.textContent = String(lv);
-      const { min, max } = GameUtils.levelRange(lv);
-      btn.title = quiz.getLevelButtonTitle?.(lv) ?? `Nivel ${lv}: ${min}–${max}`;
-      btn.addEventListener("click", () => {
-        const levelMessage = quiz.switchLevel(lv);
-        if (levelMessage) dom.messageEl.textContent = levelMessage;
-        dom.playPauseBtn.disabled = false;
-        engine.cancelRisingAnimation();
-        lastGreenCells = null;
-        renderProgress();
-        engine.startRound(quiz.beginRound(quiz.pickNextRound()));
-      });
-      dom.levelPickerEl.appendChild(btn);
+    const maxLevel = quiz.getMaxLevel();
+    const columns = Math.ceil(maxLevel / LEVELS_PER_COLUMN);
+    const rows = Math.min(LEVELS_PER_COLUMN, maxLevel);
+    dom.levelPickerEl.style.gridTemplateRows = `repeat(${rows}, auto)`;
+    dom.levelPickerEl.style.gridTemplateColumns = `repeat(${columns}, auto)`;
+
+    // Coloane paralele: 1-10 lângă 11-20 etc. În fiecare coloană, nivelurile
+    // sunt afișate descrescător (cel mai mare sus), păstrând stilul existent.
+    for (let column = 0; column < columns; column++) {
+      const top = Math.min(maxLevel, (column + 1) * LEVELS_PER_COLUMN);
+      const bottom = column * LEVELS_PER_COLUMN + 1;
+      for (let lv = top; lv >= bottom; lv--) {
+        dom.levelPickerEl.appendChild(createLevelButton(lv));
+      }
     }
   }
 
