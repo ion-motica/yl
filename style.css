@@ -22,6 +22,20 @@
   text-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
 }
 
+.vertical-addition {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
 html,
 body {
   margin: 0;

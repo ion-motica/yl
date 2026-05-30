@@ -64,6 +64,26 @@
       return { randomInt, shuffle };
     }
 
+    // Construiește HTML-ul în format coloană pentru restanțele de azi:
+    //   168
+    // +  14
+    // ─────
+    function buildVerticalPromptHtml(step) {
+      const aStr = String(step.a);
+      const bStr = String(step.b);
+      const numWidth = Math.max(aStr.length, bStr.length);
+      const totalWidth = numWidth + 2; // „+ " prefix pe linia a doua
+      const topLine = aStr.padStart(totalWidth);
+      const midLine = `+ ${bStr.padStart(numWidth)}`;
+      const sepLine = "\u2500".repeat(totalWidth); // ─────
+      return `<pre class="vertical-addition">${topLine}\n${midLine}\n${sepLine}</pre>`;
+    }
+
+    function isRecoveryToday(a) {
+      if (!activeMistakeAs.has(a)) return false;
+      return reg()?.isFromToday(level, a) ?? false;
+    }
+
     function pickSeriesLength() {
       return SERIES_LENGTHS[randomInt(0, SERIES_LENGTHS.length - 1)];
     }
@@ -177,8 +197,10 @@
     }
 
     function roundView(extra = {}) {
+      const showVertical = currentStep && isRecoveryToday(currentStep.a);
       return {
         prompt: currentStep?.prompt ?? "—",
+        promptHtml: showVertical ? buildVerticalPromptHtml(currentStep) : undefined,
         options: [...options],
         correctIndex,
         divisionHistory: seriesHistory.slice(-3),
@@ -285,8 +307,11 @@
       }
 
       // Răspuns corect — notează dacă pasul era o restanță activă.
+      // SDP = corect din prima (nicio greșeală pe pasul curent) → mastered imediat.
+      // Non-SDP → fără progres.
       if (activeMistakeAs.has(currentStep.a)) {
-        reg()?.addCorrect(level, currentStep.a);
+        const isSDP = !currentStepWrongRecorded;
+        reg()?.addCorrect(level, currentStep.a, isSDP);
       }
 
       const solvedPrompt = currentStep.prompt;
@@ -318,6 +343,12 @@
       getLevelButtonTitle: (targetLevel) => adapter.getLevelButtonTitle(targetLevel),
 
       getProgressDisplay: () => global.ProgressDisplay.hidden(),
+
+      // Viteză redusă cu 20% pentru întrebările de recuperare din ziua curentă.
+      getFallSpeedFactor() {
+        if (!currentStep) return 1.0;
+        return isRecoveryToday(currentStep.a) ? 0.8 : 1.0;
+      },
 
       isCompleted: () => gameCompleted,
       setCompleted: (value) => { gameCompleted = value; },

@@ -3,7 +3,13 @@
 
   // Registru de greșeli pentru quizurile succesive.
   // Cheie: `${level}:${a}` — adunarea exactă greșită (ex. 15+3).
-  // Stocheaz cross-session în localStorage.
+  // Stochează cross-session în localStorage.
+  //
+  // Regula SDP (știut din prima):
+  //   addCorrect(level, a, isSDP=true)  → correctCount=2 (mastered imediat)
+  //   addCorrect(level, a, isSDP=false) → niciun progres (rămâne în lista pending)
+  //
+  // Afișare verticală (coloană) doar dacă lastWrongDate === today (isFromToday).
 
   const STORAGE_KEY = "succesive-quiz:mistakes:v1";
 
@@ -36,6 +42,10 @@
     } catch (e) {}
   }
 
+  function today() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
   function entryKey(level, a) {
     return `${level}:${a}`;
   }
@@ -47,26 +57,28 @@
       data = load();
     },
 
-    // Apelat o singură dată per pas greșit (prima greșeală la pasul curent).
+    // Prima greșeală pe un pas: înregistrează a-ul greșit și data.
     addWrong(level, a) {
       const k = entryKey(level, a);
-      if (!data[k]) data[k] = { level, a, wrongCount: 0, correctCount: 0 };
+      if (!data[k]) data[k] = { level, a, wrongCount: 0, correctCount: 0, lastWrongDate: null };
       data[k].wrongCount += 1;
+      data[k].lastWrongDate = today();
       persist(data);
     },
 
-    // Apelat când un pas identificat ca restanță e răspuns corect.
-    addCorrect(level, a) {
+    // SDP=true  → mastered imediat (correctCount=2).
+    // SDP=false → fără progres (rămâne pending).
+    addCorrect(level, a, isSDP) {
       const k = entryKey(level, a);
       if (!data[k]) return;
-      if (data[k].correctCount < 2) {
-        data[k].correctCount += 1;
+      if (isSDP) {
+        data[k].correctCount = 2;
         persist(data);
       }
+      // non-SDP: niciun progres
     },
 
-    // Returnează valorile `a` ale restanțelor nerezolvate pentru nivel,
-    // sortate descrescător după nr. greșeli (cele mai dificile primele).
+    // Restanțe nerezolvate pentru nivel, ordonate după nr. greșeli desc.
     getPrioritized(level, limit) {
       return Object.values(data)
         .filter((m) => m.level === level && m.correctCount < 2)
@@ -75,11 +87,17 @@
         .map((m) => m.a);
     },
 
-    // Avansarea e permisă doar dacă toate restanțele nivelului au ≥2 corecte.
     allMasteredForLevel(level) {
       const forLevel = Object.values(data).filter((m) => m.level === level);
       if (forLevel.length === 0) return true;
       return forLevel.every((m) => m.correctCount >= 2);
+    },
+
+    // Verifică dacă greșeala a fost făcută ASTĂZI (→ afișare verticală + viteză redusă).
+    isFromToday(level, a) {
+      const k = entryKey(level, a);
+      const entry = data[k];
+      return Boolean(entry && entry.lastWrongDate === today());
     },
   };
 })(window);

@@ -314,7 +314,8 @@
         if (!lastStepTs) lastStepTs = ts;
         const dt = Math.min((ts - lastStepTs) / 1000, 0.05);
         lastStepTs = ts;
-        localFallY += FALL_SPEED * dt;
+        const speedFactor = getQuiz().getFallSpeedFactor?.() ?? 1.0;
+        localFallY += FALL_SPEED * speedFactor * dt;
         riseY -= RISE_SPEED * dt;
         dom.falling.style.top = `${localFallY}px`;
         dom.rising.style.top = `${riseY}px`;
@@ -364,7 +365,8 @@
         lastTs = ts;
         if (!getQuiz().isCompleted() && !paused && !animating && !locked && !bouncing) {
           syncBoxHeight();
-          fallY += FALL_SPEED * dt;
+          const speedFactor = getQuiz().getFallSpeedFactor?.() ?? 1.0;
+          fallY += FALL_SPEED * speedFactor * dt;
           if (fallY >= ARENA_H - boxH) {
             handleBottomMiss();
             fallY = 0;
