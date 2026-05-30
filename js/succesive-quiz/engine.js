@@ -360,12 +360,13 @@
 
       getProgressDisplay: () => global.ProgressDisplay.hidden(),
 
-      // Factor de viteză combinat: SpeedManager (dificultate) × recuperare azi (−20%).
+      // Factor de viteză combinat: bază per nivel × SpeedManager (dificultate) × recuperare azi (−20%).
       getFallSpeedFactor() {
         if (!currentStep) return 1.0;
+        const baseFactor = level >= 11 ? 0.79 : 1.0;
         const difficultyFactor = global.SpeedManager?.getEffectiveFactor(quizId, level, currentStep.a) ?? 1.0;
         const recoveryFactor = isRecoveryToday(currentStep.a) ? 0.8 : 1.0;
-        return Math.max(0.40, difficultyFactor * recoveryFactor);
+        return Math.max(0.40, baseFactor * difficultyFactor * recoveryFactor);
       },
 
       // Bounce la vârf dacă nivelul a acumulat greșeli (levelFactor < 1).
