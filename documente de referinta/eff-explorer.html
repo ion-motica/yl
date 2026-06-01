@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EFF Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #222;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #666;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    /* ── F0 bar ────────────────────────────────────────────── */
+    .f0-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .f0-box {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 2.4rem;
+      font-weight: bold;
+      background: #fff;
+      border: 2px solid #bbb;
+      border-radius: 10px;
+      padding: 8px 28px;
+      min-width: 180px;
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    .btn-gen {
+      padding: 10px 20px;
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+    .btn-gen:hover { background: #2563eb; }
+
+    /* ── Table ─────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td { border: 1px solid #ddd; padding: 6px 10px; vertical-align: middle; }
+
+    thead th {
+      background: #e5e7eb;
+      font-size: 0.72rem;
+      font-weight: 600;
+      white-space: normal;
+      word-break: break-word;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    /* Alternating F1 group background */
+    tr[data-fi="0"], tr[data-fi="0"] + tr { background: #fff; }
+    tr[data-fi="1"], tr[data-fi="1"] + tr { background: #f5f3ff; }
+    tr[data-fi="2"], tr[data-fi="2"] + tr { background: #fff8f0; }
+    tr[data-fi="3"], tr[data-fi="3"] + tr { background: #f0f9ff; }
+
+    /* Switch cells (col1, col2) — never dimmed */
+    .sw-cell { text-align: center; vertical-align: middle; min-width: 82px; }
+
+    /* Row title (col3) */
+    .title-cell {
+      font-size: 0.72rem;
+      white-space: normal;
+      word-break: break-word;
+      min-width: 130px;
+      max-width: 150px;
+      line-height: 1.4;
+    }
+    .title-cell code {
+      display: block;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.92rem;
+      font-weight: bold;
+      margin-top: 4px;
+      color: #1a56db;
+    }
+
+    /* Content cells (F3 cols) */
+    .content-cell {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    /* Switch buttons */
+    .sw {
+      padding: 4px 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      transition: background 0.1s;
+      white-space: nowrap;
+    }
+    .sw.on  { background: #22c55e; color: #fff; }
+    .sw.off { background: #9ca3af; color: #fff; }
+
+    /* F1 label above switch */
+    .f1-label {
+      font-size: 0.6rem;
+      color: #666;
+      word-break: break-word;
+      max-width: 72px;
+      margin-bottom: 4px;
+      line-height: 1.3;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    /* Dimmed state */
+    .dimmed { opacity: 0.18; }
+  </style>
+</head>
+<body>
+
+  <h1>EFF Explorer — Extended Fact Family</h1>
+
+  <div class="f0-bar">
+    <div class="f0-box" id="f0-box">3+2=5</div>
+    <button class="btn-gen" id="btn-gen">🔀 Fact aleator</button>
+  </div>
+
+  <div style="margin-bottom:14px; font-size:0.9rem; color:#444;">
+    Număr de combinații selectate: <strong id="combo-count">—</strong>
+    <span style="font-size:0.75rem; color:#888; margin-left:8px">(F1 active × F2 active × forme F3 active)</span>
+  </div>
+
+  <div class="table-wrap">
+    <div id="tbl"></div>
+  </div>
+
+  <script>
+  // ── Constante ────────────────────────────────────────────────────────────────
+  const F1_TYPES = [
+    'f1_initial',
+    'f1_comutat',
+    'f1_complementar',
+    'f1_complementar_comutat',
+  ];
+
+  const F2_TYPES = ['doua_nr_in_STANGA', 'doua_nr_in_DREAPTA'];
+
+  const F3_GROUPS = [
+    'trei_pozitii_pt_cate_un_numar',
+    'doua_pozitii_pt_cate_un_semn_operator_matematic',
+    'o_pozitie_pt_cate_2_semne',
+    'trei_pozitii_pt_cate_2_numere',
+    'sase_pozitii_pt_cate_un_semn_si_un_numar',
+  ];
+
+  const F2_LABEL = { doua_nr_in_STANGA: 'STÂNGA', doua_nr_in_DREAPTA: 'DREAPTA' };
+
+  // ── Stare ────────────────────────────────────────────────────────────────────
+  let f0 = { a: 3, op: '+', b: 2, r: 5 };
+  const sw = {};
+  [...F1_TYPES, ...F2_TYPES, ...F3_GROUPS].forEach(k => (sw[k] = true));
+
+  // ── Transformare F1 ──────────────────────────────────────────────────────────
+  function applyF1({ a, op, b, r }, f1) {
+    switch (f1) {
+      case 'f1_initial':             return { x: a, op,   y: b, r };
+      case 'f1_comutat':
+        if (op === '+' || op === '*') return { x: b, op,   y: a, r };
+        return                               { x: a, op,   y: r, r: b }; // - si :
+      case 'f1_complementar':
+        if (op === '+') return { x: r, op: '-', y: b, r: a };
+        if (op === '-') return { x: r, op: '+', y: b, r: a };
+        if (op === '*') return { x: r, op: ':', y: b, r: a };
+        if (op === ':') return { x: r, op: '*', y: b, r: a };
+        break;
+      case 'f1_complementar_comutat':
+        if (op === '+') return { x: r, op: '-', y: a, r: b };
+        if (op === '-') return { x: b, op: '+', y: r, r: a };
+        if (op === '*') return { x: r, op: ':', y: a, r: b };
+        if (op === ':') return { x: b, op: '*', y: r, r: a };
+        break;
+    }
+    return null;
+  }
+
+  // ── Orientare F2 → 5 tokeni ──────────────────────────────────────────────────
+  // tokeni: [nr1, op_aritmetic, nr2, egal, rezultat]
+  function applyF2({ x, op, y, r }, f2) {
+    return f2 === 'doua_nr_in_STANGA'
+      ? [String(x), op, String(y), '=', String(r)]
+      : [String(r), '=', String(x), op, String(y)];
+  }
+
+  // ── Generare forme F3 din 5 tokeni ───────────────────────────────────────────
+  // Pozitii: 0=nr1, 1=op_aritmetic, 2=nr2, 3=egal, 4=rezultat
+  function applyF3(tokens, f3) {
+    const mk = idxs => {
+      const t = [...tokens];
+      idxs.forEach(i => (t[i] = '?'));
+      return t.join('');
+    };
+    switch (f3) {
+      case 'trei_pozitii_pt_cate_un_numar':
+        return [[0],[2],[4]].map(mk);
+      case 'doua_pozitii_pt_cate_un_semn_operator_matematic':
+        return [[1],[3]].map(mk);
+      case 'o_pozitie_pt_cate_2_semne':
+        return [mk([1,3])];
+      case 'trei_pozitii_pt_cate_2_numere':
+        return [[0,2],[0,4],[2,4]].map(mk);
+      case 'sase_pozitii_pt_cate_un_semn_si_un_numar':
+        return [[1,0],[1,2],[1,4],[3,0],[3,2],[3,4]].map(mk);
+      default: return [];
+    }
+  }
+
+  // ── Fact aleator ─────────────────────────────────────────────────────────────
+  function rnd(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+
+  function randomFact() {
+    const ops = ['+', '-', '*', ':'];
+    const op = ops[rnd(0, 3)];
+    let a, b, r;
+    if      (op === '+') { a = rnd(0,20); b = rnd(0,20);  r = a + b; }
+    else if (op === '-') { a = rnd(0,20); b = rnd(0, a);  r = a - b; }
+    else if (op === '*') { a = rnd(0,20); b = rnd(0,20);  r = a * b; }
+    else                 { b = rnd(1,10); r = rnd(0,10);  a = b * r; }
+    return { a, op, b, r };
+  }
+
+  // ── Număr combinații ─────────────────────────────────────────────────────────
+  const F3_VARIANT_COUNT = {
+    'trei_pozitii_pt_cate_un_numar':                    3,
+    'doua_pozitii_pt_cate_un_semn_operator_matematic':  2,
+    'o_pozitie_pt_cate_2_semne':                        1,
+    'trei_pozitii_pt_cate_2_numere':                    3,
+    'sase_pozitii_pt_cate_un_semn_si_un_numar':         6,
+  };
+
+  function countCombinations() {
+    const f1 = F1_TYPES.filter(k => sw[k]).length;
+    const f2 = F2_TYPES.filter(k => sw[k]).length;
+    const f3 = F3_GROUPS.reduce((s, k) => s + (sw[k] ? F3_VARIANT_COUNT[k] : 0), 0);
+    return f1 * f2 * f3;
+  }
+
+  // ── Randare ───────────────────────────────────────────────────────────────────
+  function renderF0() {
+    document.getElementById('f0-box').textContent =
+      `${f0.a}${f0.op}${f0.b}=${f0.r}`;
+  }
+
+  window.toggle = key => { sw[key] = !sw[key]; render(); };
+
+  function swBtn(key, label) {
+    return `<button class="sw ${sw[key] ? 'on' : 'off'}" onclick="toggle('${key}')">${label}</button>`;
+  }
+
+  // Înlocuiește _ cu _<wbr> pentru word-wrap la liniuță
+  function wbr(s) { return s.replace(/_/g, '_<wbr>'); }
+
+  function render() {
+    let h = '<table>';
+
+    // ── Header (rândul cu switch-uri F3) ──────────────────────────────────────
+    h += '<thead><tr>';
+    h += '<th style="min-width:82px">F1</th>';
+    h += '<th style="min-width:72px">F2</th>';
+    h += '<th style="min-width:140px">Forma</th>';
+    F3_GROUPS.forEach(g => {
+      h += `<th style="min-width:120px"><code style="font-size:0.68rem">${wbr(g)}</code><br><br>${swBtn(g, sw[g] ? 'ON' : 'OFF')}</th>`;
+    });
+    h += '</tr></thead>';
+
+    // ── Rânduri de date ───────────────────────────────────────────────────────
+    h += '<tbody>';
+    F1_TYPES.forEach((f1, fi) => {
+      const f1on = sw[f1];
+
+      F2_TYPES.forEach((f2, f2i) => {
+        const f2on   = sw[f2];
+        const rowOn  = f1on && f2on;
+
+        h += `<tr data-fi="${fi}">`;
+
+        // Col 1: switch F1 (rowspan=2, numai la prima iterație F2)
+        if (f2i === 0) {
+          h += `<td rowspan="2" class="sw-cell">
+            <div class="f1-label">${wbr(f1)}</div>
+            ${swBtn(f1, f1on ? 'ON' : 'OFF')}
+          </td>`;
+        }
+
+        // Col 2: switch F2
+        h += `<td class="sw-cell">${swBtn(f2, F2_LABEL[f2])}</td>`;
+
+        // Col 3: titlu rând + ecuație de bază
+        const f1r    = applyF1(f0, f1);
+        const tokens = f1r ? applyF2(f1r, f2) : null;
+        const baseEq = tokens ? tokens.join('') : '—';
+        h += `<td class="title-cell${rowOn ? '' : ' dimmed'}">
+          ${f1}, ${F2_LABEL[f2]}<code>${baseEq}</code>
+        </td>`;
+
+        // Cols 4-8: forme F3
+        F3_GROUPS.forEach(f3 => {
+          const cellOn = rowOn && sw[f3];
+          const content = tokens ? applyF3(tokens, f3).join('  ') : '';
+          h += `<td class="content-cell${cellOn ? '' : ' dimmed'}">${content}</td>`;
+        });
+
+        h += '</tr>';
+      });
+    });
+    h += '</tbody></table>';
+
+    document.getElementById('tbl').innerHTML = h;
+    document.getElementById('combo-count').textContent = countCombinations();
+  }
+
+  // ── Evenimente ────────────────────────────────────────────────────────────────
+  document.getElementById('btn-gen').addEventListener('click', () => {
+    f0 = randomFact();
+    renderF0();
+    render();
+  });
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  renderF0();
+  render();
+  </script>
+</body>
+</html>
