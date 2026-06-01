@@ -123,6 +123,20 @@
       return activeQFTypes.filter((qt) => qt.answerType !== "relation_op");
     }
 
+    // Returnează true dacă faptele selectate produc cel puțin 2 răspunsuri distincte
+    // pentru tipul QF dat. Serii cu răspuns unic (ex. a*?=c la nivel 14 → mereu 14)
+    // sunt excluse din Seria A.
+    function hasVariedAnswers(qfType, facts) {
+      if (facts.length <= 1) return true;
+      const seen = new Set();
+      for (const f of facts) {
+        const r = QFG.renderQF(qfType, f);
+        if (r) seen.add(String(r.correctAnswer));
+        if (seen.size > 1) return true;
+      }
+      return false;
+    }
+
     // ── Series A ─────────────────────────────────────────────────────────────────
 
     function beginSeriesA() {
@@ -146,6 +160,7 @@
       while (!facts.length && attempts < eligibleTypes.length) {
         qfType = pickQFType(eligibleTypes);
         facts  = qfType ? pickSeriesAFacts(qfType) : [];
+        if (facts.length && !hasVariedAnswers(qfType, facts)) facts = [];
         attempts++;
       }
 
