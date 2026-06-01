@@ -85,11 +85,11 @@
 
     // ── QF type rotation ─────────────────────────────────────────────────────────
 
-    function pickQFType() {
-      let available = activeQFTypes.filter((qt) => !usedQFTypeIds.has(qt.id));
+    function pickQFType(pool = activeQFTypes) {
+      let available = pool.filter((qt) => !usedQFTypeIds.has(qt.id));
       if (!available.length) {
         usedQFTypeIds = new Set();
-        available = [...activeQFTypes];
+        available = [...pool];
       }
       if (!available.length) return null;
       const picked = shuffle(available)[0];
@@ -114,6 +114,12 @@
       return combined.slice(0, MAX_SERIES);
     }
 
+    // Tipurile QF eligibile pentru Seria A: excludem relation_op (răspuns "=")
+    // deoarece același fapt cu "=" e mereu corect → nu are sens în {same QF, diff facts}.
+    function seriesAEligible() {
+      return activeQFTypes.filter((qt) => qt.answerType !== "relation_op");
+    }
+
     // ── Series A ─────────────────────────────────────────────────────────────────
 
     function beginSeriesA() {
@@ -121,9 +127,11 @@
       seriesHadMistakes = false;
       currentQFType     = null;
 
-      if (!activeQFTypes.length) {
+      const eligibleTypes = seriesAEligible();
+
+      if (!eligibleTypes.length) {
         return roundView({
-          hintMessage: "Activează cel puțin un tip EFF din configurare (butonul ⚙).",
+          hintMessage: "Activează cel puțin un tip EFF non-relațional din configurare (butonul ⚙).",
         });
       }
 
@@ -131,8 +139,8 @@
       let facts  = [];
       let attempts = 0;
 
-      while (!facts.length && attempts < activeQFTypes.length) {
-        qfType = pickQFType();
+      while (!facts.length && attempts < eligibleTypes.length) {
+        qfType = pickQFType(eligibleTypes);
         facts  = qfType ? pickSeriesAFacts(qfType) : [];
         attempts++;
       }

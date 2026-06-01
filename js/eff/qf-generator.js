@@ -97,6 +97,18 @@
   // Returnează lista tuturor tipurilor QF active pentru un profil dat.
   // Un „tip QF" este independent de fact; se aplică acelui fact la render.
 
+  // Determină answerType dintr-un tip QF fără a cunoaște faptul concret.
+  // STÂNGA tokeni: [nr1, op_arith, nr2, '=', result]  → pos1=arith_op, pos3=relation_op
+  // DREAPTA tokeni: [result, '=', nr1, op_arith, nr2] → pos1=relation_op, pos3=arith_op
+  function qfTypeAnswerType({ f2, f3Key, pos }) {
+    if (f3Key === "trei_pozitii_pt_cate_un_numar") return "number";
+    if (f3Key === "doua_pozitii_pt_cate_un_semn_operator_matematic") {
+      if (f2 === "doua_nr_in_STANGA") return pos === 1 ? "arith_op" : "relation_op";
+      return pos === 1 ? "relation_op" : "arith_op";
+    }
+    return "unknown";
+  }
+
   function getActiveQFTypes(profile) {
     const types = [];
     for (const f1 of F1_TYPES) {
@@ -106,13 +118,9 @@
         for (const { key, positions } of PHASE1_F3) {
           if (!profile[key]) continue;
           for (const pos of positions) {
-            types.push({
-              id: `${f1}:${f2}:${key}:${pos}`,
-              f1,
-              f2,
-              f3Key: key,
-              pos,
-            });
+            const qfType = { id: `${f1}:${f2}:${key}:${pos}`, f1, f2, f3Key: key, pos };
+            qfType.answerType = qfTypeAnswerType(qfType);
+            types.push(qfType);
           }
         }
       }
