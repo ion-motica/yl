@@ -21,6 +21,7 @@
 
   global.EFFQuizSubtractionAdapter = {
     listLevelFacts,
+    getDifficultyPair: (fact) => [fact.values.b, fact.values.result],
     getLevelLabel:       (level) => `Nivel ${level} · −${level} (diferență 0..${level >= 11 ? 20 : 10})`,
     getLevelButtonTitle: (level) => `Nivel ${level}: scăzător ${level}, diferențe 0-${level >= 11 ? 20 : 10}`,
   };

@@ -22,6 +22,7 @@
 
   global.EFFQuizDivisionAdapter = {
     listLevelFacts,
+    getDifficultyPair: (fact) => [fact.values.b, fact.values.result],
     getLevelLabel:       (level) => `Nivel ${level} · ÷${level} (cât 0..${level >= 11 ? 20 : 10})`,
     getLevelButtonTitle: (level) => `Nivel ${level}: împărțitor ${level}, câturi 0-${level >= 11 ? 20 : 10}`,
   };

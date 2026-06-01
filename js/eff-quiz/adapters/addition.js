@@ -14,6 +14,7 @@
 
   global.EFFQuizAdditionAdapter = {
     listLevelFacts,
+    getDifficultyPair: (fact) => [fact.values.a, fact.values.b],
     getLevelLabel:       (level) => `Nivel ${level} · ${level}+0..${level >= 11 ? 20 : 10}`,
     getLevelButtonTitle: (level) => `Nivel ${level}: ${level}+0..${level >= 11 ? 20 : 10}`,
   };

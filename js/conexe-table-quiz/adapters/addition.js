@@ -106,6 +106,7 @@
   global.ConexeTableQuizAdditionAdapter = {
     conexeTypes: CONEXE_TYPES,
     listLevelFacts,
+    getDifficultyPair: (fact) => [fact.values.a, fact.values.b],
     getLevelLabel: (level) => `Nivel ${level} · ${level}+1..20`,
     getLevelButtonTitle: (level) => `Nivel ${level}: ${level}+1..20`,
     promptLabel,

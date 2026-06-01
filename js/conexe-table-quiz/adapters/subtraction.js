@@ -130,6 +130,7 @@
   global.ConexeTableQuizSubtractionAdapter = {
     conexeTypes: CONEXE_TYPES,
     listLevelFacts,
+    getDifficultyPair: (fact) => [fact.values.b, fact.values.result],
     getLevelLabel: (level) => `Nivel ${level} · -${level} (diferență 0..20)`,
     getLevelButtonTitle: (level) => `Nivel ${level}: scăzător ${level}, diferențe 0-20`,
     promptLabel,

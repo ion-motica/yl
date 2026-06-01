@@ -362,18 +362,12 @@
 
       getProgressDisplay: () => global.ProgressDisplay.hidden(),
 
-      // Factor de viteză combinat: bază per nivel × SpeedManager (dificultate) × recuperare azi (−20%).
+      // Factor de viteză: pas > 10 → 0.80 (SpeedFactors) × recuperare azi (−20%).
       getFallSpeedFactor() {
         if (!currentStep) return 1.0;
-        const baseFactor = level >= 11 ? 0.79 : 1.0;
-        const difficultyFactor = global.SpeedManager?.getEffectiveFactor(quizId, level, currentStep.a) ?? 1.0;
+        const stepFactor     = global.SpeedFactors?.succesiveFactor(currentStep.b) ?? 1.0;
         const recoveryFactor = isRecoveryToday(currentStep.a) ? 0.8 : 1.0;
-        return Math.max(0.40, baseFactor * difficultyFactor * recoveryFactor);
-      },
-
-      // Bounce la vârf dacă nivelul a acumulat greșeli (levelFactor < 1).
-      shouldBounceToTop() {
-        return global.SpeedManager?.shouldBounceToTop(quizId, level) ?? false;
+        return Math.max(0.40, stepFactor * recoveryFactor);
       },
 
       isCompleted: () => gameCompleted,

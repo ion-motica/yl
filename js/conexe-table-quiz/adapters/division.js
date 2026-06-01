@@ -130,6 +130,7 @@
   global.ConexeTableQuizDivisionAdapter = {
     conexeTypes: CONEXE_TYPES,
     listLevelFacts,
+    getDifficultyPair: (fact) => [fact.values.b, fact.values.result],
     getLevelLabel: (level) => `Nivel ${level} · :${level} (cât 1..20)`,
     getLevelButtonTitle: (level) => `Nivel ${level}: împărțitor ${level}, câturi 1-20`,
     promptLabel,

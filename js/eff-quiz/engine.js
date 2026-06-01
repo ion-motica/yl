@@ -381,6 +381,12 @@
         };
       },
 
+      getFallSpeedFactor() {
+        if (!currentFact || !adapter.getDifficultyPair) return 1.0;
+        const [n1, n2] = adapter.getDifficultyPair(currentFact);
+        return global.SpeedFactors?.factDifficultyFactor(n1, n2) ?? 1.0;
+      },
+
       refreshProfile() {
         profile       = prof.getProfile(quizId);
         activeQFTypes = QFG.getActiveQFTypes(profile);
