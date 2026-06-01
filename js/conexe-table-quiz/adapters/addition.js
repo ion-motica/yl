@@ -3,7 +3,6 @@
 
   const CONEXE_TYPES = ["missing-left", "missing-right", "bond-left", "bond-right"];
   const OPTION_MIN = 1;
-  const OPTION_MAX = 12;
 
   function listLevelFacts(level) {
     return global.FactCatalog.listTableFacts({
@@ -11,7 +10,7 @@
       promptForm: global.FactCatalog.PROMPT_FORMS.result,
       fixedA: level,
       minB: 1,
-      maxB: 10,
+      maxB: 20,
     });
   }
 
@@ -39,12 +38,13 @@
 
   function pickNearWrongAnswers(correct, count, shuffle) {
     const correctNum = Number(correct);
+    const optMax = Math.max(12, correctNum + 2);
     const used = new Set([correct]);
     const candidates = [];
 
-    for (let delta = 1; delta <= OPTION_MAX - OPTION_MIN; delta++) {
+    for (let delta = 1; delta <= optMax - OPTION_MIN; delta++) {
       for (const value of [correctNum - delta, correctNum + delta]) {
-        if (value < OPTION_MIN || value > OPTION_MAX) continue;
+        if (value < OPTION_MIN || value > optMax) continue;
         const label = String(value);
         if (used.has(label)) continue;
         candidates.push(label);
@@ -62,9 +62,10 @@
 
   function buildOptions(fact, conexeType, shuffle) {
     const correctLabel = correctAnswer(fact, conexeType);
+    const optMax = Math.max(12, Number(correctLabel) + 2);
     const wrong = pickNearWrongAnswers(correctLabel, 2, shuffle);
     const fallback = (offset) =>
-      String(Math.min(OPTION_MAX, Math.max(OPTION_MIN, Number(correctLabel) + offset)));
+      String(Math.min(optMax, Math.max(OPTION_MIN, Number(correctLabel) + offset)));
 
     const options = shuffle([correctLabel, wrong[0] ?? fallback(-1), wrong[1] ?? fallback(1)]);
     return {
@@ -105,8 +106,8 @@
   global.ConexeTableQuizAdditionAdapter = {
     conexeTypes: CONEXE_TYPES,
     listLevelFacts,
-    getLevelLabel: (level) => `Nivel ${level} · ${level}+1..10`,
-    getLevelButtonTitle: (level) => `Nivel ${level}: ${level}+1..10`,
+    getLevelLabel: (level) => `Nivel ${level} · ${level}+1..20`,
+    getLevelButtonTitle: (level) => `Nivel ${level}: ${level}+1..20`,
     promptLabel,
     correctAnswer,
     buildOptions,

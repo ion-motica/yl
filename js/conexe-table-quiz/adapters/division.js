@@ -7,7 +7,7 @@
 
   function listLevelFacts(level) {
     const facts = [];
-    for (let quotient = 1; quotient <= 10; quotient += 1) {
+    for (let quotient = 1; quotient <= 20; quotient += 1) {
       facts.push(
         global.FactCatalog.createFact({
           operation: "div",
@@ -47,12 +47,13 @@
 
   function pickNearWrongAnswers(correct, count, shuffle) {
     const correctNum = Number(correct);
+    const optMax = Math.max(12, correctNum + 2);
     const used = new Set([correct]);
     const candidates = [];
 
-    for (let delta = 1; delta <= DIVISOR_OPTION_MAX - DIVISOR_OPTION_MIN; delta++) {
+    for (let delta = 1; delta <= optMax - DIVISOR_OPTION_MIN; delta++) {
       for (const value of [correctNum - delta, correctNum + delta]) {
-        if (value < DIVISOR_OPTION_MIN || value > DIVISOR_OPTION_MAX) continue;
+        if (value < DIVISOR_OPTION_MIN || value > optMax) continue;
         const label = String(value);
         if (used.has(label)) continue;
         candidates.push(label);
@@ -96,15 +97,13 @@
       ? pickDividendWrongAnswers(a, quotient, 2, shuffle)
       : pickNearWrongAnswers(correctLabel, 2, shuffle);
 
+    const optMax = Math.max(12, Number(correctLabel) + 2);
     const fallback = (offset) => {
       if (answersDividend(conexeType)) {
         return String(Math.max(1, a + offset));
       }
       return String(
-        Math.min(
-          DIVISOR_OPTION_MAX,
-          Math.max(DIVISOR_OPTION_MIN, Number(correctLabel) + offset)
-        )
+        Math.min(optMax, Math.max(DIVISOR_OPTION_MIN, Number(correctLabel) + offset))
       );
     };
 
@@ -131,8 +130,8 @@
   global.ConexeTableQuizDivisionAdapter = {
     conexeTypes: CONEXE_TYPES,
     listLevelFacts,
-    getLevelLabel: (level) => `Nivel ${level} · :${level} (cât 1..10)`,
-    getLevelButtonTitle: (level) => `Nivel ${level}: împărțitor ${level}, câturi 1-10`,
+    getLevelLabel: (level) => `Nivel ${level} · :${level} (cât 1..20)`,
+    getLevelButtonTitle: (level) => `Nivel ${level}: împărțitor ${level}, câturi 1-20`,
     promptLabel,
     correctAnswer,
     buildOptions,

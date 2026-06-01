@@ -5,7 +5,7 @@
     id: "multiplication-table-conexe-helper",
     title: "Tabla inmultirii - intrebari ajutatoare 5*?=15",
     description:
-      "Conexe pentru tabla înmulțirii (?*b, a*?, c=?*b, c=a*?). Alternanță M1/M2, nivel 1–10.",
+      "Conexe pentru tabla înmulțirii (?*b, a*?, c=?*b, c=a*?). Alternanță M1/M2, nivel 1–20.",
     order: -13,
     gestionareGreseli: { activ: false },
     create() {

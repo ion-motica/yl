@@ -5,7 +5,7 @@
     id: "addition-table-conexe-helper",
     title: "Tabla adunarii - intrebari ajutatoare 3+?=5",
     description:
-      "Conexe pentru tabla adunarii (?+b, a+?, c=?+b, c=a+?). Alternanță M1/M2, nivel 2–10.",
+      "Conexe pentru tabla adunarii (?+b, a+?, c=?+b, c=a+?). Alternanță M1/M2, nivel 2–20.",
     order: -6,
     gestionareGreseli: { activ: false },
     create() {

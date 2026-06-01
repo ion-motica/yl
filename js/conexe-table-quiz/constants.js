@@ -28,7 +28,7 @@
 
   const DEFAULTS = {
     MIN_LEVEL: 2,
-    MAX_LEVEL: 10,
+    MAX_LEVEL: 20,
     MIN_POOL_SIZE: 3,
     MAX_QUESTIONS_PER_SERIES: 3,
     CONEXE_FAST_MS: 2000,
@@ -36,7 +36,7 @@
     LEVEL_TOO_LOW_MESSAGE: "Prea ușor. trecem la nivelul 2",
     HINT_MESSAGE: "Alege numărul corect pentru ?.",
     TIMEOUT_MESSAGE: "Prea târziu! Alege numărul corect pentru ?.",
-    GAME_COMPLETE_BANNER: "Felicitări! Ai terminat nivelul 10!",
+    GAME_COMPLETE_BANNER: "Felicitări! Ai terminat nivelul 20!",
     LEVEL_ADVANCED_BANNER: "Felicitări! Next level!",
   };
 

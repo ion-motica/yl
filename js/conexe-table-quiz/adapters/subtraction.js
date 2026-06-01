@@ -7,7 +7,7 @@
 
   function listLevelFacts(level) {
     const facts = [];
-    for (let result = 0; result <= 10; result += 1) {
+    for (let result = 0; result <= 20; result += 1) {
       facts.push(
         global.FactCatalog.createFact({
           operation: "sub",
@@ -47,12 +47,13 @@
 
   function pickNearWrongAnswers(correct, count, shuffle) {
     const correctNum = Number(correct);
+    const optMax = Math.max(12, correctNum + 2);
     const used = new Set([correct]);
     const candidates = [];
 
-    for (let delta = 1; delta <= SMALL_OPTION_MAX - SMALL_OPTION_MIN; delta++) {
+    for (let delta = 1; delta <= optMax - SMALL_OPTION_MIN; delta++) {
       for (const value of [correctNum - delta, correctNum + delta]) {
-        if (value < SMALL_OPTION_MIN || value > SMALL_OPTION_MAX) continue;
+        if (value < SMALL_OPTION_MIN || value > optMax) continue;
         const label = String(value);
         if (used.has(label)) continue;
         candidates.push(label);
@@ -96,15 +97,13 @@
       ? pickMinuendWrongAnswers(a, difference, 2, shuffle)
       : pickNearWrongAnswers(correctLabel, 2, shuffle);
 
+    const optMax = Math.max(12, Number(correctLabel) + 2);
     const fallback = (offset) => {
       if (answersMinuend(conexeType)) {
         return String(Math.max(1, a + offset));
       }
       return String(
-        Math.min(
-          SMALL_OPTION_MAX,
-          Math.max(SMALL_OPTION_MIN, Number(correctLabel) + offset)
-        )
+        Math.min(optMax, Math.max(SMALL_OPTION_MIN, Number(correctLabel) + offset))
       );
     };
 
@@ -131,8 +130,8 @@
   global.ConexeTableQuizSubtractionAdapter = {
     conexeTypes: CONEXE_TYPES,
     listLevelFacts,
-    getLevelLabel: (level) => `Nivel ${level} · -${level} (diferență 0..10)`,
-    getLevelButtonTitle: (level) => `Nivel ${level}: scăzător ${level}, diferențe 0-10`,
+    getLevelLabel: (level) => `Nivel ${level} · -${level} (diferență 0..20)`,
+    getLevelButtonTitle: (level) => `Nivel ${level}: scăzător ${level}, diferențe 0-20`,
     promptLabel,
     correctAnswer,
     buildOptions,
