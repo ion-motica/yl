@@ -588,6 +588,238 @@ body {
   }
 }
 
+/* ── EFF button in sidebar ───────────────────────────────────────────────── */
+
+#eff-controls {
+  margin-top: 10px;
+}
+
+.eff-btn {
+  width: 100%;
+  padding: 7px 10px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.eff-btn:hover { background: #3730a3; }
+
+/* ── EFF modal ───────────────────────────────────────────────────────────── */
+
+.eff-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  overflow-y: auto;
+}
+
+.eff-modal-overlay.hidden { display: none; }
+
+.eff-modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.eff-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.eff-modal-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.eff-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #64748b;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.eff-modal-close:hover { background: #f1f5f9; color: #1e293b; }
+
+.eff-modal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.eff-modal-f0-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.eff-modal-f0-box {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1.8rem;
+  font-weight: bold;
+  background: #f8fafc;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 20px;
+  min-width: 150px;
+  text-align: center;
+}
+
+.eff-modal-btn-gen {
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.eff-modal-btn-gen:hover { background: #2563eb; }
+
+.eff-modal-combo-text {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.eff-modal-table-wrap {
+  overflow-x: auto;
+}
+
+.eff-tbl {
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.eff-tbl th,
+.eff-tbl td {
+  border: 1px solid #dde1e7;
+  padding: 5px 8px;
+  vertical-align: middle;
+}
+
+.eff-tbl thead th {
+  background: #f1f5f9;
+  font-weight: 600;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.eff-tbl tr[data-fi="0"],
+.eff-tbl tr[data-fi="0"] + tr { background: #fff; }
+.eff-tbl tr[data-fi="1"],
+.eff-tbl tr[data-fi="1"] + tr { background: #f5f3ff; }
+.eff-tbl tr[data-fi="2"],
+.eff-tbl tr[data-fi="2"] + tr { background: #fff8f0; }
+.eff-tbl tr[data-fi="3"],
+.eff-tbl tr[data-fi="3"] + tr { background: #f0f9ff; }
+
+.eff-tbl-sw-cell { text-align: center; min-width: 82px; }
+
+.eff-tbl-title {
+  font-size: 0.7rem;
+  white-space: normal;
+  word-break: break-word;
+  min-width: 130px;
+  max-width: 155px;
+  line-height: 1.4;
+}
+
+.eff-tbl-base {
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.88rem;
+  font-weight: bold;
+  margin-top: 3px;
+  color: #1a56db;
+}
+
+.eff-tbl-code {
+  font-size: 0.66rem;
+  display: block;
+  margin-bottom: 4px;
+  color: #475569;
+}
+
+.eff-tbl-content {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.78rem;
+}
+
+.eff-tbl-f1-label {
+  font-size: 0.58rem;
+  color: #64748b;
+  word-break: break-word;
+  max-width: 72px;
+  margin-bottom: 4px;
+  line-height: 1.3;
+  font-family: "Courier New", Courier, monospace;
+}
+
+.eff-sw {
+  padding: 3px 9px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+.eff-sw-on  { background: #22c55e; color: #fff; }
+.eff-sw-off { background: #9ca3af; color: #fff; }
+
+.eff-dimmed { opacity: 0.18; }
+
+.eff-modal-footer {
+  padding: 12px 18px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.eff-modal-save-btn {
+  padding: 9px 20px;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.eff-modal-save-btn:hover { background: #15803d; }
+
 .game.is-paused .arena::after {
   content: "PAUZĂ";
   position: absolute;

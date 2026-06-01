@@ -157,12 +157,24 @@
     });
   }
 
+  const effControlsEl = document.getElementById("eff-controls");
+  const effBtnEl      = document.getElementById("eff-btn");
+
+  effBtnEl.addEventListener("click", () => {
+    if (quiz?.isEFFQuiz) {
+      global.EFFModal.open(quiz.getQuizId(), () => {
+        quiz.refreshProfile?.();
+      });
+    }
+  });
+
   function switchQuiz(id) {
     if (id === QuizRegistry.getActiveId() && quiz && !quiz.isCompleted()) return;
     QuizRegistry.setActive(id);
     const meta = QuizRegistry.get(id);
     dom.quizTitleEl.textContent = meta.title;
     quiz = QuizRegistry.createActive();
+    effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);
     buildQuizPicker();
     buildLevelPicker();
     lastGreenCells = null;
@@ -183,6 +195,7 @@
     onProgressUpdate: renderProgress,
   });
 
+  effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);
   dom.quizTitleEl.textContent = QuizRegistry.get(QuizRegistry.getActiveId()).title;
   buildQuizPicker();
   buildLevelPicker();
