@@ -394,7 +394,7 @@
 
     document.addEventListener("keydown", (e) => {
       if (e.repeat) return;
-      if (e.code === "Space") {
+      if (e.code === "Space" || e.key === "p" || e.key === "P") {
         e.preventDefault();
         dom.playPauseBtn.click();
         return;
