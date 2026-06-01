@@ -18,6 +18,7 @@
     falling: document.getElementById("falling"),
     fallingMainEl: document.getElementById("falling-main"),
     topNumberEl: document.getElementById("top-number"),
+    successionListEl: document.getElementById("succession-list"),
     divisionHistoryEl: document.getElementById("division-history"),
     fallingPrimes: [...document.querySelectorAll(".falling-prime")],
     rising: document.getElementById("rising"),

@@ -50,6 +50,8 @@
     let options      = [];
     let correctIndex = 0;
 
+    let seriesHistory = [];  // [{prompt, answer}] pt seria curentă
+
     let levelPool = [];
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -79,6 +81,7 @@
         bondHistory: [],
         questionFormat: null,
         hintMessage: HINT,
+        successionHistory: [...seriesHistory],
         ...extra,
       };
     }
@@ -126,6 +129,7 @@
       seriesType        = "A";
       seriesHadMistakes = false;
       currentQFType     = null;
+      seriesHistory     = [];
 
       const eligibleTypes = seriesAEligible();
 
@@ -163,6 +167,7 @@
       seriesType        = "B";
       seriesHadMistakes = false;
       currentQFType     = null;
+      seriesHistory     = [];
 
       const fact = factById(factId);
       if (!fact) return beginSeriesA();
@@ -290,7 +295,9 @@
     function onStepCorrect() {
       reg.addCorrect(quizId, level, currentFact.factId);
 
-      const promptText = currentBuilt.prompt;
+      const promptText    = currentBuilt.prompt;
+      const correctAnswer = currentBuilt.options[currentBuilt.correctIndex];
+      seriesHistory.push({ prompt: promptText, answer: correctAnswer });
       activeQueue.shift();
 
       let next;

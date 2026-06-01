@@ -175,6 +175,26 @@
         dom.divisionHistoryEl.appendChild(line);
       });
 
+      if (dom.successionListEl) {
+        dom.successionListEl.replaceChildren();
+        (state.successionHistory || []).forEach(({ prompt, answer }) => {
+          const item = document.createElement("div");
+          item.className = "sl-item";
+          const parts = String(prompt ?? "").split("?");
+          if (parts.length === 2) {
+            item.append(document.createTextNode(parts[0]));
+            const span = document.createElement("span");
+            span.className = "sl-answer";
+            span.textContent = String(answer ?? "");
+            item.appendChild(span);
+            item.append(document.createTextNode(parts[1]));
+          } else {
+            item.textContent = `${prompt} ${answer}`;
+          }
+          dom.successionListEl.appendChild(item);
+        });
+      }
+
       syncBoxHeight();
       if (state.hintMessage) dom.messageEl.textContent = state.hintMessage;
       config.onRender?.(state);

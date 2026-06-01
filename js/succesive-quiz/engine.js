@@ -209,7 +209,7 @@
         promptHtml: showVertical ? buildVerticalPromptHtml(currentStep) : undefined,
         options: [...options],
         correctIndex,
-        divisionHistory: seriesHistory.slice(-3),
+        successionHistory: seriesHistory.slice(-3),
         hintMessage: extra.hintMessage ?? HINT_MESSAGE,
         ...extra,
       };
@@ -231,11 +231,13 @@
       );
     }
 
-    function promptWithAnswer(prompt, answer) {
+    // (păstrat pentru compatibilitate internă dacă e necesar în viitor)
+    function _promptWithAnswer(prompt, answer) {
       return String(prompt).includes("=?")
         ? String(prompt).replace("=?", `=${answer}`)
         : `${prompt} ${answer}`;
     }
+    void _promptWithAnswer; // suprima warning unused
 
     function canAdvanceLevel() {
       const r = reg();
@@ -333,7 +335,7 @@
       const solvedPrompt = currentStep.prompt;
       const solvedAnswer = currentStep.correctAnswer;
 
-      seriesHistory.push(promptWithAnswer(solvedPrompt, solvedAnswer));
+      seriesHistory.push({ prompt: solvedPrompt, answer: solvedAnswer });
       stepIndex += 1;
       currentValue = solvedAnswer;
 

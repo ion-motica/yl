@@ -419,6 +419,30 @@ body {
   padding: 0.45rem 0.55rem;
 }
 
+.succession-list {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  text-align: center;
+  line-height: 1.5;
+  pointer-events: none;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-family: "Courier New", Courier, monospace;
+}
+
+.sl-item {
+  display: block;
+  white-space: nowrap;
+}
+
+.sl-answer {
+  color: #e8762a;
+  font-weight: 700;
+}
+
 .division-history {
   width: 100%;
   font-size: 1rem;
