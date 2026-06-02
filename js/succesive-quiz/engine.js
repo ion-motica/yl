@@ -362,12 +362,17 @@
 
       getProgressDisplay: () => global.ProgressDisplay.hidden(),
 
-      // Factor de viteză: pas > 10 → 0.80 (SpeedFactors) × recuperare azi (−20%).
+      // Factor de viteză: pas > 10 → 0.70 (SpeedFactors) × recuperare azi (−20%).
       getFallSpeedFactor() {
         if (!currentStep) return 1.0;
         const stepFactor     = global.SpeedFactors?.succesiveFactor(currentStep.b) ?? 1.0;
         const recoveryFactor = isRecoveryToday(currentStep.a) ? 0.8 : 1.0;
         return Math.max(0.40, stepFactor * recoveryFactor);
+      },
+
+      shouldBounceToTop() {
+        if (!currentStep) return false;
+        return (global.SpeedFactors?.succesiveFactor(currentStep.b) ?? 1.0) < 1.0;
       },
 
       isCompleted: () => gameCompleted,

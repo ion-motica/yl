@@ -590,6 +590,12 @@
         return global.SpeedFactors?.factDifficultyFactor(n1, n2) ?? 1.0;
       },
 
+      shouldBounceToTop() {
+        if (!currentFact || !adapter.getDifficultyPair) return false;
+        const [n1, n2] = adapter.getDifficultyPair(currentFact);
+        return (global.SpeedFactors?.factDifficultyFactor(n1, n2) ?? 1.0) < 1.0;
+      },
+
       pickNextRound() {
         resetSessionForLevel();
         blockMode = "m1";

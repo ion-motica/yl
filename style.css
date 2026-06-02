@@ -462,6 +462,12 @@ body {
   font-size: 2.5rem;
   font-weight: 700;
   line-height: 1.1;
+  white-space: nowrap;
+}
+
+.q-mark {
+  color: var(--win);
+  font-weight: 800;
 }
 
 .falling-options {

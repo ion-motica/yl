@@ -24,6 +24,18 @@
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
 
+    // Reduce font size pas cu pas până când textul încape pe un singur rând.
+    function fitNumberText(el) {
+      el.style.fontSize = "";           // resetează la valoarea CSS (2.5rem)
+      const container = el.parentElement;
+      if (!container) return;
+      let fs = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > container.clientWidth && fs > 14) {
+        fs -= 2;
+        el.style.fontSize = fs + "px";
+      }
+    }
+
     function nowMs() {
       if (global.performance && typeof global.performance.now === "function") {
         return global.performance.now();
@@ -148,10 +160,19 @@
         if (state.promptHtml !== undefined) {
           dom.topNumberEl.innerHTML = state.promptHtml ?? "—";
         } else {
-          dom.topNumberEl.textContent = state.prompt ?? "—";
+          const raw = String(state.prompt ?? "—");
+          if (raw.includes("?")) {
+            dom.topNumberEl.innerHTML = raw.replace(
+              /\?/g,
+              '<span class="q-mark"> ? </span>'
+            );
+          } else {
+            dom.topNumberEl.textContent = raw;
+          }
         }
         fm?.classList.remove("has-division-eq", "has-singapore-bond");
       }
+      fitNumberText(dom.topNumberEl);
 
       dom.optionBtns.forEach((btn, i) => {
         const val = state.options?.[i];
