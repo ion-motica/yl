@@ -42,11 +42,13 @@
     flashColor: "rgba(255, 140, 0, 0.55)",
     signColor: "#facc15",
     numberHiddenColor: "transparent",
-    numberVisibleColor: "#1e293b",
+    numberVisibleColor: "#ffffff",
     beeColor: "#2563eb",
     background: "#0f172a",
     overlapCenterPx: 3,
     overlapBeePx: 0.14,
+    flowerDisplayMode: "all",
+    signCompact: 0,
   };
 
   function randInt(min, max) {
@@ -59,6 +61,10 @@
 
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v));
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
   }
 
   function isNumberToken(t) {
@@ -334,7 +340,40 @@
         this.intervalSlider
       );
 
-      this.toolbar.append(this.factLabel, this.btnRestart, this.sliderLabel);
+      this.btnDisplayMode = document.createElement("button");
+      this.btnDisplayMode.type = "button";
+      this.btnDisplayMode.className = "dae-btn dae-btn-toggle";
+      this._syncDisplayModeButton();
+
+      this.signSliderLabel = document.createElement("label");
+      this.signSliderLabel.className = "dae-slider-label";
+
+      this.signCompactOut = document.createElement("output");
+      this.signCompactOut.className = "dae-interval-out";
+      this.signCompactOut.textContent = String(this.options.signCompact);
+
+      this.signCompactSlider = document.createElement("input");
+      this.signCompactSlider.type = "range";
+      this.signCompactSlider.min = "0";
+      this.signCompactSlider.max = "100";
+      this.signCompactSlider.step = "1";
+      this.signCompactSlider.value = String(this.options.signCompact);
+      this.signCompactSlider.className = "dae-slider";
+
+      this.signSliderLabel.append(
+        "Strângere semne ",
+        this.signCompactOut,
+        "%",
+        this.signCompactSlider
+      );
+
+      this.toolbar.append(
+        this.factLabel,
+        this.btnRestart,
+        this.btnDisplayMode,
+        this.sliderLabel,
+        this.signSliderLabel
+      );
 
       this.arenaWrap = document.createElement("div");
       this.arenaWrap.className = "dae-arena-wrap";
@@ -371,12 +410,62 @@
 
     _bindControls() {
       this.btnRestart.addEventListener("click", () => this.restartRandomFact());
+      this.btnDisplayMode.addEventListener("click", () => {
+        this.options.flowerDisplayMode =
+          this.options.flowerDisplayMode === "all" ? "oneQuestion" : "all";
+        this._syncDisplayModeButton();
+        this.flowers.forEach((f) => this._applyFlowerDisplay(f));
+      });
       this.intervalSlider.addEventListener("input", () => {
         this.options.flowerIntervalSec = Number(this.intervalSlider.value);
         this.intervalOut.textContent = this.intervalSlider.value;
         this._layoutMetrics();
         this._rebuildBeePaths();
       });
+      this.signCompactSlider.addEventListener("input", () => {
+        this.options.signCompact = Number(this.signCompactSlider.value);
+        this.signCompactOut.textContent = this.signCompactSlider.value;
+        this._layoutMetrics();
+        this._refreshFlowerCellWidths();
+        this._rebuildBeePaths();
+      });
+    }
+
+    _syncDisplayModeButton() {
+      const q = this.options.flowerDisplayMode === "oneQuestion";
+      this.btnDisplayMode.textContent = q
+        ? "Floare: un „?” (click → toate numerele)"
+        : "Floare: toate numerele (click → un „?”)";
+      this.btnDisplayMode.classList.toggle("dae-btn-toggle--on", q);
+    }
+
+    _compactMetrics() {
+      const t = clamp(this.options.signCompact, 0, 100) / 100;
+      const c = this.cellSize;
+
+      if (t <= 0) {
+        return { numW: c, signW: c, gap: 0, span: c * 5, left: 0 };
+      }
+
+      const numW = c * lerp(1, 0.86, t);
+      const signW = c * lerp(1, 0.12, t);
+      const gap = c * lerp(0, 0.05, Math.pow(t, 0.75));
+      const span = 3 * numW + 2 * signW + 4 * gap;
+      const left = (this.options.arenaWidth - span) / 2;
+
+      return { numW, signW, gap, span, left };
+    }
+
+    _cellCenterXForF8(f8id, cellIndex) {
+      const f8 = this.catalog[f8id - 1];
+      const { numW, signW, gap, left } = this._compactMetrics();
+      let x = left;
+      for (let i = 0; i < cellIndex; i += 1) {
+        const w = f8.cells[i].kind === "sign" ? signW : numW;
+        x += w + gap;
+      }
+      const w = f8.cells[cellIndex].kind === "sign" ? signW : numW;
+      return x + w / 2;
     }
 
     _layoutMetrics() {
@@ -401,20 +490,20 @@
       this.root.style.setProperty("--dae-bee", o.beeColor);
       this.root.style.setProperty("--dae-flash", o.flashColor);
 
+      const { numW } = this._compactMetrics();
+      this.beeBox = Math.floor(numW);
+
       this.bees.forEach((b) => {
-        b.el.style.width = `${this.cellSize}px`;
+        b.el.style.width = `${this.beeBox}px`;
         b.el.style.height = `${this.cellSize}px`;
       });
 
       this._updateFactLabel();
+      this._refreshFlowerCellWidths();
     }
 
     _updateFactLabel() {
       this.factLabel.textContent = `F0: ${formatFact(this.f0)}  ·  f8 × ${this.catalog.length}`;
-    }
-
-    _cellCenterX(cellIndex) {
-      return (cellIndex + 0.5) * this.cellSize;
     }
 
     _flowerCenterY(flower) {
@@ -426,10 +515,65 @@
       const map = new Map();
       f8.cells.forEach((cell) => {
         if (cell.kind === "number") {
-          map.set(cell.text, this._cellCenterX(cell.index));
+          map.set(cell.text, this._cellCenterXForF8(f8id, cell.index));
         }
       });
       return map;
+    }
+
+    _pickHiddenNumberIndex(f8id) {
+      const f8 = this.catalog[f8id - 1];
+      const indices = f8.cells
+        .filter((c) => c.kind === "number")
+        .map((c) => c.index);
+      return pick(indices);
+    }
+
+    _applyFlowerCellWidths(el, f8id) {
+      const f8 = this.catalog[f8id - 1];
+      const { numW, signW, gap, span, left } = this._compactMetrics();
+      const cells = el.querySelectorAll(".dae-flower-cell");
+
+      el.style.width = `${span}px`;
+      el.style.left = `${left}px`;
+      el.style.right = "auto";
+
+      f8.cells.forEach((cell, i) => {
+        const w = cell.kind === "sign" ? signW : numW;
+        const cellEl = cells[i];
+        cellEl.style.flex = "0 0 auto";
+        cellEl.style.width = `${w}px`;
+        cellEl.style.maxWidth = `${w}px`;
+        cellEl.style.minWidth = `${w}px`;
+        cellEl.style.marginLeft = i === 0 ? "0" : `${gap}px`;
+      });
+    }
+
+    _applyFlowerDisplay(flower) {
+      const f8 = this.catalog[flower.f8id - 1];
+      const cells = flower.el.querySelectorAll(".dae-flower-cell");
+      f8.cells.forEach((cell, i) => {
+        if (cell.kind !== "number") return;
+        const cellEl = cells[i];
+        if (!flower.revealed) {
+          cellEl.textContent = cell.text;
+          return;
+        }
+        if (
+          this.options.flowerDisplayMode === "oneQuestion" &&
+          cell.index === flower.hiddenAtIndex
+        ) {
+          cellEl.textContent = "?";
+        } else {
+          cellEl.textContent = cell.text;
+        }
+      });
+    }
+
+    _refreshFlowerCellWidths() {
+      for (const flower of this.flowers) {
+        this._applyFlowerCellWidths(flower.el, flower.f8id);
+      }
     }
 
     _makeFlowerEl(f8id) {
@@ -446,6 +590,8 @@
         cellEl.dataset.index = String(cell.index);
         el.appendChild(cellEl);
       });
+
+      this._applyFlowerCellWidths(el, f8id);
       return el;
     }
 
@@ -454,7 +600,14 @@
       const y = centerY - this.flowerHeight / 2;
       el.style.transform = `translateY(${y}px)`;
       this.flowerLayer.appendChild(el);
-      const flower = { f8id, el, y, flashing: false, revealed: false };
+      const flower = {
+        f8id,
+        el,
+        y,
+        flashing: false,
+        revealed: false,
+        hiddenAtIndex: this._pickHiddenNumberIndex(f8id),
+      };
       this.flowers.push(flower);
       return flower;
     }
@@ -568,7 +721,7 @@
       const used = new Set();
 
       for (const cell of cells) {
-        const tx = this._cellCenterX(cell.index);
+        const tx = this._cellCenterXForF8(flower.f8id, cell.index);
         const ty = this.referenceY;
         let matched = false;
 
@@ -592,6 +745,7 @@
       if (aligned && !flower.revealed) {
         flower.revealed = true;
         flower.el.classList.add("dae-flower--revealed");
+        this._applyFlowerDisplay(flower);
       }
 
       if (aligned !== flower.flashing) {
@@ -645,7 +799,8 @@
 
       const beePositions = this.bees.map((bee, i) => {
         const pos = evalBeePath(this.beePaths[i], this.elapsed);
-        bee.el.style.transform = `translate(${pos.x - this.cellSize / 2}px, ${pos.y - this.cellSize / 2}px)`;
+        const half = (this.beeBox || this.cellSize) / 2;
+        bee.el.style.transform = `translate(${pos.x - half}px, ${pos.y - this.cellSize / 2}px)`;
         return { value: bee.value, x: pos.x, y: pos.y };
       });
 
@@ -679,7 +834,16 @@
         this.intervalSlider.value = String(partial.flowerIntervalSec);
         this.intervalOut.textContent = String(partial.flowerIntervalSec);
       }
+      if (partial.signCompact != null) {
+        this.signCompactSlider.value = String(partial.signCompact);
+        this.signCompactOut.textContent = String(partial.signCompact);
+      }
+      if (partial.flowerDisplayMode != null) {
+        this._syncDisplayModeButton();
+      }
       this._layoutMetrics();
+      this._refreshFlowerCellWidths();
+      this.flowers.forEach((f) => this._applyFlowerDisplay(f));
       this._rebuildBeePaths();
     }
 

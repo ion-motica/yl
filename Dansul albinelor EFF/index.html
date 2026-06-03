@@ -35,7 +35,7 @@
       --dae-font: 31px;
       --dae-sign: #facc15;
       --dae-num-hidden: transparent;
-      --dae-num-visible: #1e293b;
+      --dae-num-visible: #ffffff;
       --dae-bee: #38bdf8;
       --dae-flash: rgba(255, 140, 0, 0.55);
     }
@@ -70,6 +70,17 @@
       cursor: pointer;
     }
     .dae-btn:hover { background: #2563eb; }
+
+    .dae-btn-toggle {
+      background: #334155;
+      text-align: left;
+      line-height: 1.35;
+    }
+    .dae-btn-toggle:hover { background: #475569; }
+    .dae-btn-toggle--on {
+      background: #7c3aed;
+    }
+    .dae-btn-toggle--on:hover { background: #6d28d9; }
 
     .dae-slider-label {
       display: flex;
@@ -123,13 +134,15 @@
 
     .dae-flower {
       position: absolute;
-      left: 0;
-      width: 100%;
+      top: 0;
       display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-content: flex-start;
       will-change: transform;
       z-index: 1;
       border-radius: 8px;
-      transition: background 0.12s ease, box-shadow 0.12s ease;
+      transition: background 0.12s ease, box-shadow 0.12s ease, width 0.08s ease, left 0.08s ease;
     }
 
     .dae-flower--flash {
@@ -139,8 +152,7 @@
     }
 
     .dae-flower-cell {
-      flex: 1 1 0;
-      width: var(--dae-cell);
+      flex: 0 0 auto;
       height: var(--dae-cell);
       display: flex;
       align-items: center;
@@ -154,6 +166,8 @@
 
     .dae-flower-cell--sign {
       color: var(--dae-sign);
+      padding: 0;
+      letter-spacing: -0.06em;
     }
 
     .dae-flower-cell--number {
