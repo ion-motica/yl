@@ -47,6 +47,7 @@
     background: "#0f172a",
     overlapCenterPx: 3,
     overlapBeePx: 0.14,
+    syncBeePx: 0.3,
     flowerDisplayMode: "all",
     signCompact: 0,
   };
@@ -158,8 +159,12 @@
     return catalog;
   }
 
-  function trioValues(f0) {
-    return [String(f0.a), String(f0.b), String(f0.r)];
+  function trioSlots(f0) {
+    return [
+      { slot: "a", value: String(f0.a) },
+      { slot: "b", value: String(f0.b) },
+      { slot: "r", value: String(f0.r) },
+    ];
   }
 
   /** Succesiunea celor 3 numere în ordinea afișării (stânga → dreapta). */
@@ -220,12 +225,12 @@
     );
   }
 
-  function buildBeeKeyframes(beeValue, syncEvents, beeIndex) {
+  function buildBeeKeyframes(beeIndex, syncEvents) {
     if (syncEvents.length === 0) return [];
 
     const keyframes = syncEvents.map((ev) => ({
       t: ev.t,
-      x: ev.xByValue.get(beeValue),
+      x: ev.targets[beeIndex].x,
       y: ev.y,
     }));
 
@@ -287,7 +292,7 @@
       this.options = { ...DEFAULTS, ...options };
       this.f0 = options.f0 || randomF0();
       this.catalog = buildF8Catalog(this.f0);
-      this.trio = trioValues(this.f0);
+      this.trioSlots = trioSlots(this.f0);
       this.stream = new F8Stream(this.options.streamBatchSize, this.catalog);
       this.flowers = [];
       this.elapsed = 0;
@@ -392,13 +397,14 @@
       this.beeLayer = document.createElement("div");
       this.beeLayer.className = "dae-bee-layer";
 
-      this.bees = this.trio.map((value, i) => {
+      this.bees = this.trioSlots.map((s, i) => {
         const el = document.createElement("div");
         el.className = "dae-bee";
-        el.dataset.value = value;
-        el.innerHTML = `<span class="dae-bee-text">${value}</span>`;
+        el.dataset.value = s.value;
+        el.dataset.slot = s.slot;
+        el.innerHTML = `<span class="dae-bee-text">${s.value}</span>`;
         el.style.setProperty("--bee-i", String(i));
-        return { value, el };
+        return { slot: s.slot, value: s.value, el };
       });
 
       this.arena.append(this.refLine, this.flowerLayer, this.beeLayer);
@@ -510,15 +516,29 @@
       return flower.y + this.flowerHeight / 2;
     }
 
-    _xByValueForF8(f8id) {
+    /** Poziții X pentru cele 3 albine (a, b, r), inclusiv valori duplicate. */
+    _beeTargetsForF8(f8id) {
       const f8 = this.catalog[f8id - 1];
-      const map = new Map();
-      f8.cells.forEach((cell) => {
-        if (cell.kind === "number") {
-          map.set(cell.text, this._cellCenterXForF8(f8id, cell.index));
+      const numberCells = f8.cells
+        .filter((c) => c.kind === "number")
+        .sort((a, b) => a.index - b.index);
+      const used = new Set();
+
+      return this.trioSlots.map((slot) => {
+        let cell = numberCells.find(
+          (c) => !used.has(c.index) && c.text === slot.value
+        );
+        if (!cell) {
+          cell = numberCells.find((c) => !used.has(c.index));
         }
+        used.add(cell.index);
+        return {
+          slot: slot.slot,
+          value: slot.value,
+          cellIndex: cell.index,
+          x: this._cellCenterXForF8(f8id, cell.index),
+        };
       });
-      return map;
     }
 
     _pickHiddenNumberIndex(f8id) {
@@ -648,7 +668,7 @@
         events.push({
           t: now,
           f8id: nearest.f8id,
-          xByValue: this._xByValueForF8(nearest.f8id),
+          targets: this._beeTargetsForF8(nearest.f8id),
           y: this.referenceY,
         });
       }
@@ -685,7 +705,7 @@
           events.push({
             t: simTime,
             f8id: candidate.f8id,
-            xByValue: this._xByValueForF8(candidate.f8id),
+            targets: this._beeTargetsForF8(candidate.f8id),
             y: this.referenceY,
           });
         }
@@ -704,53 +724,72 @@
 
       events.sort((a, b) => a.t - b.t);
       this.syncHorizon = events.length ? events[events.length - 1].t : now + 10;
-      this.beePaths = this.trio.map((value, i) =>
-        buildBeeKeyframes(value, events, i)
-      );
+      this.beePaths = this.trioSlots.map((_, i) => buildBeeKeyframes(i, events));
     }
 
-    _isPerfectOverlap(flower, beePositions) {
+    _flowerInRefBand(flower) {
+      const half = this.flowerHeight / 2 + 2;
+      return Math.abs(this._flowerCenterY(flower) - this.referenceY) <= half;
+    }
+
+    _beesAlignedToFlower(flower, beePositions, centerTolPx, beeTolFactor) {
       const centerY = this._flowerCenterY(flower);
-      if (Math.abs(centerY - this.referenceY) > this.options.overlapCenterPx) {
-        return false;
-      }
+      if (Math.abs(centerY - this.referenceY) > centerTolPx) return false;
 
-      const f8 = this.catalog[flower.f8id - 1];
-      const cells = f8.cells.filter((c) => c.kind === "number");
-      const tol = Math.max(4, this.cellSize * this.options.overlapBeePx);
-      const used = new Set();
+      const targets = this._beeTargetsForF8(flower.f8id);
+      const tol = Math.max(6, this.cellSize * beeTolFactor);
+      const ty = this.referenceY;
 
-      for (const cell of cells) {
-        const tx = this._cellCenterXForF8(flower.f8id, cell.index);
-        const ty = this.referenceY;
-        let matched = false;
-
-        for (let i = 0; i < beePositions.length; i += 1) {
-          if (used.has(i)) continue;
-          if (beePositions[i].value !== cell.text) continue;
-          if (Math.hypot(beePositions[i].x - tx, beePositions[i].y - ty) <= tol) {
-            used.add(i);
-            matched = true;
-            break;
-          }
+      for (let i = 0; i < targets.length; i += 1) {
+        const tx = targets[i].x;
+        if (Math.hypot(beePositions[i].x - tx, beePositions[i].y - ty) > tol) {
+          return false;
         }
-        if (!matched) return false;
       }
       return true;
     }
 
-    _updateFlowerSync(flower, beePositions) {
-      const aligned = this._isPerfectOverlap(flower, beePositions);
+    _isPerfectOverlap(flower, beePositions) {
+      return this._beesAlignedToFlower(
+        flower,
+        beePositions,
+        this.options.overlapCenterPx,
+        this.options.overlapBeePx
+      );
+    }
 
-      if (aligned && !flower.revealed) {
+    _canRevealFlower(flower, beePositions) {
+      if (!this._flowerInRefBand(flower)) return false;
+      return this._beesAlignedToFlower(
+        flower,
+        beePositions,
+        this.flowerHeight / 2 + 4,
+        this.options.syncBeePx
+      );
+    }
+
+    _updateFlowerSync(flower, beePositions) {
+      const perfect = this._isPerfectOverlap(flower, beePositions);
+      const canReveal = !flower.revealed && this._canRevealFlower(flower, beePositions);
+
+      if (canReveal) {
         flower.revealed = true;
         flower.el.classList.add("dae-flower--revealed");
         this._applyFlowerDisplay(flower);
+      } else if (!flower.revealed) {
+        const flowerTop = this._flowerCenterY(flower) - this.flowerHeight / 2;
+        if (flowerTop > this.referenceY + 8) {
+          flower.revealed = true;
+          flower.el.classList.add("dae-flower--revealed");
+          this._applyFlowerDisplay(flower);
+        }
+      } else {
+        flower.el.classList.add("dae-flower--revealed");
       }
 
-      if (aligned !== flower.flashing) {
-        flower.flashing = aligned;
-        flower.el.classList.toggle("dae-flower--flash", aligned);
+      if (perfect !== flower.flashing) {
+        flower.flashing = perfect;
+        flower.el.classList.toggle("dae-flower--flash", perfect);
       }
     }
 
@@ -801,7 +840,7 @@
         const pos = evalBeePath(this.beePaths[i], this.elapsed);
         const half = (this.beeBox || this.cellSize) / 2;
         bee.el.style.transform = `translate(${pos.x - half}px, ${pos.y - this.cellSize / 2}px)`;
-        return { value: bee.value, x: pos.x, y: pos.y };
+        return { slot: bee.slot, value: bee.value, x: pos.x, y: pos.y };
       });
 
       for (const flower of this.flowers) {
@@ -814,10 +853,12 @@
     setF0(f0) {
       this.f0 = f0;
       this.catalog = buildF8Catalog(this.f0);
-      this.trio = trioValues(this.f0);
+      this.trioSlots = trioSlots(this.f0);
       this.bees.forEach((bee, i) => {
-        bee.value = this.trio[i];
+        bee.slot = this.trioSlots[i].slot;
+        bee.value = this.trioSlots[i].value;
         bee.el.dataset.value = bee.value;
+        bee.el.dataset.slot = bee.slot;
         bee.el.querySelector(".dae-bee-text").textContent = bee.value;
       });
       this._layoutMetrics();
