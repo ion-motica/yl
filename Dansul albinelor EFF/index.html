@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dansul albinelor EFF</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #020617;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+    }
+
+    h1 {
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 16px;
+    }
+
+    #mount {
+      width: min(100%, 360px);
+    }
+
+    .dae-root {
+      --dae-cell: 60px;
+      --dae-font: 31px;
+      --dae-sign: #facc15;
+      --dae-num-hidden: transparent;
+      --dae-num-visible: #1e293b;
+      --dae-bee: #38bdf8;
+      --dae-flash: rgba(255, 140, 0, 0.55);
+    }
+
+    .dae-toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      background: #1e293b;
+      border-radius: 12px;
+      border: 1px solid #334155;
+    }
+
+    .dae-fact-label {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .dae-btn {
+      align-self: flex-start;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #3b82f6;
+      color: #fff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .dae-btn:hover { background: #2563eb; }
+
+    .dae-slider-label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #94a3b8;
+    }
+
+    .dae-slider {
+      width: 100%;
+      accent-color: #38bdf8;
+    }
+
+    .dae-interval-out {
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .dae-arena-wrap {
+      display: flex;
+      justify-content: center;
+    }
+
+    .dae-arena {
+      position: relative;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 2px solid #334155;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .dae-ref-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 0;
+      border-top: 2px dashed rgba(148, 163, 184, 0.45);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .dae-flower-layer,
+    .dae-bee-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .dae-bee-layer { z-index: 4; }
+
+    .dae-flower {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      display: flex;
+      will-change: transform;
+      z-index: 1;
+      border-radius: 8px;
+      transition: background 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .dae-flower--phase {
+      background: var(--dae-flash);
+      box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.85);
+      z-index: 3;
+    }
+
+    .dae-flower-cell {
+      flex: 1 1 0;
+      width: var(--dae-cell);
+      height: var(--dae-cell);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Courier New", Courier, monospace;
+      font-size: var(--dae-font);
+      font-weight: 800;
+      line-height: 1;
+      user-select: none;
+    }
+
+    .dae-flower-cell--sign {
+      color: var(--dae-sign);
+    }
+
+    .dae-flower-cell--number {
+      color: var(--dae-num-hidden);
+      transition: color 0.1s ease;
+    }
+
+    .dae-flower--phase .dae-flower-cell--number {
+      color: var(--dae-num-visible);
+    }
+
+    .dae-bee {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 23, 42, 0.72);
+      border: 2px solid var(--dae-bee);
+      border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
+      will-change: transform;
+    }
+
+    .dae-bee-text {
+      font-family: "Courier New", Courier, monospace;
+      font-size: var(--dae-font);
+      font-weight: 800;
+      color: #f8fafc;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dansul albinelor EFF</h1>
+  <div id="mount"></div>
+
+  <script src="dans.js"></script>
+  <script>
+    const app = DansAlbinelorEFF.create(document.getElementById("mount"), {
+      arenaWidth: 300,
+      arenaHeight: 600,
+      direction: "down",
+      referenceLineRatio: 0.5,
+      flowerIntervalSec: 2.4,
+    });
+  </script>
+</body>
+</html>
