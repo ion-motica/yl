@@ -50,7 +50,14 @@
     syncBeePx: 0.3,
     flowerDisplayMode: "all",
     signCompact: 0,
+    trailLength: 55,
   };
+
+  const TRAIL_PALETTE = [
+    [255, 183, 77],
+    [255, 214, 102],
+    [255, 160, 55],
+  ];
 
   function randInt(min, max) {
     return min + Math.floor(Math.random() * (max - min + 1));
@@ -300,6 +307,8 @@
       this.lastTs = null;
       this.syncHorizon = 0;
       this.beePaths = [];
+      this.beeTrails = [[], [], []];
+      this._lastBeePositions = null;
       this._buildDom();
       this._layoutMetrics();
       this._resetScene();
@@ -372,12 +381,35 @@
         this.signCompactSlider
       );
 
+      this.trailSliderLabel = document.createElement("label");
+      this.trailSliderLabel.className = "dae-slider-label";
+
+      this.trailLengthOut = document.createElement("output");
+      this.trailLengthOut.className = "dae-interval-out";
+      this.trailLengthOut.textContent = String(this.options.trailLength);
+
+      this.trailLengthSlider = document.createElement("input");
+      this.trailLengthSlider.type = "range";
+      this.trailLengthSlider.min = "0";
+      this.trailLengthSlider.max = "100";
+      this.trailLengthSlider.step = "1";
+      this.trailLengthSlider.value = String(this.options.trailLength);
+      this.trailLengthSlider.className = "dae-slider";
+
+      this.trailSliderLabel.append(
+        "Coadă albine ",
+        this.trailLengthOut,
+        "%",
+        this.trailLengthSlider
+      );
+
       this.toolbar.append(
         this.factLabel,
         this.btnRestart,
         this.btnDisplayMode,
         this.sliderLabel,
-        this.signSliderLabel
+        this.signSliderLabel,
+        this.trailSliderLabel
       );
 
       this.arenaWrap = document.createElement("div");
@@ -394,6 +426,11 @@
       this.flowerLayer = document.createElement("div");
       this.flowerLayer.className = "dae-flower-layer";
 
+      this.trailCanvas = document.createElement("canvas");
+      this.trailCanvas.className = "dae-trail-canvas";
+      this.trailCanvas.setAttribute("aria-hidden", "true");
+      this.trailCtx = this.trailCanvas.getContext("2d");
+
       this.beeLayer = document.createElement("div");
       this.beeLayer.className = "dae-bee-layer";
 
@@ -407,7 +444,12 @@
         return { slot: s.slot, value: s.value, el };
       });
 
-      this.arena.append(this.refLine, this.flowerLayer, this.beeLayer);
+      this.arena.append(
+        this.refLine,
+        this.flowerLayer,
+        this.trailCanvas,
+        this.beeLayer
+      );
       this.bees.forEach((b) => this.beeLayer.appendChild(b.el));
       this.arenaWrap.appendChild(this.arena);
       this.root.append(this.toolbar, this.arenaWrap);
@@ -434,6 +476,136 @@
         this._layoutMetrics();
         this._refreshFlowerCellWidths();
         this._rebuildBeePaths();
+      });
+      this.trailLengthSlider.addEventListener("input", () => {
+        this.options.trailLength = Number(this.trailLengthSlider.value);
+        this.trailLengthOut.textContent = this.trailLengthSlider.value;
+        if (this.options.trailLength <= 0) this._clearBeeTrails();
+        this._drawBeeTrails(this._lastBeePositions);
+      });
+    }
+
+    _clearBeeTrails() {
+      this.beeTrails.forEach((t) => (t.length = 0));
+    }
+
+    /** Aceeași derulare ca florile — coada rămâne pe ecuațiile de jos. */
+    _scrollBeeTrails(dy) {
+      if (!dy) return;
+      const lo = -this.flowerHeight * 2;
+      const hi = this.options.arenaHeight + this.flowerHeight * 2;
+
+      this.beeTrails.forEach((trail) => {
+        for (const p of trail) p.y += dy;
+        for (let i = trail.length - 1; i >= 0; i -= 1) {
+          if (trail[i].y < lo || trail[i].y > hi) trail.splice(i, 1);
+        }
+      });
+    }
+
+    _trailMaxPathLength() {
+      const strength = clamp(this.options.trailLength, 0, 100) / 100;
+      if (strength <= 0) return 0;
+      return lerp(50, this.options.arenaHeight * 1.2, strength);
+    }
+
+    _pruneTrail(trail, maxLen) {
+      if (maxLen <= 0) {
+        trail.length = 0;
+        return;
+      }
+      if (trail.length < 2) return;
+
+      let total = 0;
+      for (let i = trail.length - 1; i > 0; i -= 1) {
+        total += Math.hypot(trail[i].x - trail[i - 1].x, trail[i].y - trail[i - 1].y);
+      }
+      while (total > maxLen && trail.length > 1) {
+        total -= Math.hypot(trail[1].x - trail[0].x, trail[1].y - trail[0].y);
+        trail.shift();
+      }
+    }
+
+    _beeEmitPoint(pos) {
+      return { x: pos.x, y: pos.y };
+    }
+
+    _appendTrailPoints(trail, from, to) {
+      const dist = Math.hypot(to.x - from.x, to.y - from.y);
+      if (dist < 0.5) return;
+      const step = 3;
+      for (let d = step; d < dist; d += step) {
+        const u = d / dist;
+        trail.push({
+          x: lerp(from.x, to.x, u),
+          y: lerp(from.y, to.y, u),
+        });
+      }
+      trail.push({ x: to.x, y: to.y });
+    }
+
+    _recordBeeTrails(beePositions) {
+      const strength = clamp(this.options.trailLength, 0, 100) / 100;
+      if (strength <= 0) return;
+
+      const maxLen = this._trailMaxPathLength();
+
+      beePositions.forEach((pos, i) => {
+        const emit = this._beeEmitPoint(pos);
+        const trail = this.beeTrails[i];
+        const last = trail[trail.length - 1];
+
+        if (!last) {
+          trail.push({ x: emit.x, y: emit.y });
+        } else if (Math.hypot(last.x - emit.x, last.y - emit.y) > 0.8) {
+          this._appendTrailPoints(trail, last, emit);
+        }
+
+        this._pruneTrail(trail, maxLen);
+      });
+    }
+
+    _drawTrailDot(ctx, x, y, alpha, beeIndex, size) {
+      const rgb = TRAIL_PALETTE[beeIndex % TRAIL_PALETTE.length];
+      ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    _drawBeeTrails(beePositions) {
+      const ctx = this.trailCtx;
+      const w = this.options.arenaWidth;
+      const h = this.options.arenaHeight;
+      const strength = clamp(this.options.trailLength, 0, 100) / 100;
+
+      ctx.clearRect(0, 0, w, h);
+      if (strength <= 0) return;
+
+      const positions = beePositions || [];
+
+      this.beeTrails.forEach((trail, beeIndex) => {
+        const points = trail.length > 0 ? trail.slice() : [];
+
+        if (positions[beeIndex]) {
+          const head = this._beeEmitPoint(positions[beeIndex]);
+          const tail = points[points.length - 1];
+          if (!tail || Math.hypot(tail.x - head.x, tail.y - head.y) > 0.5) {
+            points.push(head);
+          }
+        }
+
+        if (points.length === 0) return;
+
+        const lastIdx = points.length - 1;
+
+        for (let j = 0; j < points.length; j += 1) {
+          const p = points[j];
+          const t = lastIdx > 0 ? j / lastIdx : 1;
+          const alpha = (0.14 + 0.58 * t) * strength;
+          const size = 1.1 + t * 2;
+          this._drawTrailDot(ctx, p.x, p.y, alpha, beeIndex + j, size);
+        }
       });
     }
 
@@ -487,6 +659,14 @@
       this.arena.style.height = `${o.arenaHeight}px`;
       this.arena.style.background = o.background;
       this.refLine.style.top = `${this.referenceY}px`;
+
+      const dpr = window.devicePixelRatio || 1;
+      this.trailCanvas.width = Math.floor(o.arenaWidth * dpr);
+      this.trailCanvas.height = Math.floor(o.arenaHeight * dpr);
+      this.trailCanvas.style.width = `${o.arenaWidth}px`;
+      this.trailCanvas.style.height = `${o.arenaHeight}px`;
+      this.trailCtx.setTransform(1, 0, 0, 1, 0, 0);
+      this.trailCtx.scale(dpr, dpr);
 
       this.root.style.setProperty("--dae-cell", `${this.cellSize}px`);
       this.root.style.setProperty("--dae-font", `${this.fontSize}px`);
@@ -637,6 +817,7 @@
       this.flowers = [];
       this.elapsed = 0;
       this.lastTs = null;
+      this._clearBeeTrails();
       this.stream = new F8Stream(this.options.streamBatchSize, this.catalog);
 
       const count = Math.ceil(this.options.arenaHeight / this.spacing) + 4;
@@ -825,11 +1006,14 @@
       this.elapsed += dt;
 
       const dir = this.options.direction === "down" ? 1 : -1;
+      const scrollDy = this.speed * dt * dir;
+
       for (const flower of this.flowers) {
-        flower.y += this.speed * dt * dir;
+        flower.y += scrollDy;
         flower.el.style.transform = `translateY(${flower.y}px)`;
       }
 
+      this._scrollBeeTrails(scrollDy);
       this._recycleFlowers();
 
       if (this.elapsed > this.syncHorizon - 4) {
@@ -846,6 +1030,10 @@
       for (const flower of this.flowers) {
         this._updateFlowerSync(flower, beePositions);
       }
+
+      this._lastBeePositions = beePositions;
+      this._recordBeeTrails(beePositions);
+      this._drawBeeTrails(beePositions);
 
       this.rafId = requestAnimationFrame(this._tick);
     }
@@ -881,6 +1069,10 @@
       }
       if (partial.flowerDisplayMode != null) {
         this._syncDisplayModeButton();
+      }
+      if (partial.trailLength != null) {
+        this.trailLengthSlider.value = String(partial.trailLength);
+        this.trailLengthOut.textContent = String(partial.trailLength);
       }
       this._layoutMetrics();
       this._refreshFlowerCellWidths();
