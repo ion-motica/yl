@@ -45,6 +45,8 @@
     numberVisibleColor: "#1e293b",
     beeColor: "#2563eb",
     background: "#0f172a",
+    overlapCenterPx: 3,
+    overlapBeePx: 0.14,
   };
 
   function randInt(min, max) {
@@ -154,23 +156,46 @@
     return [String(f0.a), String(f0.b), String(f0.r)];
   }
 
+  /** Succesiunea celor 3 numere în ordinea afișării (stânga → dreapta). */
+  function f8NumberSuccession(catalog, f8id) {
+    const f8 = catalog[f8id - 1];
+    return f8.cells
+      .filter((c) => c.kind === "number")
+      .map((c) => c.text)
+      .join("\u2192");
+  }
+
+  function pickF8Id(catalog, lastF8id) {
+    const lastSeq = lastF8id ? f8NumberSuccession(catalog, lastF8id) : null;
+    const candidates = [];
+    for (let id = 1; id <= catalog.length; id += 1) {
+      if (f8NumberSuccession(catalog, id) !== lastSeq) candidates.push(id);
+    }
+    return pick(candidates.length ? candidates : [1]);
+  }
+
   class F8Stream {
-    constructor(batchSize, catalogSize) {
+    constructor(batchSize, catalog) {
       this.batchSize = batchSize;
-      this.catalogSize = catalogSize;
+      this.catalog = catalog;
       this.queue = [];
+      this.lastF8id = null;
       this.refill();
     }
 
     refill() {
       for (let i = 0; i < this.batchSize; i += 1) {
-        this.queue.push(1 + Math.floor(Math.random() * this.catalogSize));
+        const id = pickF8Id(this.catalog, this.lastF8id);
+        this.queue.push(id);
+        this.lastF8id = id;
       }
     }
 
     next() {
       if (this.queue.length === 0) this.refill();
-      return this.queue.shift();
+      const id = this.queue.shift();
+      this.lastF8id = id;
+      return id;
     }
 
     peek(offset) {
@@ -257,7 +282,7 @@
       this.f0 = options.f0 || randomF0();
       this.catalog = buildF8Catalog(this.f0);
       this.trio = trioValues(this.f0);
-      this.stream = new F8Stream(this.options.streamBatchSize, this.catalog.length);
+      this.stream = new F8Stream(this.options.streamBatchSize, this.catalog);
       this.flowers = [];
       this.elapsed = 0;
       this.rafId = null;
@@ -429,7 +454,7 @@
       const y = centerY - this.flowerHeight / 2;
       el.style.transform = `translateY(${y}px)`;
       this.flowerLayer.appendChild(el);
-      const flower = { f8id, el, y, inPhase: false };
+      const flower = { f8id, el, y, flashing: false, revealed: false };
       this.flowers.push(flower);
       return flower;
     }
@@ -439,7 +464,7 @@
       this.flowers = [];
       this.elapsed = 0;
       this.lastTs = null;
-      this.stream = new F8Stream(this.options.streamBatchSize, this.catalog.length);
+      this.stream = new F8Stream(this.options.streamBatchSize, this.catalog);
 
       const count = Math.ceil(this.options.arenaHeight / this.spacing) + 4;
       for (let i = -2; i < count; i += 1) {
@@ -457,12 +482,20 @@
       const events = [];
       let streamStep = 0;
 
-      const inPhase = this.flowers.find((f) => f.inPhase);
-      if (inPhase) {
+      let nearest = null;
+      let nearestDist = Infinity;
+      for (const f of this.flowers) {
+        const d = Math.abs(this._flowerCenterY(f) - this.referenceY);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearest = f;
+        }
+      }
+      if (nearest && nearestDist < this.flowerHeight * 0.6) {
         events.push({
           t: now,
-          f8id: inPhase.f8id,
-          xByValue: this._xByValueForF8(inPhase.f8id),
+          f8id: nearest.f8id,
+          xByValue: this._xByValueForF8(nearest.f8id),
           y: this.referenceY,
         });
       }
@@ -523,13 +556,47 @@
       );
     }
 
-    _updatePhase(flower) {
+    _isPerfectOverlap(flower, beePositions) {
       const centerY = this._flowerCenterY(flower);
-      const half = this.flowerHeight / 2;
-      const inPhase = centerY >= this.referenceY - half && centerY <= this.referenceY + half;
-      if (inPhase !== flower.inPhase) {
-        flower.inPhase = inPhase;
-        flower.el.classList.toggle("dae-flower--phase", inPhase);
+      if (Math.abs(centerY - this.referenceY) > this.options.overlapCenterPx) {
+        return false;
+      }
+
+      const f8 = this.catalog[flower.f8id - 1];
+      const cells = f8.cells.filter((c) => c.kind === "number");
+      const tol = Math.max(4, this.cellSize * this.options.overlapBeePx);
+      const used = new Set();
+
+      for (const cell of cells) {
+        const tx = this._cellCenterX(cell.index);
+        const ty = this.referenceY;
+        let matched = false;
+
+        for (let i = 0; i < beePositions.length; i += 1) {
+          if (used.has(i)) continue;
+          if (beePositions[i].value !== cell.text) continue;
+          if (Math.hypot(beePositions[i].x - tx, beePositions[i].y - ty) <= tol) {
+            used.add(i);
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) return false;
+      }
+      return true;
+    }
+
+    _updateFlowerSync(flower, beePositions) {
+      const aligned = this._isPerfectOverlap(flower, beePositions);
+
+      if (aligned && !flower.revealed) {
+        flower.revealed = true;
+        flower.el.classList.add("dae-flower--revealed");
+      }
+
+      if (aligned !== flower.flashing) {
+        flower.flashing = aligned;
+        flower.el.classList.toggle("dae-flower--flash", aligned);
       }
     }
 
@@ -568,7 +635,6 @@
       for (const flower of this.flowers) {
         flower.y += this.speed * dt * dir;
         flower.el.style.transform = `translateY(${flower.y}px)`;
-        this._updatePhase(flower);
       }
 
       this._recycleFlowers();
@@ -577,10 +643,15 @@
         this._rebuildBeePaths(this.elapsed);
       }
 
-      this.bees.forEach((bee, i) => {
+      const beePositions = this.bees.map((bee, i) => {
         const pos = evalBeePath(this.beePaths[i], this.elapsed);
         bee.el.style.transform = `translate(${pos.x - this.cellSize / 2}px, ${pos.y - this.cellSize / 2}px)`;
+        return { value: bee.value, x: pos.x, y: pos.y };
       });
+
+      for (const flower of this.flowers) {
+        this._updateFlowerSync(flower, beePositions);
+      }
 
       this.rafId = requestAnimationFrame(this._tick);
     }
