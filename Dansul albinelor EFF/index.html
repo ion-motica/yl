@@ -27,7 +27,7 @@
     }
 
     #mount {
-      width: min(100%, 360px);
+      width: min(100%, 540px);
     }
 
     .dae-root {
@@ -40,11 +40,19 @@
       --dae-flash: rgba(255, 140, 0, 0.55);
     }
 
+    .dae-main {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
     .dae-toolbar {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      margin-bottom: 14px;
+      flex-shrink: 0;
+      width: 200px;
       padding: 12px 14px;
       background: #1e293b;
       border-radius: 12px;
@@ -101,8 +109,7 @@
     }
 
     .dae-arena-wrap {
-      display: flex;
-      justify-content: center;
+      flex-shrink: 0;
     }
 
     .dae-arena {

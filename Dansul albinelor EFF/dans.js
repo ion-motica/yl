@@ -51,6 +51,8 @@
     flowerDisplayMode: "all",
     signCompact: 0,
     trailLength: 55,
+    pathRoundness: 55,
+    sidebarWidth: 200,
   };
 
   const TRAIL_PALETTE = [
@@ -232,8 +234,16 @@
     );
   }
 
-  function buildBeeKeyframes(beeIndex, syncEvents) {
-    if (syncEvents.length === 0) return [];
+  function smoothstep(u) {
+    return u * u * (3 - 2 * u);
+  }
+
+  function buildBeeKeyframes(beeIndex, syncEvents, opts) {
+    if (syncEvents.length === 0) return { keyframes: [], segments: [], smoothU: false };
+
+    const round = clamp(opts.pathRoundness, 0, 100) / 100;
+    const refY = opts.referenceY;
+    const arenaH = opts.arenaHeight;
 
     const keyframes = syncEvents.map((ev) => ({
       t: ev.t,
@@ -242,7 +252,10 @@
     }));
 
     const segments = [];
-    const wander = 28 + beeIndex * 11;
+    const bulgeX = lerp(26, 48, round) + beeIndex * 8;
+    const liftY = lerp(10, arenaH * 0.2, round);
+    const along = lerp(0.24, 0.5, round);
+    const loftBlend = 0.5 + round * 0.4;
 
     for (let i = 0; i < keyframes.length - 1; i += 1) {
       const p0 = keyframes[i];
@@ -252,30 +265,30 @@
       const dy = p1.y - p0.y;
       const dist = Math.hypot(dx, dy) || 1;
       const nx = -dy / dist;
-      const ny = dx / dist;
-      const sign = beeIndex % 2 === 0 ? 1 : -1;
-      const bulge = sign * wander * (0.65 + 0.15 * beeIndex);
+      const arcSign = (i + beeIndex) % 2 === 0 ? 1 : -1;
+      const loftY = refY + arcSign * liftY;
+      const bx = bulgeX * lerp(1, 0.65, round);
 
       segments.push({
         t0: p0.t,
         t1: p1.t,
         p0x: p0.x,
         p0y: p0.y,
-        c1x: p0.x + dx * 0.28 + nx * bulge,
-        c1y: p0.y + dy * 0.28 + ny * bulge * 0.35,
-        c2x: p1.x - dx * 0.28 + nx * bulge * 0.6,
-        c2y: p1.y - dy * 0.28 - ny * bulge * 0.25,
+        c1x: p0.x + dx * along + nx * bx,
+        c1y: lerp(p0.y, loftY, loftBlend),
+        c2x: p1.x - dx * along + nx * bx * 0.55,
+        c2y: lerp(p1.y, loftY, loftBlend),
         p1x: p1.x,
         p1y: p1.y,
         dt,
       });
     }
 
-    return { keyframes, segments };
+    return { keyframes, segments, smoothU: round > 0.15 };
   }
 
   function evalBeePath(path, t) {
-    const { keyframes, segments } = path;
+    const { keyframes, segments, smoothU } = path;
     if (keyframes.length === 0) return { x: 0, y: 0 };
     if (t <= keyframes[0].t) return { x: keyframes[0].x, y: keyframes[0].y };
     const last = keyframes[keyframes.length - 1];
@@ -283,7 +296,8 @@
 
     for (const seg of segments) {
       if (t >= seg.t0 && t <= seg.t1) {
-        const u = seg.dt > 0 ? (t - seg.t0) / seg.dt : 0;
+        let u = seg.dt > 0 ? (t - seg.t0) / seg.dt : 0;
+        if (smoothU) u = smoothstep(u);
         return {
           x: cubicAt(seg.p0x, seg.c1x, seg.c2x, seg.p1x, u),
           y: cubicAt(seg.p0y, seg.c1y, seg.c2y, seg.p1y, u),
@@ -320,6 +334,9 @@
     _buildDom() {
       this.root = document.createElement("div");
       this.root.className = "dae-root";
+
+      this.main = document.createElement("div");
+      this.main.className = "dae-main";
 
       this.toolbar = document.createElement("div");
       this.toolbar.className = "dae-toolbar";
@@ -403,13 +420,36 @@
         this.trailLengthSlider
       );
 
+      this.roundSliderLabel = document.createElement("label");
+      this.roundSliderLabel.className = "dae-slider-label";
+
+      this.pathRoundnessOut = document.createElement("output");
+      this.pathRoundnessOut.className = "dae-interval-out";
+      this.pathRoundnessOut.textContent = String(this.options.pathRoundness);
+
+      this.pathRoundnessSlider = document.createElement("input");
+      this.pathRoundnessSlider.type = "range";
+      this.pathRoundnessSlider.min = "0";
+      this.pathRoundnessSlider.max = "100";
+      this.pathRoundnessSlider.step = "1";
+      this.pathRoundnessSlider.value = String(this.options.pathRoundness);
+      this.pathRoundnessSlider.className = "dae-slider";
+
+      this.roundSliderLabel.append(
+        "Rotunjire traiectorii ",
+        this.pathRoundnessOut,
+        "%",
+        this.pathRoundnessSlider
+      );
+
       this.toolbar.append(
         this.factLabel,
         this.btnRestart,
         this.btnDisplayMode,
         this.sliderLabel,
         this.signSliderLabel,
-        this.trailSliderLabel
+        this.trailSliderLabel,
+        this.roundSliderLabel
       );
 
       this.arenaWrap = document.createElement("div");
@@ -452,8 +492,10 @@
       );
       this.bees.forEach((b) => this.beeLayer.appendChild(b.el));
       this.arenaWrap.appendChild(this.arena);
-      this.root.append(this.toolbar, this.arenaWrap);
+      this.main.append(this.toolbar, this.arenaWrap);
+      this.root.append(this.main);
       this.container.replaceChildren(this.root);
+      this.toolbar.style.width = `${this.options.sidebarWidth}px`;
     }
 
     _bindControls() {
@@ -483,6 +525,19 @@
         if (this.options.trailLength <= 0) this._clearBeeTrails();
         this._drawBeeTrails(this._lastBeePositions);
       });
+      this.pathRoundnessSlider.addEventListener("input", () => {
+        this.options.pathRoundness = Number(this.pathRoundnessSlider.value);
+        this.pathRoundnessOut.textContent = this.pathRoundnessSlider.value;
+        this._rebuildBeePaths();
+      });
+    }
+
+    _pathBuildOpts() {
+      return {
+        pathRoundness: this.options.pathRoundness,
+        referenceY: this.referenceY,
+        arenaHeight: this.options.arenaHeight,
+      };
     }
 
     _clearBeeTrails() {
@@ -905,7 +960,9 @@
 
       events.sort((a, b) => a.t - b.t);
       this.syncHorizon = events.length ? events[events.length - 1].t : now + 10;
-      this.beePaths = this.trioSlots.map((_, i) => buildBeeKeyframes(i, events));
+      this.beePaths = this.trioSlots.map((_, i) =>
+        buildBeeKeyframes(i, events, this._pathBuildOpts())
+      );
     }
 
     _flowerInRefBand(flower) {
@@ -1073,6 +1130,13 @@
       if (partial.trailLength != null) {
         this.trailLengthSlider.value = String(partial.trailLength);
         this.trailLengthOut.textContent = String(partial.trailLength);
+      }
+      if (partial.pathRoundness != null) {
+        this.pathRoundnessSlider.value = String(partial.pathRoundness);
+        this.pathRoundnessOut.textContent = String(partial.pathRoundness);
+      }
+      if (partial.sidebarWidth != null) {
+        this.toolbar.style.width = `${partial.sidebarWidth}px`;
       }
       this._layoutMetrics();
       this._refreshFlowerCellWidths();
