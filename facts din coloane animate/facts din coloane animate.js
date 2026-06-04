@@ -815,12 +815,22 @@
       this._paintFrame(true);
     }
 
-    _paintFrame(instant) {
-      const x = this.frameOffset * this.cellStep;
-      this.frameEl.style.transition = instant
+    _applyFrameAndWindowTranslate(px, instant) {
+      const dur = instant
         ? "none"
         : `transform ${this.options.transitionMs}ms cubic-bezier(0.4,0,0.2,1)`;
-      this.frameEl.style.transform = `translateX(${x}px)`;
+      this.frameEl.style.transition = dur;
+      this.frameEl.style.transform = `translateX(${px}px)`;
+      const winPx = this.options.windowMode === "mobil" ? px : 0;
+      this.windowEl.style.transition = dur;
+      this.windowEl.style.transform =
+        winPx === 0
+          ? "translateX(-50%)"
+          : `translateX(calc(-50% + ${winPx}px))`;
+    }
+
+    _paintFrame(instant) {
+      this._applyFrameAndWindowTranslate(this.frameOffset * this.cellStep, instant);
     }
 
     _paintReels(instant) {
@@ -929,8 +939,7 @@
         }
 
         const fx = (startFrameOff + frameDelta * e) * this.cellStep;
-        this.frameEl.style.transition = "none";
-        this.frameEl.style.transform = `translateX(${fx}px)`;
+        this._applyFrameAndWindowTranslate(fx, true);
 
         if (t < 1) {
           this.anim = requestAnimationFrame(tick);
