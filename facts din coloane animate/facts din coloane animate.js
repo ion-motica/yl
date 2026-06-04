@@ -53,6 +53,62 @@
     return a + (b - a) * t;
   }
 
+  function randFloat(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function isPleasantHsl(h, s, l) {
+    if (s < 30 || s > 76) return false;
+    if (l < 34 || l > 66) return false;
+    const hN = ((h % 360) + 360) % 360;
+    if (s < 40 && l > 38 && l < 52 && hN > 28 && hN < 52) return false;
+    return true;
+  }
+
+  function pleasantHsl(hue, sat, lit) {
+    let h = hue;
+    let s = sat;
+    let l = lit;
+    for (let i = 0; i < 20; i++) {
+      if (isPleasantHsl(h, s, l)) break;
+      s = randFloat(42, 70);
+      l = randFloat(40, 60);
+    }
+    return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
+  }
+
+  /** Cheie 0–10: rigla mare repetă 1–10 la fiecare zece (11→1 … 20→10). */
+  function digitColorKey(n) {
+    if (n === 0) return "0";
+    return String(((n - 1) % 10) + 1);
+  }
+
+  function createPalette() {
+    const baseHue = Math.random() * 360;
+    const numSpan = 110 + Math.random() * 90;
+    const byDigit = {};
+    for (let d = 0; d <= 10; d++) {
+      const t = d / 10;
+      byDigit[String(d)] = pleasantHsl(
+        (baseHue + t * numSpan) % 360,
+        randFloat(46, 68),
+        randFloat(42, 58)
+      );
+    }
+    const signBase = (baseHue + numSpan * 0.55 + randFloat(30, 70)) % 360;
+    const signSpan = 65 + Math.random() * 55;
+    const bySign = {};
+    SIGN_POOL.forEach((sym, i) => {
+      const t = i / (SIGN_POOL.length - 1);
+      bySign[sym] = pleasantHsl(
+        (signBase + t * signSpan) % 360,
+        randFloat(50, 72),
+        randFloat(44, 60)
+      );
+    });
+    return { byDigit, bySign };
+  }
+
   function range(lo, hi) {
     const out = [];
     for (let i = lo; i <= hi; i++) out.push(i);
@@ -370,9 +426,9 @@
         .fca-col { position:absolute; top:0; overflow:visible; will-change:left, transform; }
         .fca-col.moving { z-index:6; }
         .fca-col.idle { z-index:2; }
-        .fca-col.num-small .fca-cell { background:#1a2838; }
-        .fca-col.num-large .fca-cell { background:#1e2a3c; }
         .fca-strip { display:flex; flex-direction:column; will-change:transform; }
+        .fca-btn-gradient { padding:0.5rem 0.65rem; border-radius:8px; border:1px solid #3d5068; background:#1a2433; color:#c5d4e8; cursor:pointer; font-size:0.82rem; font-weight:600; }
+        .fca-btn-gradient:hover { border-color:#7ab8ff; color:#fff; }
         .fca-cell { display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:4px; border:1px solid #334155; font-weight:800; user-select:none; line-height:1; }
         .fca-cell.sign { color:#facc15; }
         .fca-cell.num { color:#fff; }
@@ -447,7 +503,20 @@
       this.btnMobil.textContent = "Mobil ±4";
       modeWrap.append(modeCaption, this.btnFix, this.btnMobil);
 
-      this.sidebar.append(this.readout, speedLabel, sizeLabel, gapLabel, marginLabel, modeWrap);
+      this.btnGradient = document.createElement("button");
+      this.btnGradient.type = "button";
+      this.btnGradient.className = "fca-btn-gradient";
+      this.btnGradient.textContent = "Random new gradient";
+
+      this.sidebar.append(
+        this.readout,
+        speedLabel,
+        sizeLabel,
+        gapLabel,
+        marginLabel,
+        this.btnGradient,
+        modeWrap
+      );
 
       this.arenaWrap = document.createElement("div");
       this.arenaWrap.className = "fca-arena-wrap";
@@ -522,7 +591,34 @@
       });
       this.btnFix.addEventListener("click", () => this._setWindowMode("fix"));
       this.btnMobil.addEventListener("click", () => this._setWindowMode("mobil"));
+      this.btnGradient.addEventListener("click", () => this._newGradient());
+      this.palette = createPalette();
+      this._applyPaletteToCells();
       this._setWindowMode(this.options.windowMode);
+    }
+
+    _colorForToken(token, reelType) {
+      const p = this.palette;
+      if (!p) return null;
+      if (reelType === "sign") return p.bySign[token] || p.bySign["+"];
+      const n = parseInt(token, 10);
+      if (!Number.isFinite(n) || n < 0) return p.byDigit["0"];
+      return p.byDigit[digitColorKey(n)];
+    }
+
+    _applyPaletteToCells() {
+      if (!this.palette) return;
+      this.reels.forEach((r) => {
+        r.stripEl.querySelectorAll(".fca-cell").forEach((cell) => {
+          const bg = this._colorForToken(cell.textContent, r.type);
+          if (bg) cell.style.backgroundColor = bg;
+        });
+      });
+    }
+
+    _newGradient() {
+      this.palette = createPalette();
+      this._applyPaletteToCells();
     }
 
     _setWindowMode(mode) {
