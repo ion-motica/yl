@@ -75,6 +75,21 @@
   const PERMS_3 = permutations(3);
   const PERMS_2 = permutations(2);
 
+  function compute(a, op, b) {
+    switch (op) {
+      case "+":
+        return a + b;
+      case "-":
+        return a - b;
+      case "*":
+        return a * b;
+      case "/":
+        return b === 0 ? NaN : a / b;
+      default:
+        return NaN;
+    }
+  }
+
   function buildFactCatalog(operations) {
     const catalog = [];
     const seen = new Set();
