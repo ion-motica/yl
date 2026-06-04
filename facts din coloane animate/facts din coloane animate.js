@@ -57,22 +57,36 @@
     return min + Math.random() * (max - min);
   }
 
-  function isPleasantHsl(h, s, l) {
-    if (s < 30 || s > 76) return false;
-    if (l < 34 || l > 66) return false;
+  function isPleasantHsl(h, s, l, pastel) {
+    if (pastel) {
+      if (s < 16 || s > 54) return false;
+      if (l < 56 || l > 86) return false;
+    } else {
+      if (s < 30 || s > 76) return false;
+      if (l < 34 || l > 66) return false;
+    }
     const hN = ((h % 360) + 360) % 360;
-    if (s < 40 && l > 38 && l < 52 && hN > 28 && hN < 52) return false;
+    if (!pastel && s < 40 && l > 38 && l < 52 && hN > 28 && hN < 52) return false;
+    if (pastel && s > 38 && l < 58 && hN > 30 && hN < 50) return false;
     return true;
   }
 
-  function pleasantHsl(hue, sat, lit) {
+  function sampleSatLight(pastel) {
+    if (pastel) {
+      return { s: randFloat(20, 46), l: randFloat(62, 80) };
+    }
+    return { s: randFloat(48, 68), l: randFloat(42, 58) };
+  }
+
+  function pleasantHsl(hue, sat, lit, pastel) {
     let h = hue;
     let s = sat;
     let l = lit;
-    for (let i = 0; i < 20; i++) {
-      if (isPleasantHsl(h, s, l)) break;
-      s = randFloat(42, 70);
-      l = randFloat(40, 60);
+    for (let i = 0; i < 24; i++) {
+      if (isPleasantHsl(h, s, l, pastel)) break;
+      const sl = sampleSatLight(pastel);
+      s = sl.s;
+      l = sl.l;
     }
     return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
   }
@@ -83,30 +97,74 @@
     return String(((n - 1) % 10) + 1);
   }
 
+  function lerpHue(h1, h2, t) {
+    const delta = ((h2 - h1 + 540) % 360) - 180;
+    return (h1 + delta * t + 360) % 360;
+  }
+
+  function colorAtAnchors(anchors, t, pastel) {
+    const n = anchors.length;
+    if (n === 0) return pleasantHsl(200, 55, 50, pastel);
+    if (n === 1) {
+      const a = anchors[0];
+      return pleasantHsl(a.h, a.s, a.l, pastel);
+    }
+    const x = clamp(t, 0, 1) * (n - 1);
+    const i = Math.min(Math.floor(x), n - 2);
+    const lt = x - i;
+    const a = anchors[i];
+    const b = anchors[i + 1];
+    return pleasantHsl(
+      lerpHue(a.h, b.h, lt),
+      lerp(a.s, b.s, lt),
+      lerp(a.l, b.l, lt),
+      pastel
+    );
+  }
+
+  function buildAnchors(count, startHue, span, pastel) {
+    const anchors = [];
+    for (let i = 0; i < count; i++) {
+      const t = count === 1 ? 0 : i / (count - 1);
+      const sl = sampleSatLight(pastel);
+      anchors.push({
+        h: (startHue + t * span) % 360,
+        s: sl.s,
+        l: sl.l,
+      });
+    }
+    return anchors;
+  }
+
+  /**
+   * Numere 0–10: 2 sau 3 culori (random).
+   * Semne: 3, 4 sau 5 culori pe un gradient armonizat.
+   */
   function createPalette() {
+    const numColorCount = pick([2, 3]);
+    const signColorCount = randInt(3, 5);
+    const pastel = Math.random() < 0.5;
+
     const baseHue = Math.random() * 360;
-    const numSpan = 110 + Math.random() * 90;
+    const numSpan =
+      numColorCount === 2 ? randFloat(32, 95) : randFloat(55, 115);
+    const numAnchors = buildAnchors(numColorCount, baseHue, numSpan, pastel);
+
+    const signStart = (baseHue + numSpan * randFloat(0.2, 0.45) + randFloat(12, 40)) % 360;
+    const signSpan = randFloat(50, 110);
+    const signAnchors = buildAnchors(signColorCount, signStart, signSpan, pastel);
+
     const byDigit = {};
     for (let d = 0; d <= 10; d++) {
-      const t = d / 10;
-      byDigit[String(d)] = pleasantHsl(
-        (baseHue + t * numSpan) % 360,
-        randFloat(46, 68),
-        randFloat(42, 58)
-      );
+      byDigit[String(d)] = colorAtAnchors(numAnchors, d / 10, pastel);
     }
-    const signBase = (baseHue + numSpan * 0.55 + randFloat(30, 70)) % 360;
-    const signSpan = 65 + Math.random() * 55;
+
     const bySign = {};
     SIGN_POOL.forEach((sym, i) => {
       const t = i / (SIGN_POOL.length - 1);
-      bySign[sym] = pleasantHsl(
-        (signBase + t * signSpan) % 360,
-        randFloat(50, 72),
-        randFloat(44, 60)
-      );
+      bySign[sym] = colorAtAnchors(signAnchors, t, pastel);
     });
-    return { byDigit, bySign };
+    return { byDigit, bySign, numColorCount, signColorCount, pastel };
   }
 
   function range(lo, hi) {
