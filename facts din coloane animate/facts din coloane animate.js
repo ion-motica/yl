@@ -364,9 +364,9 @@
         .fca-arena-wrap { flex:1; min-width:0; }
         .fca-arena { position:relative; margin:0 auto; background:linear-gradient(180deg,#141c28,#0d1218); border:1px solid #2a3548; border-radius:16px; overflow:hidden; }
         .fca-window { position:absolute; left:50%; transform:translateX(-50%); z-index:4; pointer-events:none; border:2px solid rgba(250,204,21,0.75); background:rgba(250,204,21,0.18); border-radius:8px; box-sizing:border-box; }
-        .fca-viewport { position:absolute; left:50%; transform:translateX(-50%); overflow:hidden; z-index:2; }
-        .fca-frame { position:relative; will-change:transform; }
-        .fca-columns { position:relative; height:100%; }
+        .fca-viewport { position:absolute; left:50%; transform:translateX(-50%); overflow:hidden; z-index:2; display:flex; justify-content:center; }
+        .fca-frame { position:relative; will-change:transform; flex:0 0 auto; }
+        .fca-columns { position:relative; height:100%; flex:0 0 auto; }
         .fca-col { position:absolute; top:0; overflow:visible; will-change:left, transform; }
         .fca-col.moving { z-index:6; }
         .fca-col.idle { z-index:2; }
@@ -555,10 +555,13 @@
       this.cellGap = gap;
       this.cellStep = this.cellSize + gap;
 
-      const windowW = 5 * this.cellSize + 4 * gap + 8;
+      this.gridWidth = 4 * this.cellStep + this.cellSize;
+      const windowPadX = 10;
+      this.windowPadX = windowPadX;
+      const windowW = this.gridWidth + 2 * windowPadX;
       const windowH = this.cellSize + 6;
       this.windowCenterY = h * 0.25 + this.cellSize / 2;
-      this.columnsWidth = 5 * this.cellStep - gap;
+      this.columnsWidth = this.gridWidth;
 
       this.windowEl.style.width = `${windowW}px`;
       this.windowEl.style.height = `${windowH}px`;
