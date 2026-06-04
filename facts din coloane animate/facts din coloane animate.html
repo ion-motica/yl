@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Facts din coloane animate — test</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0b0f14;
+        color: #e8eef5;
+        font-family: system-ui, sans-serif;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 2rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0 0 0.35rem;
+      }
+      p.lead {
+        margin: 0 0 1.25rem;
+        color: #9fb0c7;
+        font-size: 0.9rem;
+        line-height: 1.45;
+      }
+      #host {
+        min-height: 680px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Facts din coloane animate</h1>
+      <p class="lead">
+        Rigle finite: 11 + 11 + 101 numere, 5 semne — facts din combinația lor. Fereastră
+        galbenă la 25%; benzi care își schimbă locul (numere între ele, semne între ele).
+      </p>
+      <div id="host"></div>
+    </main>
+    <script src="facts din coloane animate.js"></script>
+    <script>
+      factsDinColoaneAnimate(document.getElementById("host"), {
+        arenaWidth: 640,
+        arenaHeight: 640,
+        seriesLength: 10,
+        transitionMs: 900,
+        pauseMs: 1400,
+        windowMode: "fix",
+        cellScale: 72,
+        cellGap: 2,
+      });
+    </script>
+  </body>
+</html>
