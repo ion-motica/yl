@@ -19,6 +19,7 @@
     pauseMs: 1400,
     windowMode: "fix",
     cellGap: 2,
+    divMargin: 2,
     cellScale: 72,
     operations: ["+", "-", "*", "/"],
   };
@@ -372,7 +373,7 @@
         .fca-col.num-small .fca-cell { background:#1a2838; }
         .fca-col.num-large .fca-cell { background:#1e2a3c; }
         .fca-strip { display:flex; flex-direction:column; will-change:transform; }
-        .fca-cell { display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:4px; border:1px solid #334155; font-weight:800; user-select:none; }
+        .fca-cell { display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:4px; border:1px solid #334155; font-weight:800; user-select:none; line-height:1; }
         .fca-cell.sign { color:#facc15; }
         .fca-cell.num { color:#fff; }
       `;
@@ -422,6 +423,17 @@
       this.gapOut.textContent = `${this.options.cellGap}px`;
       gapLabel.append("Spațiu între celule ", this.gapOut, this.gapSlider);
 
+      const marginLabel = document.createElement("label");
+      this.marginOut = document.createElement("output");
+      this.marginSlider = document.createElement("input");
+      this.marginSlider.type = "range";
+      this.marginSlider.min = "0";
+      this.marginSlider.max = "12";
+      this.marginSlider.step = "1";
+      this.marginSlider.value = String(this.options.divMargin);
+      this.marginOut.textContent = `${this.options.divMargin}px`;
+      marginLabel.append("Margine divs (strânge chenarul) ", this.marginOut, this.marginSlider);
+
       const modeWrap = document.createElement("div");
       modeWrap.className = "fca-switch";
       const modeCaption = document.createElement("span");
@@ -435,7 +447,7 @@
       this.btnMobil.textContent = "Mobil ±4";
       modeWrap.append(modeCaption, this.btnFix, this.btnMobil);
 
-      this.sidebar.append(this.readout, speedLabel, sizeLabel, gapLabel, modeWrap);
+      this.sidebar.append(this.readout, speedLabel, sizeLabel, gapLabel, marginLabel, modeWrap);
 
       this.arenaWrap = document.createElement("div");
       this.arenaWrap.className = "fca-arena-wrap";
@@ -503,6 +515,11 @@
         this.gapOut.textContent = `${this.options.cellGap}px`;
         this._layout();
       });
+      this.marginSlider.addEventListener("input", () => {
+        this.options.divMargin = Number(this.marginSlider.value);
+        this.marginOut.textContent = `${this.options.divMargin}px`;
+        this._layout();
+      });
       this.btnFix.addEventListener("click", () => this._setWindowMode("fix"));
       this.btnMobil.addEventListener("click", () => this._setWindowMode("mobil"));
       this._setWindowMode(this.options.windowMode);
@@ -528,21 +545,24 @@
       this.arena.style.width = `${w}px`;
       this.arena.style.height = `${h}px`;
 
-      const baseCell = Math.floor(((w * 0.82) / 5) * scale);
-      this.cellSize = Math.max(28, baseCell);
+      const inset = clamp(this.options.divMargin, 0, 12);
+      this.options.divMargin = inset;
+      this.cellInset = inset;
+      const borderPx = 2;
+      const baseFromArena = Math.max(22, Math.floor(((w * 0.82) / 5) * scale));
+      this.fontSizePx = Math.max(12, Math.floor(baseFromArena * 0.52));
+      this.cellSize = this.fontSizePx + 2 * inset + borderPx;
       this.cellGap = gap;
       this.cellStep = this.cellSize + gap;
 
-      const windowTop = h * 0.25;
       const windowW = 5 * this.cellSize + 4 * gap + 8;
-      const windowH = this.cellSize + 8;
-      this.windowTop = windowTop;
-      this.windowCenterY = windowTop + windowH / 2;
+      const windowH = this.cellSize + 6;
+      this.windowCenterY = h * 0.25 + this.cellSize / 2;
       this.columnsWidth = 5 * this.cellStep - gap;
 
       this.windowEl.style.width = `${windowW}px`;
       this.windowEl.style.height = `${windowH}px`;
-      this.windowEl.style.top = `${windowTop - 4}px`;
+      this.windowEl.style.top = `${this.windowCenterY - windowH / 2}px`;
 
       const viewportW =
         this.options.windowMode === "mobil"
@@ -554,16 +574,17 @@
       this.columnsEl.style.width = `${this.columnsWidth}px`;
       this.columnsEl.style.height = `${h}px`;
 
-      const fontSize = Math.max(11, Math.floor(this.cellSize * 0.42));
       this.reels.forEach((r) => {
         r.col.style.width = `${this.cellSize}px`;
         r.stripEl.querySelectorAll(".fca-cell").forEach((cell) => {
           cell.style.width = `${this.cellSize}px`;
           cell.style.height = `${this.cellSize}px`;
           cell.style.marginBottom = `${gap}px`;
-          cell.style.fontSize = `${fontSize}px`;
+          cell.style.padding = `${this.cellInset}px`;
+          cell.style.fontSize = `${this.fontSizePx}px`;
         });
       });
+      if (this.marginOut) this.marginOut.textContent = `${this.cellInset}px`;
 
       this._paintReels(true);
       this._paintFrame(true);
@@ -739,6 +760,10 @@
       if (opts.cellGap != null) {
         this.gapSlider.value = String(opts.cellGap);
         this.gapOut.textContent = `${opts.cellGap}px`;
+      }
+      if (opts.divMargin != null) {
+        this.marginSlider.value = String(opts.divMargin);
+        this.marginOut.textContent = `${opts.divMargin}px`;
       }
       this._layout();
     }
