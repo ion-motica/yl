@@ -22,6 +22,8 @@
     divMargin: 2,
     cellScale: 72,
     operations: ["+", "-", "*", "/"],
+    chainMode: "one",
+    chainRandomSkip: 0.35,
   };
 
   /** 3 rigle numere: 11 + 11 + 101 celule (fără repetare). */
@@ -264,8 +266,16 @@
     return catalog;
   }
 
-  function chainOk(prev, next) {
-    if (!prev) return true;
+  function sharedUniqueCount(prev, next) {
+    const prevSet = new Set(prev.nums);
+    let n = 0;
+    for (const v of new Set(next.nums)) {
+      if (prevSet.has(v)) n += 1;
+    }
+    return n;
+  }
+
+  function chainOkOne(prev, next) {
     for (let i = 0; i < 3; i++) {
       const carry = next.nums[i];
       if (!prev.nums.includes(carry)) continue;
@@ -275,13 +285,20 @@
     return false;
   }
 
-  function buildSeries(catalog, length, seedPrev) {
+  function chainOk(prev, next, mode, randomSkip) {
+    if (!prev) return true;
+    if (mode === "oneUnlessRandom" && Math.random() < randomSkip) return true;
+    if (mode === "two") return sharedUniqueCount(prev, next) >= 2;
+    return chainOkOne(prev, next);
+  }
+
+  function buildSeries(catalog, length, seedPrev, chainMode, chainRandomSkip) {
     const series = [];
     let prev = seedPrev;
     let guard = 0;
     while (series.length < length && guard < 8000) {
       guard += 1;
-      const pool = catalog.filter((f) => chainOk(prev, f));
+      const pool = catalog.filter((f) => chainOk(prev, f, chainMode, chainRandomSkip));
       if (!pool.length) break;
       const next = pick(pool);
       series.push(next);
@@ -561,6 +578,22 @@
       this.btnMobil.textContent = "Mobil ±4";
       modeWrap.append(modeCaption, this.btnFix, this.btnMobil);
 
+      const chainWrap = document.createElement("div");
+      chainWrap.className = "fca-switch";
+      const chainCaption = document.createElement("span");
+      chainCaption.style.cssText = "width:100%;font-size:0.82rem;color:#9fb0c7;";
+      chainCaption.textContent = "Lanț între facts";
+      this.btnChain1 = document.createElement("button");
+      this.btnChain1.type = "button";
+      this.btnChain1.textContent = "1 nr comun";
+      this.btnChain2 = document.createElement("button");
+      this.btnChain2.type = "button";
+      this.btnChain2.textContent = "2 nr comune";
+      this.btnChainRand = document.createElement("button");
+      this.btnChainRand.type = "button";
+      this.btnChainRand.textContent = "1 sau random";
+      chainWrap.append(chainCaption, this.btnChain1, this.btnChain2, this.btnChainRand);
+
       this.btnGradient = document.createElement("button");
       this.btnGradient.type = "button";
       this.btnGradient.className = "fca-btn-gradient";
@@ -573,6 +606,7 @@
         gapLabel,
         marginLabel,
         this.btnGradient,
+        chainWrap,
         modeWrap
       );
 
@@ -649,10 +683,23 @@
       });
       this.btnFix.addEventListener("click", () => this._setWindowMode("fix"));
       this.btnMobil.addEventListener("click", () => this._setWindowMode("mobil"));
+      this.btnChain1.addEventListener("click", () => this._setChainMode("one"));
+      this.btnChain2.addEventListener("click", () => this._setChainMode("two"));
+      this.btnChainRand.addEventListener("click", () =>
+        this._setChainMode("oneUnlessRandom")
+      );
       this.btnGradient.addEventListener("click", () => this._newGradient());
       this.palette = createPalette();
       this._applyPaletteToCells();
+      this._syncChainButtons();
       this._setWindowMode(this.options.windowMode);
+    }
+
+    _syncChainButtons() {
+      const mode = this.options.chainMode;
+      this.btnChain1.classList.toggle("active", mode === "one");
+      this.btnChain2.classList.toggle("active", mode === "two");
+      this.btnChainRand.classList.toggle("active", mode === "oneUnlessRandom");
     }
 
     _colorForToken(token, reelType) {
@@ -684,6 +731,27 @@
       this.btnFix.classList.toggle("active", mode === "fix");
       this.btnMobil.classList.toggle("active", mode === "mobil");
       this._layout();
+    }
+
+    _setChainMode(mode) {
+      this.options.chainMode = mode;
+      this._syncChainButtons();
+      this._rebuildSeriesAndShow();
+    }
+
+    _rebuildSeriesAndShow() {
+      clearTimeout(this.timer);
+      if (this.anim) cancelAnimationFrame(this.anim);
+      this._newSeries(null);
+      this.factIndex = 0;
+      this.reels.forEach((r) => {
+        r.vertIndex = randInt(0, Math.max(0, r.baseLen - 1));
+      });
+      this._showFact(0, true);
+      this.timer = setTimeout(
+        () => this._scheduleNext(),
+        this.options.transitionMs + this.options.pauseMs
+      );
     }
 
     _slotLeft(slot) {
@@ -774,9 +842,22 @@
     }
 
     _newSeries(carryFrom) {
-      this.series = buildSeries(this.catalog, this.options.seriesLength, carryFrom);
-      if (this.series.length < this.options.seriesLength) {
-        this.series = buildSeries(this.catalog, this.options.seriesLength, null);
+      const { chainMode, chainRandomSkip, seriesLength } = this.options;
+      this.series = buildSeries(
+        this.catalog,
+        seriesLength,
+        carryFrom,
+        chainMode,
+        chainRandomSkip
+      );
+      if (this.series.length < seriesLength) {
+        this.series = buildSeries(
+          this.catalog,
+          seriesLength,
+          null,
+          chainMode,
+          chainRandomSkip
+        );
       }
       this.factIndex = 0;
     }
@@ -921,6 +1002,10 @@
       if (opts.divMargin != null) {
         this.marginSlider.value = String(opts.divMargin);
         this.marginOut.textContent = `${opts.divMargin}px`;
+      }
+      if (opts.chainMode) {
+        this.options.chainMode = opts.chainMode;
+        this._syncChainButtons();
       }
       this._layout();
     }
