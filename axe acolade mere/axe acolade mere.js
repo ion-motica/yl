@@ -282,6 +282,51 @@
     ].join(" ");
   }
 
+  /** Poziții Y compacte: bandele ascunse nu lasă gol. */
+  function computeVerticalLayout(opts) {
+    const padTop = 10;
+    const padBottom = 10;
+    const gap = 6;
+    let y = padTop;
+    const layout = { padTop, padBottom };
+
+    if (opts.afiseazaAcoladeNumereMici) {
+      layout.smallLabelY = y + 9;
+      y += 18 + gap;
+      layout.smallBraceY = y + 8;
+      y += 14 + gap;
+    }
+
+    if (opts.afiseazaObiecte) {
+      layout.objY = y + 14;
+      y += 28 + gap;
+    } else if (opts.showAxaNumere || opts.afiseazaAcoladaNumarMare) {
+      layout.objY = y + 14;
+      y += 6;
+    }
+
+    if (opts.showAxaNumere) {
+      layout.axisY = y + 7;
+      y += 14;
+      if (opts.showNumereAxaNumere) {
+        layout.axisNumberOffset = 15;
+        y += 20 + gap;
+      } else {
+        y += gap;
+      }
+    }
+
+    if (opts.afiseazaAcoladaNumarMare) {
+      layout.bigBraceY = y + 8;
+      y += 14 + 4;
+      layout.bigLabelY = y + 10;
+      y += 18;
+    }
+
+    layout.height = Math.max(y + padBottom, 48);
+    return layout;
+  }
+
   function drawObject(g, type, cx, cy, r, index) {
     if (type === "mere") {
       const stem = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -385,24 +430,26 @@
     const axisEnd = Math.max(model.total + opts.axisEndPadding, 4);
     const unit = opts.unitWidth || 48;
     const padX = 36;
-    const padTop = 52;
-    const padBottom = 58;
-    const axisY = padTop + 88;
-    const objY = axisY - 34;
-    const smallBraceY = objY - 34;
-    const smallLabelY = smallBraceY - 16;
-    const bigBraceY = axisY + 28;
-    const bigLabelY = bigBraceY + 26;
+    const layout = computeVerticalLayout(opts);
+    const {
+      smallLabelY,
+      smallBraceY,
+      objY,
+      axisY,
+      axisNumberOffset,
+      bigBraceY,
+      bigLabelY,
+    } = layout;
 
     const xAt = (n) => padX + (n - axisStart) * unit;
 
     const width = padX * 2 + (axisEnd - axisStart) * unit;
-    const height = opts.viewHeight;
+    const height = layout.height;
 
     const svg = svgEl("svg", {
       viewBox: `0 0 ${width} ${height}`,
       class: "aam-svg",
-      preserveAspectRatio: "xMidYMid meet",
+      preserveAspectRatio: "xMidYMin meet",
     });
 
     const defs = svgEl("defs");
@@ -427,7 +474,7 @@
       return { seg, start, end };
     });
 
-    if (opts.showAxaNumere) {
+    if (opts.showAxaNumere && axisY != null) {
       const axis = svgEl("line", {
         x1: xAt(axisStart),
         y1: axisY,
@@ -447,13 +494,15 @@
           class: "aam-tick",
         });
         svg.appendChild(tick);
-        if (axisNumberVisible(n, model, opts)) {
-          svg.appendChild(svgText(x, axisY + 22, String(n), "aam-text"));
+        if (opts.showNumereAxaNumere && axisNumberVisible(n, model, opts)) {
+          svg.appendChild(
+            svgText(x, axisY + axisNumberOffset, String(n), "aam-text")
+          );
         }
       }
     }
 
-    if (opts.afiseazaObiecte) {
+    if (opts.afiseazaObiecte && objY != null) {
       const objG = svgEl("g");
       for (let i = 1; i <= model.total; i += 1) {
         drawObject(objG, opts.obiectAfisat, xAt(i), objY, 12, i);
@@ -461,7 +510,7 @@
       svg.appendChild(objG);
     }
 
-    if (opts.afiseazaAcoladeNumereMici) {
+    if (opts.afiseazaAcoladeNumereMici && smallBraceY != null) {
       for (const range of ranges) {
         const x1 = xAt(range.start);
         const x2 = xAt(range.end);
@@ -473,7 +522,7 @@
       }
     }
 
-    if (opts.afiseazaAcoladaNumarMare && model.total > 0) {
+    if (opts.afiseazaAcoladaNumarMare && model.total > 0 && bigBraceY != null) {
       const x1 = xAt(1);
       const x2 = xAt(model.total);
       const path = svgEl("path", { d: bracketPath(x1, x2, bigBraceY, false), class: "aam-brace" });
@@ -635,7 +684,9 @@
           const model = parseEquation(fact);
           ref.eq.textContent = formatResolvedEquation(model, this.options);
           const unitWidth = this._unitWidthFor(ref.vizWrap, model);
-          fname(fact, ref.vizHost, { ...this.options, unitWidth });
+          const drawn = fname(fact, ref.vizHost, { ...this.options, unitWidth });
+          ref.vizWrap.style.minHeight = `${drawn.height}px`;
+          ref.row.style.minHeight = "";
           ref.row.classList.remove("has-error");
         } catch (err) {
           ref.eq.textContent = fact.replace(/\?/g, " ? ");
