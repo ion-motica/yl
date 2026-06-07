@@ -270,16 +270,99 @@
     return true;
   }
 
-  function bracketPath(x1, x2, y, flip) {
-    const w = x2 - x1;
-    const dip = clamp(w * 0.08, 6, 16);
-    const mid = (x1 + x2) / 2;
-    const y0 = flip ? y - dip : y + dip;
-    return [
-      `M ${x1} ${y}`,
-      `Q ${x1} ${y0} ${mid} ${y0}`,
-      `Q ${x2} ${y0} ${x2} ${y}`,
-    ].join(" ");
+  /** Raza de bază (px); sub 4R lățime, R se micșorează proporțional. */
+  const BRACE_R0 = 6;
+  const BRACE_FIXED_R = 4;
+
+  function braceRadius(span) {
+    const w = Math.max(span, 0);
+    return w >= BRACE_FIXED_R * BRACE_R0 ? BRACE_R0 : w / BRACE_FIXED_R;
+  }
+
+  function braceStraightHalf(span, R) {
+    return Math.max(0, span - BRACE_FIXED_R * R) / 2;
+  }
+
+  /**
+   * Deschisă în jos — vârf ascuțit la centrul spanului (xc).
+   * 2 sferturi curbe spre punctul (xc, yShelf−R), nu spre exterior.
+   */
+  function bracePathOpenJos(x1, x2, y0, R) {
+    const xc = (x1 + x2) / 2;
+    const xCapL = x1 + R;
+    const xCapR = x2 - R;
+    const xMotL = xc - R;
+    const xMotR = xc + R;
+    const yShelf = y0 - R;
+    const p = [`M ${x1} ${y0}`];
+    p.push(`A ${R} ${R} 0 0 1 ${xCapL} ${yShelf}`);
+    if (xMotL > xCapL) p.push(`L ${xMotL} ${yShelf}`);
+    p.push(`A ${R} ${R} 0 0 0 ${xc} ${yShelf - R}`);
+    p.push(`A ${R} ${R} 0 0 0 ${xMotR} ${yShelf}`);
+    if (xCapR > xMotR) p.push(`L ${xCapR} ${yShelf}`);
+    p.push(`A ${R} ${R} 0 0 1 ${x2} ${y0}`);
+    return p.join(" ");
+  }
+
+  /** Deschisă în sus — vârf ascuțit la (xc, yShelf+R). */
+  function bracePathOpenSus(x1, x2, y0, R) {
+    const xc = (x1 + x2) / 2;
+    const xCapL = x1 + R;
+    const xCapR = x2 - R;
+    const xMotL = xc - R;
+    const xMotR = xc + R;
+    const yShelf = y0 + R;
+    const p = [`M ${x1} ${y0}`];
+    p.push(`A ${R} ${R} 0 0 0 ${xCapL} ${yShelf}`);
+    if (xMotL > xCapL) p.push(`L ${xMotL} ${yShelf}`);
+    p.push(`A ${R} ${R} 0 0 1 ${xc} ${yShelf + R}`);
+    p.push(`A ${R} ${R} 0 0 1 ${xMotR} ${yShelf}`);
+    if (xCapR > xMotR) p.push(`L ${xCapR} ${yShelf}`);
+    p.push(`A ${R} ${R} 0 0 0 ${x2} ${y0}`);
+    return p.join(" ");
+  }
+
+  /** jos | sus | stanga | dreapta — aceeași piesă, rotită la 90/180/270°. */
+  const BRACE_ORIENT = {
+    JOS: "jos",
+    SUS: "sus",
+    STANGA: "stanga",
+    DREAPTA: "dreapta",
+  };
+
+  function appendExtensibleBrace(svg, spanStart, spanEnd, anchor, orient) {
+    const horiz = orient === BRACE_ORIENT.JOS || orient === BRACE_ORIENT.SUS;
+    let R;
+    let L;
+
+    if (horiz) {
+      const x1 = spanStart;
+      const x2 = spanEnd;
+      R = braceRadius(x2 - x1);
+      L = braceStraightHalf(x2 - x1, R);
+      const d =
+        orient === BRACE_ORIENT.JOS
+          ? bracePathOpenJos(x1, x2, anchor, R)
+          : bracePathOpenSus(x1, x2, anchor, R);
+      svg.appendChild(svgEl("path", { d, class: "aam-brace" }));
+    } else {
+      const y1 = spanStart;
+      const y2 = spanEnd;
+      const span = y2 - y1;
+      R = braceRadius(span);
+      L = braceStraightHalf(span, R);
+      const localD = bracePathOpenJos(0, span, 0, R);
+      const cx = anchor;
+      const cy = y1 + span / 2;
+      const deg = orient === BRACE_ORIENT.STANGA ? -90 : 90;
+      const g = svgEl("g", {
+        transform: `translate(${cx} ${cy}) rotate(${deg}) translate(${-span / 2} 0)`,
+      });
+      g.appendChild(svgEl("path", { d: localD, class: "aam-brace" }));
+      svg.appendChild(g);
+    }
+
+    return { R, L, orient };
   }
 
   /** Poziții Y compacte: bandele ascunse nu lasă gol. */
@@ -291,10 +374,10 @@
     const layout = { padTop, padBottom };
 
     if (opts.afiseazaAcoladeNumereMici) {
-      layout.smallLabelY = y + 9;
-      y += 18 + gap;
-      layout.smallBraceY = y + 8;
-      y += 14 + gap;
+      layout.smallLabelY = y + 8;
+      y += 16;
+      layout.smallBraceY = y + 2 * BRACE_R0;
+      y += 2 * BRACE_R0 + gap;
     }
 
     if (opts.afiseazaObiecte) {
@@ -317,8 +400,8 @@
     }
 
     if (opts.afiseazaAcoladaNumarMare) {
-      layout.bigBraceY = y + 8;
-      y += 14 + 4;
+      layout.bigBraceY = y;
+      y += 2 * BRACE_R0 + 4;
       layout.bigLabelY = y + 10;
       y += 18;
     }
@@ -461,7 +544,7 @@
       .aam-text-big { font-size: 20px; font-weight: 800; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
       .aam-axis { stroke: #334155; stroke-width: 2; }
       .aam-tick { stroke: #64748b; stroke-width: 1.5; }
-      .aam-brace { fill: none; stroke: #475569; stroke-width: 2; stroke-linecap: round; }
+      .aam-brace { fill: none; stroke: #0f172a; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
     `;
     defs.appendChild(style);
     svg.appendChild(defs);
@@ -514,8 +597,7 @@
       for (const range of ranges) {
         const x1 = xAt(range.start);
         const x2 = xAt(range.end);
-        const path = svgEl("path", { d: bracketPath(x1, x2, smallBraceY, true), class: "aam-brace" });
-        svg.appendChild(path);
+        appendExtensibleBrace(svg, x1, x2, smallBraceY, BRACE_ORIENT.JOS);
         svg.appendChild(
           svgText((x1 + x2) / 2, smallLabelY, segmentLabel(range.seg, model, opts), "aam-text-small")
         );
@@ -525,8 +607,7 @@
     if (opts.afiseazaAcoladaNumarMare && model.total > 0 && bigBraceY != null) {
       const x1 = xAt(1);
       const x2 = xAt(model.total);
-      const path = svgEl("path", { d: bracketPath(x1, x2, bigBraceY, false), class: "aam-brace" });
-      svg.appendChild(path);
+      appendExtensibleBrace(svg, x1, x2, bigBraceY, BRACE_ORIENT.SUS);
       svg.appendChild(svgText((x1 + x2) / 2, bigLabelY, totalLabel(model, opts), "aam-text-big"));
     }
 
@@ -752,4 +833,14 @@
   global.parseAamEquation = parseEquation;
   global.fname = fname;
   global.axeAcoladeMere = axeAcoladeMere;
+  global.AamBrace = {
+    R0: BRACE_R0,
+    FIXED_R: BRACE_FIXED_R,
+    ORIENT: BRACE_ORIENT,
+    radius: braceRadius,
+    straightHalf: braceStraightHalf,
+    pathOpenJos: bracePathOpenJos,
+    pathOpenSus: bracePathOpenSus,
+    append: appendExtensibleBrace,
+  };
 })(typeof window !== "undefined" ? window : globalThis);
