@@ -19,6 +19,7 @@
     afiseazaAcoladaNumarMare: true,
     afiseazaNumarLaUnknown: false,
     animBraceMsPerStep: 400,
+    animNumereAxaCuMerele: false,
     axisStart: -2,
     axisEndPadding: 3,
     axisHideTailAfterLast: 5,
@@ -30,22 +31,49 @@
 
   const OBJECT_TYPES = ["mere", "lamai", "flori", "discuri"];
 
-  /** Generează toate facts din tablele + și − (0–10), ambele orientări F2. */
+  /** Generează facts din tablele + și −; operanzii segment (mici) sunt 1–10. */
   function generatePlusMinusFacts() {
     const facts = [];
-    for (let a = 0; a <= 10; a += 1) {
-      for (let b = 0; b <= 10; b += 1) {
+    for (let a = 1; a <= 10; a += 1) {
+      for (let b = 1; b <= 10; b += 1) {
         const sum = a + b;
         facts.push(`${a}+${b}=${sum}`);
         facts.push(`${sum}=${a}+${b}`);
       }
     }
-    for (let a = 0; a <= 10; a += 1) {
-      for (let b = 0; b <= 10; b += 1) {
-        const diff = a - b;
-        if (diff < 0) continue;
-        facts.push(`${a}-${b}=${diff}`);
-        facts.push(`${diff}=${a}-${b}`);
+    for (let b = 1; b <= 10; b += 1) {
+      for (let c = 1; c <= 10; c += 1) {
+        const a = b + c;
+        facts.push(`${a}-${b}=${c}`);
+        facts.push(`${c}=${a}-${b}`);
+      }
+    }
+    return facts;
+  }
+
+  /** Variante cu un singur «?» per ecuație (inclusiv «3+4=?», «?=3+4», etc.). */
+  function generatePlusMinusUnknownFacts() {
+    const facts = [];
+    for (let a = 1; a <= 10; a += 1) {
+      for (let b = 1; b <= 10; b += 1) {
+        const sum = a + b;
+        facts.push(`?+${b}=${sum}`);
+        facts.push(`${a}+?=${sum}`);
+        facts.push(`${a}+${b}=?`);
+        facts.push(`?=${a}+${b}`);
+        facts.push(`${sum}=?+${b}`);
+        facts.push(`${sum}=${a}+?`);
+      }
+    }
+    for (let b = 1; b <= 10; b += 1) {
+      for (let c = 1; c <= 10; c += 1) {
+        const a = b + c;
+        facts.push(`?-${b}=${c}`);
+        facts.push(`${a}-?=${c}`);
+        facts.push(`${a}-${b}=?`);
+        facts.push(`?=${a}-${b}`);
+        facts.push(`${c}=?-${b}`);
+        facts.push(`${c}=${a}-?`);
       }
     }
     return facts;
@@ -53,24 +81,55 @@
 
   const ALL_FACTS = generatePlusMinusFacts();
 
-  /** Serie fixă de 10 ecuații +/- (0–10), alternând facts complete și cu ?. */
+  function randInt(lo, hi) {
+    return lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+
+  function pickOne(arr) {
+    return arr[randInt(0, arr.length - 1)];
+  }
+
+  function randomPlusEquation(withUnknown) {
+    const a = randInt(1, 10);
+    const b = randInt(1, 10);
+    const sum = a + b;
+    if (!withUnknown) {
+      return pickOne([`${a}+${b}=${sum}`, `${sum}=${a}+${b}`]);
+    }
+    return pickOne([
+      `?+${b}=${sum}`,
+      `${a}+?=${sum}`,
+      `${a}+${b}=?`,
+      `?=${a}+${b}`,
+      `${sum}=?+${b}`,
+      `${sum}=${a}+?`,
+    ]);
+  }
+
+  function randomMinusEquation(withUnknown) {
+    const b = randInt(1, 10);
+    const c = randInt(1, 10);
+    const a = b + c;
+    if (!withUnknown) {
+      return pickOne([`${a}-${b}=${c}`, `${c}=${a}-${b}`]);
+    }
+    return pickOne([
+      `?-${b}=${c}`,
+      `${a}-?=${c}`,
+      `${a}-${b}=?`,
+      `?=${a}-${b}`,
+      `${c}=?-${b}`,
+      `${c}=${a}-?`,
+    ]);
+  }
+
+  /** Serie aleatoare: operanzii mici 1–10, total derivat (2–20); jumătate cu ?. */
   function buildDefaultFactSeries(length = 10) {
-    const curated = [
-      "3+7=10",
-      "3+?=10",
-      "2+8=10",
-      "?+5=8",
-      "10-7=3",
-      "10-?=4",
-      "9-4=5",
-      "6+?=10",
-      "10=3+7",
-      "4=10-6",
-    ];
-    if (length <= curated.length) return curated.slice(0, length);
-    const out = curated.slice();
-    for (let i = curated.length; i < length; i += 1) {
-      out.push(ALL_FACTS[i % ALL_FACTS.length]);
+    const out = [];
+    for (let i = 0; i < length; i += 1) {
+      const withUnknown = i % 2 === 1;
+      const plus = Math.random() < 0.5;
+      out.push(plus ? randomPlusEquation(withUnknown) : randomMinusEquation(withUnknown));
     }
     return out;
   }
@@ -241,6 +300,10 @@
     return model.display.replace(/\?/g, " ? ");
   }
 
+  function totalSlotKey(model) {
+    return model.op === "+" ? "c" : "a";
+  }
+
   function slotIsUnknown(model, key) {
     const slot = model.slots.find((s) => s.key === key);
     return slot != null && slot.tok === "?";
@@ -256,12 +319,19 @@
   }
 
   function totalLabel(model, opts) {
-    const totalSlotKey = model.op === "+" ? "c" : "a";
-    return bracketLabel(model.total, model, totalSlotKey, opts);
+    return bracketLabel(model.total, model, totalSlotKey(model), opts);
   }
 
   function axisNumberVisible(n, model, opts) {
     if (!opts.showNumereAxaNumere) return false;
+
+    const anim = opts.animBigBrace;
+    const inAnim = anim && typeof anim === "object";
+    if (inAnim && opts.animNumereAxaCuMerele) {
+      if (n >= 1) return n <= anim.objectCount;
+      return true;
+    }
+
     if (opts.showNumereAxaInJurulSegmentuluiMicDreapta) return true;
     const seg1 = model.segments[0]?.value || 0;
     const lastObj = model.total;
@@ -761,7 +831,6 @@
             model,
             unitWidth,
             xAt,
-            labelQuestion: fact.includes("?"),
             total: model.total,
             objectCount: 0,
             x1: min.x1,
@@ -789,7 +858,7 @@
     _drawAnimFrame(animRows) {
       for (const row of animRows) {
         if (row.error) continue;
-        const label = row.labelQuestion ? "?" : String(row.objectCount);
+        const label = bracketLabel(row.objectCount, row.model, totalSlotKey(row.model), this.options);
         try {
           const drawn = fname(row.fact, row.ref.vizHost, {
             ...this.options,
@@ -939,6 +1008,13 @@
       animRow.appendChild(this.btnAnimBig);
       this.sidebar.appendChild(animRow);
 
+      this.sidebar.appendChild(
+        this._switchRow(
+          "animNumereAxaCuMerele",
+          "Pune numere pe axă pe măsură ce se adaugă mere"
+        )
+      );
+
       const speedRow = document.createElement("div");
       speedRow.className = "aam-row";
       const speedLabel = document.createElement("label");
@@ -961,7 +1037,7 @@
 
       const info = document.createElement("p");
       info.className = "aam-info";
-      info.textContent = `Serie de ${this.facts.length} ecuații (complete și cu ?). Schimbările din panel se aplică tuturor.`;
+      info.textContent = `Serie aleatoare de ${this.facts.length} ecuații: numere mici 1–10, total variabil. Jumătate cu ?. Reîncarcă pagina pentru altă serie.`;
       this.sidebar.appendChild(info);
     }
 
@@ -1068,6 +1144,7 @@
   }
 
   global.generatePlusMinusFacts = generatePlusMinusFacts;
+  global.generatePlusMinusUnknownFacts = generatePlusMinusUnknownFacts;
   global.buildDefaultFactSeries = buildDefaultFactSeries;
   global.parseAamEquation = parseEquation;
   global.fname = fname;
