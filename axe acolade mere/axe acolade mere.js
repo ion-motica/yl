@@ -20,6 +20,7 @@
     afiseazaNumarLaUnknown: false,
     animBraceMsPerStep: 400,
     animNumereAxaCuMerele: false,
+    animAcoladeNumereMici: false,
     axisStart: -2,
     axisEndPadding: 3,
     axisHideTailAfterLast: 5,
@@ -434,6 +435,85 @@
     return braceSpanIndices(1, n, xAt, unit);
   }
 
+  function buildSegmentRanges(model) {
+    let cursor = 1;
+    return model.segments.map((seg) => {
+      const start = cursor;
+      const end = cursor + seg.value - 1;
+      cursor = end + 1;
+      return { seg, start, end };
+    });
+  }
+
+  function minSmallBraceSpan(xAt, unit, startIdx, endIdx) {
+    const full = braceSpanIndices(startIdx, endIdx, xAt, unit);
+    const cx = (full.x1 + full.x2) / 2;
+    const R = braceRadius(BRACE_FIXED_R * BRACE_R0);
+    return { x1: cx - 2 * R, x2: cx + 2 * R };
+  }
+
+  function smallBraceSpanForCount(nInSeg, startIdx, xAt, unit) {
+    const endIdx = startIdx + nInSeg - 1;
+    return braceSpanIndices(startIdx, endIdx, xAt, unit);
+  }
+
+  /** Acolade mici animat: câte obiecte din segment sunt deja afișate. */
+  function computeSmallBraceAnimSpans(model, xAt, unit, globalStep) {
+    const T = model.total;
+    const g = Math.max(0, globalStep);
+    const ranges = buildSegmentRanges(model);
+
+    if (T <= 0) return [];
+
+    if (g >= T) {
+      return ranges.map((range) => {
+        const full = braceSpanIndices(range.start, range.end, xAt, unit);
+        return {
+          seg: range.seg,
+          x1: full.x1,
+          x2: full.x2,
+          visible: true,
+        };
+      });
+    }
+
+    const seg = Math.floor(g);
+    const frac = g - seg;
+    const objectCount = seg + 1;
+    const activeApple = seg + 1;
+
+    return ranges.map((range) => {
+      const { start: S, end: E } = range;
+
+      if (objectCount < S) {
+        return { seg: range.seg, x1: 0, x2: 0, visible: false };
+      }
+
+      if (objectCount > E) {
+        const full = braceSpanIndices(S, E, xAt, unit);
+        return { seg: range.seg, x1: full.x1, x2: full.x2, visible: true };
+      }
+
+      const nInSeg = objectCount - S + 1;
+      if (activeApple >= S && activeApple <= E) {
+        const from =
+          nInSeg === 1
+            ? minSmallBraceSpan(xAt, unit, S, E)
+            : smallBraceSpanForCount(nInSeg - 1, S, xAt, unit);
+        const to = smallBraceSpanForCount(nInSeg, S, xAt, unit);
+        return {
+          seg: range.seg,
+          x1: lerp(from.x1, to.x1, frac),
+          x2: lerp(from.x2, to.x2, frac),
+          visible: true,
+        };
+      }
+
+      const full = smallBraceSpanForCount(nInSeg, S, xAt, unit);
+      return { seg: range.seg, x1: full.x1, x2: full.x2, visible: true };
+    });
+  }
+
   function appendExtensibleBrace(svg, spanStart, spanEnd, anchor, orient) {
     const horiz = orient === BRACE_ORIENT.JOS || orient === BRACE_ORIENT.SUS;
     let R;
@@ -477,7 +557,10 @@
     let y = padTop;
     const layout = { padTop, padBottom };
 
-    if (opts.afiseazaAcoladeNumereMici) {
+    if (
+      opts.afiseazaAcoladeNumereMici ||
+      (opts.animBigBrace && opts.animAcoladeNumereMici)
+    ) {
       layout.smallLabelY = y + 8;
       y += 16;
       layout.smallBraceY = y + 2 * BRACE_R0;
@@ -653,13 +736,7 @@
     defs.appendChild(style);
     svg.appendChild(defs);
 
-    let cursor = 1;
-    const ranges = model.segments.map((seg) => {
-      const start = cursor;
-      const end = cursor + seg.value - 1;
-      cursor = end + 1;
-      return { seg, start, end };
-    });
+    const ranges = buildSegmentRanges(model);
 
     if (opts.showAxaNumere && axisY != null) {
       const axis = svgEl("line", {
@@ -701,13 +778,32 @@
       svg.appendChild(objG);
     }
 
-    if (!inAnim && opts.afiseazaAcoladeNumereMici && smallBraceY != null) {
-      for (const range of ranges) {
-        const { x1, x2 } = braceSpanIndices(range.start, range.end, xAt, unit);
-        appendExtensibleBrace(svg, x1, x2, smallBraceY, BRACE_ORIENT.JOS);
-        svg.appendChild(
-          svgText((x1 + x2) / 2, smallLabelY, segmentLabel(range.seg, model, opts), "aam-text-small")
-        );
+    const showSmallAnim = inAnim && opts.animAcoladeNumereMici;
+    const showSmallStatic = !inAnim && opts.afiseazaAcoladeNumereMici;
+
+    if ((showSmallStatic || showSmallAnim) && smallBraceY != null) {
+      if (showSmallAnim && typeof anim.animStep === "number") {
+        const smallSpans = computeSmallBraceAnimSpans(model, xAt, unit, anim.animStep);
+        for (const sb of smallSpans) {
+          if (!sb.visible) continue;
+          appendExtensibleBrace(svg, sb.x1, sb.x2, smallBraceY, BRACE_ORIENT.JOS);
+          svg.appendChild(
+            svgText(
+              (sb.x1 + sb.x2) / 2,
+              smallLabelY,
+              segmentLabel(sb.seg, model, opts),
+              "aam-text-small"
+            )
+          );
+        }
+      } else if (showSmallStatic) {
+        for (const range of ranges) {
+          const { x1, x2 } = braceSpanIndices(range.start, range.end, xAt, unit);
+          appendExtensibleBrace(svg, x1, x2, smallBraceY, BRACE_ORIENT.JOS);
+          svg.appendChild(
+            svgText((x1 + x2) / 2, smallLabelY, segmentLabel(range.seg, model, opts), "aam-text-small")
+          );
+        }
       }
     }
 
@@ -833,6 +929,7 @@
             xAt,
             total: model.total,
             objectCount: 0,
+            animStep: 0,
             x1: min.x1,
             x2: min.x2,
           });
@@ -865,6 +962,7 @@
             unitWidth: row.unitWidth,
             animBigBrace: {
               objectCount: row.objectCount,
+              animStep: row.animStep ?? 0,
               braceX1: row.x1,
               braceX2: row.x2,
               labelText: label,
@@ -888,6 +986,7 @@
       const g = Math.max(0, globalStep);
       if (g >= T) {
         row.objectCount = T;
+        row.animStep = T;
         const full = bigBraceSpanForCount(T, row.xAt, row.unitWidth, T);
         row.x1 = full.x1;
         row.x2 = full.x2;
@@ -897,6 +996,7 @@
       const seg = Math.floor(g);
       const frac = g - seg;
       row.objectCount = seg + 1;
+      row.animStep = g;
 
       const from =
         seg === 0
@@ -1012,6 +1112,13 @@
         this._switchRow(
           "animNumereAxaCuMerele",
           "Pune numere pe axă pe măsură ce se adaugă mere"
+        )
+      );
+
+      this.sidebar.appendChild(
+        this._switchRow(
+          "animAcoladeNumereMici",
+          "Afișează și acoladele pt numerele mici"
         )
       );
 
