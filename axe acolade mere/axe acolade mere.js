@@ -18,6 +18,7 @@
     afiseazaAcoladeNumereMici: true,
     afiseazaAcoladaNumarMare: true,
     afiseazaNumarLaUnknown: false,
+    animBraceMsPerStep: 400,
     axisStart: -2,
     axisEndPadding: 3,
     axisHideTailAfterLast: 5,
@@ -330,6 +331,39 @@
     DREAPTA: "dreapta",
   };
 
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function makeXAt(axisStart, padX, unit) {
+    return (n) => padX + (n - axisStart) * unit;
+  }
+
+  function braceSpanIndices(startIdx, endIdx, xAt, unit) {
+    const half = unit / 2;
+    return {
+      x1: xAt(startIdx) - half,
+      x2: xAt(endIdx) + half,
+    };
+  }
+
+  /** Lățime minimă naturală (4·R), centrată pe grupul final de obiecte. */
+  function minBigBraceSpan(xAt, unit, total) {
+    const full = braceSpanIndices(1, Math.max(total, 1), xAt, unit);
+    const cx = (full.x1 + full.x2) / 2;
+    const R = braceRadius(BRACE_FIXED_R * BRACE_R0);
+    return { x1: cx - 2 * R, x2: cx + 2 * R };
+  }
+
+  function bigBraceSpanForCount(n, xAt, unit, total) {
+    if (n <= 0) return minBigBraceSpan(xAt, unit, total);
+    return braceSpanIndices(1, n, xAt, unit);
+  }
+
   function appendExtensibleBrace(svg, spanStart, spanEnd, anchor, orient) {
     const horiz = orient === BRACE_ORIENT.JOS || orient === BRACE_ORIENT.SUS;
     let R;
@@ -524,16 +558,7 @@
       bigLabelY,
     } = layout;
 
-    const xAt = (n) => padX + (n - axisStart) * unit;
-
-    /** Capete acoladă: centrul primului/ultimului obiect ± jumătate pas axă (½ între 2 întregi). */
-    function braceSpanForObjects(startIdx, endIdx) {
-      const half = unit / 2;
-      return {
-        x1: xAt(startIdx) - half,
-        x2: xAt(endIdx) + half,
-      };
-    }
+    const xAt = makeXAt(axisStart, padX, unit);
 
     const width = padX * 2 + (axisEnd - axisStart) * unit;
     const height = layout.height;
@@ -594,17 +619,21 @@
       }
     }
 
-    if (opts.afiseazaObiecte && objY != null) {
+    const anim = opts.animBigBrace;
+    const inAnim = anim && typeof anim === "object";
+    const objectCount = inAnim ? anim.objectCount : model.total;
+
+    if (objY != null && objectCount > 0 && (inAnim || opts.afiseazaObiecte)) {
       const objG = svgEl("g");
-      for (let i = 1; i <= model.total; i += 1) {
+      for (let i = 1; i <= objectCount; i += 1) {
         drawObject(objG, opts.obiectAfisat, xAt(i), objY, 12, i);
       }
       svg.appendChild(objG);
     }
 
-    if (opts.afiseazaAcoladeNumereMici && smallBraceY != null) {
+    if (!inAnim && opts.afiseazaAcoladeNumereMici && smallBraceY != null) {
       for (const range of ranges) {
-        const { x1, x2 } = braceSpanForObjects(range.start, range.end);
+        const { x1, x2 } = braceSpanIndices(range.start, range.end, xAt, unit);
         appendExtensibleBrace(svg, x1, x2, smallBraceY, BRACE_ORIENT.JOS);
         svg.appendChild(
           svgText((x1 + x2) / 2, smallLabelY, segmentLabel(range.seg, model, opts), "aam-text-small")
@@ -612,10 +641,25 @@
       }
     }
 
-    if (opts.afiseazaAcoladaNumarMare && model.total > 0 && bigBraceY != null) {
-      const { x1, x2 } = braceSpanForObjects(1, model.total);
+    const showBig =
+      inAnim || (opts.afiseazaAcoladaNumarMare && model.total > 0 && bigBraceY != null);
+
+    if (showBig && bigBraceY != null) {
+      let x1;
+      let x2;
+      let label;
+      if (inAnim) {
+        x1 = anim.braceX1;
+        x2 = anim.braceX2;
+        label = anim.labelText;
+      } else {
+        const span = braceSpanIndices(1, model.total, xAt, unit);
+        x1 = span.x1;
+        x2 = span.x2;
+        label = totalLabel(model, opts);
+      }
       appendExtensibleBrace(svg, x1, x2, bigBraceY, BRACE_ORIENT.SUS);
-      svg.appendChild(svgText((x1 + x2) / 2, bigLabelY, totalLabel(model, opts), "aam-text-big"));
+      svg.appendChild(svgText((x1 + x2) / 2, bigLabelY, label, "aam-text-big"));
     }
 
     if (target) {
@@ -682,8 +726,165 @@
       this.root.append(this.sidebar, this.stage);
       this.container.replaceChildren(this.root);
 
-      this._ro = new ResizeObserver(() => this.render());
+      this._ro = new ResizeObserver(() => {
+        if (this._animating && this._animState) {
+          this._refreshAnimGeometry();
+          this._drawAnimFrame(this._animState.animRows);
+        } else {
+          this.render();
+        }
+      });
       this._ro.observe(this.seriesList);
+    }
+
+    _stopBigBraceAnim() {
+      if (this._animRaf != null) {
+        cancelAnimationFrame(this._animRaf);
+        this._animRaf = null;
+      }
+      this._animating = false;
+      this._animState = null;
+    }
+
+    _buildAnimRows() {
+      const rows = [];
+      for (const ref of this.rowRefs) {
+        try {
+          const fact = normalizeEquation(ref.fact);
+          const model = parseEquation(fact);
+          const unitWidth = this._unitWidthFor(ref.vizWrap, model);
+          const xAt = makeXAt(this.options.axisStart, 36, unitWidth);
+          const min = minBigBraceSpan(xAt, unitWidth, model.total);
+          rows.push({
+            ref,
+            fact,
+            model,
+            unitWidth,
+            xAt,
+            labelQuestion: fact.includes("?"),
+            total: model.total,
+            objectCount: 0,
+            x1: min.x1,
+            x2: min.x2,
+          });
+        } catch (err) {
+          rows.push({ ref, error: err });
+        }
+      }
+      return rows;
+    }
+
+    _refreshAnimGeometry() {
+      if (!this._animState) return;
+      for (const row of this._animState.animRows) {
+        if (row.error) continue;
+        row.unitWidth = this._unitWidthFor(row.ref.vizWrap, row.model);
+        row.xAt = makeXAt(this.options.axisStart, 36, row.unitWidth);
+        const span = bigBraceSpanForCount(row.objectCount, row.xAt, row.unitWidth, row.total);
+        row.x1 = span.x1;
+        row.x2 = span.x2;
+      }
+    }
+
+    _drawAnimFrame(animRows) {
+      for (const row of animRows) {
+        if (row.error) continue;
+        const label = row.labelQuestion ? "?" : String(row.objectCount);
+        try {
+          const drawn = fname(row.fact, row.ref.vizHost, {
+            ...this.options,
+            unitWidth: row.unitWidth,
+            animBigBrace: {
+              objectCount: row.objectCount,
+              braceX1: row.x1,
+              braceX2: row.x2,
+              labelText: label,
+            },
+          });
+          row.ref.vizWrap.style.minHeight = `${drawn.height}px`;
+        } catch (err) {
+          row.ref.vizHost.replaceChildren();
+          const msg = document.createElement("p");
+          msg.className = "aam-error";
+          msg.textContent = err.message || String(err);
+          row.ref.vizHost.appendChild(msg);
+        }
+      }
+    }
+
+    _applyAnimProgress(row, globalStep) {
+      const T = row.total;
+      if (T <= 0) return;
+
+      const g = Math.max(0, globalStep);
+      if (g >= T) {
+        row.objectCount = T;
+        const full = bigBraceSpanForCount(T, row.xAt, row.unitWidth, T);
+        row.x1 = full.x1;
+        row.x2 = full.x2;
+        return;
+      }
+
+      const seg = Math.floor(g);
+      const frac = g - seg;
+      row.objectCount = seg + 1;
+
+      const from =
+        seg === 0
+          ? minBigBraceSpan(row.xAt, row.unitWidth, T)
+          : bigBraceSpanForCount(seg, row.xAt, row.unitWidth, T);
+      const to = bigBraceSpanForCount(seg + 1, row.xAt, row.unitWidth, T);
+      const e = frac;
+      row.x1 = lerp(from.x1, to.x1, e);
+      row.x2 = lerp(from.x2, to.x2, e);
+    }
+
+    _runContinuousBigBraceAnim(animRows, maxTotal, msPerStep) {
+      const totalMs = maxTotal * msPerStep;
+      return new Promise((resolve) => {
+        const t0 = performance.now();
+        const tick = (now) => {
+          const globalStep = (now - t0) / msPerStep;
+          for (const row of animRows) {
+            if (!row.error) this._applyAnimProgress(row, globalStep);
+          }
+          this._drawAnimFrame(animRows);
+          if (now - t0 < totalMs) {
+            this._animRaf = requestAnimationFrame(tick);
+          } else {
+            for (const row of animRows) {
+              if (!row.error) this._applyAnimProgress(row, row.total);
+            }
+            this._drawAnimFrame(animRows);
+            this._animRaf = null;
+            resolve();
+          }
+        };
+        this._animRaf = requestAnimationFrame(tick);
+      });
+    }
+
+    async _startBigBraceAnim() {
+      this._stopBigBraceAnim();
+      this._animating = true;
+
+      const animRows = this._buildAnimRows();
+      this._animState = { animRows };
+
+      for (const row of animRows) {
+        if (!row.error) this._applyAnimProgress(row, 0);
+      }
+      this._drawAnimFrame(animRows);
+
+      const ms = Number(this.animSpeedSlider.value) || this.options.animBraceMsPerStep;
+      const maxTotal = Math.max(0, ...animRows.filter((r) => !r.error).map((r) => r.total));
+
+      if (maxTotal > 0) {
+        await this._runContinuousBigBraceAnim(animRows, maxTotal, ms);
+      }
+
+      this._stopBigBraceAnim();
+      this.render();
     }
 
     _buildControls() {
@@ -729,6 +930,35 @@
       objRow.append(objLabel, this.objSelect);
       this.sidebar.appendChild(objRow);
 
+      const animRow = document.createElement("div");
+      animRow.className = "aam-row";
+      this.btnAnimBig = document.createElement("button");
+      this.btnAnimBig.type = "button";
+      this.btnAnimBig.textContent = "Anima acolada numar mare";
+      this.btnAnimBig.addEventListener("click", () => this._startBigBraceAnim());
+      animRow.appendChild(this.btnAnimBig);
+      this.sidebar.appendChild(animRow);
+
+      const speedRow = document.createElement("div");
+      speedRow.className = "aam-row";
+      const speedLabel = document.createElement("label");
+      speedLabel.textContent = "Viteză creștere acoladă (ms/pas)";
+      this.animSpeedSlider = document.createElement("input");
+      this.animSpeedSlider.type = "range";
+      this.animSpeedSlider.min = "80";
+      this.animSpeedSlider.max = "1200";
+      this.animSpeedSlider.step = "20";
+      this.animSpeedSlider.value = String(this.options.animBraceMsPerStep);
+      this.animSpeedOut = document.createElement("span");
+      this.animSpeedOut.className = "aam-slider-out";
+      this.animSpeedOut.textContent = this.animSpeedSlider.value;
+      this.animSpeedSlider.addEventListener("input", () => {
+        this.options.animBraceMsPerStep = Number(this.animSpeedSlider.value);
+        this.animSpeedOut.textContent = this.animSpeedSlider.value;
+      });
+      speedRow.append(speedLabel, this.animSpeedSlider, this.animSpeedOut);
+      this.sidebar.appendChild(speedRow);
+
       const info = document.createElement("p");
       info.className = "aam-info";
       info.textContent = `Serie de ${this.facts.length} ecuații (complete și cu ?). Schimbările din panel se aplică tuturor.`;
@@ -762,6 +992,7 @@
     }
 
     render() {
+      if (this._animating) return;
       this.seriesHead.textContent = `Serie: ${this.facts.length} facts +/-`;
 
       for (const ref of this.rowRefs) {
@@ -818,6 +1049,7 @@
     }
 
     destroy() {
+      this._stopBigBraceAnim();
       this._ro?.disconnect();
       this.container.replaceChildren();
     }
