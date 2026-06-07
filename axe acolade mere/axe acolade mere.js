@@ -526,6 +526,15 @@
 
     const xAt = (n) => padX + (n - axisStart) * unit;
 
+    /** Capete acoladă: centrul primului/ultimului obiect ± jumătate pas axă (½ între 2 întregi). */
+    function braceSpanForObjects(startIdx, endIdx) {
+      const half = unit / 2;
+      return {
+        x1: xAt(startIdx) - half,
+        x2: xAt(endIdx) + half,
+      };
+    }
+
     const width = padX * 2 + (axisEnd - axisStart) * unit;
     const height = layout.height;
 
@@ -595,8 +604,7 @@
 
     if (opts.afiseazaAcoladeNumereMici && smallBraceY != null) {
       for (const range of ranges) {
-        const x1 = xAt(range.start);
-        const x2 = xAt(range.end);
+        const { x1, x2 } = braceSpanForObjects(range.start, range.end);
         appendExtensibleBrace(svg, x1, x2, smallBraceY, BRACE_ORIENT.JOS);
         svg.appendChild(
           svgText((x1 + x2) / 2, smallLabelY, segmentLabel(range.seg, model, opts), "aam-text-small")
@@ -605,8 +613,7 @@
     }
 
     if (opts.afiseazaAcoladaNumarMare && model.total > 0 && bigBraceY != null) {
-      const x1 = xAt(1);
-      const x2 = xAt(model.total);
+      const { x1, x2 } = braceSpanForObjects(1, model.total);
       appendExtensibleBrace(svg, x1, x2, bigBraceY, BRACE_ORIENT.SUS);
       svg.appendChild(svgText((x1 + x2) / 2, bigLabelY, totalLabel(model, opts), "aam-text-big"));
     }
