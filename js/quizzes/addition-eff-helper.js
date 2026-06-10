@@ -12,6 +12,15 @@
         quizId: "addition-eff",
         adapter: global.EFFQuizAdditionAdapter,
         minLevel: 1,
+        aam: {
+          enabled: true,
+          sameIllustrationInSeries(ctx) {
+            return ctx.seriesType === "B";
+          },
+          illustrationKey(ctx) {
+            return ctx.currentFact?.factId ?? null;
+          },
+        },
       });
     },
   });

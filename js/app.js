@@ -14,6 +14,9 @@
     levelPickerEl: document.getElementById("level-picker"),
     quizPickerListEl: document.getElementById("quiz-picker-list"),
     arena: document.getElementById("arena"),
+    illustrareEl: document.getElementById("div-ilustrare"),
+    listaOperatiiEl: document.getElementById("div-lista-operatii"),
+    aamControlPanelEl: document.getElementById("control-panel-aam"),
     flashEl: document.getElementById("flash"),
     falling: document.getElementById("falling"),
     fallingMainEl: document.getElementById("falling-main"),
@@ -28,6 +31,7 @@
 
   let quiz = null;
   let engine = null;
+  let aamArena = null;
   let lastGreenCells = null;
 
   function showBanner(text) {
@@ -119,6 +123,7 @@
       dom.playPauseBtn.disabled = false;
       engine.cancelRisingAnimation();
       lastGreenCells = null;
+      aamArena.invalidateKey();
       renderProgress();
       engine.startRound(quiz.beginRound(quiz.pickNextRound()));
     });
@@ -175,6 +180,7 @@
     const meta = QuizRegistry.get(id);
     dom.quizTitleEl.textContent = meta.title;
     quiz = QuizRegistry.createActive();
+    aamArena.reset();
     effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);
     buildQuizPicker();
     buildLevelPicker();
@@ -188,12 +194,14 @@
     QuizRegistry.setActive("addition-table") ||
     QuizRegistry.setActive("prime-divisions");
   quiz = QuizRegistry.createActive();
+  aamArena = AamArena.create(dom);
 
   engine = new FallingEngine({
     dom,
     getQuiz: () => quiz,
     showBanner,
     onProgressUpdate: renderProgress,
+    onRender: (state) => aamArena.syncFromQuiz(quiz, state),
   });
 
   effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);

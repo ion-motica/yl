@@ -1384,6 +1384,144 @@
     }
   }
 
+  function unitWidthForContainer(container, model, opts) {
+    const box = container.clientWidth || opts.viewWidth;
+    const span = Math.max(
+      6,
+      model.total + opts.axisEndPadding - opts.axisStart
+    );
+    return clamp(Math.floor((box - 72) / span), 20, 48);
+  }
+
+  function applyFnameAnimProgress(row, globalStep) {
+    const T = row.total;
+    if (T <= 0) return;
+
+    const g = Math.max(0, globalStep);
+    if (g >= T) {
+      row.objectCount = T;
+      row.animStep = T;
+      const full = bigBraceSpanForCount(T, row.xAt, row.unitWidth, T);
+      row.x1 = full.x1;
+      row.x2 = full.x2;
+      return;
+    }
+
+    const seg = Math.floor(g);
+    const frac = g - seg;
+    row.objectCount = seg + 1;
+    row.animStep = g;
+
+    const from =
+      seg === 0
+        ? minBigBraceSpan(row.xAt, row.unitWidth, T)
+        : bigBraceSpanForCount(seg, row.xAt, row.unitWidth, T);
+    const to = bigBraceSpanForCount(seg + 1, row.xAt, row.unitWidth, T);
+    row.x1 = lerp(from.x1, to.x1, frac);
+    row.x2 = lerp(from.x2, to.x2, frac);
+  }
+
+  /**
+   * Animație acoladă mare pentru o singură ecuație într-un container quiz.
+   * @returns {{ promise: Promise<{done?: boolean, error?: Error}>, cancel: () => void }}
+   */
+  function runFnameAnimation(equation, container, options) {
+    const opts = { ...DEFAULTS, ...(options || {}) };
+    let rafId = null;
+    let cancelled = false;
+
+    const promise = new Promise((resolve) => {
+      const fact = normalizeEquation(equation);
+      let model;
+      let unitWidth;
+      let xAt;
+      try {
+        model = parseEquation(fact);
+        unitWidth = unitWidthForContainer(container, model, opts);
+        xAt = makeXAt(opts.axisStart, 36, unitWidth);
+      } catch (err) {
+        resolve({ error: err });
+        return;
+      }
+
+      const total = model.total;
+      const row = {
+        fact,
+        model,
+        unitWidth,
+        xAt,
+        total,
+        objectCount: 0,
+        animStep: 0,
+        x1: 0,
+        x2: 0,
+      };
+
+      const draw = () => {
+        const label = bracketLabel(
+          row.objectCount,
+          row.model,
+          totalSlotKey(row.model),
+          opts
+        );
+        const drawn = fname(fact, container, {
+          ...opts,
+          unitWidth,
+          animBigBrace: {
+            objectCount: row.objectCount,
+            animStep: row.animStep ?? 0,
+            braceX1: row.x1,
+            braceX2: row.x2,
+            labelText: label,
+          },
+        });
+        if (drawn?.height) container.style.minHeight = `${drawn.height}px`;
+      };
+
+      applyFnameAnimProgress(row, 0);
+      draw();
+
+      if (total <= 0) {
+        resolve({ done: true });
+        return;
+      }
+
+      const msPerStep = Number(opts.animBraceMsPerStep) || 400;
+      const totalMs = total * msPerStep;
+      const t0 = performance.now();
+
+      const tick = (now) => {
+        if (cancelled) {
+          resolve({ done: false });
+          return;
+        }
+        const globalStep = (now - t0) / msPerStep;
+        applyFnameAnimProgress(row, globalStep);
+        draw();
+        if (now - t0 < totalMs) {
+          rafId = requestAnimationFrame(tick);
+        } else {
+          applyFnameAnimProgress(row, total);
+          draw();
+          rafId = null;
+          resolve({ done: true });
+        }
+      };
+      rafId = requestAnimationFrame(tick);
+    });
+
+    return {
+      promise,
+      cancel() {
+        cancelled = true;
+        if (rafId != null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      },
+    };
+  }
+
   function axeAcoladeMere(container, options) {
     const app = new AxeAcoladeMereApp(container, options);
     return {
@@ -1401,6 +1539,7 @@
   global.buildDefaultFactSeries = buildDefaultFactSeries;
   global.parseAamEquation = parseEquation;
   global.fname = fname;
+  global.runFnameAnimation = runFnameAnimation;
   global.axeAcoladeMere = axeAcoladeMere;
   global.AamBrace = {
     R0: BRACE_R0,
