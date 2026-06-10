@@ -21,6 +21,8 @@
     animBraceMsPerStep: 400,
     animNumereAxaCuMerele: false,
     animAcoladeNumereMici: false,
+    animFadeNumere: false,
+    animFadeObiecte: false,
     axisStart: -2,
     axisEndPadding: 3,
     axisHideTailAfterLast: 5,
@@ -319,8 +321,86 @@
     return bracketLabel(seg.value, model, seg.key, opts);
   }
 
+  /** Etichetă acoladă mică în animație: 1, 2, … până la valoarea segmentului. */
+  function segmentAnimLabelState(range, g, model, opts) {
+    const { start: S, end: E, seg } = range;
+    const objectCount = Math.floor(Math.max(0, g)) + 1;
+
+    if (objectCount < S) {
+      return { visible: false, curr: "", prev: null, t: 1 };
+    }
+
+    const nInSeg = Math.min(objectCount - S + 1, E - S + 1);
+    const curr = bracketLabel(nInSeg, model, seg.key, opts);
+    const activeApple = Math.floor(Math.max(0, g)) + 1;
+
+    if (activeApple > E) {
+      return { visible: true, curr, prev: null, t: 1 };
+    }
+
+    if (activeApple >= S) {
+      const prevN = nInSeg - 1;
+      const prev = prevN >= 1 ? bracketLabel(prevN, model, seg.key, opts) : null;
+      return { visible: true, curr, prev, t: animStepFadeT(g) };
+    }
+
+    return { visible: true, curr, prev: null, t: 1 };
+  }
+
   function totalLabel(model, opts) {
     return bracketLabel(model.total, model, totalSlotKey(model), opts);
+  }
+
+  /** Durata crossfade (în pași globali animație) la schimbarea unui număr. */
+  const ANIM_FADE_DUR = 0.35;
+
+  function animStepFadeT(g) {
+    const seg = Math.floor(Math.max(0, g));
+    return clamp((g - seg) / ANIM_FADE_DUR, 0, 1);
+  }
+
+  function braceLabelFadePair(g, model, opts) {
+    const seg = Math.floor(Math.max(0, g));
+    const key = totalSlotKey(model);
+    const curr = bracketLabel(seg + 1, model, key, opts);
+    const prev = seg === 0 ? null : bracketLabel(seg, model, key, opts);
+    return { curr, prev, t: animStepFadeT(g) };
+  }
+
+  function appearFadeOpacity(g, appearAtG) {
+    return clamp((g - appearAtG) / ANIM_FADE_DUR, 0, 1);
+  }
+
+  function appendFadeNumberText(svg, x, y, text, prevText, fadeT, className, enabled) {
+    if (!enabled) {
+      svg.appendChild(svgText(x, y, text, className));
+      return;
+    }
+    const t = fadeT;
+    const crossfade = prevText != null && prevText !== text;
+    if (crossfade && t < 1) {
+      const old = svgText(x, y, prevText, className);
+      old.setAttribute("opacity", String(1 - t));
+      svg.appendChild(old);
+    }
+    let opacity = 1;
+    if (crossfade) opacity = t;
+    else if (prevText === null) opacity = t;
+    if (opacity <= 0.01) return;
+    const cur = svgText(x, y, text, className);
+    if (opacity < 1) cur.setAttribute("opacity", String(opacity));
+    svg.appendChild(cur);
+  }
+
+  function appendFadeSingleText(svg, x, y, text, opacity, className, enabled) {
+    if (!enabled || opacity >= 0.999) {
+      svg.appendChild(svgText(x, y, text, className));
+      return;
+    }
+    if (opacity <= 0.01) return;
+    const cur = svgText(x, y, text, className);
+    cur.setAttribute("opacity", String(opacity));
+    svg.appendChild(cur);
   }
 
   function axisNumberVisible(n, model, opts) {
@@ -738,6 +818,9 @@
 
     const ranges = buildSegmentRanges(model);
 
+    const anim = opts.animBigBrace;
+    const inAnim = anim && typeof anim === "object";
+
     if (opts.showAxaNumere && axisY != null) {
       const axis = svgEl("line", {
         x1: xAt(axisStart),
@@ -759,21 +842,42 @@
         });
         svg.appendChild(tick);
         if (opts.showNumereAxaNumere && axisNumberVisible(n, model, opts)) {
-          svg.appendChild(
-            svgText(x, axisY + axisNumberOffset, String(n), "aam-text")
+          const fadeOn = inAnim && opts.animFadeNumere && typeof anim.animStep === "number";
+          let opacity = 1;
+          if (fadeOn && n >= 1 && opts.animNumereAxaCuMerele) {
+            opacity = appearFadeOpacity(anim.animStep, n - 1);
+          }
+          appendFadeSingleText(
+            svg,
+            x,
+            axisY + axisNumberOffset,
+            String(n),
+            opacity,
+            "aam-text",
+            fadeOn
           );
         }
       }
     }
 
-    const anim = opts.animBigBrace;
-    const inAnim = anim && typeof anim === "object";
     const objectCount = inAnim ? anim.objectCount : model.total;
 
     if (objY != null && objectCount > 0 && (inAnim || opts.afiseazaObiecte)) {
       const objG = svgEl("g");
+      const fadeObjects =
+        inAnim && opts.animFadeObiecte && typeof anim.animStep === "number";
       for (let i = 1; i <= objectCount; i += 1) {
-        drawObject(objG, opts.obiectAfisat, xAt(i), objY, 12, i);
+        let opacity = 1;
+        if (fadeObjects) {
+          opacity = appearFadeOpacity(anim.animStep, i - 1);
+          if (opacity <= 0.01) continue;
+        }
+        const itemG = svgEl("g");
+        if (fadeObjects && opacity < 0.999) {
+          itemG.setAttribute("opacity", String(opacity));
+        }
+        drawObject(itemG, opts.obiectAfisat, xAt(i), objY, 12, i);
+        objG.appendChild(itemG);
       }
       svg.appendChild(objG);
     }
@@ -787,14 +891,15 @@
         for (const sb of smallSpans) {
           if (!sb.visible) continue;
           appendExtensibleBrace(svg, sb.x1, sb.x2, smallBraceY, BRACE_ORIENT.JOS);
-          svg.appendChild(
-            svgText(
-              (sb.x1 + sb.x2) / 2,
-              smallLabelY,
-              segmentLabel(sb.seg, model, opts),
-              "aam-text-small"
-            )
-          );
+          const lx = (sb.x1 + sb.x2) / 2;
+          const range = ranges.find((r) => r.seg === sb.seg);
+          if (!range) continue;
+          const { curr, prev, t } = segmentAnimLabelState(range, anim.animStep, model, opts);
+          if (opts.animFadeNumere) {
+            appendFadeNumberText(svg, lx, smallLabelY, curr, prev, t, "aam-text-small", true);
+          } else {
+            svg.appendChild(svgText(lx, smallLabelY, curr, "aam-text-small"));
+          }
         }
       } else if (showSmallStatic) {
         for (const range of ranges) {
@@ -825,7 +930,13 @@
         label = totalLabel(model, opts);
       }
       appendExtensibleBrace(svg, x1, x2, bigBraceY, BRACE_ORIENT.SUS);
-      svg.appendChild(svgText((x1 + x2) / 2, bigLabelY, label, "aam-text-big"));
+      const lx = (x1 + x2) / 2;
+      if (inAnim && opts.animFadeNumere && typeof anim.animStep === "number") {
+        const { curr, prev, t } = braceLabelFadePair(anim.animStep, model, opts);
+        appendFadeNumberText(svg, lx, bigLabelY, curr, prev, t, "aam-text-big", true);
+      } else {
+        svg.appendChild(svgText(lx, bigLabelY, label, "aam-text-big"));
+      }
     }
 
     if (target) {
@@ -1119,6 +1230,20 @@
         this._switchRow(
           "animAcoladeNumereMici",
           "Afișează și acoladele pt numerele mici"
+        )
+      );
+
+      this.sidebar.appendChild(
+        this._switchRow(
+          "animFadeNumere",
+          "Schimbare numere cu fading"
+        )
+      );
+
+      this.sidebar.appendChild(
+        this._switchRow(
+          "animFadeObiecte",
+          "Afișare mere/obiecte cu fading"
         )
       );
 
