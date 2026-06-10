@@ -19,10 +19,10 @@
     afiseazaAcoladaNumarMare: true,
     afiseazaNumarLaUnknown: false,
     animBraceMsPerStep: 400,
-    animNumereAxaCuMerele: false,
-    animAcoladeNumereMici: false,
-    animFadeNumere: false,
-    animFadeObiecte: false,
+    animNumereAxaCuMerele: true,
+    animAcoladeNumereMici: true,
+    animFadeNumere: true,
+    animFadeObiecte: true,
     axisStart: -2,
     axisEndPadding: 3,
     axisHideTailAfterLast: 5,
@@ -629,8 +629,22 @@
     return { R, L, orient };
   }
 
+  /** Raza maximă obiect (px); se micșorează când unitatea axei e îngustă, ca să nu se suprapună. */
+  const OBJECT_RADIUS_MAX = 12;
+
+  function objectRadiusForUnit(unit) {
+    return clamp(unit * 0.38, 5, OBJECT_RADIUS_MAX);
+  }
+
+  function objectVisualBand(objR) {
+    return objR * 2 + 8;
+  }
+
   /** Poziții Y compacte: bandele ascunse nu lasă gol. */
-  function computeVerticalLayout(opts) {
+  function computeVerticalLayout(opts, unit = 48) {
+    const objR = objectRadiusForUnit(unit);
+    const objBand = objectVisualBand(objR);
+    const axisClearance = 6;
     const padTop = 10;
     const padBottom = 10;
     const gap = 6;
@@ -648,15 +662,21 @@
     }
 
     if (opts.afiseazaObiecte) {
-      layout.objY = y + 14;
-      y += 28 + gap;
+      layout.objY = y + objR + 2;
+      y += objBand + gap;
     } else if (opts.showAxaNumere || opts.afiseazaAcoladaNumarMare) {
-      layout.objY = y + 14;
+      layout.objY = y + objR + 2;
       y += 6;
     }
 
     if (opts.showAxaNumere) {
-      layout.axisY = y + 7;
+      if (opts.afiseazaObiecte && layout.objY != null) {
+        const objBottom = layout.objY + objR;
+        layout.axisY = Math.max(y + 7, objBottom + axisClearance + 7);
+        y = layout.axisY - 7;
+      } else {
+        layout.axisY = y + 7;
+      }
       y += 14;
       if (opts.showNumereAxaNumere) {
         layout.axisNumberOffset = 15;
@@ -780,7 +800,8 @@
     const axisEnd = Math.max(model.total + opts.axisEndPadding, 4);
     const unit = opts.unitWidth || 48;
     const padX = 36;
-    const layout = computeVerticalLayout(opts);
+    const objR = objectRadiusForUnit(unit);
+    const layout = computeVerticalLayout(opts, unit);
     const {
       smallLabelY,
       smallBraceY,
@@ -876,7 +897,7 @@
         if (fadeObjects && opacity < 0.999) {
           itemG.setAttribute("opacity", String(opacity));
         }
-        drawObject(itemG, opts.obiectAfisat, xAt(i), objY, 12, i);
+        drawObject(itemG, opts.obiectAfisat, xAt(i), objY, objR, i);
         objG.appendChild(itemG);
       }
       svg.appendChild(objG);
@@ -1214,7 +1235,7 @@
       animRow.className = "aam-row";
       this.btnAnimBig = document.createElement("button");
       this.btnAnimBig.type = "button";
-      this.btnAnimBig.textContent = "Anima acolada numar mare";
+      this.btnAnimBig.textContent = "Start animatie acolade";
       this.btnAnimBig.addEventListener("click", () => this._startBigBraceAnim());
       animRow.appendChild(this.btnAnimBig);
       this.sidebar.appendChild(animRow);
@@ -1296,7 +1317,7 @@
         6,
         model.total + this.options.axisEndPadding - this.options.axisStart
       );
-      return clamp(Math.floor((box - 72) / span), 18, 44);
+      return clamp(Math.floor((box - 72) / span), 20, 48);
     }
 
     render() {
