@@ -21,6 +21,7 @@
     let paused = false;
     let rafId = null;
     let roundStartedAt = null;
+    let fallHeld = false;
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
 
@@ -384,6 +385,12 @@
       animateRising(index);
     }
 
+    function releaseRoundHold() {
+      fallHeld = false;
+      if (!getQuiz().isCompleted()) setInputEnabled(true);
+      roundStartedAt = nowMs();
+    }
+
     function startRound(state) {
       state = normalizeRoundState(state);
       if (rafId == null) startFallLoop();
@@ -392,11 +399,18 @@
       setFallPosition(0);
       dom.falling.classList.remove("bounce");
       dom.rising.classList.add("hidden");
+      fallHeld = true;
+      setInputEnabled(false);
       renderRound(state);
-      setInputEnabled(true);
       dom.messageEl.classList.remove("win");
       dom.playPauseBtn.disabled = false;
-      roundStartedAt = nowMs();
+
+      const ready = config.beforeRoundReady?.(state);
+      if (ready && typeof ready.then === "function") {
+        ready.then(releaseRoundHold).catch(releaseRoundHold);
+      } else {
+        releaseRoundHold();
+      }
     }
 
     function startFallLoop() {
@@ -406,7 +420,14 @@
         if (!lastTs) lastTs = ts;
         const dt = Math.min((ts - lastTs) / 1000, 0.05);
         lastTs = ts;
-        if (!getQuiz().isCompleted() && !paused && !animating && !locked && !bouncing) {
+        if (
+          !fallHeld &&
+          !getQuiz().isCompleted() &&
+          !paused &&
+          !animating &&
+          !locked &&
+          !bouncing
+        ) {
           syncBoxHeight();
           const speedFactor = getQuiz().getFallSpeedFactor?.() ?? 1.0;
           fallY += FALL_SPEED * speedFactor * dt;

@@ -15,6 +15,7 @@
     quizPickerListEl: document.getElementById("quiz-picker-list"),
     arena: document.getElementById("arena"),
     illustrareEl: document.getElementById("div-ilustrare"),
+    illustrareBodyEl: document.querySelector(".arena-ilustrare-body"),
     listaOperatiiEl: document.getElementById("div-lista-operatii"),
     aamControlPanelEl: document.getElementById("control-panel-aam"),
     flashEl: document.getElementById("flash"),
@@ -190,7 +191,8 @@
     engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   }
 
-  QuizRegistry.setActive(QuizRegistry.getDefaultId()) ||
+  QuizRegistry.setActive("addition-eff") ||
+    QuizRegistry.setActive(QuizRegistry.getDefaultId()) ||
     QuizRegistry.setActive("addition-table") ||
     QuizRegistry.setActive("prime-divisions");
   quiz = QuizRegistry.createActive();
@@ -201,7 +203,7 @@
     getQuiz: () => quiz,
     showBanner,
     onProgressUpdate: renderProgress,
-    onRender: (state) => aamArena.syncFromQuiz(quiz, state),
+    beforeRoundReady: (state) => aamArena.prepareRound(quiz, state),
   });
 
   effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);

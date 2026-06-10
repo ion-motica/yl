@@ -351,6 +351,19 @@ body {
   overflow: hidden;
 }
 
+.arena-zone-label {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: rgba(148, 163, 184, 0.72);
+  font-family: system-ui, sans-serif;
+  line-height: 1.2;
+  padding: 4px 8px 2px;
+  pointer-events: none;
+  user-select: none;
+}
+
 .arena-ilustrare,
 .arena-lista-operatii {
   position: absolute;
@@ -358,36 +371,40 @@ body {
   right: 0;
   z-index: 0;
   pointer-events: none;
-}
-
-.arena-ilustrare.is-empty,
-.arena-lista-operatii.is-empty {
-  display: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .arena-ilustrare {
-  bottom: 0;
+  top: 0;
+  align-items: center;
+}
+
+.arena-ilustrare-body {
+  width: 100%;
   display: flex;
   justify-content: center;
-  align-items: flex-end;
-  padding: 0 10px 14px;
+  align-items: flex-start;
+  padding: 0 10px 6px;
   opacity: 1;
   transition: opacity 0.2s ease;
 }
 
-.arena-ilustrare.is-fading {
+.arena-ilustrare-body.is-fading {
   opacity: 0;
 }
 
-.arena-ilustrare .aam-svg {
+.arena-ilustrare-body .aam-svg {
   width: 100%;
   max-width: min(640px, 96%);
   height: auto;
-  max-height: 210px;
+  max-height: 180px;
 }
 
 .arena-lista-operatii {
-  top: 48px;
+  bottom: 0;
+  align-items: center;
+  padding-bottom: 6px;
 }
 
 .control-panel-aam {
@@ -444,21 +461,21 @@ body {
   color: var(--muted);
 }
 
-.arena-ilustrare .aam-text,
-.arena-ilustrare .aam-text-small,
-.arena-ilustrare .aam-text-big {
+.arena-ilustrare-body .aam-text,
+.arena-ilustrare-body .aam-text-small,
+.arena-ilustrare-body .aam-text-big {
   fill: #e2e8f0;
 }
 
-.arena-ilustrare .aam-axis {
+.arena-ilustrare-body .aam-axis {
   stroke: #64748b;
 }
 
-.arena-ilustrare .aam-tick {
+.arena-ilustrare-body .aam-tick {
   stroke: #94a3b8;
 }
 
-.arena-ilustrare .aam-brace {
+.arena-ilustrare-body .aam-brace {
   stroke: #e2e8f0;
 }
 
@@ -531,17 +548,14 @@ body {
 }
 
 .succession-list {
-  position: absolute;
-  top: 6px;
-  left: 0;
-  right: 0;
-  z-index: 5;
+  width: 100%;
   text-align: center;
   line-height: 1.5;
   pointer-events: none;
   font-size: 0.82rem;
   color: var(--muted);
   font-family: "Courier New", Courier, monospace;
+  padding: 0 8px 2px;
 }
 
 .sl-item {

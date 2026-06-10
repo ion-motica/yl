@@ -5,6 +5,7 @@
 
   const PANEL_SWITCHES = [
     ["pornesteAnimatiaAutomat", "Pornește animația automat"],
+    ["asteaptaAnimatieInainteDeLift", "Înainte de lift, așteaptă animația acoladelor"],
     ["showAxaNumere", "Afișează axa numerelor"],
     ["showNumereAxaNumere", "Afișează numere pe axă"],
     [
@@ -42,6 +43,7 @@
   function createAamArena(dom) {
     const options = {
       pornesteAnimatiaAutomat: true,
+      asteaptaAnimatieInainteDeLift: true,
       showAxaNumere: true,
       showNumereAxaNumere: true,
       showNumereAxaInJurulSegmentuluiMicDreapta: true,
@@ -67,13 +69,10 @@
     let pendingRender = null;
 
     const ilustrareEl = dom.illustrareEl;
-    const listaOperatiiEl = dom.listaOperatiiEl;
+    const ilustrareBodyEl =
+      dom.illustrareBodyEl ||
+      ilustrareEl?.querySelector(".arena-ilustrare-body");
     const panelEl = dom.aamControlPanelEl;
-
-    function setEmpty(el, empty) {
-      el.classList.toggle("is-empty", empty);
-      el.setAttribute("aria-hidden", empty ? "true" : "false");
-    }
 
     function stopAnim() {
       activeAnim?.cancel?.();
@@ -87,19 +86,19 @@
       }
     }
 
-    function clearIllustration() {
+    function clearIllustrationBody() {
       stopAnim();
       clearFadeTimer();
       pendingRender = null;
-      ilustrareEl.classList.remove("is-fading");
-      ilustrareEl.replaceChildren();
-      ilustrareEl.style.minHeight = "";
-      setEmpty(ilustrareEl, true);
+      if (!ilustrareBodyEl) return;
+      ilustrareBodyEl.classList.remove("is-fading");
+      ilustrareBodyEl.replaceChildren();
+      ilustrareBodyEl.style.minHeight = "";
       lastIllustrationKey = null;
     }
 
     function unitWidthFor(model) {
-      const box = ilustrareEl.clientWidth || options.viewWidth;
+      const box = ilustrareEl?.clientWidth || options.viewWidth;
       const span = Math.max(
         6,
         model.total + options.axisEndPadding - options.axisStart
@@ -111,49 +110,69 @@
       const eq = normalizePrompt(equation);
       const model = global.parseAamEquation(eq);
       const unitWidth = unitWidthFor(model);
-      const drawn = global.fname(eq, ilustrareEl, { ...options, unitWidth });
-      if (drawn?.height) ilustrareEl.style.minHeight = `${drawn.height}px`;
-      setEmpty(ilustrareEl, false);
+      const drawn = global.fname(eq, ilustrareBodyEl, { ...options, unitWidth });
+      if (drawn?.height) ilustrareBodyEl.style.minHeight = `${drawn.height}px`;
     }
 
     function drawWithAnimation(equation) {
       stopAnim();
       const eq = normalizePrompt(equation);
-      activeAnim = global.runFnameAnimation(eq, ilustrareEl, options);
-      activeAnim.promise.then((result) => {
-        if (activeAnim && result?.done !== false) {
-          setEmpty(ilustrareEl, false);
-        }
+      activeAnim = global.runFnameAnimation(eq, ilustrareBodyEl, options);
+      return activeAnim.promise.then((result) => {
         activeAnim = null;
+        if (result?.error) throw result.error;
+        return result;
       });
-      setEmpty(ilustrareEl, false);
     }
 
     function applyIllustration(equation) {
       if (options.pornesteAnimatiaAutomat && global.runFnameAnimation) {
-        drawWithAnimation(equation);
-      } else {
-        drawStatic(equation);
+        return drawWithAnimation(equation);
       }
+      drawStatic(equation);
+      return Promise.resolve();
     }
 
     function showIllustration(equation, key) {
-      pendingRender = { equation, key };
-      clearFadeTimer();
-      ilustrareEl.classList.add("is-fading");
+      return new Promise((resolve, reject) => {
+        pendingRender = { equation, key, resolve, reject };
+        clearFadeTimer();
+        ilustrareBodyEl.classList.add("is-fading");
 
-      fadeTimer = setTimeout(() => {
-        fadeTimer = null;
-        const job = pendingRender;
-        pendingRender = null;
-        if (!job) return;
+        fadeTimer = setTimeout(() => {
+          fadeTimer = null;
+          const job = pendingRender;
+          pendingRender = null;
+          if (!job) {
+            resolve();
+            return;
+          }
 
-        stopAnim();
-        ilustrareEl.replaceChildren();
-        applyIllustration(job.equation);
-        lastIllustrationKey = job.key;
-        ilustrareEl.classList.remove("is-fading");
-      }, FADE_MS);
+          stopAnim();
+          ilustrareBodyEl.replaceChildren();
+
+          const shouldWait =
+            options.asteaptaAnimatieInainteDeLift &&
+            options.pornesteAnimatiaAutomat &&
+            global.runFnameAnimation;
+
+          const done = () => {
+            lastIllustrationKey = job.key;
+            ilustrareBodyEl.classList.remove("is-fading");
+            job.resolve();
+          };
+
+          if (shouldWait) {
+            applyIllustration(job.equation).then(done).catch((err) => {
+              ilustrareBodyEl.classList.remove("is-fading");
+              job.reject(err);
+            });
+          } else {
+            applyIllustration(job.equation).catch(() => {});
+            done();
+          }
+        }, FADE_MS);
+      });
     }
 
     function buildControlPanel() {
@@ -174,8 +193,8 @@
         input.addEventListener("change", () => {
           options[key] = input.checked;
           if (lastIllustrationKey != null) {
-            const eq = ilustrareEl.dataset.equation;
-            if (eq) applyIllustration(eq);
+            const eq = ilustrareEl?.dataset.equation;
+            if (eq) applyIllustration(eq).catch(() => {});
           }
         });
         const span = document.createElement("span");
@@ -199,8 +218,8 @@
       objSelect.addEventListener("change", () => {
         options.obiectAfisat = objSelect.value;
         if (lastIllustrationKey != null) {
-          const eq = ilustrareEl.dataset.equation;
-          if (eq) applyIllustration(eq);
+          const eq = ilustrareEl?.dataset.equation;
+          if (eq) applyIllustration(eq).catch(() => {});
         }
       });
       objRow.append(objLabel, objSelect);
@@ -232,41 +251,42 @@
       panelEl.hidden = !on;
     }
 
-    function syncFromQuiz(quiz, state) {
+    function prepareRound(quiz, state) {
       if (!global.fname || !quiz?.getAamIllustration) {
         setPanelVisible(false);
-        clearIllustration();
-        return;
+        clearIllustrationBody();
+        ilustrareEl?.removeAttribute("data-equation");
+        return Promise.resolve();
       }
 
       const spec = quiz.getAamIllustration(state);
       if (!spec?.enabled) {
         setPanelVisible(false);
-        clearIllustration();
-        ilustrareEl.removeAttribute("data-equation");
-        return;
+        clearIllustrationBody();
+        ilustrareEl?.removeAttribute("data-equation");
+        return Promise.resolve();
       }
 
       setPanelVisible(true);
 
       const equation = normalizePrompt(spec.equation ?? state?.prompt);
       if (!canParseAam(equation)) {
-        clearIllustration();
-        ilustrareEl.removeAttribute("data-equation");
-        return;
+        clearIllustrationBody();
+        ilustrareEl?.removeAttribute("data-equation");
+        return Promise.resolve();
       }
 
       const key = spec.illustrationKey ?? equation;
       ilustrareEl.dataset.equation = equation;
 
-      if (key === lastIllustrationKey) return;
+      if (key === lastIllustrationKey) return Promise.resolve();
 
-      showIllustration(equation, key);
+      return showIllustration(equation, key);
     }
 
     function reset() {
-      clearIllustration();
-      ilustrareEl.removeAttribute("data-equation");
+      clearIllustrationBody();
+      ilustrareEl?.removeAttribute("data-equation");
       setPanelVisible(false);
     }
 
@@ -274,12 +294,10 @@
       lastIllustrationKey = null;
     }
 
-    setEmpty(ilustrareEl, true);
-    setEmpty(listaOperatiiEl, true);
     buildControlPanel();
     setPanelVisible(false);
 
-    return { syncFromQuiz, reset, invalidateKey };
+    return { prepareRound, reset, invalidateKey };
   }
 
   global.AamArena = { create: createAamArena, normalizePrompt, canParseAam };
