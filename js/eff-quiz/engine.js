@@ -21,6 +21,8 @@
     const TIMEOUT_MSG= config.timeoutMessage ?? DEFAULTS.TIMEOUT_MESSAGE;
     const COMPLETE_BNR=config.gameCompleteBanner  ?? DEFAULTS.GAME_COMPLETE_BANNER;
     const ADV_BNR    = config.levelAdvancedBanner ?? DEFAULTS.LEVEL_ADVANCED_BANNER;
+    const getLayoutSwapped =
+      config.getLayoutSwapped ?? (() => global.getLayoutSwapped?.() ?? false);
 
     const { shuffle } = global.GameUtils;
     const QFG = global.QFGenerator;
@@ -96,6 +98,43 @@
       return { enabled: true, equation };
     }
 
+    const SIGN_OPTION_RE = /^[+\-*:=×÷<>]$/;
+
+    function layoutSwapped() {
+      return Boolean(config.aam?.enabled && getLayoutSwapped());
+    }
+
+    function promptHasZeroOperand(prompt) {
+      if (!global.parseAamEquation) return true;
+      try {
+        const model = global.parseAamEquation(prompt);
+        return model.values.a === 0 || model.values.b === 0 || model.values.c === 0;
+      } catch {
+        return true;
+      }
+    }
+
+    function isSwapCompatibleQF(qfType, fact) {
+      if (!layoutSwapped()) return true;
+      const rendered = QFG.renderQF(qfType, fact);
+      if (!rendered) return false;
+      if (rendered.answerType !== "number") return false;
+      if (promptHasZeroOperand(rendered.prompt)) return false;
+      const built = QFG.buildOptions(qfType, fact, shuffle);
+      if (!built) return false;
+      return !built.options.some((o) => SIGN_OPTION_RE.test(String(o).trim()));
+    }
+
+    function advanceIfSwapIncompatible() {
+      if (!layoutSwapped() || !activeQueue.length) return null;
+      const item = activeQueue[0];
+      const fact = factById(item?.factId);
+      const qfType = qfTypeById(item?.qfTypeId);
+      if (!fact || !qfType || isSwapCompatibleQF(qfType, fact)) return null;
+      activeQueue.shift();
+      return withResetFall(beginCurrentStep());
+    }
+
     // ── QF type rotation ─────────────────────────────────────────────────────────
 
     function pickQFType(pool = activeQFTypes) {
@@ -114,7 +153,8 @@
 
     function pickSeriesAFacts(qfType) {
       const pendingIds = new Set(reg.getPending(quizId, level));
-      const valid = (f) => QFG.renderQF(qfType, f) !== null;
+      const valid = (f) =>
+        QFG.renderQF(qfType, f) !== null && isSwapCompatibleQF(qfType, f);
 
       const mistakeFacts = shuffle(levelPool.filter((f) => pendingIds.has(f.factId) && valid(f)));
       const otherFacts   = shuffle(levelPool.filter((f) => !pendingIds.has(f.factId) && valid(f)));
@@ -197,7 +237,9 @@
       const fact = factById(factId);
       if (!fact) return beginSeriesA();
 
-      const validTypes = activeQFTypes.filter((qt) => QFG.renderQF(qt, fact) !== null);
+      const validTypes = activeQFTypes.filter(
+        (qt) => isSwapCompatibleQF(qt, fact)
+      );
       const picked     = shuffle(validTypes).slice(0, MAX_SERIES);
 
       if (!picked.length) return beginSeriesA();
@@ -212,37 +254,40 @@
     // ── Step logic ───────────────────────────────────────────────────────────────
 
     function beginCurrentStep() {
-      const item = activeQueue[0];
-      if (!item) {
-        if (phase === "main" && wrongQueue.length) {
-          phase       = "retry";
-          activeQueue = [...wrongQueue];
-          wrongQueue  = [];
-          return withResetFall(beginCurrentStep());
+      while (activeQueue.length) {
+        const item = activeQueue[0];
+        const fact = factById(item.factId);
+        const qfType = qfTypeById(item.qfTypeId);
+
+        if (!fact || !qfType) {
+          activeQueue.shift();
+          continue;
         }
-        return completeSeries();
+        if (!isSwapCompatibleQF(qfType, fact)) {
+          activeQueue.shift();
+          continue;
+        }
+
+        const built = QFG.buildOptions(qfType, fact, shuffle);
+        if (!built) {
+          activeQueue.shift();
+          continue;
+        }
+
+        currentFact = fact;
+        currentBuilt = built;
+        options = built.options;
+        correctIndex = built.correctIndex;
+        return roundView();
       }
 
-      const fact   = factById(item.factId);
-      const qfType = qfTypeById(item.qfTypeId);
-
-      if (!fact || !qfType) {
-        activeQueue.shift();
-        return beginCurrentStep();
+      if (phase === "main" && wrongQueue.length) {
+        phase = "retry";
+        activeQueue = [...wrongQueue];
+        wrongQueue = [];
+        return withResetFall(beginCurrentStep());
       }
-
-      const built = QFG.buildOptions(qfType, fact, shuffle);
-      if (!built) {
-        activeQueue.shift();
-        return beginCurrentStep();
-      }
-
-      currentFact  = fact;
-      currentBuilt = built;
-      options      = built.options;
-      correctIndex = built.correctIndex;
-
-      return roundView();
+      return completeSeries();
     }
 
     // ── Series completion ─────────────────────────────────────────────────────────
@@ -469,6 +514,7 @@
       },
 
       getAamIllustration,
+      advanceIfSwapIncompatible,
     };
   }
 

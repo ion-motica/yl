@@ -41,6 +41,8 @@
 
   dom.getSwapQuestionIllustration = () =>
     engine?.getSwapQuestionIllustration?.() ?? false;
+  window.getLayoutSwapped = () =>
+    engine?.getSwapQuestionIllustration?.() ?? false;
 
   function showBanner(text) {
     if (!text) return;
@@ -210,7 +212,16 @@
     showBanner,
     onProgressUpdate: renderProgress,
     onRender: (state) => aamArena.prepareRound(quiz, state),
-    onLayoutSwapChange: () => aamArena.relayout(),
+    onLayoutSwapChange: () => {
+      const next = quiz?.advanceIfSwapIncompatible?.();
+      if (next) {
+        aamArena.relayout();
+        engine.startRound(next);
+        return true;
+      }
+      aamArena.relayout();
+      return false;
+    },
   });
 
   effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);

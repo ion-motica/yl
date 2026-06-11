@@ -109,11 +109,8 @@
       }
 
       syncBoxHeight();
-      if (lastRoundState) {
-        renderRound(lastRoundState);
-      } else {
-        config.onLayoutSwapChange?.();
-      }
+      if (config.onLayoutSwapChange?.()) return;
+      if (lastRoundState) renderRound(lastRoundState);
     }
 
     function buildLiftControlPanel() {

@@ -154,26 +154,56 @@
       return Math.max(20, Math.min(48, Math.floor((box - 72) / span)));
     }
 
+    function illustrationDisplayWidth() {
+      const { hostEl } = getIllustrationTarget();
+      return (
+        hostEl?.clientWidth ||
+        dom.falling?.clientWidth ||
+        dom.arena?.clientWidth ||
+        options.viewWidth
+      );
+    }
+
+    function questionFontPx() {
+      const ref = dom.topNumberEl || document.getElementById("top-number");
+      if (ref) {
+        const n = parseFloat(getComputedStyle(ref).fontSize);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+      const root = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      return root * 2.5;
+    }
+
+    function drawOptions(extra = {}) {
+      const merged = {
+        ...options,
+        skipContainerMinHeight: true,
+        ...extra,
+      };
+      const displayWidth = illustrationDisplayWidth();
+      if (displayWidth > 0) {
+        merged.eticheteAcoladeDisplayWidth = displayWidth;
+      }
+      if (isLayoutSwapped()) {
+        merged.eticheteAcoladeFontScreenPx = questionFontPx();
+        merged.eticheteAcoladeCompactLayout = true;
+      }
+      return merged;
+    }
+
     function drawStatic(equation) {
       const eq = normalizePrompt(equation);
       const model = global.parseAamEquation(eq);
       const unitWidth = unitWidthFor(model);
       const { bodyEl } = getIllustrationTarget();
-      global.fname(eq, bodyEl, {
-        ...options,
-        unitWidth,
-        skipContainerMinHeight: true,
-      });
+      global.fname(eq, bodyEl, drawOptions({ unitWidth }));
     }
 
     function drawWithAnimation(equation) {
       stopAnim();
       const eq = normalizePrompt(equation);
       const { bodyEl } = getIllustrationTarget();
-      activeAnim = global.runFnameAnimation(eq, bodyEl, {
-        ...options,
-        skipContainerMinHeight: true,
-      });
+      activeAnim = global.runFnameAnimation(eq, bodyEl, drawOptions());
       return activeAnim.promise.then((result) => {
         activeAnim = null;
         if (result?.error) throw result.error;

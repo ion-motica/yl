@@ -664,22 +664,69 @@
     return clamp(unit * 0.38, 5, OBJECT_RADIUS_MAX);
   }
 
-  /** Poziții Y compacte: bandele ascunse nu lasă gol. */
-  function computeVerticalLayout(opts, unit = 48) {
+  /** Poziții Y: benzile etichetelor urmăresc fontul acolade (SVG units). */
+  function computeVerticalLayout(opts, unit = 48, acoladeFs) {
+    const fsSm = acoladeFs?.small ?? AAM_ETICHETE_ACOLADE_FONT_SMALL;
+    const fsLg = acoladeFs?.big ?? AAM_ETICHETE_ACOLADE_FONT_BIG;
+    const compact =
+      opts.eticheteAcoladeCompactLayout || opts.eticheteAcoladeFontScreenPx != null;
     const objR = objectRadiusForUnit(unit);
-    const padTop = 2;
-    const padBottom = 3;
-    const gap = 1;
-    let y = padTop;
-    const layout = { padTop, padBottom };
+    const layout = {};
 
     const hasSmallBrace =
       opts.afiseazaAcoladeNumereMici ||
       (opts.animBigBrace && opts.animAcoladeNumereMici);
+    const hasBigBrace = opts.afiseazaAcoladaNumarMare;
+
+    if (compact) {
+      const braceH = BRACE_R0 * 1.55;
+      let y = 0;
+
+      if (hasSmallBrace) {
+        layout.smallLabelY = fsSm * 0.5;
+        y = fsSm * 0.94;
+        layout.smallBraceY = y + BRACE_R0 * 0.65;
+        y += braceH;
+      }
+
+      if (opts.afiseazaObiecte) {
+        layout.objY = y + objR;
+        y = layout.objY + objR;
+      }
+
+      if (opts.showAxaNumere) {
+        layout.axisY = y + 1;
+        y = layout.axisY + 4;
+        if (opts.showNumereAxaNumere) {
+          layout.axisNumberOffset = 7;
+          y += 8;
+        }
+      }
+
+      if (hasBigBrace) {
+        layout.bigBraceY = y;
+        y += braceH;
+        layout.bigLabelY = y + fsLg * 0.48;
+        y += fsLg * 0.94;
+      }
+
+      layout.padTop = 0;
+      layout.padBottom = 0;
+      layout.height = Math.max(Math.ceil(y + 1), 32);
+      return layout;
+    }
+
+    const gap = 1;
+    const padTop = hasSmallBrace ? Math.max(2, Math.ceil(fsSm * 0.5)) : 2;
+    const padBottom = 2;
+    layout.padTop = padTop;
+    layout.padBottom = padBottom;
+
+    let y = padTop;
 
     if (hasSmallBrace) {
-      layout.smallLabelY = y + 6;
-      y += 12;
+      layout.smallLabelY = y + fsSm * 0.5;
+      y += fsSm * 1.05;
       layout.smallBraceY = y + BRACE_R0;
       y += BRACE_R0 * 2 + gap;
     }
@@ -687,7 +734,7 @@
     if (opts.afiseazaObiecte) {
       layout.objY = y + objR;
       y = layout.objY + objR + gap;
-    } else if (opts.showAxaNumere || opts.afiseazaAcoladaNumarMare) {
+    } else if (opts.showAxaNumere || hasBigBrace) {
       y += 2;
     }
 
@@ -702,11 +749,11 @@
       }
     }
 
-    if (opts.afiseazaAcoladaNumarMare) {
+    if (hasBigBrace) {
       layout.bigBraceY = y;
       y += BRACE_R0 * 2 + 2;
-      layout.bigLabelY = y + 7;
-      y += 13;
+      layout.bigLabelY = y + fsLg * 0.5;
+      y += fsLg * 1.05;
     }
 
     layout.height = Math.max(y + padBottom, 32);
@@ -790,6 +837,49 @@
   }
 
   const AAM_Q_MARK_FILL = "#fbbf24";
+  const AAM_ETICHETE_ACOLADE_FONT_SMALL = 17;
+  const AAM_ETICHETE_ACOLADE_FONT_BIG = 20;
+
+  /** Lățimea afișată pe ecran — containerul gol poate avea clientWidth 0. */
+  function measureSvgDisplayWidth(targetEl, opts) {
+    if (opts.eticheteAcoladeDisplayWidth > 0) {
+      return opts.eticheteAcoladeDisplayWidth;
+    }
+    let el = targetEl;
+    while (el) {
+      const w = el.clientWidth;
+      if (w > 0) return w;
+      el = el.parentElement;
+    }
+    return opts.viewWidth || 0;
+  }
+
+  /** Dimensiuni etichete acolade în unități SVG (viewBox). */
+  function acoladeLabelFontSizes(opts, svgWidth, displayWidth) {
+    const svgUnitsFromScreen = (screenPx) => {
+      const scale =
+        svgWidth > 0 && displayWidth > 0 ? displayWidth / svgWidth : 1;
+      return screenPx / Math.max(scale, 0.001);
+    };
+
+    if (opts.eticheteAcoladeFontScreenPx != null) {
+      const screenPx = Number(opts.eticheteAcoladeFontScreenPx);
+      if (Number.isFinite(screenPx) && screenPx > 0) {
+        const svgPx = svgUnitsFromScreen(screenPx);
+        return { small: svgPx, big: svgPx };
+      }
+    }
+
+    if (opts.eticheteAcoladeFontPx != null) {
+      const px = Number(opts.eticheteAcoladeFontPx);
+      if (Number.isFinite(px) && px > 0) return { small: px, big: px };
+    }
+
+    return {
+      small: opts.eticheteAcoladeFontSmallPx ?? AAM_ETICHETE_ACOLADE_FONT_SMALL,
+      big: opts.eticheteAcoladeFontBigPx ?? AAM_ETICHETE_ACOLADE_FONT_BIG,
+    };
+  }
 
   function svgTextClass(text, className) {
     const base = className || "aam-text";
@@ -820,14 +910,22 @@
 
     const model = parseEquation(equation);
     const unit = opts.unitWidth || 48;
+    const targetEl =
+      target && typeof target !== "string" && target.nodeType
+        ? target
+        : typeof target === "string"
+          ? document.querySelector(target)
+          : null;
     const { tickStart: axisStart, tickEnd: axisEnd, xAt, width } = axisLayoutMetrics(
       model,
       opts,
       unit
     );
+    const displayWidth = measureSvgDisplayWidth(targetEl, opts) || width;
+    const acoladeFs = acoladeLabelFontSizes(opts, width, displayWidth);
     const padX = 36;
     const objR = objectRadiusForUnit(unit);
-    const layout = computeVerticalLayout(opts, unit);
+    const layout = computeVerticalLayout(opts, unit, acoladeFs);
     const {
       smallLabelY,
       smallBraceY,
@@ -851,8 +949,8 @@
     style.textContent = `
       .aam-svg { font-family: system-ui, sans-serif; }
       .aam-text { font-size: 15px; fill: #1e293b; text-anchor: middle; dominant-baseline: middle; }
-      .aam-text-small { font-size: 17px; font-weight: 700; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
-      .aam-text-big { font-size: 20px; font-weight: 800; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
+      .aam-text-small { font-size: ${acoladeFs.small}px; font-weight: 700; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
+      .aam-text-big { font-size: ${acoladeFs.big}px; font-weight: 800; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
       .aam-q-mark { fill: ${AAM_Q_MARK_FILL}; }
       .aam-axis { stroke: #334155; stroke-width: 2; }
       .aam-tick { stroke: #64748b; stroke-width: 1.5; }
@@ -985,8 +1083,7 @@
     }
 
     if (target) {
-      const el =
-        typeof target === "string" ? document.querySelector(target) : target;
+      const el = targetEl;
       if (el) {
         el.replaceChildren(svg);
       }
@@ -1574,6 +1671,8 @@
   global.axisSpanForUnitWidth = axisSpanForUnitWidth;
   global.fname = fname;
   global.runFnameAnimation = runFnameAnimation;
+  global.AAM_ETICHETE_ACOLADE_FONT_SMALL = AAM_ETICHETE_ACOLADE_FONT_SMALL;
+  global.AAM_ETICHETE_ACOLADE_FONT_BIG = AAM_ETICHETE_ACOLADE_FONT_BIG;
   global.axeAcoladeMere = axeAcoladeMere;
   global.AamBrace = {
     R0: BRACE_R0,
