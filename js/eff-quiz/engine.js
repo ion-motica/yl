@@ -86,16 +86,6 @@
       };
     }
 
-    function aamContext() {
-      return {
-        seriesType,
-        currentFact,
-        currentBuilt,
-        quizId,
-        level,
-      };
-    }
-
     function getAamIllustration(state) {
       const aam = config.aam;
       if (!aam?.enabled) return null;
@@ -103,29 +93,7 @@
       const equation = state?.prompt ?? currentBuilt?.prompt;
       if (!equation || equation === "—") return null;
 
-      const ctx = aamContext();
-      const sameInSeries =
-        typeof aam.sameIllustrationInSeries === "function"
-          ? Boolean(aam.sameIllustrationInSeries(ctx))
-          : false;
-
-      let illustrationKey;
-      if (typeof aam.illustrationKey === "function") {
-        illustrationKey = aam.illustrationKey(ctx);
-      } else if (sameInSeries && currentFact?.factId) {
-        illustrationKey = currentFact.factId;
-      } else if (currentFact?.factId) {
-        illustrationKey = `${currentFact.factId}:${equation}`;
-      } else {
-        illustrationKey = equation;
-      }
-
-      return {
-        enabled: true,
-        equation,
-        illustrationKey,
-        sameIllustrationInSeries: sameInSeries,
-      };
+      return { enabled: true, equation };
     }
 
     // ── QF type rotation ─────────────────────────────────────────────────────────

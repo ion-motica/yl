@@ -14,10 +14,14 @@
     levelPickerEl: document.getElementById("level-picker"),
     quizPickerListEl: document.getElementById("quiz-picker-list"),
     arena: document.getElementById("arena"),
-    illustrareEl: document.getElementById("div-ilustrare"),
-    illustrareBodyEl: document.querySelector(".arena-ilustrare-body"),
+    illustrareArenaEl: document.getElementById("div-ilustrare-din-arena"),
+    illustrareArenaBodyEl: document.querySelector(".arena-ilustrare-body"),
+    illustrareLiftEl: document.getElementById("div-ilustrare-in-lift"),
+    illustrareLiftBodyEl: document.querySelector(".lift-ilustrare-body"),
+    arenaQuestionSlotEl: document.getElementById("arena-question-slot"),
     listaOperatiiEl: document.getElementById("div-lista-operatii"),
     aamControlPanelEl: document.getElementById("control-panel-aam"),
+    liftControlPanelEl: document.getElementById("control-panel-lift"),
     flashEl: document.getElementById("flash"),
     falling: document.getElementById("falling"),
     fallingMainEl: document.getElementById("falling-main"),
@@ -34,6 +38,9 @@
   let engine = null;
   let aamArena = null;
   let lastGreenCells = null;
+
+  dom.getSwapQuestionIllustration = () =>
+    engine?.getSwapQuestionIllustration?.() ?? false;
 
   function showBanner(text) {
     if (!text) return;
@@ -124,7 +131,6 @@
       dom.playPauseBtn.disabled = false;
       engine.cancelRisingAnimation();
       lastGreenCells = null;
-      aamArena.invalidateKey();
       renderProgress();
       engine.startRound(quiz.beginRound(quiz.pickNextRound()));
     });
@@ -203,7 +209,8 @@
     getQuiz: () => quiz,
     showBanner,
     onProgressUpdate: renderProgress,
-    beforeRoundReady: (state) => aamArena.prepareRound(quiz, state),
+    onRender: (state) => aamArena.prepareRound(quiz, state),
+    onLayoutSwapChange: () => aamArena.relayout(),
   });
 
   effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);

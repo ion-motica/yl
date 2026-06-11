@@ -9,6 +9,7 @@
   const FLASH_MS = 420;
   const RUN_DONE_MS = 450;
   const LEVEL_ADV_MS = 1400;
+  const LIFT_BG_OPACITY_DEFAULT = 0.5;
 
   function FallingEngine(config) {
     const dom = config.dom;
@@ -22,6 +23,9 @@
     let rafId = null;
     let roundStartedAt = null;
     let fallHeld = false;
+    let liftBgOpacity = config.liftBgOpacity ?? LIFT_BG_OPACITY_DEFAULT;
+    let swapQuestionIllustration = false;
+    let lastRoundState = null;
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
 
@@ -59,6 +63,109 @@
     function setFallPosition(y) {
       fallY = y;
       dom.falling.style.top = `${y}px`;
+    }
+
+    function applyLiftBgOpacity() {
+      dom.falling.style.setProperty("--lift-bg-opacity", String(liftBgOpacity));
+    }
+
+    function getQuestionSlotEl() {
+      return swapQuestionIllustration ? dom.arenaQuestionSlotEl : dom.fallingMainEl;
+    }
+
+    function applyLayoutSwap() {
+      dom.gameEl?.classList.toggle(
+        "layout-q-ilustrare-swapped",
+        swapQuestionIllustration
+      );
+
+      const questionHome = getQuestionSlotEl();
+      if (questionHome && dom.topNumberEl?.parentElement !== questionHome) {
+        questionHome.appendChild(dom.topNumberEl);
+      }
+
+      if (dom.fallingMainEl) {
+        dom.fallingMainEl.hidden = swapQuestionIllustration;
+        dom.fallingMainEl.setAttribute(
+          "aria-hidden",
+          swapQuestionIllustration ? "true" : "false"
+        );
+      }
+
+      if (dom.arenaQuestionSlotEl) {
+        dom.arenaQuestionSlotEl.hidden = !swapQuestionIllustration;
+        dom.arenaQuestionSlotEl.setAttribute(
+          "aria-hidden",
+          swapQuestionIllustration ? "false" : "true"
+        );
+      }
+
+      if (dom.illustrareLiftEl) {
+        dom.illustrareLiftEl.hidden = !swapQuestionIllustration;
+        dom.illustrareLiftEl.setAttribute(
+          "aria-hidden",
+          swapQuestionIllustration ? "false" : "true"
+        );
+      }
+
+      syncBoxHeight();
+      if (lastRoundState) {
+        renderRound(lastRoundState);
+      } else {
+        config.onLayoutSwapChange?.();
+      }
+    }
+
+    function buildLiftControlPanel() {
+      const panelEl = dom.liftControlPanelEl;
+      applyLiftBgOpacity();
+      if (!panelEl) return;
+
+      panelEl.replaceChildren();
+      panelEl.className = "control-panel-lift";
+
+      const title = document.createElement("h2");
+      title.className = "control-panel-lift-title";
+      title.textContent = "Control panel — lift";
+      panelEl.appendChild(title);
+
+      const opacityRow = document.createElement("div");
+      opacityRow.className = "control-panel-lift-field";
+      const opacityLabel = document.createElement("label");
+      opacityLabel.textContent = "Transparență fundal lift";
+      const opacitySlider = document.createElement("input");
+      opacitySlider.type = "range";
+      opacitySlider.min = "0";
+      opacitySlider.max = "100";
+      opacitySlider.step = "1";
+      opacitySlider.value = String(Math.round(liftBgOpacity * 100));
+      const opacityOut = document.createElement("span");
+      opacityOut.className = "control-panel-lift-slider-out";
+      opacityOut.textContent = `${opacitySlider.value}%`;
+      opacitySlider.addEventListener("input", () => {
+        liftBgOpacity = Number(opacitySlider.value) / 100;
+        opacityOut.textContent = `${opacitySlider.value}%`;
+        applyLiftBgOpacity();
+      });
+      opacityRow.append(opacityLabel, opacitySlider, opacityOut);
+      panelEl.appendChild(opacityRow);
+
+      const swapRow = document.createElement("label");
+      swapRow.className = "control-panel-lift-row";
+      const swapInput = document.createElement("input");
+      swapInput.type = "checkbox";
+      swapInput.checked = swapQuestionIllustration;
+      swapInput.addEventListener("change", () => {
+        swapQuestionIllustration = swapInput.checked;
+        applyLayoutSwap();
+      });
+      const swapSpan = document.createElement("span");
+      swapSpan.textContent =
+        "Switch întrebare în div ilustrație și ilustrație în spațiul întrebării";
+      swapRow.append(swapInput, swapSpan);
+      panelEl.appendChild(swapRow);
+
+      applyLayoutSwap();
     }
 
     function setInputEnabled(on) {
@@ -139,7 +246,10 @@
 
     function renderRound(state) {
       state = normalizeRoundState(state);
-      const fm = dom.fallingMainEl;
+      lastRoundState = state;
+      dom.fallingMainEl?.classList.remove("has-division-eq", "has-singapore-bond");
+      dom.arenaQuestionSlotEl?.classList.remove("has-division-eq", "has-singapore-bond");
+      const fm = getQuestionSlotEl() || dom.fallingMainEl;
       if (state.questionFormat === "singapore-bond") {
         const historyHtml = (state.bondHistory || [])
           .map((line) => `<div class="singapore-history-line">${line}</div>`)
@@ -219,7 +329,7 @@
 
       syncBoxHeight();
       if (state.hintMessage) dom.messageEl.textContent = state.hintMessage;
-      config.onRender?.(state);
+      return config.onRender?.(state);
     }
 
     function cancelRisingAnimation() {
@@ -401,11 +511,10 @@
       dom.rising.classList.add("hidden");
       fallHeld = true;
       setInputEnabled(false);
-      renderRound(state);
+      const ready = renderRound(state);
       dom.messageEl.classList.remove("win");
       dom.playPauseBtn.disabled = false;
 
-      const ready = config.beforeRoundReady?.(state);
       if (ready && typeof ready.then === "function") {
         ready.then(releaseRoundHold).catch(releaseRoundHold);
       } else {
@@ -464,8 +573,25 @@
       if (["1", "2", "3"].includes(e.key)) onPick(Number(e.key) - 1);
     });
 
-    return { startRound, startFallLoop, cancelRisingAnimation };
+    buildLiftControlPanel();
+
+    return {
+      startRound,
+      startFallLoop,
+      cancelRisingAnimation,
+      getLiftBgOpacity: () => liftBgOpacity,
+      setLiftBgOpacity: (value) => {
+        liftBgOpacity = Math.max(0, Math.min(1, Number(value)));
+        applyLiftBgOpacity();
+      },
+      getSwapQuestionIllustration: () => swapQuestionIllustration,
+      setSwapQuestionIllustration: (value) => {
+        swapQuestionIllustration = Boolean(value);
+        applyLayoutSwap();
+      },
+    };
   }
 
   global.FallingEngine = FallingEngine;
+  global.FallingEngine.LIFT_BG_OPACITY_DEFAULT = LIFT_BG_OPACITY_DEFAULT;
 })(window);

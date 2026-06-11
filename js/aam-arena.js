@@ -3,6 +3,11 @@
 
   const FADE_MS = 200;
 
+  const AXIS_EXTENSION_SWITCHES = [
+    ["axaNumereIncludeMinus2Minus1", "Include și −2, −1"],
+    ["axaNumereIncludeTotalPlus1Plus2", "Include total+1, total+2"],
+  ];
+
   const PANEL_SWITCHES = [
     ["pornesteAnimatiaAutomat", "Pornește animația automat"],
     ["asteaptaAnimatieInainteDeLift", "Înainte de lift, așteaptă animația acoladelor"],
@@ -42,7 +47,7 @@
 
   function createAamArena(dom) {
     const options = {
-      pornesteAnimatiaAutomat: true,
+      pornesteAnimatiaAutomat: false,
       asteaptaAnimatieInainteDeLift: true,
       showAxaNumere: true,
       showNumereAxaNumere: true,
@@ -57,22 +62,56 @@
       animAcoladeNumereMici: true,
       animFadeNumere: true,
       animFadeObiecte: true,
-      axisStart: -2,
-      axisEndPadding: 3,
+      axaNumereIncludeMinus2Minus1: false,
+      axaNumereIncludeTotalPlus1Plus2: false,
       axisHideTailAfterLast: 5,
       viewWidth: 720,
     };
 
-    let lastIllustrationKey = null;
     let activeAnim = null;
     let fadeTimer = null;
     let pendingRender = null;
 
-    const ilustrareEl = dom.illustrareEl;
-    const ilustrareBodyEl =
-      dom.illustrareBodyEl ||
-      ilustrareEl?.querySelector(".arena-ilustrare-body");
+    const ilustrareArenaEl = dom.illustrareArenaEl;
+    const ilustrareLiftEl = dom.illustrareLiftEl;
+    const arenaBodyEl =
+      dom.illustrareArenaBodyEl ||
+      ilustrareArenaEl?.querySelector(".arena-ilustrare-body");
+    const liftBodyEl =
+      dom.illustrareLiftBodyEl ||
+      ilustrareLiftEl?.querySelector(".lift-ilustrare-body");
     const panelEl = dom.aamControlPanelEl;
+
+    function isLayoutSwapped() {
+      return dom.getSwapQuestionIllustration?.() ?? false;
+    }
+
+    function getIllustrationTarget() {
+      if (isLayoutSwapped()) {
+        return { hostEl: ilustrareLiftEl, bodyEl: liftBodyEl };
+      }
+      return { hostEl: ilustrareArenaEl, bodyEl: arenaBodyEl };
+    }
+
+    function getStoredEquation() {
+      return (
+        ilustrareArenaEl?.dataset.equation ||
+        ilustrareLiftEl?.dataset.equation ||
+        ""
+      );
+    }
+
+    function clearEquationMeta() {
+      ilustrareArenaEl?.removeAttribute("data-equation");
+      ilustrareLiftEl?.removeAttribute("data-equation");
+    }
+
+    function clearBodyEl(body) {
+      if (!body) return;
+      body.classList.remove("is-fading");
+      body.replaceChildren();
+      body.style.minHeight = "";
+    }
 
     function stopAnim() {
       activeAnim?.cancel?.();
@@ -90,18 +129,27 @@
       stopAnim();
       clearFadeTimer();
       pendingRender = null;
-      if (!ilustrareBodyEl) return;
-      ilustrareBodyEl.classList.remove("is-fading");
-      ilustrareBodyEl.replaceChildren();
-      ilustrareBodyEl.style.minHeight = "";
-      lastIllustrationKey = null;
+      clearBodyEl(arenaBodyEl);
+      clearBodyEl(liftBodyEl);
+    }
+
+    function clearInactiveIllustrationBody() {
+      const { bodyEl } = getIllustrationTarget();
+      if (bodyEl === arenaBodyEl) clearBodyEl(liftBodyEl);
+      else clearBodyEl(arenaBodyEl);
+    }
+
+    function redrawCurrentEquation() {
+      const eq = getStoredEquation();
+      if (eq) applyIllustration(eq).catch(() => {});
     }
 
     function unitWidthFor(model) {
-      const box = ilustrareEl?.clientWidth || options.viewWidth;
+      const { hostEl } = getIllustrationTarget();
+      const box = hostEl?.clientWidth || options.viewWidth;
       const span = Math.max(
-        6,
-        model.total + options.axisEndPadding - options.axisStart
+        1,
+        global.axisSpanForUnitWidth?.(model, options) ?? model.total + 1
       );
       return Math.max(20, Math.min(48, Math.floor((box - 72) / span)));
     }
@@ -110,14 +158,22 @@
       const eq = normalizePrompt(equation);
       const model = global.parseAamEquation(eq);
       const unitWidth = unitWidthFor(model);
-      const drawn = global.fname(eq, ilustrareBodyEl, { ...options, unitWidth });
-      if (drawn?.height) ilustrareBodyEl.style.minHeight = `${drawn.height}px`;
+      const { bodyEl } = getIllustrationTarget();
+      global.fname(eq, bodyEl, {
+        ...options,
+        unitWidth,
+        skipContainerMinHeight: true,
+      });
     }
 
     function drawWithAnimation(equation) {
       stopAnim();
       const eq = normalizePrompt(equation);
-      activeAnim = global.runFnameAnimation(eq, ilustrareBodyEl, options);
+      const { bodyEl } = getIllustrationTarget();
+      activeAnim = global.runFnameAnimation(eq, bodyEl, {
+        ...options,
+        skipContainerMinHeight: true,
+      });
       return activeAnim.promise.then((result) => {
         activeAnim = null;
         if (result?.error) throw result.error;
@@ -133,11 +189,14 @@
       return Promise.resolve();
     }
 
-    function showIllustration(equation, key) {
+    function showIllustration(equation) {
+      const { bodyEl } = getIllustrationTarget();
+      if (!bodyEl) return Promise.resolve();
+
       return new Promise((resolve, reject) => {
-        pendingRender = { equation, key, resolve, reject };
+        pendingRender = { equation, resolve, reject };
         clearFadeTimer();
-        ilustrareBodyEl.classList.add("is-fading");
+        bodyEl.classList.add("is-fading");
 
         fadeTimer = setTimeout(() => {
           fadeTimer = null;
@@ -149,7 +208,7 @@
           }
 
           stopAnim();
-          ilustrareBodyEl.replaceChildren();
+          bodyEl.replaceChildren();
 
           const shouldWait =
             options.asteaptaAnimatieInainteDeLift &&
@@ -157,14 +216,13 @@
             global.runFnameAnimation;
 
           const done = () => {
-            lastIllustrationKey = job.key;
-            ilustrareBodyEl.classList.remove("is-fading");
+            bodyEl.classList.remove("is-fading");
             job.resolve();
           };
 
           if (shouldWait) {
             applyIllustration(job.equation).then(done).catch((err) => {
-              ilustrareBodyEl.classList.remove("is-fading");
+              bodyEl.classList.remove("is-fading");
               job.reject(err);
             });
           } else {
@@ -192,15 +250,35 @@
         input.checked = !!options[key];
         input.addEventListener("change", () => {
           options[key] = input.checked;
-          if (lastIllustrationKey != null) {
-            const eq = ilustrareEl?.dataset.equation;
-            if (eq) applyIllustration(eq).catch(() => {});
-          }
+          redrawCurrentEquation();
         });
         const span = document.createElement("span");
         span.textContent = label;
         row.append(input, span);
         panelEl.appendChild(row);
+
+        if (key === "showAxaNumere") {
+          const axisNote = document.createElement("p");
+          axisNote.className = "control-panel-aam-axis-note";
+          axisNote.textContent = "Axă numerelor: 0–total+1 (bază fixă)";
+          panelEl.appendChild(axisNote);
+
+          for (const [extKey, extLabel] of AXIS_EXTENSION_SWITCHES) {
+            const extRow = document.createElement("label");
+            extRow.className = "control-panel-aam-row control-panel-aam-row--indent";
+            const extInput = document.createElement("input");
+            extInput.type = "checkbox";
+            extInput.checked = !!options[extKey];
+            extInput.addEventListener("change", () => {
+              options[extKey] = extInput.checked;
+              redrawCurrentEquation();
+            });
+            const extSpan = document.createElement("span");
+            extSpan.textContent = extLabel;
+            extRow.append(extInput, extSpan);
+            panelEl.appendChild(extRow);
+          }
+        }
       }
 
       const objRow = document.createElement("div");
@@ -217,10 +295,7 @@
       objSelect.value = options.obiectAfisat;
       objSelect.addEventListener("change", () => {
         options.obiectAfisat = objSelect.value;
-        if (lastIllustrationKey != null) {
-          const eq = ilustrareEl?.dataset.equation;
-          if (eq) applyIllustration(eq).catch(() => {});
-        }
+        redrawCurrentEquation();
       });
       objRow.append(objLabel, objSelect);
       panelEl.appendChild(objRow);
@@ -255,7 +330,7 @@
       if (!global.fname || !quiz?.getAamIllustration) {
         setPanelVisible(false);
         clearIllustrationBody();
-        ilustrareEl?.removeAttribute("data-equation");
+        clearEquationMeta();
         return Promise.resolve();
       }
 
@@ -263,7 +338,7 @@
       if (!spec?.enabled) {
         setPanelVisible(false);
         clearIllustrationBody();
-        ilustrareEl?.removeAttribute("data-equation");
+        clearEquationMeta();
         return Promise.resolve();
       }
 
@@ -272,32 +347,38 @@
       const equation = normalizePrompt(spec.equation ?? state?.prompt);
       if (!canParseAam(equation)) {
         clearIllustrationBody();
-        ilustrareEl?.removeAttribute("data-equation");
+        clearEquationMeta();
         return Promise.resolve();
       }
 
-      const key = spec.illustrationKey ?? equation;
-      ilustrareEl.dataset.equation = equation;
+      clearInactiveIllustrationBody();
+      clearEquationMeta();
+      const { hostEl } = getIllustrationTarget();
+      hostEl.dataset.equation = equation;
 
-      if (key === lastIllustrationKey) return Promise.resolve();
+      return showIllustration(equation);
+    }
 
-      return showIllustration(equation, key);
+    function relayout() {
+      const equation = getStoredEquation();
+      clearIllustrationBody();
+      clearEquationMeta();
+      if (!equation || !canParseAam(equation)) return Promise.resolve();
+      const { hostEl } = getIllustrationTarget();
+      hostEl.dataset.equation = equation;
+      return showIllustration(equation);
     }
 
     function reset() {
       clearIllustrationBody();
-      ilustrareEl?.removeAttribute("data-equation");
+      clearEquationMeta();
       setPanelVisible(false);
-    }
-
-    function invalidateKey() {
-      lastIllustrationKey = null;
     }
 
     buildControlPanel();
     setPanelVisible(false);
 
-    return { prepareRound, reset, invalidateKey };
+    return { prepareRound, relayout, reset };
   }
 
   global.AamArena = { create: createAamArena, normalizePrompt, canParseAam };

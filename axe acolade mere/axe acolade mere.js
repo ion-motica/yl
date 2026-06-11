@@ -23,8 +23,9 @@
     animAcoladeNumereMici: true,
     animFadeNumere: true,
     animFadeObiecte: true,
-    axisStart: -2,
-    axisEndPadding: 3,
+    /** Bază fixă: tick-uri 0…total+1 (+ jumătate unitate vizuală la capete 0 și total). */
+    axaNumereIncludeMinus2Minus1: false,
+    axaNumereIncludeTotalPlus1Plus2: false,
     axisHideTailAfterLast: 5,
     viewWidth: 720,
     viewHeight: 240,
@@ -494,6 +495,33 @@
     return (n) => padX + (n - axisStart) * unit;
   }
 
+  /** Interval tick-uri axă: bază 0…total, extensii opționale. */
+  function computeAxisRange(model, opts) {
+    const total = model.total;
+    let tickStart = 0;
+    let tickEnd = total + 1;
+    if (opts.axaNumereIncludeMinus2Minus1) tickStart = -2;
+    if (opts.axaNumereIncludeTotalPlus1Plus2) tickEnd = total + 2;
+    return { tickStart, tickEnd, marginLo: 0, marginHi: total };
+  }
+
+  /** Număr unități pe orizontală (inclusiv jumătate unitate la 0 și total). */
+  function axisSpanForUnitWidth(model, opts) {
+    const { tickStart, tickEnd } = computeAxisRange(model, opts);
+    return Math.max(1, tickEnd - tickStart + 1);
+  }
+
+  /** xAt, lățime SVG — jumătate unitate vizuală la capetele 0 și total. */
+  function axisLayoutMetrics(model, opts, unitWidth) {
+    const unit = unitWidth || 48;
+    const padX = 36;
+    const half = unit / 2;
+    const { tickStart, tickEnd } = computeAxisRange(model, opts);
+    const xAt = (n) => padX + half + (n - tickStart) * unit;
+    const width = padX * 2 + half * 2 + (tickEnd - tickStart) * unit;
+    return { tickStart, tickEnd, padX, unit, half, xAt, width };
+  }
+
   function braceSpanIndices(startIdx, endIdx, xAt, unit) {
     const half = unit / 2;
     return {
@@ -636,51 +664,39 @@
     return clamp(unit * 0.38, 5, OBJECT_RADIUS_MAX);
   }
 
-  function objectVisualBand(objR) {
-    return objR * 2 + 8;
-  }
-
   /** Poziții Y compacte: bandele ascunse nu lasă gol. */
   function computeVerticalLayout(opts, unit = 48) {
     const objR = objectRadiusForUnit(unit);
-    const objBand = objectVisualBand(objR);
-    const axisClearance = 6;
-    const padTop = 10;
-    const padBottom = 10;
-    const gap = 6;
+    const padTop = 2;
+    const padBottom = 3;
+    const gap = 1;
     let y = padTop;
     const layout = { padTop, padBottom };
 
-    if (
+    const hasSmallBrace =
       opts.afiseazaAcoladeNumereMici ||
-      (opts.animBigBrace && opts.animAcoladeNumereMici)
-    ) {
-      layout.smallLabelY = y + 8;
-      y += 16;
-      layout.smallBraceY = y + 2 * BRACE_R0;
-      y += 2 * BRACE_R0 + gap;
+      (opts.animBigBrace && opts.animAcoladeNumereMici);
+
+    if (hasSmallBrace) {
+      layout.smallLabelY = y + 6;
+      y += 12;
+      layout.smallBraceY = y + BRACE_R0;
+      y += BRACE_R0 * 2 + gap;
     }
 
     if (opts.afiseazaObiecte) {
-      layout.objY = y + objR + 2;
-      y += objBand + gap;
+      layout.objY = y + objR;
+      y = layout.objY + objR + gap;
     } else if (opts.showAxaNumere || opts.afiseazaAcoladaNumarMare) {
-      layout.objY = y + objR + 2;
-      y += 6;
+      y += 2;
     }
 
     if (opts.showAxaNumere) {
-      if (opts.afiseazaObiecte && layout.objY != null) {
-        const objBottom = layout.objY + objR;
-        layout.axisY = Math.max(y + 7, objBottom + axisClearance + 7);
-        y = layout.axisY - 7;
-      } else {
-        layout.axisY = y + 7;
-      }
-      y += 14;
+      layout.axisY = y + 2;
+      y = layout.axisY + 5;
       if (opts.showNumereAxaNumere) {
-        layout.axisNumberOffset = 15;
-        y += 20 + gap;
+        layout.axisNumberOffset = 10;
+        y += 12 + gap;
       } else {
         y += gap;
       }
@@ -688,12 +704,12 @@
 
     if (opts.afiseazaAcoladaNumarMare) {
       layout.bigBraceY = y;
-      y += 2 * BRACE_R0 + 4;
-      layout.bigLabelY = y + 10;
-      y += 18;
+      y += BRACE_R0 * 2 + 2;
+      layout.bigLabelY = y + 7;
+      y += 13;
     }
 
-    layout.height = Math.max(y + padBottom, 48);
+    layout.height = Math.max(y + padBottom, 32);
     return layout;
   }
 
@@ -773,8 +789,15 @@
     return el;
   }
 
+  const AAM_Q_MARK_FILL = "#fbbf24";
+
+  function svgTextClass(text, className) {
+    const base = className || "aam-text";
+    return text === "?" ? `${base} aam-q-mark` : base;
+  }
+
   function svgText(x, y, text, className) {
-    const t = svgEl("text", { x, y, class: className || "aam-text" });
+    const t = svgEl("text", { x, y, class: svgTextClass(text, className) });
     t.textContent = text;
     return t;
   }
@@ -796,9 +819,12 @@
     }
 
     const model = parseEquation(equation);
-    const axisStart = opts.axisStart;
-    const axisEnd = Math.max(model.total + opts.axisEndPadding, 4);
     const unit = opts.unitWidth || 48;
+    const { tickStart: axisStart, tickEnd: axisEnd, xAt, width } = axisLayoutMetrics(
+      model,
+      opts,
+      unit
+    );
     const padX = 36;
     const objR = objectRadiusForUnit(unit);
     const layout = computeVerticalLayout(opts, unit);
@@ -812,9 +838,6 @@
       bigLabelY,
     } = layout;
 
-    const xAt = makeXAt(axisStart, padX, unit);
-
-    const width = padX * 2 + (axisEnd - axisStart) * unit;
     const height = layout.height;
 
     const svg = svgEl("svg", {
@@ -830,6 +853,7 @@
       .aam-text { font-size: 15px; fill: #1e293b; text-anchor: middle; dominant-baseline: middle; }
       .aam-text-small { font-size: 17px; font-weight: 700; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
       .aam-text-big { font-size: 20px; font-weight: 800; fill: #0f172a; text-anchor: middle; dominant-baseline: middle; }
+      .aam-q-mark { fill: ${AAM_Q_MARK_FILL}; }
       .aam-axis { stroke: #334155; stroke-width: 2; }
       .aam-tick { stroke: #64748b; stroke-width: 1.5; }
       .aam-brace { fill: none; stroke: #0f172a; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
@@ -856,9 +880,9 @@
         const x = xAt(n);
         const tick = svgEl("line", {
           x1: x,
-          y1: axisY - 7,
+          y1: axisY - 5,
           x2: x,
-          y2: axisY + 7,
+          y2: axisY + 5,
           class: "aam-tick",
         });
         svg.appendChild(tick);
@@ -1051,7 +1075,7 @@
           const fact = normalizeEquation(ref.fact);
           const model = parseEquation(fact);
           const unitWidth = this._unitWidthFor(ref.vizWrap, model);
-          const xAt = makeXAt(this.options.axisStart, 36, unitWidth);
+          const { xAt } = axisLayoutMetrics(model, this.options, unitWidth);
           const min = minBigBraceSpan(xAt, unitWidth, model.total);
           rows.push({
             ref,
@@ -1077,7 +1101,7 @@
       for (const row of this._animState.animRows) {
         if (row.error) continue;
         row.unitWidth = this._unitWidthFor(row.ref.vizWrap, row.model);
-        row.xAt = makeXAt(this.options.axisStart, 36, row.unitWidth);
+        row.xAt = axisLayoutMetrics(row.model, this.options, row.unitWidth).xAt;
         const span = bigBraceSpanForCount(row.objectCount, row.xAt, row.unitWidth, row.total);
         row.x1 = span.x1;
         row.x2 = span.x2;
@@ -1210,6 +1234,18 @@
 
       for (const [key, label] of switches) {
         this.sidebar.appendChild(this._switchRow(key, label));
+        if (key === "showAxaNumere") {
+          const axisNote = document.createElement("p");
+          axisNote.className = "aam-info aam-axis-note";
+          axisNote.textContent = "Axă numerelor: 0–total+1 (bază fixă)";
+          this.sidebar.appendChild(axisNote);
+          this.sidebar.appendChild(
+            this._switchRow("axaNumereIncludeMinus2Minus1", "Include și −2, −1")
+          );
+          this.sidebar.appendChild(
+            this._switchRow("axaNumereIncludeTotalPlus1Plus2", "Include total+1, total+2")
+          );
+        }
       }
 
       const objRow = document.createElement("div");
@@ -1313,10 +1349,7 @@
 
     _unitWidthFor(vizWrap, model) {
       const box = vizWrap.clientWidth || this.options.viewWidth;
-      const span = Math.max(
-        6,
-        model.total + this.options.axisEndPadding - this.options.axisStart
-      );
+      const span = Math.max(1, axisSpanForUnitWidth(model, this.options));
       return clamp(Math.floor((box - 72) / span), 20, 48);
     }
 
@@ -1386,10 +1419,7 @@
 
   function unitWidthForContainer(container, model, opts) {
     const box = container.clientWidth || opts.viewWidth;
-    const span = Math.max(
-      6,
-      model.total + opts.axisEndPadding - opts.axisStart
-    );
+    const span = Math.max(1, axisSpanForUnitWidth(model, opts));
     return clamp(Math.floor((box - 72) / span), 20, 48);
   }
 
@@ -1438,7 +1468,7 @@
       try {
         model = parseEquation(fact);
         unitWidth = unitWidthForContainer(container, model, opts);
-        xAt = makeXAt(opts.axisStart, 36, unitWidth);
+        xAt = axisLayoutMetrics(model, opts, unitWidth).xAt;
       } catch (err) {
         resolve({ error: err });
         return;
@@ -1475,7 +1505,9 @@
             labelText: label,
           },
         });
-        if (drawn?.height) container.style.minHeight = `${drawn.height}px`;
+        if (drawn?.height && !opts.skipContainerMinHeight) {
+          container.style.minHeight = `${drawn.height}px`;
+        }
       };
 
       applyFnameAnimProgress(row, 0);
@@ -1538,6 +1570,8 @@
   global.generatePlusMinusUnknownFacts = generatePlusMinusUnknownFacts;
   global.buildDefaultFactSeries = buildDefaultFactSeries;
   global.parseAamEquation = parseEquation;
+  global.computeAamAxisRange = computeAxisRange;
+  global.axisSpanForUnitWidth = axisSpanForUnitWidth;
   global.fname = fname;
   global.runFnameAnimation = runFnameAnimation;
   global.axeAcoladeMere = axeAcoladeMere;

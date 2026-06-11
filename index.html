@@ -39,8 +39,9 @@
             </div>
 
             <div id="arena" class="arena">
-              <div id="div-ilustrare" class="arena-ilustrare">
-                <span class="arena-zone-label">div ilustrare</span>
+              <div id="div-ilustrare-din-arena" class="arena-ilustrare-din-arena">
+                <span class="arena-zone-label">div ilustrare din arena</span>
+                <div id="arena-question-slot" class="arena-question-slot" hidden aria-hidden="true"></div>
                 <div class="arena-ilustrare-body" aria-live="polite"></div>
               </div>
               <div id="div-lista-operatii" class="arena-lista-operatii">
@@ -50,6 +51,10 @@
               <div id="flash" class="flash" aria-hidden="true"></div>
               <div id="falling" class="falling" aria-live="polite">
                 <div class="falling-inner">
+                  <div id="div-ilustrare-in-lift" class="lift-ilustrare" hidden aria-hidden="true">
+                    <span class="arena-zone-label">div ilustrare in lift</span>
+                    <div class="lift-ilustrare-body" aria-live="polite"></div>
+                  </div>
                   <div id="division-history" class="division-history" aria-label="Împărțiri efectuate"></div>
                   <div id="falling-main" class="falling-main">
                     <span id="top-number" class="number">—</span>
@@ -67,7 +72,10 @@
               <div id="level-banner" class="level-banner hidden" aria-live="assertive"></div>
             </div>
 
-            <div id="control-panel-aam" class="control-panel-aam hidden" hidden></div>
+            <div class="control-panels-row">
+              <div id="control-panel-lift" class="control-panel-lift"></div>
+              <div id="control-panel-aam" class="control-panel-aam hidden" hidden></div>
+            </div>
           </div>
         </div>
       </div>
