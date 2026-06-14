@@ -1,7 +1,12 @@
 (function (global) {
   "use strict";
 
-  const ARENA_H = 420;
+  // Înălțimea de referință a scenei. Toate vitezele de mai jos sunt calibrate
+  // pentru această înălțime; la rulare, viteza reală e scalată cu
+  // (înălțimea scenei / REF_H), astfel încât TIMPUL de cădere să rămână
+  // perceptiv același pe scene de înălțimi diferite (paritate side-by-side).
+  const REF_H = 420;
+  const ARENA_H = REF_H; // fallback când scena încă nu are dimensiuni măsurabile
   const BOX_MIN = 112;
   const FALL_SPEED = 54;
   const RISE_SPEED = 240;
@@ -16,6 +21,9 @@
     const getQuiz = config.getQuiz;
     let fallY = 0;
     let boxH = BOX_MIN;
+    // Înălțimea reală a scenei (arena), citită din DOM. Pe desktop = 420px
+    // (înălțime CSS fixă), deci comportamentul rămâne identic cu cel anterior.
+    let arenaH = ARENA_H;
     let animating = false;
     let locked = false;
     let bouncing = false;
@@ -56,13 +64,44 @@
       };
     }
 
+    function refreshArenaMetrics() {
+      const h = Math.round(dom.arena?.getBoundingClientRect().height || 0);
+      // Plasă de siguranță: scena trebuie să fie mai înaltă decât cutia care cade.
+      arenaH = h > BOX_MIN ? h : ARENA_H;
+    }
+
+    // Distanța pe care o parcurge liftul, în px, de la sus până jos.
+    function travelSpan() {
+      return Math.max(1, arenaH - boxH);
+    }
+
+    // Factor de scalare a vitezei: la înălțimi mai mari, viteza în px/s crește
+    // proporțional, astfel încât timpul de cădere rămâne ~constant. Pe scena de
+    // referință (420px) factorul este 1 → viteză identică cu cea anterioară.
+    function speedScale() {
+      return arenaH / REF_H;
+    }
+
     function syncBoxHeight() {
       boxH = Math.max(BOX_MIN, Math.ceil(dom.falling.getBoundingClientRect().height));
+      refreshArenaMetrics();
     }
 
     function setFallPosition(y) {
       fallY = y;
       dom.falling.style.top = `${y}px`;
+    }
+
+    // Reașază liftul după o redimensionare a scenei (rotire, bară URL,
+    // schimbare de raport), păstrând poziția RELATIVĂ (fracția 0→1) ca să nu
+    // „țopăie”. Pe desktop, unde înălțimea arenei e fixă, e inert.
+    function applyResize() {
+      const prevSpan = travelSpan();
+      const frac = Math.min(1, Math.max(0, fallY / prevSpan));
+      syncBoxHeight();
+      fallY = frac * travelSpan();
+      dom.falling.style.top = `${fallY}px`;
+      config.onResize?.();
     }
 
     function applyLiftBgOpacity() {
@@ -161,6 +200,10 @@
         "Switch întrebare în div ilustrație și ilustrație în spațiul întrebării";
       swapRow.append(swapInput, swapSpan);
       panelEl.appendChild(swapRow);
+
+      // Punct de extindere: alte module (ex. controlul de raport al scenei)
+      // pot adăuga aici propriile controale, fără ca motorul să le cunoască.
+      config.onLiftPanelBuilt?.(panelEl);
 
       applyLayoutSwap();
     }
@@ -383,7 +426,7 @@
         bouncing = true;
         dom.falling.classList.add("bounce");
         const bounceToTop = getQuiz().shouldBounceToTop?.() ?? false;
-        const bounceAmount = bounceToTop ? fallY : BOUNCE_UP;
+        const bounceAmount = bounceToTop ? fallY : BOUNCE_UP * speedScale();
         setFallPosition(Math.max(0, fallY - bounceAmount));
         setTimeout(() => {
           bouncing = false;
@@ -453,7 +496,7 @@
       dom.rising.classList.remove("hidden");
       syncBoxHeight();
 
-      let riseY = ARENA_H - boxH;
+      let riseY = travelSpan();
       let localFallY = fallY;
       let lastStepTs = 0;
 
@@ -466,8 +509,9 @@
         const dt = Math.min((ts - lastStepTs) / 1000, 0.05);
         lastStepTs = ts;
         const speedFactor = getQuiz().getFallSpeedFactor?.() ?? 1.0;
-        localFallY += FALL_SPEED * speedFactor * dt;
-        riseY -= RISE_SPEED * dt;
+        const scale = speedScale();
+        localFallY += FALL_SPEED * speedFactor * scale * dt;
+        riseY -= RISE_SPEED * scale * dt;
         dom.falling.style.top = `${localFallY}px`;
         dom.rising.style.top = `${riseY}px`;
 
@@ -478,8 +522,17 @@
           resolveChoice(index);
           return;
         }
-        if (localFallY >= ARENA_H - boxH) {
+        if (localFallY >= travelSpan()) {
+          // Cutia a atins fundul în timpul ridicării (se întâmplă la viteze
+          // mari, unde căderea întrece ridicarea). Oprim animația și eliberăm
+          // blocajul de input ÎNAINTE de a procesa ratarea — altfel
+          // handleBottomMiss iese devreme pe `locked` și `animating` rămâne
+          // blocat pentru totdeauna, înghețând liftul jos.
+          fallY = localFallY;
+          cancelRisingAnimation();
+          setInputEnabled(true);
           handleBottomMiss();
+          setFallPosition(0);
           return;
         }
         requestAnimationFrame(step);
@@ -536,8 +589,8 @@
         ) {
           syncBoxHeight();
           const speedFactor = getQuiz().getFallSpeedFactor?.() ?? 1.0;
-          fallY += FALL_SPEED * speedFactor * dt;
-          if (fallY >= ARENA_H - boxH) {
+          fallY += FALL_SPEED * speedFactor * speedScale() * dt;
+          if (fallY >= travelSpan()) {
             handleBottomMiss();
             fallY = 0;
           }
@@ -576,6 +629,8 @@
       startRound,
       startFallLoop,
       cancelRisingAnimation,
+      applyResize,
+      refreshArenaMetrics,
       getLiftBgOpacity: () => liftBgOpacity,
       setLiftBgOpacity: (value) => {
         liftBgOpacity = Math.max(0, Math.min(1, Number(value)));

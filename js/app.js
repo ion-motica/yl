@@ -206,12 +206,25 @@
   quiz = QuizRegistry.createActive();
   aamArena = AamArena.create(dom);
 
+  // Scena (arena) + controlul de raport. La orice redimensionare/raport nou,
+  // repoziționăm liftul (din fracție). NU redesenăm ilustrația aici: SVG-ul se
+  // scalează singur prin CSS (width:100%), iar un relayout în timpul unei runde
+  // ar anula promisiunea care ține liftul sus la quiz-urile cu animație AAM
+  // (ex. „T+ EFF”), lăsând liftul blocat. Redesenarea precisă la resize o
+  // tratăm separat, hold-safe, într-un pas ulterior.
+  const stage = window.LayoutStage.create(dom, {
+    onChange: () => {
+      engine?.applyResize?.();
+    },
+  });
+
   engine = new FallingEngine({
     dom,
     getQuiz: () => quiz,
     showBanner,
     onProgressUpdate: renderProgress,
     onRender: (state) => aamArena.prepareRound(quiz, state),
+    onLiftPanelBuilt: (panelEl) => stage.mountRatioControl(panelEl),
     onLayoutSwapChange: () => {
       const next = quiz?.advanceIfSwapIncompatible?.();
       if (next) {
