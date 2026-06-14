@@ -10,6 +10,7 @@
     <div id="game" class="game">
       <header class="hud">
         <div class="hud-row">
+          <button type="button" id="menu-toggle" class="menu-toggle" aria-label="Meniu" aria-expanded="false" title="Meniu">≡</button>
           <h1>Quizuri de matematică</h1>
           <button type="button" id="play-pause" class="play-pause" aria-label="Pauză" title="Pauză (Space)">⏸</button>
         </div>
@@ -17,6 +18,8 @@
         <p id="level-info" class="level-info">Nivel 1 · 1+1..10</p>
         <p class="hint">Apasă <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> pentru stânga, mijloc, dreapta</p>
       </header>
+
+      <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
 
       <div class="arena-wrap">
         <div class="play-stage">

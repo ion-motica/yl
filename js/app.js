@@ -183,6 +183,35 @@
     }
   });
 
+  // ── Sertar mobil (Pasul 2a) ────────────────────────────────────────────
+  // Pe ecrane mici, quiz-urile/nivelurile stau într-un drawer deschis de ≡.
+  // Pe desktop butonul ≡ e ascuns prin CSS, deci codul rămâne inert acolo.
+  const menuToggleEl = document.getElementById("menu-toggle");
+  const drawerBackdropEl = document.getElementById("drawer-backdrop");
+  const sidebarEl = document.querySelector(".sidebar-pickers");
+
+  function setDrawer(open) {
+    dom.gameEl.classList.toggle("drawer-open", open);
+    if (menuToggleEl) menuToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+    if (drawerBackdropEl) drawerBackdropEl.hidden = !open;
+  }
+
+  menuToggleEl?.addEventListener("click", () => {
+    setDrawer(!dom.gameEl.classList.contains("drawer-open"));
+  });
+  drawerBackdropEl?.addEventListener("click", () => setDrawer(false));
+
+  // După ce alegi un quiz sau un nivel, închidem sertarul ca să se vadă arena.
+  sidebarEl?.addEventListener("click", (e) => {
+    if (e.target.closest(".quiz-picker-item, .level-btn")) setDrawer(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dom.gameEl.classList.contains("drawer-open")) {
+      setDrawer(false);
+    }
+  });
+
   function switchQuiz(id) {
     if (id === QuizRegistry.getActiveId() && quiz && !quiz.isCompleted()) return;
     QuizRegistry.setActive(id);
