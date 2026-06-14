@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preview rezoluții — Youlearn</title>
+    <style>
+      :root {
+        --bg: #0f1419;
+        --panel: #1a2332;
+        --accent: #3d9cf5;
+        --text: #e8eef5;
+        --muted: #8b9cb3;
+        --line: #2a3548;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #121820;
+        border-bottom: 1px solid var(--line);
+        padding: 0.6rem 0.9rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .toolbar-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.6rem 1.1rem;
+      }
+      .toolbar h1 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+      .toolbar .hint {
+        margin: 0;
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .group-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-right: 0.2rem;
+      }
+      .dev-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .dev-check input { cursor: pointer; }
+
+      .zoom-field {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .zoom-field input[type="range"] { width: 160px; }
+
+      button.tool-btn {
+        padding: 0.35rem 0.7rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        color: var(--text);
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      button.tool-btn:hover { border-color: var(--accent); }
+
+      .wall {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 1.1rem;
+        padding: 1.1rem;
+      }
+
+      .device {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .device-head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+      }
+      .device-name { font-size: 0.85rem; font-weight: 600; }
+      .device-dims { font-size: 0.72rem; color: var(--muted); }
+
+      .device-viewport {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #000;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      }
+      .device-viewport iframe {
+        border: 0;
+        display: block;
+        transform-origin: top left;
+        background: var(--bg);
+      }
+
+      .empty {
+        padding: 2rem 1.1rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <div class="toolbar-row">
+        <h1>Preview rezoluții</h1>
+        <p class="hint">Fiecare cadru încarcă <code>index.html</code> la dimensiunea aleasă. Bifează dispozitivele de afișat.</p>
+      </div>
+      <div class="toolbar-row" id="device-checks"></div>
+      <div class="toolbar-row">
+        <label class="zoom-field">
+          Zoom
+          <input type="range" id="zoom" min="0.35" max="1" step="0.05" value="0.6" />
+          <span id="zoom-out">60%</span>
+        </label>
+        <button type="button" class="tool-btn" id="reload-all">Reîncarcă tot</button>
+      </div>
+    </div>
+
+    <div class="wall" id="wall"></div>
+
+    <script>
+      // Rezoluții CSS (logice) reprezentative pentru piața din România:
+      // telefoane mid-range/hand-me-down + o tabletă + desktop. Lățimile sunt
+      // în px CSS (ce raportează browserul), nu pixeli fizici.
+      const DEVICES = [
+        { id: "small360", group: "Telefon", label: "Buget vechi", w: 360, h: 640, def: true },
+        { id: "a-series", group: "Telefon", label: "Samsung A", w: 360, h: 800, def: true },
+        { id: "pixel", group: "Telefon", label: "Pixel", w: 393, h: 852, def: true },
+        { id: "big-android", group: "Telefon", label: "Android mare", w: 412, h: 915, def: true },
+        { id: "iphone-se", group: "Telefon", label: "iPhone SE", w: 375, h: 667, def: false },
+        { id: "tablet-port", group: "Tabletă", label: "Tabletă (portret)", w: 768, h: 1024, def: true },
+        { id: "tablet-land", group: "Tabletă", label: "Tabletă (peisaj)", w: 1024, h: 768, def: false },
+        { id: "laptop", group: "Desktop", label: "Laptop", w: 1280, h: 800, def: true },
+        { id: "desktop", group: "Desktop", label: "Desktop", w: 1440, h: 900, def: false },
+      ];
+
+      const STORE_KEY = "yl.preview.v1";
+
+      function loadState() {
+        try {
+          return JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+        } catch {
+          return {};
+        }
+      }
+      function saveState(s) {
+        try {
+          localStorage.setItem(STORE_KEY, JSON.stringify(s));
+        } catch {}
+      }
+
+      const state = loadState();
+      if (!state.checked) {
+        state.checked = {};
+        DEVICES.forEach((d) => (state.checked[d.id] = d.def));
+      }
+      if (typeof state.zoom !== "number") state.zoom = 0.6;
+
+      const checksEl = document.getElementById("device-checks");
+      const wallEl = document.getElementById("wall");
+      const zoomEl = document.getElementById("zoom");
+      const zoomOutEl = document.getElementById("zoom-out");
+
+      function buildChecks() {
+        checksEl.replaceChildren();
+        let lastGroup = null;
+        DEVICES.forEach((d) => {
+          if (d.group !== lastGroup) {
+            const gl = document.createElement("span");
+            gl.className = "group-label";
+            gl.textContent = d.group;
+            checksEl.appendChild(gl);
+            lastGroup = d.group;
+          }
+          const label = document.createElement("label");
+          label.className = "dev-check";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = !!state.checked[d.id];
+          cb.addEventListener("change", () => {
+            state.checked[d.id] = cb.checked;
+            saveState(state);
+            renderWall();
+          });
+          const txt = document.createElement("span");
+          txt.textContent = `${d.label} (${d.w}×${d.h})`;
+          label.append(cb, txt);
+          checksEl.appendChild(label);
+        });
+      }
+
+      function renderWall() {
+        const z = state.zoom;
+        wallEl.replaceChildren();
+        const shown = DEVICES.filter((d) => state.checked[d.id]);
+        if (!shown.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "Niciun dispozitiv bifat. Alege cel puțin unul de mai sus.";
+          wallEl.appendChild(empty);
+          return;
+        }
+        shown.forEach((d) => {
+          const card = document.createElement("div");
+          card.className = "device";
+
+          const head = document.createElement("div");
+          head.className = "device-head";
+          const name = document.createElement("span");
+          name.className = "device-name";
+          name.textContent = d.label;
+          const dims = document.createElement("span");
+          dims.className = "device-dims";
+          dims.textContent = `${d.w}×${d.h}`;
+          head.append(name, dims);
+
+          const vp = document.createElement("div");
+          vp.className = "device-viewport";
+          vp.style.width = Math.round(d.w * z) + "px";
+          vp.style.height = Math.round(d.h * z) + "px";
+
+          const iframe = document.createElement("iframe");
+          iframe.src = "index.html";
+          iframe.width = d.w;
+          iframe.height = d.h;
+          iframe.style.width = d.w + "px";
+          iframe.style.height = d.h + "px";
+          iframe.style.transform = `scale(${z})`;
+          vp.appendChild(iframe);
+
+          card.append(head, vp);
+          wallEl.appendChild(card);
+        });
+      }
+
+      zoomEl.value = String(state.zoom);
+      zoomOutEl.textContent = Math.round(state.zoom * 100) + "%";
+      zoomEl.addEventListener("input", () => {
+        state.zoom = parseFloat(zoomEl.value);
+        zoomOutEl.textContent = Math.round(state.zoom * 100) + "%";
+        saveState(state);
+        renderWall();
+      });
+
+      document.getElementById("reload-all").addEventListener("click", () => {
+        renderWall();
+      });
+
+      buildChecks();
+      renderWall();
+    </script>
+  </body>
+</html>

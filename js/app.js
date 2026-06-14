@@ -201,6 +201,16 @@
   });
   drawerBackdropEl?.addEventListener("click", () => setDrawer(false));
 
+  // Buton [CP]: arată/ascunde panourile de control pe mobil (pe desktop e
+  // ascuns prin CSS, panourile rămân mereu vizibile acolo).
+  const cpToggleEl = document.getElementById("cp-toggle");
+  cpToggleEl?.addEventListener("click", () => {
+    const open = !dom.gameEl.classList.contains("cp-open");
+    dom.gameEl.classList.toggle("cp-open", open);
+    cpToggleEl.classList.toggle("active", open);
+    cpToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+
   // După ce alegi un quiz sau un nivel, închidem sertarul ca să se vadă arena.
   sidebarEl?.addEventListener("click", (e) => {
     if (e.target.closest(".quiz-picker-item, .level-btn")) setDrawer(false);

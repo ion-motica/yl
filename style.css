@@ -109,10 +109,10 @@ body {
   cursor: pointer;
 }
 
-/* Butonul de meniu: există doar pe mobil (drawer cu quiz-uri/niveluri). */
-.menu-toggle {
+/* Butoanele de bară mobilă (meniu ≡ și CP): există doar pe mobil. */
+.menu-toggle,
+.cp-toggle {
   display: none;
-  font-size: 1.35rem;
   line-height: 1;
   padding: 0.3rem 0.6rem;
   border: 1px solid #2d3d52;
@@ -120,6 +120,21 @@ body {
   background: var(--panel);
   color: var(--text);
   cursor: pointer;
+}
+
+.menu-toggle {
+  font-size: 1.35rem;
+}
+
+.cp-toggle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.cp-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Fundalul semitransparent din spatele drawer-ului (doar mobil). */
@@ -1166,11 +1181,17 @@ body {
     padding: 0.5rem;
   }
 
-  /* Bară de sus compactă: [≡] ............ [⏸] */
-  .menu-toggle {
+  /* Bară de sus compactă: [≡][CP] ............ [⏸] */
+  .menu-toggle,
+  .cp-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .hud-left {
+    display: flex;
+    gap: 0.4rem;
   }
 
   .hud h1,
@@ -1188,9 +1209,12 @@ body {
     text-align: center;
   }
 
-  /* Arena pe toată lățimea: oprim layout-ul pe rânduri al scenei. */
+  /* Arena pe toată lățimea: coloană + stretch ca arena-column să umple
+     lățimea indiferent de conținutul quiz-ului (altfel lua lățimea
+     conținutului → arene de lățimi diferite). */
   .play-stage {
     flex-direction: column;
+    align-items: stretch;
     gap: 0;
   }
 
@@ -1240,5 +1264,23 @@ body {
   .level-picker {
     padding-top: 0;
     justify-content: center;
+  }
+
+  /* Panourile de control (lift + AAM) sunt ascunse implicit pe mobil ca să nu
+     acopere arena; butonul [CP] le arată/ascunde prin clasa .cp-open. */
+  .control-panel-lift {
+    display: none;
+  }
+
+  .control-panels-row {
+    display: none;
+  }
+
+  .game.cp-open .control-panel-lift {
+    display: block;
+  }
+
+  .game.cp-open .control-panels-row:has(.control-panel-aam:not(.hidden)) {
+    display: block;
   }
 }
