@@ -39,10 +39,14 @@
       if (!arena) return;
       const mult = RATIOS[ratio];
       if (!mult) {
-        // Mod nativ: redă controlul înălțimii către CSS (420px pe desktop).
+        // Mod nativ: redă controlul înălțimii către CSS. Pe desktop = 420px;
+        // pe mobil arena umple ecranul (erou) prin regula .arena din @media.
         arena.style.removeProperty("height");
+        arena.classList.remove("stage-ratio");
         return;
       }
+      // Mod raport fix: înălțime impusă, letterbox (paritate între telefoane).
+      arena.classList.add("stage-ratio");
       const width = arena.clientWidth || 0;
       if (width <= 0) return;
       const target = Math.min(Math.round(width * mult), viewportHeightCap());
