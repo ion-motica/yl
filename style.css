@@ -1302,7 +1302,11 @@ body {
     bottom: 0;
     width: min(660px, 100%);
     z-index: 6;
-    height: min(5.5cm, 50dvh);
+    /* Înălțime ca PROCENT din ecran (dvh), nu cm: cm se redă diferit pe
+       desktop vs mobil, de aici diferența preview ↔ Pixel. dvh dă aceeași
+       proporție peste tot (bun și pentru paritate între telefoane).
+       ~25dvh: cu 30% mai scurt decât 36dvh. */
+    height: clamp(126px, 25dvh, 252px);
     padding: 0 0.5rem;
     gap: 0.45rem;
     align-items: stretch;
