@@ -32,6 +32,12 @@
     let roundStartedAt = null;
     let fallHeld = false;
     let liftBgOpacity = config.liftBgOpacity ?? LIFT_BG_OPACITY_DEFAULT;
+    // Lățimea liftului ca procent din arenă (null = lățimea implicită din CSS).
+    let liftWidthPct = null;
+    {
+      const stored = global.LayoutConfig && global.LayoutConfig.get("liftWidthPct", null);
+      if (typeof stored === "number" && stored >= 20 && stored <= 100) liftWidthPct = stored;
+    }
     let swapQuestionIllustration = false;
     let lastRoundState = null;
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
@@ -108,6 +114,14 @@
       dom.falling.style.setProperty("--lift-bg-opacity", String(liftBgOpacity));
     }
 
+    function applyLiftWidth() {
+      if (liftWidthPct != null) {
+        dom.falling.style.setProperty("--lift-width", liftWidthPct + "%");
+      } else {
+        dom.falling.style.removeProperty("--lift-width");
+      }
+    }
+
     function getQuestionSlotEl() {
       return swapQuestionIllustration ? dom.arenaQuestionSlotEl : dom.fallingMainEl;
     }
@@ -155,6 +169,7 @@
     function buildLiftControlPanel() {
       const panelEl = dom.liftControlPanelEl;
       applyLiftBgOpacity();
+      applyLiftWidth();
       if (!panelEl) return;
 
       panelEl.replaceChildren();
@@ -185,6 +200,39 @@
       });
       opacityRow.append(opacityLabel, opacitySlider, opacityOut);
       panelEl.appendChild(opacityRow);
+
+      const widthRow = document.createElement("div");
+      widthRow.className = "control-panel-lift-field";
+      const widthLabel = document.createElement("label");
+      widthLabel.textContent = "Lățime lift";
+      const widthSlider = document.createElement("input");
+      widthSlider.type = "range";
+      widthSlider.min = "40";
+      widthSlider.max = "98";
+      widthSlider.step = "1";
+      // Valoarea inițială: cea salvată; altfel lățimea curentă ca % din arenă.
+      let initWidthPct = liftWidthPct;
+      if (initWidthPct == null) {
+        const aw = dom.arena?.getBoundingClientRect().width || 0;
+        const lw = dom.falling?.getBoundingClientRect().width || 0;
+        initWidthPct = aw > 0 && lw > 0 ? Math.round((lw / aw) * 100) : 80;
+        initWidthPct = Math.max(40, Math.min(98, initWidthPct));
+      }
+      widthSlider.value = String(initWidthPct);
+      const widthOut = document.createElement("span");
+      widthOut.className = "control-panel-lift-slider-out";
+      widthOut.textContent = `${widthSlider.value}%`;
+      widthSlider.addEventListener("input", () => {
+        liftWidthPct = Number(widthSlider.value);
+        widthOut.textContent = `${liftWidthPct}%`;
+        applyLiftWidth();
+        if (global.LayoutConfig) global.LayoutConfig.set("liftWidthPct", liftWidthPct);
+        // Lățimea schimbă și înălțimea cutiei (rândurile se rearanjează) →
+        // recalculăm parcursul, ca liftul să nu „țopăie”.
+        applyResize();
+      });
+      widthRow.append(widthLabel, widthSlider, widthOut);
+      panelEl.appendChild(widthRow);
 
       const swapRow = document.createElement("label");
       swapRow.className = "control-panel-lift-row";

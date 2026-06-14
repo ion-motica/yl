@@ -682,7 +682,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   top: 0;
-  width: min(280px, 94%);
+  width: var(--lift-width, min(280px, 94%));
   min-height: 112px;
   background: rgba(26, 35, 50, var(--lift-bg-opacity, 0.5));
   border: 2px solid var(--accent);
@@ -1250,6 +1250,23 @@ body {
   /* Mod raport fix: păstrăm înălțimea impusă (letterbox), nu umplem. */
   .arena.stage-ratio {
     flex: 0 0 auto;
+  }
+
+  /* Pe mobil liftul e mai lat implicit (ca textul mărit să încapă); slider-ul
+     „Lățime lift” din CP setează var(--lift-width) și are prioritate. */
+  .falling {
+    width: var(--lift-width, 92%);
+  }
+
+  /* Scrisul din lift de două ori mai mare pe mobil. */
+  .falling-main .number,
+  .arena-question-slot .number {
+    font-size: 5rem;
+  }
+
+  .falling-prime {
+    font-size: 2.2rem;
+    min-width: 3.6rem;
   }
 
   /* Sidebar-ul devine sertar off-canvas, deschis de butonul ≡. */
