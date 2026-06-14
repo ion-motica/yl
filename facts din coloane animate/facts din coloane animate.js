@@ -166,7 +166,30 @@
       const t = i / (SIGN_POOL.length - 1);
       bySign[sym] = colorAtAnchors(signAnchors, t, pastel);
     });
-    return { byDigit, bySign, numColorCount, signColorCount, pastel };
+    return { byDigit, bySign, numColorCount, signColorCount, pastel, theme: "random" };
+  }
+
+  /** Verde fosforescent pe negru-verde — ca șirurile 0/1 din Matrix. */
+  function createMatrixPalette() {
+    const byDigit = {
+      "0": "hsl(125, 55%, 7%)",
+      "1": "hsl(128, 92%, 28%)",
+    };
+    for (let d = 2; d <= 10; d++) {
+      const t = (d - 1) / 9;
+      byDigit[String(d)] = pleasantHsl(
+        125 + t * 6,
+        lerp(58, 86, t),
+        lerp(9, 19, t),
+        false
+      );
+    }
+    const signLevels = [40, 46, 52, 48, 44];
+    const bySign = {};
+    SIGN_POOL.forEach((sym, i) => {
+      bySign[sym] = pleasantHsl(127, 96, signLevels[i], false);
+    });
+    return { byDigit, bySign, theme: "matrix" };
   }
 
   function range(lo, hi) {
@@ -504,6 +527,9 @@
         .fca-strip { display:flex; flex-direction:column; will-change:transform; }
         .fca-btn-gradient { padding:0.5rem 0.65rem; border-radius:8px; border:1px solid #3d5068; background:#1a2433; color:#c5d4e8; cursor:pointer; font-size:0.82rem; font-weight:600; }
         .fca-btn-gradient:hover { border-color:#7ab8ff; color:#fff; }
+        .fca-btn-matrix:hover { border-color:#4ade80; color:#bbf7d0; }
+        .fca-cell.matrix-theme.num { color:#39ff14; }
+        .fca-cell.matrix-theme.sign { color:#86efac; }
         .fca-cell { display:flex; align-items:center; justify-content:center; box-sizing:border-box; border-radius:4px; border:1px solid #334155; font-weight:800; user-select:none; line-height:1; }
         .fca-cell.sign { color:#facc15; }
         .fca-cell.num { color:#fff; }
@@ -599,6 +625,11 @@
       this.btnGradient.className = "fca-btn-gradient";
       this.btnGradient.textContent = "Random new gradient";
 
+      this.btnMatrix = document.createElement("button");
+      this.btnMatrix.type = "button";
+      this.btnMatrix.className = "fca-btn-gradient fca-btn-matrix";
+      this.btnMatrix.textContent = "Matrix colors";
+
       this.sidebar.append(
         this.readout,
         speedLabel,
@@ -606,6 +637,7 @@
         gapLabel,
         marginLabel,
         this.btnGradient,
+        this.btnMatrix,
         chainWrap,
         modeWrap
       );
@@ -689,6 +721,7 @@
         this._setChainMode("oneUnlessRandom")
       );
       this.btnGradient.addEventListener("click", () => this._newGradient());
+      this.btnMatrix.addEventListener("click", () => this._newMatrix());
       this.palette = createPalette();
       this._applyPaletteToCells();
       this._syncChainButtons();
@@ -713,16 +746,26 @@
 
     _applyPaletteToCells() {
       if (!this.palette) return;
+      const matrix = this.palette.theme === "matrix";
       this.reels.forEach((r) => {
         r.stripEl.querySelectorAll(".fca-cell").forEach((cell) => {
           const bg = this._colorForToken(cell.textContent, r.type);
           if (bg) cell.style.backgroundColor = bg;
+          cell.classList.toggle("matrix-theme", matrix);
+          if (!matrix) {
+            cell.style.color = "";
+          }
         });
       });
     }
 
     _newGradient() {
       this.palette = createPalette();
+      this._applyPaletteToCells();
+    }
+
+    _newMatrix() {
+      this.palette = createMatrixPalette();
       this._applyPaletteToCells();
     }
 
