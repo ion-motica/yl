@@ -139,13 +139,25 @@
     return btn;
   }
 
+  function isMobileLayout() {
+    return dom.gameEl.classList.contains("layout-mobile");
+  }
+
+  function syncLayoutMode() {
+    const mobile = window.matchMedia("(max-width: 768px)").matches;
+    dom.gameEl.classList.toggle("layout-mobile", mobile);
+  }
+
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
     const maxLevel = quiz.getMaxLevel();
-    const mobileDrawer = window.matchMedia("(max-width: 768px)").matches;
+    const mobileDrawer = isMobileLayout();
 
     if (mobileDrawer) {
-      // Sertar mobil: ordine 1..N; layout-ul (flex wrap, 2 rânduri) e în CSS.
+      // Sertar mobil: ordine 1..N; flex wrap din CSS + inline (fallback cache vechi).
+      dom.levelPickerEl.style.display = "flex";
+      dom.levelPickerEl.style.flexWrap = "wrap";
+      dom.levelPickerEl.style.justifyContent = "center";
       dom.levelPickerEl.style.gridAutoFlow = "";
       dom.levelPickerEl.style.gridTemplateRows = "";
       dom.levelPickerEl.style.gridTemplateColumns = "";
@@ -155,6 +167,10 @@
       }
       return;
     }
+
+    dom.levelPickerEl.style.display = "";
+    dom.levelPickerEl.style.flexWrap = "";
+    dom.levelPickerEl.style.justifyContent = "";
 
     const columns = Math.ceil(maxLevel / LEVELS_PER_COLUMN);
     const rows = Math.min(LEVELS_PER_COLUMN, maxLevel);
@@ -280,6 +296,7 @@
   });
 
   dom.quizTitleEl.textContent = QuizRegistry.get(QuizRegistry.getActiveId()).title;
+  syncLayoutMode();
   buildQuizPicker();
   buildLevelPicker();
   renderProgress();
@@ -287,6 +304,7 @@
   engine.startFallLoop();
 
   window.matchMedia("(max-width: 768px)").addEventListener("change", () => {
+    syncLayoutMode();
     if (quiz) {
       buildLevelPicker();
       renderProgress();

@@ -169,7 +169,9 @@ body {
   flex-shrink: 0;
 }
 
+/* Desktop: quiz stânga, niveluri dreapta (DOM are niveluri înainte de quiz). */
 .quiz-picker {
+  order: 1;
   flex-shrink: 0;
   min-width: 8.5rem;
   max-width: 10.5rem;
@@ -241,6 +243,7 @@ body {
 }
 
 .level-picker {
+  order: 2;
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(10, auto);
@@ -1275,9 +1278,14 @@ body {
     transform: translateX(0);
   }
 
-  /* HTML are quiz-uri înainte de niveluri; order le pune pe niveluri sus. */
+  /* DOM: niveluri înainte de quiz → sus/jos natural; resetăm order desktop. */
+  .level-picker,
+  .quiz-picker {
+    order: unset;
+  }
+
+  .game.layout-mobile .level-picker,
   .level-picker {
-    order: -1;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -1287,6 +1295,7 @@ body {
     flex-shrink: 0;
   }
 
+  .game.layout-mobile .level-picker .level-btn,
   .level-picker .level-btn {
     /* 10 pe rând → 2 rânduri la 20 niveluri, fără scroll orizontal. */
     flex: 0 0 calc((100% - 9 * 0.28rem) / 10);
@@ -1297,8 +1306,9 @@ body {
     font-size: 0.78rem;
   }
 
+  .game.layout-mobile .quiz-picker,
   .quiz-picker {
-    order: 0;
+    order: unset;
     width: 100%;
     min-width: 0;
     max-width: none;
