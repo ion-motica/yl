@@ -142,8 +142,23 @@
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
     const maxLevel = quiz.getMaxLevel();
+    const mobileDrawer = window.matchMedia("(max-width: 768px)").matches;
+
+    if (mobileDrawer) {
+      // Sertar mobil: ordine 1..N; layout-ul (flex wrap, 2 rânduri) e în CSS.
+      dom.levelPickerEl.style.gridAutoFlow = "";
+      dom.levelPickerEl.style.gridTemplateRows = "";
+      dom.levelPickerEl.style.gridTemplateColumns = "";
+
+      for (let lv = 1; lv <= maxLevel; lv++) {
+        dom.levelPickerEl.appendChild(createLevelButton(lv));
+      }
+      return;
+    }
+
     const columns = Math.ceil(maxLevel / LEVELS_PER_COLUMN);
     const rows = Math.min(LEVELS_PER_COLUMN, maxLevel);
+    dom.levelPickerEl.style.gridAutoFlow = "";
     dom.levelPickerEl.style.gridTemplateRows = `repeat(${rows}, auto)`;
     dom.levelPickerEl.style.gridTemplateColumns = `repeat(${columns}, auto)`;
 
@@ -171,17 +186,6 @@
       dom.quizPickerListEl.appendChild(btn);
     });
   }
-
-  const effControlsEl = document.getElementById("eff-controls");
-  const effBtnEl      = document.getElementById("eff-btn");
-
-  effBtnEl.addEventListener("click", () => {
-    if (quiz?.isEFFQuiz) {
-      global.EFFModal.open(quiz.getQuizId(), () => {
-        quiz.refreshProfile?.();
-      });
-    }
-  });
 
   // ── Sertar mobil (Pasul 2a) ────────────────────────────────────────────
   // Pe ecrane mici, quiz-urile/nivelurile stau într-un drawer deschis de ≡.
@@ -229,7 +233,6 @@
     dom.quizTitleEl.textContent = meta.title;
     quiz = QuizRegistry.createActive();
     aamArena.reset();
-    effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);
     buildQuizPicker();
     buildLevelPicker();
     lastGreenCells = null;
@@ -276,11 +279,17 @@
     },
   });
 
-  effControlsEl.classList.toggle("hidden", !quiz.isEFFQuiz);
   dom.quizTitleEl.textContent = QuizRegistry.get(QuizRegistry.getActiveId()).title;
   buildQuizPicker();
   buildLevelPicker();
   renderProgress();
   engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   engine.startFallLoop();
+
+  window.matchMedia("(max-width: 768px)").addEventListener("change", () => {
+    if (quiz) {
+      buildLevelPicker();
+      renderProgress();
+    }
+  });
 })();
