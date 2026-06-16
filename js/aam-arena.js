@@ -264,13 +264,9 @@
     }
 
     function buildControlPanel() {
+      if (!panelEl) return;
       panelEl.replaceChildren();
-      panelEl.className = "control-panel-aam";
-
-      const title = document.createElement("h2");
-      title.className = "control-panel-aam-title";
-      title.textContent = "Control panel — axe acolade mere";
-      panelEl.appendChild(title);
+      panelEl.className = "cp-section-body control-panel-mount";
 
       for (const [key, label] of PANEL_SWITCHES) {
         const row = document.createElement("label");
@@ -352,8 +348,7 @@
     }
 
     function setPanelVisible(on) {
-      panelEl.classList.toggle("hidden", !on);
-      panelEl.hidden = !on;
+      dom.onAamCpEnabledChange?.(on);
     }
 
     function prepareRound(quiz, state) {

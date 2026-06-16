@@ -517,41 +517,110 @@ body {
 }
 
 .control-panels-row {
-  margin: -0.35rem 0 1rem;
-}
-
-.control-panels-row:has(.control-panel-aam.hidden) {
   display: none;
-  margin: 0;
 }
 
-.control-panel-lift {
-  position: fixed;
-  left: 0.75rem;
-  bottom: 0.75rem;
-  z-index: 40;
-  width: min(280px, calc(100vw - 1.5rem));
-  max-height: min(70vh, 520px);
-  overflow: auto;
-  margin: 0;
-  padding: 0.85rem 1rem 1rem;
-  background: #121820;
-  border: 1px solid #2a3548;
-  border-radius: 12px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-  pointer-events: auto;
-}
-
-.control-panel-aam {
+/* ── CP shell (Pasul 3a): cuprins + secțiuni, dock desktop / overlay mobil ── */
+.cp-shell {
+  display: none;
+  flex-direction: column;
   min-width: 0;
-  padding: 0.85rem 1rem 1rem;
+  min-height: 0;
+}
+
+.game.cp-open .cp-shell:not([hidden]) {
+  display: flex;
+}
+
+.cp-shell-backdrop {
+  display: none;
+}
+
+.cp-shell-close {
+  display: none;
+}
+
+.cp-shell-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
   background: #121820;
   border: 1px solid #2a3548;
   border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
-.control-panel-aam.hidden {
-  display: none;
+.cp-toc {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #2a3548;
+  background: rgba(18, 24, 32, 0.98);
+}
+
+.cp-toc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cp-toc-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cp-toc-item.is-disabled,
+.cp-section.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.cp-sections {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cp-section {
+  padding: 0.75rem 1rem 1rem;
+  scroll-margin-top: 0.35rem;
+}
+
+.cp-section + .cp-section {
+  border-top: 1px solid #2a3548;
+}
+
+.cp-section-heading {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cp-section-body {
+  min-width: 0;
+}
+
+@media (min-width: 769px) {
+  .cp-shell {
+    flex: 0 0 min(280px, 30vw);
+    width: min(280px, 30vw);
+    align-self: stretch;
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .cp-shell-panel {
+    height: 100%;
+  }
 }
 
 .control-panel-lift-title,
@@ -1448,21 +1517,170 @@ body {
     font-size: 0.8rem;
   }
 
-  /* Panourile de control (lift + AAM) sunt ascunse implicit pe mobil ca să nu
-     acopere arena; butonul [CP] le arată/ascunde prin clasa .cp-open. */
-  .control-panel-lift {
+  /* CP shell: overlay sub HUD, deasupra barelor 1/2/3. */
+  .cp-shell {
+    position: fixed;
+    top: var(--hud-h, 5.5rem);
+    left: 0;
+    right: 0;
+    bottom: var(--options-h, 0px);
+    z-index: 58;
+    width: auto;
+    max-height: none;
+  }
+
+  .cp-shell-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  .cp-shell-backdrop[hidden] {
     display: none;
   }
 
-  .control-panels-row {
+  .cp-shell-panel {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    box-shadow: none;
+  }
+
+  .cp-shell-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    z-index: 2;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 1px solid #2d3d52;
+    border-radius: 50%;
+    background: #1a2332;
+    color: var(--text);
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .cp-shell-close[hidden] {
+    display: none !important;
+  }
+
+  .cp-toc {
+    padding-right: 3rem;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PASUL 3c — desktop: tabel cu 3 coloane (arena / meniu / CP)
+   Un <table> simplu (1 rând, 3 celule de 360px) ține coloanele. JS mută în
+   celule aceleași div-uri folosite pe mobil. Aici doar dăm celulelor lățime
+   fixă și facem ca meniul + CP (overlay pe mobil) să stea static în coloane.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) {
+  .game.dg-on {
+    width: auto;
+    max-width: none;
+  }
+
+  /* Containerul original rămâne gol pe desktop (copiii sunt în tabel). */
+  .game.dg-on .arena-wrap {
     display: none;
   }
 
-  .game.cp-open .control-panel-lift {
-    display: block;
+  #desktop-grid {
+    align-self: center;
+    margin: 0.4rem auto 0;
+    border-collapse: separate;
+    border-spacing: 0.6rem;
+    table-layout: fixed;
   }
 
-  .game.cp-open .control-panels-row:has(.control-panel-aam:not(.hidden)) {
-    display: block;
+  #desktop-grid td.dg-cell {
+    width: 360px;
+    padding: 0;
+    vertical-align: top;
+  }
+
+  /* Coloana 1 — arena ca un ecran de telefon, cu barele 1/2/3 dedesubt. */
+  .dg-on .dg-arena .arena-column {
+    width: 360px;
+  }
+
+  .dg-on .arena:not(.stage-ratio) {
+    height: min(620px, 74vh);
+    margin-bottom: 0.6rem;
+  }
+
+  /* Coloana 2 — meniul ca pe mobil: niveluri sus (pe rânduri), listă quiz
+     dedesubt. Anulăm poziționarea fixed/overlay de pe telefon. */
+  .dg-on .dg-menu .sidebar-pickers {
+    position: static;
+    transform: none;
+    inset: auto;
+    width: 360px;
+    height: min(620px, 74vh);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.75rem;
+    background: #121820;
+    border: 1px solid #2a3548;
+    border-radius: 12px;
+    box-shadow: none;
+    overflow-y: auto;
+  }
+
+  .dg-on .dg-menu .level-picker {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.28rem;
+  }
+
+  .dg-on .dg-menu .level-picker .level-btn {
+    flex: 0 0 calc((100% - 9 * 0.28rem) / 10);
+    max-width: 2.15rem;
+    height: auto;
+    aspect-ratio: 1;
+    font-size: 0.78rem;
+  }
+
+  .dg-on .dg-menu .quiz-picker {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .dg-on .dg-menu .quiz-picker-list {
+    flex: 1;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  /* Coloana 3 — CP ca pe mobil, static, mereu vizibil. */
+  .dg-on .dg-cp .cp-shell {
+    display: flex;
+    position: static;
+    inset: auto;
+    width: 360px;
+    height: min(620px, 74vh);
+    max-height: none;
+    flex: none;
+    z-index: auto;
   }
 }

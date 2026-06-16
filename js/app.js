@@ -22,8 +22,9 @@
     illustrareLiftBodyEl: document.querySelector(".lift-ilustrare-body"),
     arenaQuestionSlotEl: document.getElementById("arena-question-slot"),
     listaOperatiiEl: document.getElementById("div-lista-operatii"),
-    aamControlPanelEl: document.getElementById("control-panel-aam"),
-    liftControlPanelEl: document.getElementById("control-panel-lift"),
+    liftControlPanelEl: null,
+    aamControlPanelEl: null,
+    onAamCpEnabledChange: null,
     flashEl: document.getElementById("flash"),
     falling: document.getElementById("falling"),
     fallingMainEl: document.getElementById("falling-main"),
@@ -39,6 +40,7 @@
   let quiz = null;
   let engine = null;
   let aamArena = null;
+  let cpShell = null;
   let lastGreenCells = null;
 
   dom.getSwapQuestionIllustration = () =>
@@ -183,7 +185,9 @@
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
     const maxLevel = quiz.getMaxLevel();
-    const mobileDrawer = isMobileLayout();
+    // Aspectul „mobil" al meniului (niveluri pe rânduri + listă quiz dedesubt)
+    // se folosește atât pe telefon, cât și în coloana 2 a tabelului desktop.
+    const mobileDrawer = isMobileLayout() || dom.gameEl.classList.contains("dg-on");
 
     if (mobileDrawer) {
       // Sertar mobil: ordine 1..N; flex wrap din CSS + inline (fallback cache vechi).
@@ -262,14 +266,11 @@
   drawerBackdropEl?.addEventListener("click", () => setDrawer(false));
   drawerCloseEl?.addEventListener("click", () => setDrawer(false));
 
-  // Buton [CP]: arată/ascunde panourile de control pe mobil (pe desktop e
-  // ascuns prin CSS, panourile rămân mereu vizibile acolo).
+  // Buton [CP]: overlay pe mobil; pe desktop panoul e andocat în dreapta scenei.
   const cpToggleEl = document.getElementById("cp-toggle");
   cpToggleEl?.addEventListener("click", () => {
-    const open = !dom.gameEl.classList.contains("cp-open");
-    dom.gameEl.classList.toggle("cp-open", open);
-    cpToggleEl.classList.toggle("active", open);
-    cpToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+    if (!cpShell) return;
+    cpShell.setOpen(!cpShell.isOpen());
   });
 
   // După ce alegi un quiz sau un nivel, închidem sertarul ca să se vadă arena.
@@ -278,8 +279,13 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && dom.gameEl.classList.contains("drawer-open")) {
+    if (e.key !== "Escape") return;
+    if (dom.gameEl.classList.contains("drawer-open")) {
       setDrawer(false);
+      return;
+    }
+    if (cpShell?.isOpen() && isMobileLayout()) {
+      cpShell.setOpen(false);
     }
   });
 
@@ -312,6 +318,33 @@
     QuizRegistry.setActive("addition-table") ||
     QuizRegistry.setActive("prime-divisions");
   quiz = QuizRegistry.createActive();
+
+  let aamCpEnabled = false;
+  CpRegistry.register({
+    id: "lift",
+    title: "CP — Lift",
+    isEnabled: () => true,
+  });
+  CpRegistry.register({
+    id: "aam",
+    title: "CP — AAM",
+    isEnabled: () => aamCpEnabled,
+  });
+
+  const cpShellEl = document.getElementById("cp-shell");
+  cpShell = CpShell.create({
+    gameEl: dom.gameEl,
+    shellEl: cpShellEl,
+    isMobile: isMobileLayout,
+    onOpenChange: scheduleMobileChromeMetrics,
+  });
+  dom.liftControlPanelEl = cpShell.getMountEl("lift");
+  dom.aamControlPanelEl = cpShell.getMountEl("aam");
+  dom.onAamCpEnabledChange = (on) => {
+    aamCpEnabled = on;
+    cpShell.setPanelEnabled("aam", on);
+  };
+
   aamArena = AamArena.create(dom);
 
   // Scena (arena) + controlul de raport. La orice redimensionare/raport nou,
@@ -345,6 +378,62 @@
     },
   });
 
+  // ── Tabel desktop cu 3 coloane (Pasul 3c) ──────────────────────────────
+  // Mobilul rămâne baza (neatins). Pe desktop construim un <table> simplu cu un
+  // rând și 3 celule de 360px și MUTĂM în ele aceleași div-uri folosite pe
+  // mobil: arena (col 1), meniul (col 2), panourile CP (col 3). La revenirea pe
+  // mobil punem div-urile înapoi în .play-stage, exact unde erau. Fără CSS de
+  // poziționare complicat pentru cele 3 coloane — le ține tabelul.
+  const arenaWrapEl = document.querySelector(".arena-wrap");
+  const arenaColumnEl = document.querySelector(".arena-column");
+  const desktopGridMq = window.matchMedia("(min-width: 769px)");
+  let desktopGridTable = null;
+
+  function buildDesktopGridTable() {
+    const table = document.createElement("table");
+    table.id = "desktop-grid";
+    const tbody = document.createElement("tbody");
+    const row = document.createElement("tr");
+    const c1 = document.createElement("td");
+    const c2 = document.createElement("td");
+    const c3 = document.createElement("td");
+    c1.className = "dg-cell dg-arena";
+    c2.className = "dg-cell dg-menu";
+    c3.className = "dg-cell dg-cp";
+    row.append(c1, c2, c3);
+    tbody.append(row);
+    table.append(tbody);
+    table.cells3 = { c1, c2, c3 };
+    return table;
+  }
+
+  function applyDesktopGrid() {
+    const desktop = desktopGridMq.matches;
+    if (desktop) {
+      if (!desktopGridTable) desktopGridTable = buildDesktopGridTable();
+      if (!desktopGridTable.isConnected) {
+        dom.gameEl.insertBefore(desktopGridTable, arenaWrapEl.nextSibling);
+      }
+      const { c1, c2, c3 } = desktopGridTable.cells3;
+      c1.append(arenaColumnEl, dom.optionsEl);
+      c2.append(sidebarEl);
+      c3.append(cpShellEl);
+      dom.gameEl.classList.add("dg-on");
+      cpShell?.setOpen(true);
+    } else {
+      dom.gameEl.classList.remove("dg-on");
+      const playStageEl = arenaWrapEl.querySelector(".play-stage");
+      // Ordine originală în .play-stage: meniu, arena, CP.
+      playStageEl.append(sidebarEl, arenaColumnEl, cpShellEl);
+      dom.gameEl.insertBefore(dom.optionsEl, arenaWrapEl.nextSibling);
+      if (desktopGridTable?.isConnected) desktopGridTable.remove();
+      cpShell?.applyLayoutMode();
+    }
+    if (quiz) buildLevelPicker();
+    scheduleMobileChromeMetrics();
+    engine?.applyResize?.();
+  }
+
   dom.quizTitleEl.textContent = QuizRegistry.get(QuizRegistry.getActiveId()).title;
   syncLayoutMode();
   buildQuizPicker();
@@ -352,12 +441,16 @@
   renderProgress();
   engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   engine.startFallLoop();
+  applyDesktopGrid();
 
   window.matchMedia("(max-width: 768px)").addEventListener("change", () => {
     syncLayoutMode();
+    cpShell?.applyLayoutMode();
     if (quiz) {
       buildLevelPicker();
       renderProgress();
     }
   });
+
+  desktopGridMq.addEventListener("change", applyDesktopGrid);
 })();

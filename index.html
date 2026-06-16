@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quizuri de matematică</title>
-    <link rel="stylesheet" href="style.css?v=11" />
+    <link rel="stylesheet" href="style.css?v=13" />
   </head>
   <body>
     <div id="game" class="game">
@@ -78,14 +78,18 @@
               <div id="level-banner" class="level-banner hidden" aria-live="assertive"></div>
             </div>
 
-            <div class="control-panels-row">
-              <div id="control-panel-aam" class="control-panel-aam hidden" hidden></div>
-            </div>
           </div>
+
+          <aside id="cp-shell" class="cp-shell" hidden aria-label="Panouri de control">
+            <div class="cp-shell-backdrop" hidden></div>
+            <div class="cp-shell-panel">
+              <button type="button" class="cp-shell-close" aria-label="Închide panourile de control" hidden>✕</button>
+              <nav class="cp-toc" aria-label="Cuprins panouri"></nav>
+              <div class="cp-sections"></div>
+            </div>
+          </aside>
         </div>
       </div>
-
-      <div id="control-panel-lift" class="control-panel-lift"></div>
 
       <div id="options" class="options" role="group" aria-label="Opțiuni răspuns">
         <button type="button" class="option" data-index="0" disabled>
@@ -146,8 +150,10 @@
     <script src="axe acolade mere/axe acolade mere.js"></script>
     <script src="js/aam-arena.js"></script>
     <script src="js/layout-config.js"></script>
+    <script src="js/cp-registry.js"></script>
+    <script src="js/cp-shell.js"></script>
     <script src="js/layout-stage.js"></script>
     <script src="js/falling-engine.js"></script>
-    <script src="js/app.js?v=11"></script>
+    <script src="js/app.js?v=13"></script>
   </body>
 </html>

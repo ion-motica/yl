@@ -173,12 +173,7 @@
       if (!panelEl) return;
 
       panelEl.replaceChildren();
-      panelEl.className = "control-panel-lift";
-
-      const title = document.createElement("h2");
-      title.className = "control-panel-lift-title";
-      title.textContent = "Control panel — lift";
-      panelEl.appendChild(title);
+      panelEl.className = "cp-section-body control-panel-mount";
 
       const opacityRow = document.createElement("div");
       opacityRow.className = "control-panel-lift-field";
