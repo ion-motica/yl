@@ -164,9 +164,8 @@
         { id: "desktop", group: "Desktop", label: "Desktop", w: 1440, h: 900, def: false },
       ];
 
+      const ASSET_VERSION = "8";
       const STORE_KEY = "yl.preview.v1";
-
-      function loadState() {
         try {
           return JSON.parse(localStorage.getItem(STORE_KEY)) || {};
         } catch {
@@ -250,7 +249,7 @@
           vp.style.height = Math.round(d.h * z) + "px";
 
           const iframe = document.createElement("iframe");
-          iframe.src = "index.html";
+          iframe.src = `index.html?v=${ASSET_VERSION}`;
           iframe.width = d.w;
           iframe.height = d.h;
           iframe.style.width = d.w + "px";

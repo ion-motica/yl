@@ -214,12 +214,30 @@
   // Pe desktop butonul ≡ e ascuns prin CSS, deci codul rămâne inert acolo.
   const menuToggleEl = document.getElementById("menu-toggle");
   const drawerBackdropEl = document.getElementById("drawer-backdrop");
+  const drawerCloseEl = document.getElementById("drawer-close");
   const sidebarEl = document.querySelector(".sidebar-pickers");
+
+  function positionDrawerClose() {
+    if (!drawerCloseEl || !sidebarEl) return;
+    const rect = sidebarEl.getBoundingClientRect();
+    const size = drawerCloseEl.offsetWidth || 52;
+    drawerCloseEl.style.left = `${Math.max(8, Math.round(rect.right - size))}px`;
+  }
 
   function setDrawer(open) {
     dom.gameEl.classList.toggle("drawer-open", open);
     if (menuToggleEl) menuToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
     if (drawerBackdropEl) drawerBackdropEl.hidden = !open;
+    if (drawerCloseEl) drawerCloseEl.hidden = !open;
+    if (open) {
+      requestAnimationFrame(positionDrawerClose);
+      const onEnd = (e) => {
+        if (e.propertyName !== "transform") return;
+        sidebarEl?.removeEventListener("transitionend", onEnd);
+        positionDrawerClose();
+      };
+      sidebarEl?.addEventListener("transitionend", onEnd);
+    }
   }
 
   menuToggleEl?.addEventListener("click", () => {
@@ -231,6 +249,7 @@
     setDrawer(!dom.gameEl.classList.contains("drawer-open"));
   });
   drawerBackdropEl?.addEventListener("click", () => setDrawer(false));
+  drawerCloseEl?.addEventListener("click", () => setDrawer(false));
 
   // Buton [CP]: arată/ascunde panourile de control pe mobil (pe desktop e
   // ascuns prin CSS, panourile rămân mereu vizibile acolo).
@@ -250,6 +269,12 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && dom.gameEl.classList.contains("drawer-open")) {
       setDrawer(false);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (dom.gameEl.classList.contains("drawer-open")) {
+      positionDrawerClose();
     }
   });
 

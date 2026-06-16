@@ -149,6 +149,15 @@ body {
   display: none;
 }
 
+/* Buton floating închide meniul — în afara sertarului (evită bug transform+fixed). */
+.drawer-close {
+  display: none;
+}
+
+.drawer-close[hidden] {
+  display: none !important;
+}
+
 .arena-wrap {
   width: 100%;
 }
@@ -1284,6 +1293,31 @@ body {
 
   .game.drawer-open .sidebar-pickers {
     transform: translateX(0);
+  }
+
+  .drawer-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    z-index: 65;
+    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px));
+    left: auto;
+    width: 3.25rem;
+    height: 3.25rem;
+    padding: 0;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    background: #1a2332;
+    color: var(--text);
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  }
+
+  .drawer-close[hidden] {
+    display: none !important;
   }
 
   /* Niveluri SUS, quiz-uri JOS — order explicit (nu moștenim nimic de pe desktop). */
