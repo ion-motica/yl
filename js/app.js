@@ -327,7 +327,7 @@
   });
   CpRegistry.register({
     id: "aam",
-    title: "CP — AAM",
+    title: "CP — Acolada Axa Mere",
     isEnabled: () => aamCpEnabled,
   });
 

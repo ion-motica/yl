@@ -31,11 +31,38 @@
     return order.map((id) => panels.get(id)).filter(Boolean);
   }
 
+  function setOrder(order) {
+    const valid = [];
+    if (Array.isArray(order)) {
+      order.forEach((id) => {
+        if (panels.has(id) && !valid.includes(id)) valid.push(id);
+      });
+    }
+    panels.forEach((_v, id) => {
+      if (!valid.includes(id)) valid.push(id);
+    });
+    const Config = global.LayoutConfig;
+    if (Config) Config.set("cpOrder", valid);
+    return valid;
+  }
+
+  function move(id, delta) {
+    const order = getOrder();
+    const i = order.indexOf(id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= order.length) return order;
+    const next = order.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    return setOrder(next);
+  }
+
   const CpRegistry = {
     register,
     list,
     get: (id) => panels.get(id),
     getOrder,
+    setOrder,
+    move,
   };
 
   global.CpRegistry = CpRegistry;

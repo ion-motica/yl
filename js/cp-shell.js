@@ -50,9 +50,10 @@
     }
 
     function setPanelEnabled(id, enabled) {
-      const tocItem = tocEl.querySelector(`[data-cp-id="${id}"]`);
+      const row = tocEl.querySelector(`.cp-toc-row[data-cp-id="${id}"]`);
+      const tocItem = row?.querySelector(".cp-toc-item");
       const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
-      tocItem?.classList.toggle("is-disabled", !enabled);
+      row?.classList.toggle("is-disabled", !enabled);
       section?.classList.toggle("is-disabled", !enabled);
       if (tocItem) tocItem.disabled = !enabled;
     }
@@ -60,10 +61,90 @@
     function scrollToPanel(id) {
       const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
       if (!section || section.classList.contains("is-disabled")) return;
-      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Doar lista de secțiuni — nu scrollIntoView (ar mișca și pagina / cuprinsul).
+      const top =
+        section.getBoundingClientRect().top -
+        sectionsEl.getBoundingClientRect().top +
+        sectionsEl.scrollTop;
+      sectionsEl.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    }
+
+    function syncMoveButtons() {
+      const order = Registry.getOrder();
+      tocEl.querySelectorAll(".cp-toc-row").forEach((row) => {
+        const id = row.dataset.cpId;
+        const i = order.indexOf(id);
+        const up = row.querySelector(".cp-toc-up");
+        const down = row.querySelector(".cp-toc-down");
+        if (up) up.disabled = i <= 0;
+        if (down) down.disabled = i < 0 || i >= order.length - 1;
+      });
+    }
+
+    function reorderDom(order) {
+      order.forEach((id) => {
+        const row = tocEl.querySelector(`.cp-toc-row[data-cp-id="${id}"]`);
+        const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
+        if (row) tocEl.appendChild(row);
+        if (section) sectionsEl.appendChild(section);
+      });
+      syncMoveButtons();
+    }
+
+    function movePanel(id, delta) {
+      const next = Registry.move(id, delta);
+      if (next) reorderDom(next);
+    }
+
+    function createTocRow(def) {
+      const enabled = def.isEnabled();
+      const row = document.createElement("div");
+      row.className = "cp-toc-row";
+      row.dataset.cpId = def.id;
+      row.classList.toggle("is-disabled", !enabled);
+
+      const moves = document.createElement("div");
+      moves.className = "cp-toc-moves";
+
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.className = "cp-toc-move cp-toc-up";
+      upBtn.setAttribute("aria-label", "Mută sus");
+      upBtn.textContent = "↑";
+      upBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        movePanel(def.id, -1);
+      });
+
+      const downBtn = document.createElement("button");
+      downBtn.type = "button";
+      downBtn.className = "cp-toc-move cp-toc-down";
+      downBtn.setAttribute("aria-label", "Mută jos");
+      downBtn.textContent = "↓";
+      downBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        movePanel(def.id, 1);
+      });
+
+      moves.append(upBtn, downBtn);
+
+      const tocBtn = document.createElement("button");
+      tocBtn.type = "button";
+      tocBtn.className = "cp-toc-item";
+      tocBtn.textContent = def.title;
+      tocBtn.disabled = !enabled;
+      tocBtn.addEventListener("click", () => scrollToPanel(def.id));
+
+      row.append(moves, tocBtn);
+      return row;
     }
 
     function build() {
+      const saved = new Map();
+      mounts.forEach((el, id) => {
+        if (el?.childNodes.length) saved.set(id, el);
+      });
+
       tocEl.replaceChildren();
       sectionsEl.replaceChildren();
       mounts.clear();
@@ -71,15 +152,7 @@
       Registry.list().forEach((def) => {
         const enabled = def.isEnabled();
 
-        const tocBtn = document.createElement("button");
-        tocBtn.type = "button";
-        tocBtn.className = "cp-toc-item";
-        tocBtn.dataset.cpId = def.id;
-        tocBtn.textContent = def.title;
-        tocBtn.disabled = !enabled;
-        tocBtn.classList.toggle("is-disabled", !enabled);
-        tocBtn.addEventListener("click", () => scrollToPanel(def.id));
-        tocEl.appendChild(tocBtn);
+        tocEl.appendChild(createTocRow(def));
 
         const section = document.createElement("section");
         section.className = "cp-section";
@@ -95,11 +168,15 @@
         const body = document.createElement("div");
         body.className = "cp-section-body control-panel-mount";
         body.id = `cp-mount-${def.id}`;
+        const prev = saved.get(def.id);
+        if (prev) body.append(...prev.childNodes);
         section.appendChild(body);
 
         sectionsEl.appendChild(section);
         mounts.set(def.id, body);
       });
+
+      syncMoveButtons();
     }
 
     closeBtn?.addEventListener("click", () => setOpen(false));
