@@ -261,6 +261,13 @@
       buildLevelPicker();
       renderProgress();
     }
+    const willOpenDrawer = !dom.gameEl.classList.contains("drawer-open");
+    const cpOpen = isMobileLayout() && cpShell?.isOpen();
+    if (cpOpen) cpShell.setOpen(false);
+    if (cpOpen && willOpenDrawer) {
+      requestAnimationFrame(() => setDrawer(true));
+      return;
+    }
     setDrawer(!dom.gameEl.classList.contains("drawer-open"));
   });
   drawerBackdropEl?.addEventListener("click", () => setDrawer(false));
