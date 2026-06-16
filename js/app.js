@@ -379,13 +379,12 @@
   });
 
   // ── Tabel desktop cu 3 coloane (Pasul 3c) ──────────────────────────────
-  // Mobilul rămâne baza (neatins). Pe desktop construim un <table> simplu cu un
-  // rând și 3 celule de 360px și MUTĂM în ele aceleași div-uri folosite pe
-  // mobil: arena (col 1), meniul (col 2), panourile CP (col 3). La revenirea pe
-  // mobil punem div-urile înapoi în .play-stage, exact unde erau. Fără CSS de
-  // poziționare complicat pentru cele 3 coloane — le ține tabelul.
-  const arenaWrapEl = document.querySelector(".arena-wrap");
-  const arenaColumnEl = document.querySelector(".arena-column");
+  // Mobilul rămâne baza (nava-mamă, neatins). Tot ce se vede pe telefon e în
+  // div0 (#screen0); meniul (div1) și panourile CP (div2) sunt overlay-uri pe
+  // mobil. Pe desktop construim un <table> simplu cu un rând și 3 celule de
+  // 360px și MUTĂM aceleași 3 div-uri în celule: div0 (col 1), div1 (col 2),
+  // div2 (col 3). La revenirea pe mobil le punem înapoi ca frați în .game.
+  const screen0El = document.getElementById("screen0");
   const desktopGridMq = window.matchMedia("(min-width: 769px)");
   let desktopGridTable = null;
 
@@ -412,20 +411,19 @@
     if (desktop) {
       if (!desktopGridTable) desktopGridTable = buildDesktopGridTable();
       if (!desktopGridTable.isConnected) {
-        dom.gameEl.insertBefore(desktopGridTable, arenaWrapEl.nextSibling);
+        dom.gameEl.insertBefore(desktopGridTable, dom.gameEl.firstChild);
       }
       const { c1, c2, c3 } = desktopGridTable.cells3;
-      c1.append(arenaColumnEl, dom.optionsEl);
+      c1.append(screen0El);
       c2.append(sidebarEl);
       c3.append(cpShellEl);
       dom.gameEl.classList.add("dg-on");
       cpShell?.setOpen(true);
     } else {
       dom.gameEl.classList.remove("dg-on");
-      const playStageEl = arenaWrapEl.querySelector(".play-stage");
-      // Ordine originală în .play-stage: meniu, arena, CP.
-      playStageEl.append(sidebarEl, arenaColumnEl, cpShellEl);
-      dom.gameEl.insertBefore(dom.optionsEl, arenaWrapEl.nextSibling);
+      // Înapoi ca frați în .game: div0 primul, apoi overlay-urile.
+      dom.gameEl.insertBefore(screen0El, dom.gameEl.firstChild);
+      dom.gameEl.append(sidebarEl, cpShellEl);
       if (desktopGridTable?.isConnected) desktopGridTable.remove();
       cpShell?.applyLayoutMode();
     }
