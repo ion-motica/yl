@@ -270,6 +270,13 @@
   const cpToggleEl = document.getElementById("cp-toggle");
   cpToggleEl?.addEventListener("click", () => {
     if (!cpShell) return;
+    const drawerOpen = isMobileLayout() && dom.gameEl.classList.contains("drawer-open");
+    const willOpen = !cpShell.isOpen();
+    if (drawerOpen) setDrawer(false);
+    if (drawerOpen && willOpen) {
+      requestAnimationFrame(() => cpShell.setOpen(true));
+      return;
+    }
     cpShell.setOpen(!cpShell.isOpen());
   });
 
