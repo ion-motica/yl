@@ -245,7 +245,7 @@
   const menuToggleEl = document.getElementById("menu-toggle");
   const drawerBackdropEl = document.getElementById("drawer-backdrop");
   const drawerCloseEl = document.getElementById("drawer-close");
-  const sidebarEl = document.querySelector(".sidebar-pickers");
+  const divMeniuEl = document.getElementById("divMeniu");
 
   function setDrawer(open) {
     dom.gameEl.classList.toggle("drawer-open", open);
@@ -274,7 +274,7 @@
   });
 
   // După ce alegi un quiz sau un nivel, închidem sertarul ca să se vadă arena.
-  sidebarEl?.addEventListener("click", (e) => {
+  divMeniuEl?.addEventListener("click", (e) => {
     if (e.target.closest(".quiz-picker-item, .level-btn")) setDrawer(false);
   });
 
@@ -331,10 +331,10 @@
     isEnabled: () => aamCpEnabled,
   });
 
-  const cpShellEl = document.getElementById("cp-shell");
+  const divCpEl = document.getElementById("divCp");
   cpShell = CpShell.create({
     gameEl: dom.gameEl,
-    shellEl: cpShellEl,
+    shellEl: divCpEl,
     isMobile: isMobileLayout,
     onOpenChange: scheduleMobileChromeMetrics,
   });
@@ -380,11 +380,11 @@
 
   // ── Tabel desktop cu 3 coloane (Pasul 3c) ──────────────────────────────
   // Mobilul rămâne baza (nava-mamă, neatins). Tot ce se vede pe telefon e în
-  // div0 (#screen0); meniul (div1) și panourile CP (div2) sunt overlay-uri pe
-  // mobil. Pe desktop construim un <table> simplu cu un rând și 3 celule de
-  // 360px și MUTĂM aceleași 3 div-uri în celule: div0 (col 1), div1 (col 2),
-  // div2 (col 3). La revenirea pe mobil le punem înapoi ca frați în .game.
-  const screen0El = document.getElementById("screen0");
+  // divArena; divMeniu și divCp sunt overlay-uri pe mobil. Pe desktop construim
+  // un <table> simplu cu un rând și 3 celule de 360px și MUTĂM aceleași 3
+  // div-uri în celule: divArena (col 1), divMeniu (col 2), divCp (col 3).
+  // La revenirea pe mobil le punem înapoi ca frați în .game.
+  const divArenaEl = document.getElementById("divArena");
   const desktopGridMq = window.matchMedia("(min-width: 769px)");
   let desktopGridTable = null;
 
@@ -414,16 +414,16 @@
         dom.gameEl.insertBefore(desktopGridTable, dom.gameEl.firstChild);
       }
       const { c1, c2, c3 } = desktopGridTable.cells3;
-      c1.append(screen0El);
-      c2.append(sidebarEl);
-      c3.append(cpShellEl);
+      c1.append(divArenaEl);
+      c2.append(divMeniuEl);
+      c3.append(divCpEl);
       dom.gameEl.classList.add("dg-on");
       cpShell?.setOpen(true);
     } else {
       dom.gameEl.classList.remove("dg-on");
-      // Înapoi ca frați în .game: div0 primul, apoi overlay-urile.
-      dom.gameEl.insertBefore(screen0El, dom.gameEl.firstChild);
-      dom.gameEl.append(sidebarEl, cpShellEl);
+      // Înapoi ca frați în .game: divArena primul, apoi overlay-urile.
+      dom.gameEl.insertBefore(divArenaEl, dom.gameEl.firstChild);
+      dom.gameEl.append(divMeniuEl, divCpEl);
       if (desktopGridTable?.isConnected) desktopGridTable.remove();
       cpShell?.applyLayoutMode();
     }

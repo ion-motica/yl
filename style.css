@@ -153,15 +153,15 @@ body {
   display: none;
 }
 
-/* div0 = ecranul de mobil (HUD + mesaj + arenă + butoane 1/2/3). Pe desktop
+/* divArena = ecranul de mobil (HUD + mesaj + arenă + butoane 1/2/3). Pe desktop
    intră în coloana 1 a tabelului; pe mobil e nava-mamă care umple ecranul. */
-.screen0 {
+.divArena {
   display: flex;
   flex-direction: column;
   width: 100%;
 }
 
-.sidebar-pickers {
+.divMeniu {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -269,11 +269,11 @@ body {
 
 /* Desktop: quiz stânga, niveluri dreapta (DOM are niveluri înainte de quiz). */
 @media (min-width: 769px) {
-  .sidebar-pickers .quiz-picker {
+  .divMeniu .quiz-picker {
     order: 1;
   }
 
-  .sidebar-pickers .level-picker {
+  .divMeniu .level-picker {
     order: 2;
   }
 }
@@ -1271,8 +1271,8 @@ body {
   }
 
   /* Arena = erou care umple ecranul pe verticală. Lanțul de containere
-     trebuie să propage înălțimea: game → screen0 → arena-column → arena. */
-  .screen0 {
+     trebuie să propage înălțimea: game → divArena → arena-column → arena. */
+  .divArena {
     flex: 1 1 auto;
     min-height: 100dvh;
   }
@@ -1346,7 +1346,7 @@ body {
   }
 
   /* Sertar off-canvas: începe SUB bara de sus (--hud-h măsurată în JS). */
-  .sidebar-pickers {
+  .divMeniu {
     position: fixed;
     top: var(--hud-h, 5.5rem);
     left: 0;
@@ -1367,7 +1367,7 @@ body {
     transition: transform 0.25s ease;
   }
 
-  .game.drawer-open .sidebar-pickers {
+  .game.drawer-open .divMeniu {
     transform: translateX(0);
   }
 
@@ -1397,7 +1397,7 @@ body {
     display: none !important;
   }
 
-  .sidebar-pickers .level-picker {
+  .divMeniu .level-picker {
     order: 0;
     display: flex !important;
     flex-wrap: wrap;
@@ -1408,7 +1408,7 @@ body {
     flex-shrink: 0;
   }
 
-  .sidebar-pickers .level-picker .level-btn {
+  .divMeniu .level-picker .level-btn {
     /* 10 pe rând → 2 rânduri la 20 niveluri, fără scroll orizontal. */
     flex: 0 0 calc((100% - 9 * 0.28rem) / 10);
     width: calc((100% - 9 * 0.28rem) / 10);
@@ -1418,7 +1418,7 @@ body {
     font-size: 0.78rem;
   }
 
-  .sidebar-pickers .quiz-picker {
+  .divMeniu .quiz-picker {
     order: 1;
     width: 100%;
     min-width: 0;
@@ -1591,9 +1591,9 @@ body {
     vertical-align: top;
   }
 
-  /* Coloana 1 — div0: ecranul de mobil întreg (HUD + arenă + butoane).
+  /* Coloana 1 — divArena: ecranul de mobil întreg (HUD + arenă + butoane).
      Ascundem titlul mare și hint-ul ca în bara compactă de pe telefon. */
-  .dg-on .dg-arena .screen0 {
+  .dg-on .dg-arena .divArena {
     width: 360px;
     min-height: 0;
   }
@@ -1610,7 +1610,7 @@ body {
 
   /* Coloana 2 — meniul ca pe mobil: niveluri sus (pe rânduri), listă quiz
      dedesubt. Anulăm poziționarea fixed/overlay de pe telefon. */
-  .dg-on .dg-menu .sidebar-pickers {
+  .dg-on .dg-menu .divMeniu {
     position: static;
     transform: none;
     inset: auto;
@@ -1659,7 +1659,7 @@ body {
   }
 
   /* Coloana 3 — CP ca pe mobil, static, mereu vizibil. */
-  .dg-on .dg-cp .cp-shell {
+  .dg-on .dg-cp .divCp {
     display: flex;
     position: static;
     inset: auto;
