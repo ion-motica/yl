@@ -249,6 +249,11 @@ body {
   padding-top: 2rem;
 }
 
+/* În divMeniu nu mai e nevoie de padding sus (layout mobil / coloana 2). */
+.divMeniu .level-picker {
+  padding-top: 0;
+}
+
 .level-btn {
   width: 2.15rem;
   height: 2.15rem;
@@ -1397,14 +1402,18 @@ body {
     display: none !important;
   }
 
-  .divMeniu .level-picker {
+  .divMeniu .divButoaneNiveluri {
     order: 0;
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  .divMeniu .level-picker {
     display: flex !important;
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.28rem;
     width: 100%;
-    padding-top: 0;
     flex-shrink: 0;
   }
 
@@ -1418,8 +1427,16 @@ body {
     font-size: 0.78rem;
   }
 
-  .divMeniu .quiz-picker {
+  .divMeniu .divListaQuizuri {
     order: 1;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .divMeniu .quiz-picker {
     width: 100%;
     min-width: 0;
     max-width: none;
@@ -1625,6 +1642,19 @@ body {
     border-radius: 12px;
     box-shadow: none;
     overflow-y: auto;
+  }
+
+  .dg-on .dg-menu .divButoaneNiveluri {
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  .dg-on .dg-menu .divListaQuizuri {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
   }
 
   .dg-on .dg-menu .level-picker {

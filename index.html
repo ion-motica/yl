@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quizuri de matematică</title>
-    <link rel="stylesheet" href="style.css?v=15" />
+    <link rel="stylesheet" href="style.css?v=17" />
   </head>
   <body>
     <div id="game" class="game">
@@ -84,11 +84,15 @@
 
       <!-- divMeniu = meniul. Overlay pe mobil; coloana 2 pe desktop. -->
       <aside id="divMeniu" class="divMeniu">
-        <div id="level-picker" class="level-picker" role="group" aria-label="Alege nivelul"></div>
-        <details id="quiz-picker" class="quiz-picker" open>
-          <summary class="quiz-picker-summary">Quiz-uri</summary>
-          <div id="quiz-picker-list" class="quiz-picker-list" role="listbox" aria-label="Lista quiz-uri"></div>
-        </details>
+        <div id="divButoaneNiveluri" class="divButoaneNiveluri">
+          <div id="level-picker" class="level-picker" role="group" aria-label="Alege nivelul"></div>
+        </div>
+        <div id="divListaQuizuri" class="divListaQuizuri">
+          <details id="quiz-picker" class="quiz-picker" open>
+            <summary class="quiz-picker-summary">Quiz-uri</summary>
+            <div id="quiz-picker-list" class="quiz-picker-list" role="listbox" aria-label="Lista quiz-uri"></div>
+          </details>
+        </div>
       </aside>
 
       <!-- divCp = panourile de control. Overlay pe mobil; coloana 3 pe desktop. -->
@@ -155,6 +159,6 @@
     <script src="js/cp-shell.js"></script>
     <script src="js/layout-stage.js"></script>
     <script src="js/falling-engine.js"></script>
-    <script src="js/app.js?v=15"></script>
+    <script src="js/app.js?v=16"></script>
   </body>
 </html>
