@@ -1264,18 +1264,40 @@ body {
     min-width: 3.6rem;
   }
 
-  /* HUD deasupra sertarului ca [≡]/[✕] să rămână accesibil. */
+  /* HUD fix sus: fundal solid, deasupra sertarului. */
   .hud {
     position: relative;
     z-index: 70;
+    flex-shrink: 0;
+    background: var(--bg);
   }
 
-  /* Sertar off-canvas: sus = niveluri orizontale, jos = lista quiz-uri. */
+  .game.drawer-open .hud {
+    background: #121820;
+    border-bottom: 1px solid #2a3548;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Feedback ascuns cât timp meniul e deschis (evită zgomot vizual sub HUD). */
+  .game.drawer-open .message {
+    display: none;
+  }
+
+  /* Fundal semi-transparent: doar sub HUD, nu peste butoanele de sus. */
+  .drawer-backdrop {
+    top: var(--hud-h, 5.5rem);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    inset: auto;
+  }
+
+  /* Sertar off-canvas: începe SUB bara de sus (--hud-h măsurată în JS). */
   .sidebar-pickers {
     position: fixed;
-    top: 0;
+    top: var(--hud-h, 5.5rem);
     left: 0;
-    height: 100%;
+    height: calc(100dvh - var(--hud-h, 5.5rem));
     width: min(96vw, 560px);
     z-index: 60;
     display: flex;
@@ -1296,14 +1318,14 @@ body {
     transform: translateX(0);
   }
 
-  /* Un singur ✕ rotund, jos-dreapta (în afara sertarului → fără bug transform). */
+  /* ✕ rotund: deasupra barelor 1/2/3 (--options-h măsurată în JS). */
   .drawer-close {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     position: fixed;
     z-index: 72;
-    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--options-h, 25dvh) + max(0.65rem, env(safe-area-inset-bottom, 0px)));
     right: max(0.75rem, env(safe-area-inset-right, 0px));
     width: 3.25rem;
     height: 3.25rem;

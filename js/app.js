@@ -3,6 +3,8 @@
 
   const dom = {
     gameEl: document.getElementById("game"),
+    hudEl: document.querySelector(".hud"),
+    optionsEl: document.getElementById("options"),
     quizTitleEl: document.getElementById("quiz-title"),
     levelInfoEl: document.getElementById("level-info"),
     messageEl: document.getElementById("message"),
@@ -152,6 +154,30 @@
       window.matchMedia("(max-width: 768px)").matches ||
       window.matchMedia("(hover: none) and (pointer: coarse)").matches;
     dom.gameEl.classList.toggle("layout-mobile", mobile);
+    syncMobileChromeMetrics();
+  }
+
+  // Măsoară înălțimea barei de sus și a barelor de răspuns ca să nu se
+  // suprapună sertarul / butonul ✕ peste HUD sau butoanele 1/2/3.
+  function syncMobileChromeMetrics() {
+    const root = document.documentElement;
+    if (!isMobileLayout()) {
+      root.style.removeProperty("--hud-h");
+      root.style.removeProperty("--options-h");
+      return;
+    }
+    if (dom.hudEl) {
+      const bottom = Math.ceil(dom.hudEl.getBoundingClientRect().bottom);
+      root.style.setProperty("--hud-h", `${bottom}px`);
+    }
+    if (dom.optionsEl) {
+      const h = Math.ceil(dom.optionsEl.getBoundingClientRect().height);
+      root.style.setProperty("--options-h", `${h}px`);
+    }
+  }
+
+  function scheduleMobileChromeMetrics() {
+    requestAnimationFrame(syncMobileChromeMetrics);
   }
 
   function buildLevelPicker() {
@@ -222,6 +248,7 @@
     if (menuToggleEl) menuToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
     if (drawerBackdropEl) drawerBackdropEl.hidden = !open;
     if (drawerCloseEl) drawerCloseEl.hidden = !open;
+    if (open) scheduleMobileChromeMetrics();
   }
 
   menuToggleEl?.addEventListener("click", () => {
@@ -255,6 +282,15 @@
       setDrawer(false);
     }
   });
+
+  window.addEventListener("resize", scheduleMobileChromeMetrics);
+  window.visualViewport?.addEventListener("resize", scheduleMobileChromeMetrics);
+
+  if (window.ResizeObserver && dom.hudEl) {
+    const chromeRo = new ResizeObserver(scheduleMobileChromeMetrics);
+    chromeRo.observe(dom.hudEl);
+    if (dom.optionsEl) chromeRo.observe(dom.optionsEl);
+  }
 
   function switchQuiz(id) {
     if (id === QuizRegistry.getActiveId() && quiz && !quiz.isCompleted()) return;
