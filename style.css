@@ -149,13 +149,8 @@ body {
   display: none;
 }
 
-/* Buton floating închide meniul — în afara sertarului (evită bug transform+fixed). */
-.drawer-close {
+.drawer-head {
   display: none;
-}
-
-.drawer-close[hidden] {
-  display: none !important;
 }
 
 .arena-wrap {
@@ -1269,6 +1264,17 @@ body {
     min-width: 3.6rem;
   }
 
+  /* HUD deasupra sertarului ca [≡]/[✕] să rămână accesibil. */
+  .hud {
+    position: relative;
+    z-index: 70;
+  }
+
+  .game.drawer-open .menu-toggle {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
   /* Sertar off-canvas: sus = niveluri orizontale, jos = lista quiz-uri. */
   .sidebar-pickers {
     position: fixed;
@@ -1295,32 +1301,42 @@ body {
     transform: translateX(0);
   }
 
-  .drawer-close {
+  .drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.15rem;
+    border-bottom: 1px solid #2a3548;
+  }
+
+  .drawer-head-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .drawer-head-close {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    position: fixed;
-    z-index: 65;
-    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px));
-    left: auto;
-    width: 3.25rem;
-    height: 3.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
     padding: 0;
     border: 2px solid var(--accent);
     border-radius: 50%;
     background: #1a2332;
     color: var(--text);
-    font-size: 1.35rem;
+    font-size: 1.2rem;
     line-height: 1;
     cursor: pointer;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+    flex-shrink: 0;
   }
 
-  .drawer-close[hidden] {
-    display: none !important;
-  }
-
-  /* Niveluri SUS, quiz-uri JOS — order explicit (nu moștenim nimic de pe desktop). */
   .sidebar-pickers .level-picker {
     order: 0;
     display: flex !important;
