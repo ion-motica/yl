@@ -140,11 +140,17 @@
   }
 
   function isMobileLayout() {
-    return dom.gameEl.classList.contains("layout-mobile");
+    return (
+      dom.gameEl.classList.contains("layout-mobile") ||
+      window.matchMedia("(max-width: 768px)").matches ||
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches
+    );
   }
 
   function syncLayoutMode() {
-    const mobile = window.matchMedia("(max-width: 768px)").matches;
+    const mobile =
+      window.matchMedia("(max-width: 768px)").matches ||
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
     dom.gameEl.classList.toggle("layout-mobile", mobile);
   }
 
@@ -217,6 +223,11 @@
   }
 
   menuToggleEl?.addEventListener("click", () => {
+    syncLayoutMode();
+    if (isMobileLayout()) {
+      buildLevelPicker();
+      renderProgress();
+    }
     setDrawer(!dom.gameEl.classList.contains("drawer-open"));
   });
   drawerBackdropEl?.addEventListener("click", () => setDrawer(false));

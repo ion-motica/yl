@@ -169,9 +169,7 @@ body {
   flex-shrink: 0;
 }
 
-/* Desktop: quiz stânga, niveluri dreapta (DOM are niveluri înainte de quiz). */
 .quiz-picker {
-  order: 1;
   flex-shrink: 0;
   min-width: 8.5rem;
   max-width: 10.5rem;
@@ -243,7 +241,6 @@ body {
 }
 
 .level-picker {
-  order: 2;
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(10, auto);
@@ -268,6 +265,17 @@ body {
 .level-btn:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+/* Desktop: quiz stânga, niveluri dreapta (DOM are niveluri înainte de quiz). */
+@media (min-width: 769px) {
+  .sidebar-pickers .quiz-picker {
+    order: 1;
+  }
+
+  .sidebar-pickers .level-picker {
+    order: 2;
+  }
 }
 
 .level-btn.active {
@@ -1278,15 +1286,10 @@ body {
     transform: translateX(0);
   }
 
-  /* DOM: niveluri înainte de quiz → sus/jos natural; resetăm order desktop. */
-  .level-picker,
-  .quiz-picker {
-    order: unset;
-  }
-
-  .game.layout-mobile .level-picker,
-  .level-picker {
-    display: flex;
+  /* Niveluri SUS, quiz-uri JOS — order explicit (nu moștenim nimic de pe desktop). */
+  .sidebar-pickers .level-picker {
+    order: 0;
+    display: flex !important;
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.28rem;
@@ -1295,8 +1298,7 @@ body {
     flex-shrink: 0;
   }
 
-  .game.layout-mobile .level-picker .level-btn,
-  .level-picker .level-btn {
+  .sidebar-pickers .level-picker .level-btn {
     /* 10 pe rând → 2 rânduri la 20 niveluri, fără scroll orizontal. */
     flex: 0 0 calc((100% - 9 * 0.28rem) / 10);
     width: calc((100% - 9 * 0.28rem) / 10);
@@ -1306,9 +1308,8 @@ body {
     font-size: 0.78rem;
   }
 
-  .game.layout-mobile .quiz-picker,
-  .quiz-picker {
-    order: unset;
+  .sidebar-pickers .quiz-picker {
+    order: 1;
     width: 100%;
     min-width: 0;
     max-width: none;
