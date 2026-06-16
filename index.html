@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quizuri de matematică</title>
-    <link rel="stylesheet" href="style.css?v=9" />
+    <link rel="stylesheet" href="style.css?v=10" />
   </head>
   <body>
     <div id="game" class="game">
@@ -23,16 +23,13 @@
       </header>
 
       <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+      <button type="button" id="drawer-close" class="drawer-close" aria-label="Închide meniul" title="Închide meniul" hidden>✕</button>
 
       <p id="message" class="message" aria-live="assertive"></p>
 
       <div class="arena-wrap">
         <div class="play-stage">
           <aside class="sidebar-pickers">
-            <div class="drawer-head">
-              <span class="drawer-head-title">Meniu</span>
-              <button type="button" id="drawer-close" class="drawer-head-close" aria-label="Închide meniul" title="Închide meniul">✕</button>
-            </div>
             <div id="level-picker" class="level-picker" role="group" aria-label="Alege nivelul"></div>
             <details id="quiz-picker" class="quiz-picker" open>
               <summary class="quiz-picker-summary">Quiz-uri</summary>
@@ -151,6 +148,6 @@
     <script src="js/layout-config.js"></script>
     <script src="js/layout-stage.js"></script>
     <script src="js/falling-engine.js"></script>
-    <script src="js/app.js?v=9"></script>
+    <script src="js/app.js?v=10"></script>
   </body>
 </html>

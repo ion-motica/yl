@@ -149,7 +149,7 @@ body {
   display: none;
 }
 
-.drawer-head {
+.drawer-close {
   display: none;
 }
 
@@ -1270,11 +1270,6 @@ body {
     z-index: 70;
   }
 
-  .game.drawer-open .menu-toggle {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
   /* Sertar off-canvas: sus = niveluri orizontale, jos = lista quiz-uri. */
   .sidebar-pickers {
     position: fixed;
@@ -1301,40 +1296,30 @@ body {
     transform: translateX(0);
   }
 
-  .drawer-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-shrink: 0;
-    padding-bottom: 0.35rem;
-    margin-bottom: 0.15rem;
-    border-bottom: 1px solid #2a3548;
-  }
-
-  .drawer-head-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .drawer-head-close {
+  /* Un singur ✕ rotund, jos-dreapta (în afara sertarului → fără bug transform). */
+  .drawer-close {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    position: fixed;
+    z-index: 72;
+    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    width: 3.25rem;
+    height: 3.25rem;
     padding: 0;
     border: 2px solid var(--accent);
     border-radius: 50%;
     background: #1a2332;
     color: var(--text);
-    font-size: 1.2rem;
+    font-size: 1.35rem;
     line-height: 1;
     cursor: pointer;
-    flex-shrink: 0;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  }
+
+  .drawer-close[hidden] {
+    display: none !important;
   }
 
   .sidebar-pickers .level-picker {

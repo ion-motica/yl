@@ -219,13 +219,9 @@
 
   function setDrawer(open) {
     dom.gameEl.classList.toggle("drawer-open", open);
-    if (menuToggleEl) {
-      menuToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
-      menuToggleEl.textContent = open ? "✕" : "≡";
-      menuToggleEl.title = open ? "Închide meniul" : "Meniu";
-      menuToggleEl.setAttribute("aria-label", open ? "Închide meniul" : "Meniu");
-    }
+    if (menuToggleEl) menuToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
     if (drawerBackdropEl) drawerBackdropEl.hidden = !open;
+    if (drawerCloseEl) drawerCloseEl.hidden = !open;
   }
 
   menuToggleEl?.addEventListener("click", () => {
