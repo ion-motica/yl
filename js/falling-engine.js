@@ -14,7 +14,7 @@
   const FLASH_MS = 420;
   const RUN_DONE_MS = 450;
   const LEVEL_ADV_MS = 1400;
-  const LIFT_BG_OPACITY_DEFAULT = 0.5;
+  const LIFT_BG_OPACITY_DEFAULT = 0.7;
 
   function FallingEngine(config) {
     const dom = config.dom;

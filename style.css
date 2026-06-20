@@ -1084,7 +1084,7 @@ body {
   top: 0;
   width: var(--lift-width, 92%);
   min-height: 112px;
-  background: rgba(26, 35, 50, var(--lift-bg-opacity, 0.5));
+  background: rgba(26, 35, 50, var(--lift-bg-opacity, 0.7));
   border: 2px solid var(--accent);
   border-radius: 12px;
   z-index: var(--zindex-lift);
