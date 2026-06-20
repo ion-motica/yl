@@ -1,7 +1,7 @@
 (function (global) {
   "use strict";
 
-  const DEFAULT_ORDER = ["lift", "aam"];
+  const DEFAULT_ORDER = ["lift", "aam", "debug"];
   const panels = new Map();
 
   function register(def) {

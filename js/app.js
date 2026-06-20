@@ -319,6 +319,11 @@
     title: "CP — Acolada Axa Mere",
     isEnabled: () => aamCpEnabled,
   });
+  CpRegistry.register({
+    id: "debug",
+    title: "CP — Depanare layout",
+    isEnabled: () => true,
+  });
 
   const divCpEl = document.getElementById("divCp");
   cpShell = CpShell.create({
@@ -333,6 +338,34 @@
     aamCpEnabled = on;
     cpShell.setPanelEnabled("aam", on);
   };
+
+  // CP — Depanare: border verde subțire pe fiecare componentă din #div-strat-info.
+  const DEBUG_BORDERS_KEY = "debugInfoBorders";
+  let debugInfoBorders =
+    window.LayoutConfig?.get(DEBUG_BORDERS_KEY, true) !== false;
+  function applyDebugInfoBorders() {
+    dom.gameEl.classList.toggle("debug-info-borders", debugInfoBorders);
+  }
+  applyDebugInfoBorders();
+  (function buildDebugPanel() {
+    const mount = cpShell.getMountEl("debug");
+    if (!mount) return;
+    mount.replaceChildren();
+    const row = document.createElement("label");
+    row.className = "control-panel-lift-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = debugInfoBorders;
+    input.addEventListener("change", () => {
+      debugInfoBorders = input.checked;
+      window.LayoutConfig?.set(DEBUG_BORDERS_KEY, debugInfoBorders);
+      applyDebugInfoBorders();
+    });
+    const span = document.createElement("span");
+    span.textContent = "Border verde subțire pe fiecare componentă din div-info";
+    row.append(input, span);
+    mount.appendChild(row);
+  })();
 
   aamArena = AamArena.create(dom);
 

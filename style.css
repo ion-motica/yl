@@ -85,7 +85,7 @@ body {
 .quiz-title {
   margin: 0.3rem 0 0;
   text-align: center;
-  font-size: 0.88rem;
+  font-size: 1.76rem;
   font-weight: 600;
   color: var(--muted);
 }
@@ -93,7 +93,7 @@ body {
 .level-info {
   margin: 0 0 0.15rem;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 1.9rem;
   font-weight: 600;
   color: var(--accent);
 }
@@ -113,8 +113,8 @@ body {
 }
 
 .play-pause {
-  font-size: 1.2rem;
-  padding: 0.35rem 0.55rem;
+  font-size: 2.4rem;
+  padding: 0.7rem 1.1rem;
   border: 1px solid #2d3d52;
   border-radius: 8px;
   background: transparent;
@@ -130,7 +130,7 @@ body {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  padding: 0.3rem 0.6rem;
+  padding: 0.6rem 1.2rem;
   border: 1px solid #2d3d52;
   border-radius: 8px;
   background: transparent;
@@ -141,11 +141,11 @@ body {
 }
 
 .menu-toggle {
-  font-size: 1.35rem;
+  font-size: 2.7rem;
 }
 
 .cp-toggle {
-  font-size: 0.82rem;
+  font-size: 1.64rem;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -574,6 +574,18 @@ body {
 
 .info-antet {
   flex-shrink: 0;
+}
+
+/* Depanare layout (bifă în CP): conturează fiecare componentă din div-info.
+   Folosim outline ca să NU modificăm dimensiunile (fără deplasări). */
+.game.debug-info-borders #div-strat-info .info-antet,
+.game.debug-info-borders #div-strat-info .quiz-title,
+.game.debug-info-borders #div-strat-info .level-info,
+.game.debug-info-borders #div-strat-info .message,
+.game.debug-info-borders #div-strat-info .progress-visual,
+.game.debug-info-borders #div-strat-info #div-ilustrare-din-arena,
+.game.debug-info-borders #div-strat-info #div-lista-operatii {
+  outline: 1px solid #34d399;
 }
 
 .game.drawer-open .info-antet .message {
@@ -1316,7 +1328,7 @@ body {
   min-height: 0;
   text-align: center;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 1.6rem;
 }
 
 .message.win {
