@@ -14,6 +14,15 @@
   --win: #fbbf24;
   --text: #e8eef5;
   --muted: #8b9cb3;
+  --zindex-info-arena: 10;
+  --zindex-lift: 20;
+  --zindex-anunturi: 30;
+  --zindex-butoane-jos: 40;
+  --zindex-meniuri: 50;
+  --zindex-butoane-sus: 60;
+  --phone-col-w: 360px;
+  --phone-col-h: calc(var(--phone-col-w) * 4 / 3);
+  --butoane-sus-h: 2.75rem;
 }
 
 .q-correct {
@@ -52,9 +61,10 @@ body {
 }
 
 .game {
-  width: min(660px, 100%);
+  width: 100%;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -70,17 +80,20 @@ body {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 600;
+  display: none;
 }
 
 .quiz-title {
-  margin: 0.35rem 0 0.1rem;
+  margin: 0.3rem 0 0;
+  text-align: center;
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--muted);
 }
 
 .level-info {
-  margin: 0 0 0.2rem;
+  margin: 0 0 0.15rem;
+  text-align: center;
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--accent);
@@ -90,6 +103,7 @@ body {
   margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
+  display: none;
 }
 
 .hint kbd {
@@ -104,22 +118,27 @@ body {
   padding: 0.35rem 0.55rem;
   border: 1px solid #2d3d52;
   border-radius: 8px;
-  background: var(--panel);
+  background: transparent;
   color: var(--text);
   cursor: pointer;
+  position: relative;
+  z-index: var(--zindex-butoane-sus);
 }
 
-/* Butoanele de bară mobilă (meniu ≡ și CP): există doar pe mobil. */
 .menu-toggle,
 .cp-toggle {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
   padding: 0.3rem 0.6rem;
   border: 1px solid #2d3d52;
   border-radius: 8px;
-  background: var(--panel);
+  background: transparent;
   color: var(--text);
   cursor: pointer;
+  position: relative;
+  z-index: var(--zindex-butoane-sus);
 }
 
 .menu-toggle {
@@ -137,12 +156,25 @@ body {
   color: var(--accent);
 }
 
-/* Fundalul semitransparent din spatele drawer-ului (doar mobil). */
+.hud-left {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Fundalul semitransparent din spatele drawer-ului. */
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 55;
+  z-index: var(--zindex-meniuri);
   background: rgba(0, 0, 0, 0.5);
+}
+
+.game:not(.dg-on) .drawer-backdrop {
+  top: var(--hud-h, 5.5rem);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  inset: auto;
 }
 
 .drawer-backdrop[hidden] {
@@ -153,20 +185,70 @@ body {
   display: none;
 }
 
-/* divArena = ecranul de mobil (HUD + mesaj + arenă + butoane 1/2/3). Pe desktop
-   intră în coloana 1 a tabelului; pe mobil e nava-mamă care umple ecranul. */
+.game:not(.dg-on) .drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  z-index: var(--zindex-meniuri);
+  bottom: calc(var(--options-h, 25dvh) + max(0.65rem, env(safe-area-inset-bottom, 0px)));
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: #1a2332;
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+.drawer-close[hidden] {
+  display: none !important;
+}
+
+/* divArena = ecranul de telefon. */
 .divArena {
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: 100dvh;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .divMeniu {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
   flex-shrink: 0;
+}
+
+.game:not(.dg-on) .divMeniu {
+  position: fixed;
+  top: var(--hud-h, 5.5rem);
+  left: 0;
+  height: calc(100dvh - var(--hud-h, 5.5rem));
+  width: min(96vw, 560px);
+  z-index: var(--zindex-meniuri);
+  padding: 1rem 0.75rem;
+  background: #121820;
+  border-right: 1px solid #2a3548;
+  box-shadow: 2px 0 24px rgba(0, 0, 0, 0.5);
+  overflow-x: hidden;
+  overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+}
+
+.game:not(.dg-on).drawer-open .divMeniu {
+  transform: translateX(0);
 }
 
 .quiz-picker {
@@ -241,17 +323,71 @@ body {
 }
 
 .level-picker {
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(10, auto);
-  gap: 0.32rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.28rem;
   flex-shrink: 0;
-  padding-top: 2rem;
+  padding-top: 0;
+  width: 100%;
 }
 
-/* În divMeniu nu mai e nevoie de padding sus (layout mobil / coloana 2). */
-.divMeniu .level-picker {
-  padding-top: 0;
+.divMeniu .level-picker .level-btn {
+  flex: 0 0 calc((100% - 9 * 0.28rem) / 10);
+  width: calc((100% - 9 * 0.28rem) / 10);
+  max-width: 2.15rem;
+  height: auto;
+  aspect-ratio: 1;
+  font-size: 0.78rem;
+}
+
+.divMeniu .divButoaneNiveluri {
+  order: 0;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.divMeniu .divListaQuizuri {
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.divMeniu .quiz-picker {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.divMeniu .quiz-picker-list {
+  flex: 1;
+  max-height: none;
+  overflow: visible;
+  margin-top: 0;
+  padding-right: 0;
+}
+
+.quiz-picker-summary {
+  pointer-events: none;
+  cursor: default;
+  margin-bottom: 0.35rem;
+}
+
+.quiz-picker-summary::before {
+  display: none;
+}
+
+.quiz-picker-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .level-btn {
@@ -272,16 +408,6 @@ body {
   color: var(--text);
 }
 
-/* Desktop: quiz stânga, niveluri dreapta (DOM are niveluri înainte de quiz). */
-@media (min-width: 769px) {
-  .divMeniu .quiz-picker {
-    order: 1;
-  }
-
-  .divMeniu .level-picker {
-    order: 2;
-  }
-}
 
 .level-btn.active {
   border-color: var(--accent);
@@ -290,20 +416,15 @@ body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-.arena-column {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
 .progress-visual {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.4rem;
   min-height: 1.5rem;
+  position: relative;
+  z-index: var(--zindex-info-arena);
 }
 
 .progress-visual.hidden {
@@ -399,12 +520,91 @@ body {
 .arena {
   position: relative;
   width: 100%;
-  height: 420px;
-  margin: 0 0 1rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
   background: linear-gradient(180deg, #141c28, #0d1218);
-  border-radius: 16px;
-  border: 1px solid #2a3548;
+  border-radius: 0;
+  border: none;
   overflow: hidden;
+}
+
+.arena.stage-ratio {
+  flex: 0 0 auto;
+}
+
+/* ── Cele 4 straturi ale arenei ─────────────────────────────────────────── */
+
+.div-strat-info,
+.div-strat-lift,
+.div-strat-anunturi,
+.div-strat-butoane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.div-strat-info {
+  z-index: var(--zindex-info-arena);
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--butoane-sus-h, 2.75rem);
+  padding-bottom: var(--options-h, clamp(126px, 25dvh, 252px));
+  overflow: hidden;
+}
+
+.info-antet {
+  flex-shrink: 0;
+}
+
+.game.drawer-open .info-antet .message {
+  display: none;
+}
+
+.div-strat-lift {
+  z-index: var(--zindex-lift);
+}
+
+.div-strat-anunturi {
+  z-index: var(--zindex-anunturi);
+}
+
+.div-strat-anunturi .flash,
+.div-strat-anunturi .level-banner {
+  position: absolute;
+  inset: 0;
+}
+
+.div-strat-butoane {
+  z-index: var(--zindex-butoane-jos);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.butoane-sus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.5rem 0;
+  flex-shrink: 0;
+  z-index: var(--zindex-butoane-sus);
+  pointer-events: none;
+}
+
+.butoane-sus .menu-toggle,
+.butoane-sus .cp-toggle,
+.butoane-sus .play-pause {
+  pointer-events: auto;
+}
+
+.butoane-sus .play-pause,
+.butoane-sus .menu-toggle,
+.butoane-sus .cp-toggle {
+  position: relative;
+  z-index: var(--zindex-butoane-sus);
 }
 
 .arena-zone-label {
@@ -422,19 +622,24 @@ body {
 
 .arena-ilustrare-din-arena,
 .arena-lista-operatii {
-  position: absolute;
-  left: 0;
-  right: 0;
-  z-index: 0;
   pointer-events: none;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .arena-ilustrare-din-arena {
-  top: 0;
+  flex: 1 1 auto;
+  min-height: 0;
   align-items: center;
   padding: 0 8px;
+  overflow: hidden;
+}
+
+.arena-lista-operatii {
+  flex-shrink: 0;
+  align-items: center;
+  padding-bottom: 6px;
 }
 
 .arena-question-slot {
@@ -449,7 +654,7 @@ body {
 }
 
 .arena-question-slot .number {
-  font-size: 2.5rem;
+  font-size: 5rem;
   font-weight: 700;
   line-height: 1.1;
   white-space: nowrap;
@@ -511,12 +716,6 @@ body {
   line-height: 1.2;
 }
 
-.arena-lista-operatii {
-  bottom: 0;
-  align-items: center;
-  padding-bottom: 6px;
-}
-
 .control-panels-row {
   display: none;
 }
@@ -539,6 +738,68 @@ body {
 
 .cp-shell-close {
   display: none;
+}
+
+.game:not(.dg-on) .cp-shell {
+  position: fixed;
+  top: var(--hud-h, 5.5rem);
+  left: 0;
+  right: 0;
+  bottom: var(--options-h, 0px);
+  z-index: var(--zindex-meniuri);
+  width: auto;
+  max-height: none;
+}
+
+.game:not(.dg-on) .cp-shell-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.game:not(.dg-on) .cp-shell-backdrop[hidden] {
+  display: none;
+}
+
+.game:not(.dg-on) .cp-shell-panel {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.game:not(.dg-on) .cp-shell-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid #2d3d52;
+  border-radius: 50%;
+  background: #1a2332;
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.game:not(.dg-on) .cp-shell-close[hidden] {
+  display: none !important;
+}
+
+.game:not(.dg-on) .cp-toc {
+  padding-right: 3rem;
 }
 
 .cp-shell-panel {
@@ -656,19 +917,6 @@ body {
   min-width: 0;
 }
 
-@media (min-width: 769px) {
-  .cp-shell {
-    flex: 0 0 min(280px, 30vw);
-    width: min(280px, 30vw);
-    align-self: stretch;
-    max-height: calc(100dvh - 1.5rem);
-  }
-
-  .cp-shell-panel {
-    height: 100%;
-  }
-}
-
 .control-panel-lift-title,
 .control-panel-aam-title {
   margin: 0 0 0.65rem;
@@ -768,7 +1016,7 @@ body {
   position: absolute;
   inset: 0;
   opacity: 0;
-  z-index: 5;
+  z-index: var(--zindex-anunturi);
 }
 
 .flash.active.wrong {
@@ -793,7 +1041,7 @@ body {
   font-weight: 700;
   color: var(--win);
   text-align: center;
-  z-index: 20;
+  z-index: var(--zindex-anunturi);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -812,12 +1060,12 @@ body {
   left: 50%;
   transform: translateX(-50%);
   top: 0;
-  width: var(--lift-width, min(280px, 94%));
+  width: var(--lift-width, 92%);
   min-height: 112px;
   background: rgba(26, 35, 50, var(--lift-bg-opacity, 0.5));
   border: 2px solid var(--accent);
   border-radius: 12px;
-  z-index: 2;
+  z-index: var(--zindex-lift);
 }
 
 .falling.bounce {
@@ -896,7 +1144,7 @@ body {
 }
 
 .falling-main .number {
-  font-size: 2.5rem;
+  font-size: 5rem;
   font-weight: 700;
   line-height: 1.1;
   white-space: nowrap;
@@ -919,13 +1167,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.6rem;
+  min-width: 3.6rem;
   padding: 0.4rem 0.5rem;
   border: 2px solid #2d3d52;
   border-radius: 10px;
   background: #0f1419;
   color: var(--muted);
-  font-size: 1.2rem;
+  font-size: 2.2rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -940,7 +1188,7 @@ body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 3;
+  z-index: var(--zindex-lift);
 }
 
 .rising .number {
@@ -960,7 +1208,33 @@ body {
 .options {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.55rem;
+  gap: 0.45rem;
+  width: 100%;
+  flex-shrink: 0;
+  margin-top: auto;
+  height: clamp(126px, 25dvh, 252px);
+  padding: 0 0.5rem;
+  align-items: stretch;
+  pointer-events: none;
+}
+
+.options .option {
+  pointer-events: auto;
+  height: 100%;
+  justify-content: flex-start;
+  padding: 0.7rem 0.4rem;
+  background: rgba(20, 28, 40, 0.4);
+  border-color: rgba(61, 156, 245, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.options .option kbd {
+  display: none;
+}
+
+.options .option .prime {
+  font-size: 2rem;
 }
 
 .option {
@@ -1027,10 +1301,11 @@ body {
 }
 
 .message {
-  margin: 0.4rem 0;
-  min-height: 1.4em;
+  margin: 0.15rem 0 0;
+  min-height: 0;
   text-align: center;
   color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .message.win {
@@ -1267,7 +1542,7 @@ body {
 }
 .eff-modal-save-btn:hover { background: #15803d; }
 
-.game.is-paused .arena::after {
+.game.is-paused .div-strat-anunturi::after {
   content: "PAUZĂ";
   position: absolute;
   inset: 0;
@@ -1277,361 +1552,11 @@ body {
   background: rgba(0, 0, 0, 0.45);
   font-size: 1.5rem;
   font-weight: 700;
-  z-index: 25;
+  pointer-events: none;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   PASUL 2a — layout mobil (≤ 768px)
-   Arena devine element principal pe toată lățimea; quiz-urile și nivelurile
-   se mută într-un sertar (drawer) deschis de butonul ≡: niveluri sus
-   (orizontal, max 2 rânduri), lista de quiz-uri dedesubt. Desktopul rămâne neschimbat.
-   ════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-  .game {
-    padding: 0.5rem;
-    min-height: 100dvh;
-  }
-
-  /* Bară de sus compactă: [≡][CP] ............ [⏸] */
-  .menu-toggle,
-  .cp-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .hud-left {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  .hud h1,
-  .hud .hint {
-    display: none;
-  }
-
-  .quiz-title {
-    margin: 0.3rem 0 0;
-    text-align: center;
-  }
-
-  .level-info {
-    margin: 0 0 0.15rem;
-    text-align: center;
-  }
-
-  /* Arena = erou care umple ecranul pe verticală. Lanțul de containere
-     trebuie să propage înălțimea: game → divArena → arena-column → arena. */
-  .divArena {
-    flex: 1 1 auto;
-    min-height: 100dvh;
-  }
-
-  .arena-column {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
-  .progress-visual {
-    margin-bottom: 0.4rem;
-  }
-
-  /* Mod nativ: arena crește ca să umple spațiul rămas, până la baza
-     ecranului. Marginea de jos = 0 ca barele să atingă marginea. */
-  .arena {
-    flex: 1 1 auto;
-    min-height: 0;
-    height: auto;
-    margin-bottom: 0;
-  }
-
-  /* Mod raport fix: păstrăm înălțimea impusă (letterbox), nu umplem. */
-  .arena.stage-ratio {
-    flex: 0 0 auto;
-  }
-
-  /* Pe mobil liftul e mai lat implicit (ca textul mărit să încapă); slider-ul
-     „Lățime lift” din CP setează var(--lift-width) și are prioritate. */
-  .falling {
-    width: var(--lift-width, 92%);
-  }
-
-  /* Scrisul din lift de două ori mai mare pe mobil. */
-  .falling-main .number,
-  .arena-question-slot .number {
-    font-size: 5rem;
-  }
-
-  .falling-prime {
-    font-size: 2.2rem;
-    min-width: 3.6rem;
-  }
-
-  /* HUD fix sus: fundal solid, deasupra sertarului. */
-  .hud {
-    position: relative;
-    z-index: 70;
-    flex-shrink: 0;
-    background: var(--bg);
-  }
-
-  .game.drawer-open .hud {
-    background: #121820;
-    border-bottom: 1px solid #2a3548;
-    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
-  }
-
-  /* Feedback ascuns cât timp meniul e deschis (evită zgomot vizual sub HUD). */
-  .game.drawer-open .message {
-    display: none;
-  }
-
-  /* Fundal semi-transparent: doar sub HUD, nu peste butoanele de sus. */
-  .drawer-backdrop {
-    top: var(--hud-h, 5.5rem);
-    right: 0;
-    bottom: 0;
-    left: 0;
-    inset: auto;
-  }
-
-  /* Sertar off-canvas: începe SUB bara de sus (--hud-h măsurată în JS). */
-  .divMeniu {
-    position: fixed;
-    top: var(--hud-h, 5.5rem);
-    left: 0;
-    height: calc(100dvh - var(--hud-h, 5.5rem));
-    width: min(96vw, 560px);
-    z-index: 60;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.65rem;
-    padding: 1rem 0.75rem;
-    background: #121820;
-    border-right: 1px solid #2a3548;
-    box-shadow: 2px 0 24px rgba(0, 0, 0, 0.5);
-    overflow-x: hidden;
-    overflow-y: auto;
-    transform: translateX(-100%);
-    transition: transform 0.25s ease;
-  }
-
-  .game.drawer-open .divMeniu {
-    transform: translateX(0);
-  }
-
-  /* ✕ rotund: deasupra barelor 1/2/3 (--options-h măsurată în JS). */
-  .drawer-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    z-index: 72;
-    bottom: calc(var(--options-h, 25dvh) + max(0.65rem, env(safe-area-inset-bottom, 0px)));
-    right: max(0.75rem, env(safe-area-inset-right, 0px));
-    width: 3.25rem;
-    height: 3.25rem;
-    padding: 0;
-    border: 2px solid var(--accent);
-    border-radius: 50%;
-    background: #1a2332;
-    color: var(--text);
-    font-size: 1.35rem;
-    line-height: 1;
-    cursor: pointer;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
-  }
-
-  .drawer-close[hidden] {
-    display: none !important;
-  }
-
-  .divMeniu .divButoaneNiveluri {
-    order: 0;
-    flex-shrink: 0;
-    width: 100%;
-  }
-
-  .divMeniu .level-picker {
-    display: flex !important;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.28rem;
-    width: 100%;
-    flex-shrink: 0;
-  }
-
-  .divMeniu .level-picker .level-btn {
-    /* 10 pe rând → 2 rânduri la 20 niveluri, fără scroll orizontal. */
-    flex: 0 0 calc((100% - 9 * 0.28rem) / 10);
-    width: calc((100% - 9 * 0.28rem) / 10);
-    max-width: 2.15rem;
-    height: auto;
-    aspect-ratio: 1;
-    font-size: 0.78rem;
-  }
-
-  .divMeniu .divListaQuizuri {
-    order: 1;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-  }
-
-  .divMeniu .quiz-picker {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* Lista de quiz-uri mereu vizibilă în sertar (fără pliere). */
-  .quiz-picker-summary {
-    pointer-events: none;
-    cursor: default;
-    margin-bottom: 0.35rem;
-  }
-
-  .quiz-picker-summary::before {
-    display: none;
-  }
-
-  .quiz-picker-list {
-    flex: 1;
-    max-height: none;
-    overflow: visible;
-    margin-top: 0;
-    padding-right: 0;
-  }
-
-  .quiz-picker-item {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Butoanele 1/2/3 ca bare lungi, ancorate la BAZA ECRANULUI (fixed), ca să
-     fie ușor de găsit/atins cu degetul. Liftul (în arenă, sub ele) curge pe
-     dedesubt în modul nativ unde arena umple ecranul. */
-  .options {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: 0;
-    width: min(660px, 100%);
-    z-index: 6;
-    /* Înălțime ca PROCENT din ecran (dvh), nu cm: cm se redă diferit pe
-       desktop vs mobil, de aici diferența preview ↔ Pixel. dvh dă aceeași
-       proporție peste tot (bun și pentru paritate între telefoane).
-       ~25dvh: cu 30% mai scurt decât 36dvh. */
-    height: clamp(126px, 25dvh, 252px);
-    padding: 0 0.5rem;
-    gap: 0.45rem;
-    align-items: stretch;
-  }
-
-  /* Valoarea stă SUS pe bara lungă, ca degetul (care apasă jos) să n-o
-     acopere și copilul s-o poată citi ușor. */
-  .options .option {
-    height: 100%;
-    justify-content: flex-start;
-    padding: 0.7rem 0.4rem;
-    background: rgba(20, 28, 40, 0.4);
-    border-color: rgba(61, 156, 245, 0.55);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-  }
-
-  .options .option kbd {
-    display: none;
-  }
-
-  .options .option .prime {
-    font-size: 2rem;
-  }
-
-  /* Mesajul de feedback nu rezervă o linie când e gol → barele ating baza. */
-  .message {
-    min-height: 0;
-    margin: 0.15rem 0 0;
-    font-size: 0.8rem;
-  }
-
-  /* CP shell: overlay sub HUD, deasupra barelor 1/2/3. */
-  .cp-shell {
-    position: fixed;
-    top: var(--hud-h, 5.5rem);
-    left: 0;
-    right: 0;
-    bottom: var(--options-h, 0px);
-    z-index: 58;
-    width: auto;
-    max-height: none;
-  }
-
-  .cp-shell-backdrop {
-    display: block;
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background: rgba(0, 0, 0, 0.45);
-  }
-
-  .cp-shell-backdrop[hidden] {
-    display: none;
-  }
-
-  .cp-shell-panel {
-    position: relative;
-    z-index: 1;
-    height: 100%;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
-    box-shadow: none;
-  }
-
-  .cp-shell-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    top: 0.5rem;
-    right: 0.75rem;
-    z-index: 2;
-    width: 2.5rem;
-    height: 2.5rem;
-    padding: 0;
-    border: 1px solid #2d3d52;
-    border-radius: 50%;
-    background: #1a2332;
-    color: var(--text);
-    font-size: 1.15rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .cp-shell-close[hidden] {
-    display: none !important;
-  }
-
-  .cp-toc {
-    padding-right: 3rem;
-  }
-}
-
-/* ════════════════════════════════════════════════════════════════════════
-   PASUL 3c — desktop: tabel cu 3 coloane (arena / meniu / CP)
-   Un <table> simplu (1 rând, 3 celule de 360px) ține coloanele. JS mută în
-   celule aceleași div-uri folosite pe mobil. Aici doar dăm celulelor lățime
-   fixă și facem ca meniul + CP (overlay pe mobil) să stea static în coloane.
+   Desktop: 3 coloane (telefon / meniu / CP) — aceleași dimensiuni ca ecranul.
    ════════════════════════════════════════════════════════════════════════ */
 @media (min-width: 769px) {
   .game.dg-on {
@@ -1641,107 +1566,56 @@ body {
 
   #desktop-grid {
     align-self: center;
-    margin: 0.4rem auto 0;
+    margin: 0 auto;
     border-collapse: separate;
     border-spacing: 0.6rem;
     table-layout: fixed;
   }
 
   #desktop-grid td.dg-cell {
-    width: 360px;
+    width: var(--phone-col-w);
+    height: min(var(--phone-col-h), 100dvh);
     padding: 0;
     vertical-align: top;
   }
 
-  /* Coloana 1 — divArena: ecranul de mobil întreg (HUD + arenă + butoane).
-     Ascundem titlul mare și hint-ul ca în bara compactă de pe telefon. */
-  .dg-on .dg-arena .divArena {
-    width: 360px;
-    min-height: 0;
+  .game.dg-on .dg-arena .divArena {
+    width: 100%;
+    height: 100%;
   }
 
-  .dg-on .hud h1,
-  .dg-on .hud .hint {
-    display: none;
-  }
-
-  .dg-on .arena:not(.stage-ratio) {
-    height: min(560px, 64vh);
-    margin-bottom: 0.6rem;
-  }
-
-  /* Coloana 2 — meniul ca pe mobil: niveluri sus (pe rânduri), listă quiz
-     dedesubt. Anulăm poziționarea fixed/overlay de pe telefon. */
-  .dg-on .dg-menu .divMeniu {
+  .game.dg-on .dg-menu .divMeniu,
+  .game.dg-on .dg-cp .divCp {
     position: static;
     transform: none;
     inset: auto;
-    width: 360px;
-    height: min(620px, 74vh);
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.65rem;
-    padding: 0.75rem;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
     background: #121820;
     border: 1px solid #2a3548;
     border-radius: 12px;
     box-shadow: none;
-    overflow-y: auto;
   }
 
-  .dg-on .dg-menu .divButoaneNiveluri {
-    flex-shrink: 0;
-    width: 100%;
+  .game.dg-on .dg-menu .divMeniu {
+    padding: 0.75rem;
   }
 
-  .dg-on .dg-menu .divListaQuizuri {
+  .game.dg-on .dg-cp .divCp {
     display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-  }
-
-  .dg-on .dg-menu .level-picker {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.28rem;
-  }
-
-  .dg-on .dg-menu .level-picker .level-btn {
-    flex: 0 0 calc((100% - 9 * 0.28rem) / 10);
-    max-width: 2.15rem;
-    height: auto;
-    aspect-ratio: 1;
-    font-size: 0.78rem;
-  }
-
-  .dg-on .dg-menu .quiz-picker {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
-  .dg-on .dg-menu .quiz-picker-list {
-    flex: 1;
-    max-height: none;
-    overflow-y: auto;
-  }
-
-  /* Coloana 3 — CP ca pe mobil, static, mereu vizibil. */
-  .dg-on .dg-cp .divCp {
-    display: flex;
-    position: static;
-    inset: auto;
-    width: 360px;
-    height: min(620px, 74vh);
-    max-height: none;
     flex: none;
     z-index: auto;
+  }
+
+  .game.dg-on .dg-cp .cp-shell {
+    position: static;
+    width: 100%;
+    height: 100%;
+  }
+
+  .game.dg-on .dg-cp .cp-shell-panel {
+    height: 100%;
+    border-radius: 12px;
   }
 }

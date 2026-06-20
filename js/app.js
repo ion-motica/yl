@@ -3,7 +3,8 @@
 
   const dom = {
     gameEl: document.getElementById("game"),
-    hudEl: document.querySelector(".hud"),
+    butoaneSusEl: document.querySelector(".butoane-sus"),
+    stratInfoEl: document.getElementById("div-strat-info"),
     optionsEl: document.getElementById("options"),
     quizTitleEl: document.getElementById("quiz-title"),
     levelInfoEl: document.getElementById("level-info"),
@@ -121,7 +122,6 @@
     });
   }
 
-  const LEVELS_PER_COLUMN = 10;
 
   function createLevelButton(lv) {
     const btn = document.createElement("button");
@@ -159,18 +159,15 @@
     syncMobileChromeMetrics();
   }
 
-  // Măsoară înălțimea barei de sus și a barelor de răspuns ca să nu se
-  // suprapună sertarul / butonul ✕ peste HUD sau butoanele 1/2/3.
+  // Măsoară înălțimea zonei de info de sus și a barelor de răspuns ca să nu se
+  // suprapună sertarul / butonul ✕ peste chrome sau butoanele 1/2/3.
   function syncMobileChromeMetrics() {
     const root = document.documentElement;
-    if (!isMobileLayout()) {
-      root.style.removeProperty("--hud-h");
-      root.style.removeProperty("--options-h");
-      return;
-    }
-    if (dom.hudEl) {
-      const bottom = Math.ceil(dom.hudEl.getBoundingClientRect().bottom);
+    if (dom.butoaneSusEl) {
+      const bottom = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().bottom);
+      const h = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().height);
       root.style.setProperty("--hud-h", `${bottom}px`);
+      root.style.setProperty("--butoane-sus-h", `${h}px`);
     }
     if (dom.optionsEl) {
       const h = Math.ceil(dom.optionsEl.getBoundingClientRect().height);
@@ -185,43 +182,15 @@
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
     const maxLevel = quiz.getMaxLevel();
-    // Aspectul „mobil" al meniului (niveluri pe rânduri + listă quiz dedesubt)
-    // se folosește atât pe telefon, cât și în coloana 2 a tabelului desktop.
-    const mobileDrawer = isMobileLayout() || dom.gameEl.classList.contains("dg-on");
-
-    if (mobileDrawer) {
-      // Sertar mobil: ordine 1..N; flex wrap din CSS + inline (fallback cache vechi).
-      dom.levelPickerEl.style.display = "flex";
-      dom.levelPickerEl.style.flexWrap = "wrap";
-      dom.levelPickerEl.style.justifyContent = "center";
-      dom.levelPickerEl.style.gridAutoFlow = "";
-      dom.levelPickerEl.style.gridTemplateRows = "";
-      dom.levelPickerEl.style.gridTemplateColumns = "";
-
-      for (let lv = 1; lv <= maxLevel; lv++) {
-        dom.levelPickerEl.appendChild(createLevelButton(lv));
-      }
-      return;
-    }
-
-    dom.levelPickerEl.style.display = "";
-    dom.levelPickerEl.style.flexWrap = "";
-    dom.levelPickerEl.style.justifyContent = "";
-
-    const columns = Math.ceil(maxLevel / LEVELS_PER_COLUMN);
-    const rows = Math.min(LEVELS_PER_COLUMN, maxLevel);
+    dom.levelPickerEl.style.display = "flex";
+    dom.levelPickerEl.style.flexWrap = "wrap";
+    dom.levelPickerEl.style.justifyContent = "center";
     dom.levelPickerEl.style.gridAutoFlow = "";
-    dom.levelPickerEl.style.gridTemplateRows = `repeat(${rows}, auto)`;
-    dom.levelPickerEl.style.gridTemplateColumns = `repeat(${columns}, auto)`;
+    dom.levelPickerEl.style.gridTemplateRows = "";
+    dom.levelPickerEl.style.gridTemplateColumns = "";
 
-    // Coloane paralele: 1-10 lângă 11-20 etc. În fiecare coloană, nivelurile
-    // sunt afișate descrescător (cel mai mare sus), păstrând stilul existent.
-    for (let column = 0; column < columns; column++) {
-      const top = Math.min(maxLevel, (column + 1) * LEVELS_PER_COLUMN);
-      const bottom = column * LEVELS_PER_COLUMN + 1;
-      for (let lv = top; lv >= bottom; lv--) {
-        dom.levelPickerEl.appendChild(createLevelButton(lv));
-      }
+    for (let lv = 1; lv <= maxLevel; lv++) {
+      dom.levelPickerEl.appendChild(createLevelButton(lv));
     }
   }
 
@@ -306,9 +275,10 @@
   window.addEventListener("resize", scheduleMobileChromeMetrics);
   window.visualViewport?.addEventListener("resize", scheduleMobileChromeMetrics);
 
-  if (window.ResizeObserver && dom.hudEl) {
+  if (window.ResizeObserver) {
     const chromeRo = new ResizeObserver(scheduleMobileChromeMetrics);
-    chromeRo.observe(dom.hudEl);
+    if (dom.butoaneSusEl) chromeRo.observe(dom.butoaneSusEl);
+    if (dom.stratInfoEl) chromeRo.observe(dom.stratInfoEl);
     if (dom.optionsEl) chromeRo.observe(dom.optionsEl);
   }
 
