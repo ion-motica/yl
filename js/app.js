@@ -184,7 +184,8 @@
       const h = Math.ceil(dom.optionsEl.getBoundingClientRect().height);
       root.style.setProperty("--options-h", `${h}px`);
     }
-    layoutStage?.refresh?.();
+    // NU rescalăm scena aici: cutia 1:2 e blocată o singură dată (la pornire /
+    // rotire). Doar variabilele de chrome se actualizează, pentru overlay-uri.
   }
 
   function scheduleMobileChromeMetrics() {
@@ -427,7 +428,9 @@
     }
     if (quiz) buildLevelPicker();
     scheduleMobileChromeMetrics();
-    engine?.applyResize?.();
+    // Părintele shell-ului s-a schimbat (celulă desktop ↔ #game mobil) →
+    // remăsurăm cutia 1:2 după ce se așază layout-ul.
+    requestAnimationFrame(() => layoutStage?.remeasure?.());
   }
 
   dom.quizTitleEl.textContent = QuizRegistry.get(QuizRegistry.getActiveId()).title;

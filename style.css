@@ -209,7 +209,8 @@ body {
   display: none !important;
 }
 
-/* divArena = ecranul de telefon. */
+/* divArena = ecranul de telefon. Forma (raportul 1:2) e impusă de LayoutStage
+   prin lățime/înălțime inline + clasa .shell-ratio; aici doar centrăm cutia. */
 .divArena {
   display: flex;
   flex-direction: column;
@@ -221,20 +222,23 @@ body {
   overflow: hidden;
 }
 
-.divArena:has(.arena.stage-ratio) {
-  padding-top: var(--hud-h, 5.5rem);
-  padding-bottom: var(--options-h, clamp(126px, 25dvh, 252px));
-  justify-content: center;
-  box-sizing: border-box;
+/* Cutia cu raport fix: dimensiuni din JS, centrată în spațiul disponibil.
+   margin:auto centrează pe ambele axe în containerul flex (#game) pe mobil. */
+.divArena.shell-ratio {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  margin: auto;
 }
 
-/* Titlul + progres — pe shell-ul telefonului, sub ≡ CP ⏸ */
+/* Titlul + progres — pe shell-ul telefonului, sub ≡ CP ⏸. Peste lift, ca să
+   rămână lizibil (Varianta A: liftul curge pe tot fundalul). */
 .div-chrome-info {
   position: absolute;
   top: var(--butoane-sus-h, 2.75rem);
   left: 0;
   right: 0;
-  z-index: var(--zindex-info-arena);
+  z-index: var(--zindex-butoane-sus);
   pointer-events: none;
 }
 
@@ -543,6 +547,8 @@ body {
   background: rgba(248, 113, 113, 0.55);
 }
 
+/* Arena umple tot shell-ul (Varianta A): liftul curge pe toată înălțimea
+   ecranului, iar chrome-ul (titlu, butoane, opțiuni) stă overlay deasupra. */
 .arena {
   position: relative;
   width: 100%;
@@ -556,10 +562,6 @@ body {
   overflow: hidden;
 }
 
-.arena.stage-ratio {
-  flex: 0 0 auto;
-}
-
 /* ── Cele 4 straturi ale arenei ─────────────────────────────────────────── */
 
 .div-strat-info,
@@ -570,14 +572,13 @@ body {
   pointer-events: none;
 }
 
+/* Conținutul citibil (ilustrare + listă) stă între chrome-ul de sus și
+   opțiunile de jos. Liftul (div-strat-lift) NU e limitat: curge pe tot. */
 .div-strat-info {
   z-index: var(--zindex-info-arena);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.arena:not(.stage-ratio) .div-strat-info {
   padding-top: var(--hud-h, 5.5rem);
   padding-bottom: var(--options-h, clamp(126px, 25dvh, 252px));
 }
@@ -1600,9 +1601,17 @@ body {
     vertical-align: top;
   }
 
-  .game.dg-on .dg-arena .divArena {
-    width: 100%;
-    height: 100%;
+  /* Coloana telefonului: centrăm cutia 1:2 (nu o întindem → fără „Modigliani"). */
+  #desktop-grid td.dg-arena {
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  .game.dg-on .dg-arena .divArena.shell-ratio {
+    display: inline-flex;
+    flex-direction: column;
+    margin: 0;
+    text-align: left;
   }
 
   .game.dg-on .dg-menu .divMeniu,
