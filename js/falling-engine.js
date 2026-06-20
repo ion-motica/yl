@@ -42,6 +42,9 @@
       if (typeof stored === "number" && stored >= 20 && stored <= 100) liftWidthPct = stored;
     }
     let swapQuestionIllustration = false;
+    let riseFromButton = global.LayoutConfig
+      ? global.LayoutConfig.get("riseFromButton", false)
+      : false;
     let lastRoundState = null;
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
@@ -232,6 +235,20 @@
       widthRow.append(widthLabel, widthSlider, widthOut);
       panelEl.appendChild(widthRow);
 
+      const riseFromBtnRow = document.createElement("label");
+      riseFromBtnRow.className = "control-panel-lift-row";
+      const riseFromBtnInput = document.createElement("input");
+      riseFromBtnInput.type = "checkbox";
+      riseFromBtnInput.checked = riseFromButton;
+      riseFromBtnInput.addEventListener("change", () => {
+        riseFromButton = riseFromBtnInput.checked;
+        if (global.LayoutConfig) global.LayoutConfig.set("riseFromButton", riseFromButton);
+      });
+      const riseFromBtnSpan = document.createElement("span");
+      riseFromBtnSpan.textContent = "Răspunsul urcă din dreptul butonului apăsat";
+      riseFromBtnRow.append(riseFromBtnInput, riseFromBtnSpan);
+      panelEl.appendChild(riseFromBtnRow);
+
       const swapRow = document.createElement("label");
       swapRow.className = "control-panel-lift-row";
       const swapInput = document.createElement("input");
@@ -418,9 +435,46 @@
       return config.onRender?.(state);
     }
 
+    function resetRisingLayout() {
+      dom.rising.style.removeProperty("left");
+      dom.rising.style.removeProperty("top");
+      dom.rising.style.removeProperty("transform");
+    }
+
+    function hideRising() {
+      dom.rising.classList.add("hidden");
+      resetRisingLayout();
+    }
+
+    // Y = marginea de jos a ecranului telefonului (#divArena).
+    // X = centrul numărului de pe buton (dacă riseFromButton) sau centrul arenei.
+    function placeRisingAtStart(index) {
+      const layerEl = dom.rising.parentElement;
+      const shellEl = dom.divArena;
+      if (!layerEl || !shellEl) return travelSpan();
+
+      const layerRect = layerEl.getBoundingClientRect();
+      const shellRect = shellEl.getBoundingClientRect();
+      const riseH = dom.rising.getBoundingClientRect().height;
+
+      if (riseFromButton) {
+        const primeEl = dom.optionBtns[index]?.querySelector(".prime");
+        if (primeEl) {
+          const primeRect = primeEl.getBoundingClientRect();
+          dom.rising.style.left = `${primeRect.left + primeRect.width / 2 - layerRect.left}px`;
+          dom.rising.style.transform = "translateX(-50%)";
+        }
+      } else {
+        dom.rising.style.removeProperty("left");
+        dom.rising.style.removeProperty("transform");
+      }
+
+      return shellRect.bottom - layerRect.top - riseH;
+    }
+
     function cancelRisingAnimation() {
       animating = false;
-      dom.rising.classList.add("hidden");
+      hideRising();
       clearWrongMarks();
     }
 
@@ -528,7 +582,7 @@
     }
 
     function resolveChoice(index) {
-      dom.rising.classList.add("hidden");
+      hideRising();
       animating = false;
       applyAnswerResult(getQuiz().onAnswer(index, attemptMeta()), index);
     }
@@ -550,9 +604,10 @@
       dom.rising.classList.remove("hidden");
       syncBoxHeight();
 
-      let riseY = travelSpan();
+      let riseY = placeRisingAtStart(index);
+      dom.rising.style.top = `${riseY}px`;
       let localFallY = fallY;
-      const riseDistance = Math.max(0, travelSpan() - localFallY - boxH);
+      const riseDistance = Math.max(0, riseY - (localFallY + boxH));
       const riseSpeed = riseDistance / RISE_TRAVEL_S;
       let lastStepTs = 0;
 
@@ -614,7 +669,6 @@
       clearWrongMarks();
       setFallPosition(0);
       dom.falling.classList.remove("bounce");
-      dom.rising.classList.add("hidden");
       fallHeld = true;
       setInputEnabled(false);
       const ready = renderRound(state);
