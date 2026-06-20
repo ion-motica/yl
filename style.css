@@ -21,7 +21,6 @@
   --zindex-meniuri: 50;
   --zindex-butoane-sus: 60;
   --phone-col-w: 360px;
-  --phone-col-h: calc(var(--phone-col-w) * 4 / 3);
   --butoane-sus-h: 2.75rem;
 }
 
@@ -220,6 +219,33 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+}
+
+.divArena:has(.arena.stage-ratio) {
+  padding-top: var(--hud-h, 5.5rem);
+  padding-bottom: var(--options-h, clamp(126px, 25dvh, 252px));
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Titlul + progres — pe shell-ul telefonului, sub ≡ CP ⏸ */
+.div-chrome-info {
+  position: absolute;
+  top: var(--butoane-sus-h, 2.75rem);
+  left: 0;
+  right: 0;
+  z-index: var(--zindex-info-arena);
+  pointer-events: none;
+}
+
+.div-strat-butoane {
+  position: absolute;
+  inset: 0;
+  z-index: var(--zindex-butoane-jos);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
 }
 
 .divMeniu {
@@ -538,8 +564,7 @@ body {
 
 .div-strat-info,
 .div-strat-lift,
-.div-strat-anunturi,
-.div-strat-butoane {
+.div-strat-anunturi {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -549,9 +574,12 @@ body {
   z-index: var(--zindex-info-arena);
   display: flex;
   flex-direction: column;
-  padding-top: var(--butoane-sus-h, 2.75rem);
-  padding-bottom: var(--options-h, clamp(126px, 25dvh, 252px));
   overflow: hidden;
+}
+
+.arena:not(.stage-ratio) .div-strat-info {
+  padding-top: var(--hud-h, 5.5rem);
+  padding-bottom: var(--options-h, clamp(126px, 25dvh, 252px));
 }
 
 .info-antet {
@@ -574,13 +602,6 @@ body {
 .div-strat-anunturi .level-banner {
   position: absolute;
   inset: 0;
-}
-
-.div-strat-butoane {
-  z-index: var(--zindex-butoane-jos);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 
 .butoane-sus {
@@ -1574,7 +1595,7 @@ body {
 
   #desktop-grid td.dg-cell {
     width: var(--phone-col-w);
-    height: min(var(--phone-col-h), 100dvh);
+    height: 100dvh;
     padding: 0;
     vertical-align: top;
   }

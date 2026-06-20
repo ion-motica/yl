@@ -3,7 +3,9 @@
 
   const dom = {
     gameEl: document.getElementById("game"),
+    divArena: document.getElementById("divArena"),
     butoaneSusEl: document.querySelector(".butoane-sus"),
+    chromeInfoEl: document.querySelector(".div-chrome-info"),
     stratInfoEl: document.getElementById("div-strat-info"),
     optionsEl: document.getElementById("options"),
     quizTitleEl: document.getElementById("quiz-title"),
@@ -159,20 +161,30 @@
     syncMobileChromeMetrics();
   }
 
+  let layoutStage = null;
+
   // Măsoară înălțimea zonei de info de sus și a barelor de răspuns ca să nu se
   // suprapună sertarul / butonul ✕ peste chrome sau butoanele 1/2/3.
   function syncMobileChromeMetrics() {
     const root = document.documentElement;
     if (dom.butoaneSusEl) {
-      const bottom = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().bottom);
       const h = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().height);
-      root.style.setProperty("--hud-h", `${bottom}px`);
       root.style.setProperty("--butoane-sus-h", `${h}px`);
+    }
+    if (dom.chromeInfoEl) {
+      const bottom = Math.ceil(dom.chromeInfoEl.getBoundingClientRect().bottom);
+      const h = Math.ceil(dom.chromeInfoEl.getBoundingClientRect().height);
+      root.style.setProperty("--hud-h", `${bottom}px`);
+      root.style.setProperty("--chrome-info-h", `${h}px`);
+    } else if (dom.butoaneSusEl) {
+      const bottom = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().bottom);
+      root.style.setProperty("--hud-h", `${bottom}px`);
     }
     if (dom.optionsEl) {
       const h = Math.ceil(dom.optionsEl.getBoundingClientRect().height);
       root.style.setProperty("--options-h", `${h}px`);
     }
+    layoutStage?.refresh?.();
   }
 
   function scheduleMobileChromeMetrics() {
@@ -278,6 +290,7 @@
   if (window.ResizeObserver) {
     const chromeRo = new ResizeObserver(scheduleMobileChromeMetrics);
     if (dom.butoaneSusEl) chromeRo.observe(dom.butoaneSusEl);
+    if (dom.chromeInfoEl) chromeRo.observe(dom.chromeInfoEl);
     if (dom.stratInfoEl) chromeRo.observe(dom.stratInfoEl);
     if (dom.optionsEl) chromeRo.observe(dom.optionsEl);
   }
@@ -342,6 +355,7 @@
       engine?.applyResize?.();
     },
   });
+  layoutStage = stage;
 
   engine = new FallingEngine({
     dom,

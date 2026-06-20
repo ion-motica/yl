@@ -21,16 +21,28 @@
     const onChange = typeof options.onChange === "function" ? options.onChange : function () {};
     const Config = global.LayoutConfig;
 
-    let ratio = (Config && Config.get("sceneRatio", "native")) || "native";
-    if (!(ratio in RATIOS)) ratio = "native";
+    let ratio = (Config && Config.get("sceneRatio", "3:4")) || "3:4";
+    if (!(ratio in RATIOS)) ratio = "3:4";
     let rafId = null;
 
     function viewportHeightCap() {
+      const shell = dom.divArena;
+      const arena = dom.arena;
+      if (shell && arena) {
+        const shellRect = shell.getBoundingClientRect();
+        const chrome = shell.querySelector(".div-chrome-info");
+        const opts = shell.querySelector("#options");
+        let top = shellRect.top;
+        let bottom = shellRect.bottom;
+        if (chrome) top = Math.max(top, chrome.getBoundingClientRect().bottom);
+        if (opts) bottom = Math.min(bottom, opts.getBoundingClientRect().top);
+        const avail = bottom - top;
+        if (avail > 0) return Math.round(avail);
+      }
       const vh =
         (global.visualViewport && global.visualViewport.height) ||
         global.innerHeight ||
         0;
-      // Nu lăsăm scena să depășească ecranul (ar produce scroll în modul joc).
       return vh > 0 ? Math.round(vh * 0.92) : Infinity;
     }
 
@@ -67,7 +79,7 @@
     }
 
     function setRatio(next) {
-      ratio = next in RATIOS ? next : "native";
+      ratio = next in RATIOS ? next : "3:4";
       if (Config) Config.set("sceneRatio", ratio);
       applyRatioToDom();
       onChange();
