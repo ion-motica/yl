@@ -151,7 +151,7 @@
         1,
         global.axisSpanForUnitWidth?.(model, options) ?? model.total + 1
       );
-      return Math.max(20, Math.min(48, Math.floor((box - 72) / span)));
+      return Math.max(20, Math.min(48, Math.floor((box - 20) / span)));
     }
 
     function illustrationDisplayWidth() {

@@ -537,7 +537,8 @@ body {
 }
 
 /* Arena umple tot shell-ul (Varianta A): liftul curge pe toată înălțimea
-   ecranului, iar chrome-ul (titlu, butoane, opțiuni) stă overlay deasupra. */
+   ecranului, iar chrome-ul (titlu, butoane, opțiuni) stă overlay deasupra.
+   Arena e flex-coloană: stratul de info ocupă fluxul normal. */
 .arena {
   position: relative;
   width: 100%;
@@ -549,11 +550,13 @@ body {
   border-radius: 0;
   border: none;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ── Cele 4 straturi ale arenei ─────────────────────────────────────────── */
+/* ── Straturile arenei ──────────────────────────────────────────────────── */
 
-.div-strat-info,
+/* Liftul și anunțurile se SUPRAPUN peste info → rămân absolute. */
 .div-strat-lift,
 .div-strat-anunturi {
   position: absolute;
@@ -561,13 +564,17 @@ body {
   pointer-events: none;
 }
 
-/* Conținutul citibil (ilustrare + listă) stă între chrome-ul de sus și
-   opțiunile de jos. Liftul (div-strat-lift) NU e limitat: curge pe tot. */
+/* Stratul de info e flux normal: antet → ilustrare → listă, unul sub altul.
+   Ocupă spațiul rămas (flex:1), între chrome-ul de sus și opțiunile de jos. */
 .div-strat-info {
+  position: relative;
   z-index: var(--zindex-info-arena);
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  pointer-events: none;
   padding-top: var(--hud-h, 5.5rem);
   padding-bottom: var(--options-h, clamp(126px, 25dvh, 252px));
 }

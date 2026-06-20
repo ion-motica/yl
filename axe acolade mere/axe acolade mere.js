@@ -514,7 +514,7 @@
   /** xAt, lățime SVG — jumătate unitate vizuală la capetele 0 și total. */
   function axisLayoutMetrics(model, opts, unitWidth) {
     const unit = unitWidth || 48;
-    const padX = 36;
+    const padX = 8;
     const half = unit / 2;
     const { tickStart, tickEnd } = computeAxisRange(model, opts);
     const xAt = (n) => padX + half + (n - tickStart) * unit;
@@ -923,7 +923,7 @@
     );
     const displayWidth = measureSvgDisplayWidth(targetEl, opts) || width;
     const acoladeFs = acoladeLabelFontSizes(opts, width, displayWidth);
-    const padX = 36;
+    const padX = 8;
     const objR = objectRadiusForUnit(unit);
     const layout = computeVerticalLayout(opts, unit, acoladeFs);
     const {
