@@ -9,8 +9,11 @@
   const ARENA_H = REF_H; // fallback când scena încă nu are dimensiuni măsurabile
   const BOX_MIN = 112;
   const FALL_SPEED = 54;
-  const RISE_SPEED = 240;
+  const RISE_TRAVEL_S = 0.5;
   const BOUNCE_UP = 48;
+  // După bounce, liftul trebuie să ajungă clar deasupra jumătății traseului
+  // (y = fracție × travelSpan; sub 0.5 = în jumătatea de sus).
+  const BOUNCE_MIN_FRAC = 0.4;
   const FLASH_MS = 420;
   const RUN_DONE_MS = 450;
   const LEVEL_ADV_MS = 1400;
@@ -468,9 +471,17 @@
         clearWrongMarks();
         bouncing = true;
         dom.falling.classList.add("bounce");
+        syncBoxHeight();
         const bounceToTop = getQuiz().shouldBounceToTop?.() ?? false;
-        const bounceAmount = bounceToTop ? fallY : BOUNCE_UP * speedScale();
-        setFallPosition(Math.max(0, fallY - bounceAmount));
+        let targetY;
+        if (bounceToTop) {
+          targetY = 0;
+        } else {
+          const normalBounceY = fallY - BOUNCE_UP * speedScale();
+          const clearlyAboveHalfY = travelSpan() * BOUNCE_MIN_FRAC;
+          targetY = Math.min(normalBounceY, clearlyAboveHalfY);
+        }
+        setFallPosition(Math.max(0, targetY));
         setTimeout(() => {
           bouncing = false;
           dom.falling.classList.remove("bounce");
@@ -541,6 +552,8 @@
 
       let riseY = travelSpan();
       let localFallY = fallY;
+      const riseDistance = Math.max(0, travelSpan() - localFallY - boxH);
+      const riseSpeed = riseDistance / RISE_TRAVEL_S;
       let lastStepTs = 0;
 
       const step = (ts) => {
@@ -554,7 +567,7 @@
         const speedFactor = getQuiz().getFallSpeedFactor?.() ?? 1.0;
         const scale = speedScale();
         localFallY += FALL_SPEED * speedFactor * scale * dt;
-        riseY -= RISE_SPEED * scale * dt;
+        riseY -= riseSpeed * dt;
         dom.falling.style.top = `${localFallY}px`;
         dom.rising.style.top = `${riseY}px`;
 
