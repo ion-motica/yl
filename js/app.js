@@ -5,7 +5,6 @@
     gameEl: document.getElementById("game"),
     divArena: document.getElementById("divArena"),
     butoaneSusEl: document.querySelector(".butoane-sus"),
-    chromeInfoEl: document.querySelector(".div-chrome-info"),
     stratInfoEl: document.getElementById("div-strat-info"),
     optionsEl: document.getElementById("options"),
     quizTitleEl: document.getElementById("quiz-title"),
@@ -168,24 +167,17 @@
   function syncMobileChromeMetrics() {
     const root = document.documentElement;
     if (dom.butoaneSusEl) {
-      const h = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().height);
-      root.style.setProperty("--butoane-sus-h", `${h}px`);
-    }
-    if (dom.chromeInfoEl) {
-      const bottom = Math.ceil(dom.chromeInfoEl.getBoundingClientRect().bottom);
-      const h = Math.ceil(dom.chromeInfoEl.getBoundingClientRect().height);
-      root.style.setProperty("--hud-h", `${bottom}px`);
-      root.style.setProperty("--chrome-info-h", `${h}px`);
-    } else if (dom.butoaneSusEl) {
       const bottom = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().bottom);
+      const h = Math.ceil(dom.butoaneSusEl.getBoundingClientRect().height);
       root.style.setProperty("--hud-h", `${bottom}px`);
+      root.style.setProperty("--butoane-sus-h", `${h}px`);
     }
     if (dom.optionsEl) {
       const h = Math.ceil(dom.optionsEl.getBoundingClientRect().height);
       root.style.setProperty("--options-h", `${h}px`);
     }
     // NU rescalăm scena aici: cutia 1:2 e blocată o singură dată (la pornire /
-    // rotire). Doar variabilele de chrome se actualizează, pentru overlay-uri.
+    // rotire). Doar variabilele pentru overlay-uri (drawer/CP) se actualizează.
   }
 
   function scheduleMobileChromeMetrics() {
@@ -291,7 +283,6 @@
   if (window.ResizeObserver) {
     const chromeRo = new ResizeObserver(scheduleMobileChromeMetrics);
     if (dom.butoaneSusEl) chromeRo.observe(dom.butoaneSusEl);
-    if (dom.chromeInfoEl) chromeRo.observe(dom.chromeInfoEl);
     if (dom.stratInfoEl) chromeRo.observe(dom.stratInfoEl);
     if (dom.optionsEl) chromeRo.observe(dom.optionsEl);
   }

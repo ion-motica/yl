@@ -231,17 +231,6 @@ body {
   margin: auto;
 }
 
-/* Titlul + progres — pe shell-ul telefonului, sub ≡ CP ⏸. Peste lift, ca să
-   rămână lizibil (Varianta A: liftul curge pe tot fundalul). */
-.div-chrome-info {
-  position: absolute;
-  top: var(--butoane-sus-h, 2.75rem);
-  left: 0;
-  right: 0;
-  z-index: var(--zindex-butoane-sus);
-  pointer-events: none;
-}
-
 .div-strat-butoane {
   position: absolute;
   inset: 0;
@@ -1084,7 +1073,7 @@ body {
   top: 0;
   width: var(--lift-width, 92%);
   min-height: 112px;
-  background: rgba(26, 35, 50, var(--lift-bg-opacity, 0.7));
+  background: rgba(26, 35, 50, var(--lift-bg-opacity, 0.8));
   border: 2px solid var(--accent);
   border-radius: 12px;
   z-index: var(--zindex-lift);
