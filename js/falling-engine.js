@@ -10,6 +10,7 @@
   const BOX_MIN = 112;
   const FALL_SPEED = 54;
   const RISE_TRAVEL_S = 0.5;
+  const DEFAULT_REVEAL_HOLD_MS = 160;
   const BOUNCE_UP = 48;
   // După bounce, liftul trebuie să ajungă clar deasupra jumătății traseului
   // (y = fracție × travelSpan; sub 0.5 = în jumătatea de sus).
@@ -45,6 +46,8 @@
     let riseFromButton = global.LayoutConfig
       ? global.LayoutConfig.get("riseFromButton", false)
       : false;
+    let revealAnswerOnContact =
+      global.LayoutConfig && global.LayoutConfig.get("revealAnswerOnContact", true) !== false;
     let lastRoundState = null;
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
@@ -249,6 +252,22 @@
       riseFromBtnRow.append(riseFromBtnInput, riseFromBtnSpan);
       panelEl.appendChild(riseFromBtnRow);
 
+      const revealAnswerRow = document.createElement("label");
+      revealAnswerRow.className = "control-panel-lift-row";
+      const revealAnswerInput = document.createElement("input");
+      revealAnswerInput.type = "checkbox";
+      revealAnswerInput.checked = revealAnswerOnContact;
+      revealAnswerInput.addEventListener("change", () => {
+        revealAnswerOnContact = revealAnswerInput.checked;
+        if (global.LayoutConfig) {
+          global.LayoutConfig.set("revealAnswerOnContact", revealAnswerOnContact);
+        }
+      });
+      const revealAnswerSpan = document.createElement("span");
+      revealAnswerSpan.textContent = "La contact, ? devine răspunsul ales";
+      revealAnswerRow.append(revealAnswerInput, revealAnswerSpan);
+      panelEl.appendChild(revealAnswerRow);
+
       const swapRow = document.createElement("label");
       swapRow.className = "control-panel-lift-row";
       const swapInput = document.createElement("input");
@@ -347,6 +366,80 @@
       return normalized;
     }
 
+    function stateHasQuestionMark(state) {
+      if (!state) return false;
+      if (state.questionFormat === "singapore-bond") {
+        return state.bondKnownAddend != null && state.bondRevealedAddend == null;
+      }
+      if (state.questionFormat === "division-eq") {
+        return state.revealedQuotient == null && !String(state.promptHtml ?? "").includes("q-correct");
+      }
+      const raw = String(state.prompt ?? "");
+      if (raw.includes("?")) return true;
+      const html = String(state.promptHtml ?? "");
+      return html.includes("q-mark") || html.includes("q-q");
+    }
+
+    function resultAlreadyRevealed(result, beforeState) {
+      if (result.answerRevealed) return true;
+      if (String(result.promptHtml ?? "").includes("q-correct")) return true;
+      if (!stateHasQuestionMark(result)) return true;
+      if (beforeState && !isSameQuestion(result, beforeState)) return false;
+      return false;
+    }
+
+    function isSameQuestion(a, b) {
+      if (!a || !b) return false;
+      if (a.questionFormat !== b.questionFormat) return false;
+      if (a.questionFormat === "singapore-bond") {
+        return (
+          a.targetSum === b.targetSum &&
+          a.bondKnownAddend === b.bondKnownAddend &&
+          a.bondMissingSide === b.bondMissingSide
+        );
+      }
+      if (a.questionFormat === "division-eq") {
+        return a.dividend === b.dividend && a.divisor === b.divisor;
+      }
+      return String(a.prompt) === String(b.prompt);
+    }
+
+    function buildRevealedState(state, answer) {
+      const ans = String(answer ?? "").trim();
+      const mark = `<span class="q-correct">${ans}</span>`;
+      const revealed = { ...state, answerRevealed: true };
+
+      if (state.questionFormat === "singapore-bond") {
+        revealed.bondRevealedAddend = ans;
+        return revealed;
+      }
+      if (state.questionFormat === "division-eq") {
+        revealed.revealedQuotient = ans;
+        revealed.promptHtml = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span>${mark}`;
+        return revealed;
+      }
+
+      const raw = String(state.prompt ?? "");
+      if (raw.includes("=?")) {
+        revealed.prompt = raw.replace("=?", `=${ans}`);
+        revealed.promptHtml = raw.replace("=?", `=${mark}`);
+      } else if (raw.includes("?")) {
+        revealed.prompt = raw.replace("?", ans);
+        revealed.promptHtml = raw.replace("?", mark);
+      }
+      return revealed;
+    }
+
+    function singaporeBondLine(state) {
+      const ans = state.bondRevealedAddend;
+      const mark = ans != null ? `<span class="q-correct">${ans}</span>` : null;
+      if (state.bondKnownAddend == null) return `${state.targetSum}=`;
+      if (state.bondMissingSide === "right") {
+        return `${state.targetSum}=${state.bondKnownAddend}+${mark ?? "?"}`;
+      }
+      return `${state.targetSum}=${(mark ?? "?")}+${state.bondKnownAddend}`;
+    }
+
     function renderRound(state) {
       state = normalizeRoundState(state);
       lastRoundState = state;
@@ -359,16 +452,14 @@
           .join("");
         dom.topNumberEl.innerHTML = `<div class="singapore-prompt">${
           historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : ""
-        }<div class="singapore-current">${
-          state.bondKnownAddend != null
-            ? state.bondMissingSide === "right"
-              ? `${state.targetSum}=${state.bondKnownAddend}+?`
-              : `${state.targetSum}=?+${state.bondKnownAddend}`
-            : `${state.targetSum}=`
-        }</div></div>`;
+        }<div class="singapore-current">${singaporeBondLine(state)}</div></div>`;
         fm?.classList.add("has-singapore-bond");
       } else if (state.questionFormat === "division-eq") {
-        dom.topNumberEl.innerHTML = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span><span class="q-q">?</span>`;
+        if (state.promptHtml) {
+          dom.topNumberEl.innerHTML = state.promptHtml;
+        } else {
+          dom.topNumberEl.innerHTML = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span><span class="q-q">?</span>`;
+        }
         fm?.classList.add("has-division-eq");
       } else {
         if (state.promptHtml !== undefined) {
@@ -509,11 +600,7 @@
       );
     }
 
-    function applyAnswerResult(result, pickedIndex) {
-      const shouldRender = hasRenderableState(result);
-      result = normalizeResult(result);
-      const wrongPick = pickedIndex != null && result.outcome === "wrong-answer";
-
+    function applyImmediateAnswerFeedback(result, wrongPick) {
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
       if (result.banner && !result.promptHoldMs) config.showBanner(result.banner);
@@ -541,26 +628,35 @@
           dom.falling.classList.remove("bounce");
         }, 380);
       }
+    }
 
+    function applyContinueStep(result) {
+      const next = normalizeResult(result.continueStep);
+      if (next.resetFall) setFallPosition(0);
+
+      if (next.runComplete) {
+        if (next.banner) config.showBanner(next.banner);
+        config.onProgressUpdate?.();
+        finishRun(next);
+        return;
+      }
+
+      renderRound(next);
+      if (!getQuiz().isCompleted()) setInputEnabled(true);
+      config.onProgressUpdate?.();
+    }
+
+    function applyAnswerResultTail(result, pickedIndex, wrongPick, shouldRender, afterEngineReveal) {
       if (shouldRender && !wrongPick) renderRound(result);
 
-      if (result.promptHoldMs && result.continueStep !== undefined) {
+      if (result.promptHoldMs != null && result.continueStep !== undefined) {
+        if (afterEngineReveal) {
+          setInputEnabled(false);
+          applyContinueStep(result);
+          return;
+        }
         setInputEnabled(false);
-        setTimeout(() => {
-          const next = normalizeResult(result.continueStep);
-          if (next.resetFall) setFallPosition(0);
-
-          if (next.runComplete) {
-            if (next.banner) config.showBanner(next.banner);
-            config.onProgressUpdate?.();
-            finishRun(next);
-            return;
-          }
-
-          renderRound(next);
-          if (!getQuiz().isCompleted()) setInputEnabled(true);
-          config.onProgressUpdate?.();
-        }, result.promptHoldMs);
+        setTimeout(() => applyContinueStep(result), result.promptHoldMs);
         return;
       }
 
@@ -579,6 +675,45 @@
 
       if (!result.gameComplete) setInputEnabled(true);
       config.onProgressUpdate?.();
+    }
+
+    function applyAnswerResult(result, pickedIndex) {
+      const shouldRender = hasRenderableState(result);
+      const beforeState = lastRoundState;
+      result = normalizeResult(result);
+      const wrongPick = pickedIndex != null && result.outcome === "wrong-answer";
+      const chosenAnswer =
+        pickedIndex != null
+          ? dom.optionBtns[pickedIndex]?.querySelector(".prime")?.textContent
+          : null;
+
+      applyImmediateAnswerFeedback(result, wrongPick);
+
+      const needsEngineReveal =
+        revealAnswerOnContact &&
+        !wrongPick &&
+        pickedIndex != null &&
+        beforeState &&
+        stateHasQuestionMark(beforeState) &&
+        !resultAlreadyRevealed(result, beforeState);
+
+      if (needsEngineReveal) {
+        const revealState = buildRevealedState(beforeState, chosenAnswer);
+        renderRound({
+          ...revealState,
+          options: beforeState.options,
+          correctIndex: beforeState.correctIndex,
+        });
+        const holdMs =
+          result.promptHoldMs ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS;
+        setInputEnabled(false);
+        setTimeout(() => {
+          applyAnswerResultTail(result, pickedIndex, wrongPick, shouldRender, true);
+        }, holdMs);
+        return;
+      }
+
+      applyAnswerResultTail(result, pickedIndex, wrongPick, shouldRender, false);
     }
 
     function resolveChoice(index) {
