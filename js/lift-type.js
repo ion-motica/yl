@@ -28,7 +28,7 @@
     {
       id: "fixed-question-ball",
       label: "Intrebare fixa si lift mingie",
-      implemented: false,
+      implemented: true,
     },
   ];
 

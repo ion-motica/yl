@@ -44,13 +44,20 @@ test("implemented bar type is selectable and maps to bar mode", () => {
   assert.equal(LiftType.isImplemented("fixed-question-bar"), true);
 });
 
-test("unimplemented type falls back to effective default", () => {
+test("implemented ball type is selectable and maps to ball mode", () => {
   const LiftType = loadLiftType();
   LiftType.setStoredLiftTypeId("fixed-question-ball");
   assert.equal(LiftType.getStoredLiftTypeId(), "fixed-question-ball");
+  assert.equal(LiftType.getEffectiveLiftTypeId(), "fixed-question-ball");
+  assert.equal(LiftType.getEffectiveLiftMode(), "ball");
+  assert.equal(LiftType.isImplemented("fixed-question-ball"), true);
+});
+
+test("unimplemented stored type falls back to effective default", () => {
+  const LiftType = loadLiftType();
+  LiftType.setStoredLiftTypeId("does-not-exist");
   assert.equal(LiftType.getEffectiveLiftTypeId(), "question-in-lift");
   assert.equal(LiftType.getEffectiveLiftMode(), "content");
-  assert.equal(LiftType.isImplemented("fixed-question-ball"), false);
 });
 
 test("three exclusive lift type options defined", () => {

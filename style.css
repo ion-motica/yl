@@ -806,6 +806,16 @@ body {
   height: 37px;
 }
 
+/* În modul mingie, moverul e un cerc gol (contur albastru) care curge.
+   Diametru = înălțimea barei din v2 (37px × 2 = 74px). */
+.game.lift-mode-ball #falling {
+  background: transparent;
+  width: 74px;
+  min-height: 0;
+  height: 74px;
+  border-radius: 50%;
+}
+
 .asnw-stars-row {
   display: flex;
   justify-content: center;
