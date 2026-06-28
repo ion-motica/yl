@@ -715,6 +715,97 @@ body {
   font-size: 0.82rem;
 }
 
+/* CP — Tip lift */
+.control-panel-lift-type {
+  margin-top: 0.15rem;
+}
+
+.control-panel-lift-type-options {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.control-panel-lift-type-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.control-panel-lift-type-option input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.control-panel-lift-type-option.is-pending {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.control-panel-lift-type-option.is-pending input:disabled + span {
+  opacity: 0.85;
+}
+
+/* Tip lift — panou fix cu întrebarea (v2/v3). Ascuns în modul „content” (v1).
+   Stă în flux normal, direct deasupra butoanelor #options, deci latura de jos
+   e automat tangentă la marginea de sus a butoanelor. */
+.lift-fixed-host[hidden] {
+  display: none;
+}
+
+.lift-fixed-host {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Panou fix vizibil în v2/v3: conține `.falling-inner` re-parentat (întrebarea
+   + conținutul, fără butoane — acelea sunt deja în #options dedesubt).
+   Are același contur ca liftul și e lipit (tangent) de marginea de sus a
+   butoanelor: îl împingem jos cu margin-top:auto, iar #options pierde
+   margin-top:auto în aceste moduri, ca să nu rămână gol între ele. */
+.game.lift-mode-bar #lift-fixed-host,
+.game.lift-mode-ball #lift-fixed-host {
+  margin-top: auto;
+  align-self: center;
+  width: var(--lift-width, 92%);
+  background: rgba(26, 35, 50, var(--lift-bg-opacity, 0.8));
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  z-index: var(--zindex-lift);
+  padding: 0.15rem 0 0.35rem;
+}
+
+.game.lift-mode-bar #options,
+.game.lift-mode-ball #options {
+  margin-top: 0;
+}
+
+/* Opțiunile-pastile din conținutul liftului nu se mai arată în panoul fix —
+   răspunsurile sunt deja în butoanele #options de jos. */
+.game.lift-mode-bar #lift-fixed-host .falling-options,
+.game.lift-mode-ball #lift-fixed-host .falling-options {
+  display: none;
+}
+
+/* În modul bară, liftul mobil rămâne doar un contur gol care continuă să cadă
+   (cronometru/presiune), cu înălțime redusă (~33% din lift). Conținutul a
+   plecat în panoul fix. */
+.game.lift-mode-bar #falling {
+  background: transparent;
+  min-height: 37px;
+  height: 37px;
+}
+
 .asnw-stars-row {
   display: flex;
   justify-content: center;

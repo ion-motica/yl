@@ -98,7 +98,15 @@
     }
 
     function syncBoxHeight() {
-      boxH = Math.max(BOX_MIN, Math.ceil(dom.falling.getBoundingClientRect().height));
+      const measured = Math.ceil(dom.falling.getBoundingClientRect().height);
+      // În modurile bară/mingie moverul e mic și gol → folosim înălțimea reală
+      // (fără podeaua BOX_MIN, care e pentru liftul-conținut din v1) ca să cadă
+      // pe tot traseul, fără gol jos.
+      const contentMode =
+        (global.LiftType?.getEffectiveLiftMode?.() ?? "content") === "content";
+      boxH = contentMode
+        ? Math.max(BOX_MIN, measured)
+        : Math.max(8, measured);
       refreshArenaMetrics();
     }
 
@@ -612,6 +620,16 @@
       return global.AsnwProfile?.isEffective?.("liftNoRiseTeleport") === true;
     }
 
+    // În modurile „bară”/„mingie” întrebarea e fixă jos, iar moverul e gol; nu
+    // are sens ca răspunsul să urce spre el → rezolvăm direct, ca la ASNW simplu.
+    function isContentLiftMode() {
+      return (global.LiftType?.getEffectiveLiftMode?.() ?? "content") === "content";
+    }
+
+    function isDirectAnswerMode() {
+      return isAsnwLiftSimple() || !isContentLiftMode();
+    }
+
     function applyImmediateAnswerFeedback(result, wrongPick) {
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
@@ -819,7 +837,7 @@
 
     function onPick(index) {
       if (locked || animating || paused || getQuiz().isCompleted()) return;
-      if (isAsnwLiftSimple()) {
+      if (isDirectAnswerMode()) {
         dom.optionBtns[index].classList.add("selected");
         dom.fallingPrimes[index]?.classList.add("highlight");
         resolveChoice(index);
@@ -919,6 +937,14 @@
       startFallLoop,
       cancelRisingAnimation,
       applyResize,
+      // Recalculează geometria moverului (înălțime/traseu) după ce stratul
+      // „tip lift” a re-parentat conținutul, păstrând poziția relativă a
+      // căderii și re-randând runda curentă. Nu repornește runda → seriile și
+      // bounce-ul rămân intacte.
+      relayoutLift: () => {
+        applyResize();
+        if (lastRoundState) renderRound(lastRoundState);
+      },
       refreshArenaMetrics,
       syncAsnwSuccessionList,
       getLiftBgOpacity: () => liftBgOpacity,

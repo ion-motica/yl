@@ -29,6 +29,8 @@
     onAamCpEnabledChange: null,
     flashEl: document.getElementById("flash"),
     falling: document.getElementById("falling"),
+    fallingInner: document.querySelector(".falling-inner"),
+    liftFixedHost: document.getElementById("lift-fixed-host"),
     fallingMainEl: document.getElementById("falling-main"),
     topNumberEl: document.getElementById("top-number"),
     successionListEl: document.getElementById("succession-list"),
@@ -368,6 +370,11 @@
 
   let aamCpEnabled = false;
   CpRegistry.register({
+    id: "liftType",
+    title: "CP — Tip lift",
+    isEnabled: () => true,
+  });
+  CpRegistry.register({
     id: "lift",
     title: "CP — Lift",
     isEnabled: () => true,
@@ -396,6 +403,48 @@
     aamCpEnabled = on;
     cpShell.setPanelEnabled("aam", on);
   };
+
+  // Stratul „tip lift” = doar prezentare: (a) clasa de mod pe #game și (b) unde
+  // trăiește conținutul (`.falling-inner`). NU recreăm noduri — doar
+  // re-parentăm același `.falling-inner` între liftul mobil și panoul fix, deci
+  // toate referințele motorului rămân valide. Toată mișcarea rămâne în motor și
+  // e agnostică la tip. Idempotentă: se poate apela oricând, în orice ordine.
+  function applyLiftLayout() {
+    const mode = window.LiftType?.getEffectiveLiftMode?.() ?? "content";
+    dom.gameEl.classList.remove(
+      "lift-mode-content",
+      "lift-mode-bar",
+      "lift-mode-ball"
+    );
+    dom.gameEl.classList.add(`lift-mode-${mode}`);
+
+    const inner = dom.fallingInner;
+    const host = dom.liftFixedHost;
+    if (inner && host && dom.falling) {
+      if (mode === "content") {
+        if (inner.parentElement !== dom.falling) dom.falling.appendChild(inner);
+        host.hidden = true;
+        host.setAttribute("aria-hidden", "true");
+      } else {
+        if (inner.parentElement !== host) host.appendChild(inner);
+        host.hidden = false;
+        host.setAttribute("aria-hidden", "false");
+      }
+    }
+
+    engine?.relayoutLift?.();
+  }
+
+  (function buildLiftTypePanel() {
+    const mount = cpShell.getMountEl("liftType");
+    if (!mount) return;
+    mount.replaceChildren();
+    window.LiftType?.appendLiftTypeControl(mount, {
+      onChange: () => applyLiftLayout(),
+    });
+  })();
+
+  applyLiftLayout();
 
   // CP — Depanare layout: profil ASNW + border debug.
   const DEBUG_BORDERS_KEY = "debugInfoBorders";
@@ -562,6 +611,7 @@
   buildQuizPicker();
   buildLevelPicker();
   renderProgress();
+  applyLiftLayout();
   engine.startRound(quiz.beginRound(quiz.pickNextRound()));
   engine.startFallLoop();
   applyDesktopGrid();

@@ -13,7 +13,11 @@
   }
 
   function ensureRow(fallingEl) {
-    const inner = fallingEl?.querySelector(".falling-inner");
+    // `.falling-inner` poate fi re-parentat în panoul fix (tip lift v2/v3), deci
+    // îl căutăm global, nu doar sub liftul mobil.
+    const inner =
+      fallingEl?.querySelector(".falling-inner") ??
+      document.querySelector(".falling-inner");
     const main = inner?.querySelector("#falling-main");
     if (!inner || !main) return null;
 

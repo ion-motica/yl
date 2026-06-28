@@ -2,7 +2,8 @@
   "use strict";
 
   const LEGACY_DEFAULT_ORDER = ["lift", "aam", "debug"];
-  const DEFAULT_ORDER = ["debug", "lift", "aam"];
+  const LEGACY_DEFAULT_ORDER_V2 = ["debug", "lift", "aam"];
+  const DEFAULT_ORDER = ["liftType", "debug", "lift", "aam"];
   const panels = new Map();
 
   function register(def) {
@@ -22,7 +23,20 @@
     ) {
       return DEFAULT_ORDER.slice();
     }
+    if (
+      Array.isArray(stored) &&
+      stored.length === LEGACY_DEFAULT_ORDER_V2.length &&
+      LEGACY_DEFAULT_ORDER_V2.every((id, i) => stored[i] === id)
+    ) {
+      return DEFAULT_ORDER.slice();
+    }
     return stored;
+  }
+
+  function ensureLiftTypeFirst(order) {
+    if (!panels.has("liftType")) return order;
+    const rest = order.filter((id) => id !== "liftType");
+    return ["liftType", ...rest];
   }
 
   function getOrder() {
@@ -38,7 +52,11 @@
       panels.forEach((_v, id) => {
         if (!known.includes(id)) known.push(id);
       });
-      return known;
+      const ordered = ensureLiftTypeFirst(known);
+      if (ordered.join("|") !== known.join("|") && Config) {
+        Config.set("cpOrder", ordered);
+      }
+      return ordered;
     }
     return DEFAULT_ORDER.filter((id) => panels.has(id));
   }

@@ -123,7 +123,10 @@
     if (!keys.length) return 0;
 
     const fallingEl = ctx.fallingEl ?? document.getElementById("falling");
-    const starsRow = fallingEl?.querySelector("#asnw-stars-row");
+    // Rândul de stelute poate fi în liftul mobil (v1) sau în panoul fix (v2/v3).
+    const starsRow =
+      fallingEl?.querySelector("#asnw-stars-row") ??
+      document.getElementById("asnw-stars-row");
     let label = null;
     /** @type {HTMLElement[]} */
     let spirals = [];
