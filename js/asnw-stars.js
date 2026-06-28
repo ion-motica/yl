@@ -5,6 +5,7 @@
   const SUB_GOAL_BANNER = "Bravo! Nivelul urmator!";
 
   let litCount = 0;
+  let celebrating = false;
   let rowEl = null;
 
   function isActive() {
@@ -32,10 +33,16 @@
     return rowEl;
   }
 
+  function getStarCount() {
+    const domCount = rowEl?.querySelectorAll(".asnw-star").length;
+    return domCount > 0 ? domCount : STAR_COUNT;
+  }
+
   function render() {
     if (!rowEl) return;
+    const visibleLit = celebrating ? getStarCount() : litCount;
     rowEl.querySelectorAll(".asnw-star").forEach((el, i) => {
-      el.classList.toggle("lit", i < litCount);
+      el.classList.toggle("lit", i < visibleLit);
     });
   }
 
@@ -66,8 +73,6 @@
       if (litCount < STAR_COUNT) litCount++;
       render();
       if (litCount >= STAR_COUNT) {
-        litCount = 0;
-        render();
         return true;
       }
       return false;
@@ -80,7 +85,19 @@
     return false;
   }
 
+  function beginCelebration() {
+    celebrating = true;
+    render();
+  }
+
+  function endCelebration() {
+    celebrating = false;
+    litCount = 0;
+    render();
+  }
+
   function reset() {
+    celebrating = false;
     litCount = 0;
     render();
   }
@@ -96,7 +113,10 @@
     ensureRow,
     syncVisibility,
     onAnswer,
+    beginCelebration,
+    endCelebration,
     reset,
     getLitCount,
+    getStarCount,
   };
 })(window);

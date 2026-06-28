@@ -724,10 +724,12 @@ body {
   padding: 0.15rem 0 0.5rem;
   pointer-events: none;
   user-select: none;
+  position: relative;
 }
 
 .asnw-star {
   display: inline-block;
+  position: relative;
   width: 2.875rem;
   height: 2.875rem;
   font-size: 2.875rem;
@@ -745,6 +747,141 @@ body {
   color: #facc15;
   -webkit-text-stroke: 0;
   filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.45));
+}
+
+/* CP — La schimbare nivel */
+.control-panel-level-change {
+  margin-top: 0.75rem;
+}
+
+.control-panel-level-change-heading {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.control-panel-level-change-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-left: 0.65rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid rgba(251, 191, 36, 0.35);
+}
+
+.control-panel-level-change-flag span {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+/* Pas 12 — recompense la schimbare nivel */
+.asnw-stars-row.celebrate {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 0.35rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  overflow: visible;
+}
+
+.asnw-stars-row.celebrate .asnw-star {
+  color: #facc15;
+  -webkit-text-stroke: 0;
+  filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.55));
+}
+
+.asnw-stars-row.celebrate-pulse .asnw-star {
+  animation: asnw-star-pulse var(--asnw-pulse-cycle, 0.75s) ease-in-out
+    var(--asnw-pulse-count, 2);
+}
+
+.asnw-subgoal-label {
+  display: none;
+  flex-basis: 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 0.12rem 0.25rem 0;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.18);
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  color: #fde68a;
+  font-size: clamp(0.95rem, 4.8vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: normal;
+  overflow: hidden;
+  pointer-events: none;
+  line-height: 1.15;
+  transform-origin: center center;
+}
+
+.asnw-subgoal-label.show {
+  display: block;
+  animation: asnw-label-pulse var(--asnw-pulse-cycle, 0.75s) ease-in-out
+    var(--asnw-pulse-count, 2);
+}
+
+.asnw-star-spiral {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 1;
+}
+
+.asnw-spiral-particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #fde68a;
+  box-shadow: 0 0 5px rgba(250, 204, 21, 0.75);
+  animation: asnw-spiral-out 1.05s ease-out forwards;
+  animation-delay: calc(var(--spiral-i, 0) * 0.05s);
+  transform: rotate(var(--spiral-offset, 0deg)) translateY(0);
+}
+
+@keyframes asnw-star-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes asnw-label-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes asnw-spiral-out {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--spiral-offset, 0deg)) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--spiral-offset, 0deg) + 540deg)) translateY(-1.65rem)
+      scale(0.3);
+  }
 }
 
 .arena-ilustrare-din-arena,

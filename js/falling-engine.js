@@ -583,9 +583,12 @@
         return;
       }
 
-      const delay = result.levelAdvanced ? LEVEL_ADV_MS : result.runDelayMs ?? RUN_DONE_MS;
+      const delay =
+        result.runDelayMs ??
+        (result.levelAdvanced ? LEVEL_ADV_MS : RUN_DONE_MS);
       setTimeout(() => {
         if (getQuiz().isCompleted()) return;
+        if (result.holdFallDuringDelay) fallHeld = false;
         startRound(result.nextRound ?? getQuiz().beginRound(getQuiz().pickNextRound()));
       }, delay);
     }
@@ -708,6 +711,10 @@
         const subGoal = global.AsnwStars.onAnswer({ correct: starCorrect });
         if (subGoal && typeof config.onSubGoal === "function") {
           result = config.onSubGoal(result) ?? result;
+          if (result.holdFallDuringDelay) {
+            fallHeld = true;
+            setInputEnabled(false);
+          }
         }
       }
 

@@ -32,13 +32,17 @@ beforeEach(() => {
   delete globalThis.AsnwStars;
 });
 
-test("three consecutive correct answers trigger sub-goal and reset", () => {
+test("three consecutive correct answers trigger sub-goal and keep stars lit until celebration ends", () => {
   const Stars = loadAsnwStars();
   assert.equal(Stars.onAnswer({ correct: true }), false);
   assert.equal(Stars.getLitCount(), 1);
   assert.equal(Stars.onAnswer({ correct: true }), false);
   assert.equal(Stars.getLitCount(), 2);
   assert.equal(Stars.onAnswer({ correct: true }), true);
+  assert.equal(Stars.getLitCount(), 3);
+  Stars.beginCelebration();
+  assert.equal(Stars.getLitCount(), 3);
+  Stars.endCelebration();
   assert.equal(Stars.getLitCount(), 0);
 });
 

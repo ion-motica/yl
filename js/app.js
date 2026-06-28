@@ -298,7 +298,14 @@
 
   function handleAsnwSubGoal(result) {
     if (!quiz || quiz.isCompleted()) return result;
-    showBanner(window.AsnwStars?.SUB_GOAL_BANNER ?? "Bravo! Nivelul urmator!");
+
+    const reward = window.LevelChangeReward;
+    const rewardMs = reward?.isAnyEnabled?.()
+      ? reward.play({ fallingEl: dom.falling })
+      : 0;
+    if (!rewardMs) {
+      showBanner(window.AsnwStars?.SUB_GOAL_BANNER ?? "Bravo! Nivelul urmator!");
+    }
 
     const lv = quiz.getLevel();
     const max = quiz.getMaxLevel?.() ?? lv;
@@ -311,8 +318,12 @@
 
     return {
       ...result,
+      bounce: false,
+      resetFall: false,
+      holdFallDuringDelay: rewardMs > 0,
       levelAdvanced: true,
       runComplete: true,
+      runDelayMs: rewardMs || undefined,
       nextRound: quiz.beginRound(quiz.pickNextRound()),
       banner: undefined,
     };
@@ -424,6 +435,8 @@
         if (engine) switchQuiz(id);
       },
     });
+
+    window.LevelChangeReward?.appendLevelChangeControl(mount);
 
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideDivLabels");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideLevelInfo");
