@@ -442,6 +442,7 @@
 
     function renderRound(state) {
       state = normalizeRoundState(state);
+      global.AsnwStars?.syncVisibility?.(dom.falling);
       lastRoundState = state;
       dom.fallingMainEl?.classList.remove("has-division-eq", "has-singapore-bond");
       dom.arenaQuestionSlotEl?.classList.remove("has-division-eq", "has-singapore-bond");
@@ -503,22 +504,26 @@
 
       if (dom.successionListEl) {
         dom.successionListEl.replaceChildren();
-        (state.successionHistory || []).forEach(({ prompt, answer }) => {
-          const item = document.createElement("div");
-          item.className = "sl-item";
-          const parts = String(prompt ?? "").split("?");
-          if (parts.length === 2) {
-            item.append(document.createTextNode(parts[0]));
-            const span = document.createElement("span");
-            span.className = "sl-answer";
-            span.textContent = String(answer ?? "");
-            item.appendChild(span);
-            item.append(document.createTextNode(parts[1]));
-          } else {
-            item.textContent = `${prompt} ${answer}`;
-          }
-          dom.successionListEl.appendChild(item);
-        });
+        const skipSuccession =
+          global.AsnwProfile?.isEffective?.("emptySuccessionList") === true;
+        if (!skipSuccession) {
+          (state.successionHistory || []).forEach(({ prompt, answer }) => {
+            const item = document.createElement("div");
+            item.className = "sl-item";
+            const parts = String(prompt ?? "").split("?");
+            if (parts.length === 2) {
+              item.append(document.createTextNode(parts[0]));
+              const span = document.createElement("span");
+              span.className = "sl-answer";
+              span.textContent = String(answer ?? "");
+              item.appendChild(span);
+              item.append(document.createTextNode(parts[1]));
+            } else {
+              item.textContent = `${prompt} ${answer}`;
+            }
+            dom.successionListEl.appendChild(item);
+          });
+        }
       }
 
       syncBoxHeight();
@@ -600,6 +605,10 @@
       );
     }
 
+    function isAsnwLiftSimple() {
+      return global.AsnwProfile?.isEffective?.("liftNoRiseTeleport") === true;
+    }
+
     function applyImmediateAnswerFeedback(result, wrongPick) {
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
@@ -610,23 +619,29 @@
 
       if (result.bounce) {
         clearWrongMarks();
-        bouncing = true;
-        dom.falling.classList.add("bounce");
-        syncBoxHeight();
-        const bounceToTop = getQuiz().shouldBounceToTop?.() ?? false;
-        let targetY;
-        if (bounceToTop) {
-          targetY = 0;
-        } else {
-          const normalBounceY = fallY - BOUNCE_UP * speedScale();
-          const clearlyAboveHalfY = travelSpan() * BOUNCE_MIN_FRAC;
-          targetY = Math.min(normalBounceY, clearlyAboveHalfY);
-        }
-        setFallPosition(Math.max(0, targetY));
-        setTimeout(() => {
+        if (isAsnwLiftSimple()) {
           bouncing = false;
           dom.falling.classList.remove("bounce");
-        }, 380);
+          setFallPosition(0);
+        } else {
+          bouncing = true;
+          dom.falling.classList.add("bounce");
+          syncBoxHeight();
+          const bounceToTop = getQuiz().shouldBounceToTop?.() ?? false;
+          let targetY;
+          if (bounceToTop) {
+            targetY = 0;
+          } else {
+            const normalBounceY = fallY - BOUNCE_UP * speedScale();
+            const clearlyAboveHalfY = travelSpan() * BOUNCE_MIN_FRAC;
+            targetY = Math.min(normalBounceY, clearlyAboveHalfY);
+          }
+          setFallPosition(Math.max(0, targetY));
+          setTimeout(() => {
+            bouncing = false;
+            dom.falling.classList.remove("bounce");
+          }, 380);
+        }
       }
     }
 
@@ -682,10 +697,19 @@
       const beforeState = lastRoundState;
       result = normalizeResult(result);
       const wrongPick = pickedIndex != null && result.outcome === "wrong-answer";
+      const timedOut = result.outcome === "timeout";
+      const starCorrect = !wrongPick && !timedOut && result.correct !== false;
       const chosenAnswer =
         pickedIndex != null
           ? dom.optionBtns[pickedIndex]?.querySelector(".prime")?.textContent
           : null;
+
+      if (global.AsnwStars?.isActive?.()) {
+        const subGoal = global.AsnwStars.onAnswer({ correct: starCorrect });
+        if (subGoal && typeof config.onSubGoal === "function") {
+          result = config.onSubGoal(result) ?? result;
+        }
+      }
 
       applyImmediateAnswerFeedback(result, wrongPick);
 
@@ -788,6 +812,14 @@
 
     function onPick(index) {
       if (locked || animating || paused || getQuiz().isCompleted()) return;
+      if (isAsnwLiftSimple()) {
+        dom.optionBtns[index].classList.add("selected");
+        dom.fallingPrimes[index]?.classList.add("highlight");
+        resolveChoice(index);
+        dom.optionBtns[index].classList.remove("selected");
+        dom.fallingPrimes[index]?.classList.remove("highlight");
+        return;
+      }
       animateRising(index);
     }
 
@@ -870,12 +902,18 @@
 
     buildLiftControlPanel();
 
+    function syncAsnwSuccessionList() {
+      if (lastRoundState) renderRound(lastRoundState);
+      else dom.successionListEl?.replaceChildren();
+    }
+
     return {
       startRound,
       startFallLoop,
       cancelRisingAnimation,
       applyResize,
       refreshArenaMetrics,
+      syncAsnwSuccessionList,
       getLiftBgOpacity: () => liftBgOpacity,
       setLiftBgOpacity: (value) => {
         liftBgOpacity = Math.max(0, Math.min(1, Number(value)));

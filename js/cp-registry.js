@@ -1,7 +1,8 @@
 (function (global) {
   "use strict";
 
-  const DEFAULT_ORDER = ["lift", "aam", "debug"];
+  const LEGACY_DEFAULT_ORDER = ["lift", "aam", "debug"];
+  const DEFAULT_ORDER = ["debug", "lift", "aam"];
   const panels = new Map();
 
   function register(def) {
@@ -13,10 +14,26 @@
     });
   }
 
+  function normalizeStoredOrder(stored) {
+    if (
+      Array.isArray(stored) &&
+      stored.length === LEGACY_DEFAULT_ORDER.length &&
+      LEGACY_DEFAULT_ORDER.every((id, i) => stored[i] === id)
+    ) {
+      return DEFAULT_ORDER.slice();
+    }
+    return stored;
+  }
+
   function getOrder() {
     const Config = global.LayoutConfig;
-    const stored = Config && Config.get("cpOrder", null);
+    let stored = Config && Config.get("cpOrder", null);
     if (Array.isArray(stored) && stored.length) {
+      const migrated = normalizeStoredOrder(stored);
+      if (migrated !== stored && Config) {
+        Config.set("cpOrder", migrated);
+        stored = migrated;
+      }
       const known = stored.filter((id) => panels.has(id));
       panels.forEach((_v, id) => {
         if (!known.includes(id)) known.push(id);

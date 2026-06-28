@@ -287,25 +287,72 @@
     if (dom.optionsEl) chromeRo.observe(dom.optionsEl);
   }
 
+  function applyAsnwSuccessionList() {
+    engine?.syncAsnwSuccessionList?.();
+  }
+
+  function applyAsnwStars() {
+    window.AsnwStars?.syncVisibility?.(dom.falling);
+    if (!window.AsnwStars?.isActive?.()) window.AsnwStars?.reset?.();
+  }
+
+  function handleAsnwSubGoal(result) {
+    if (!quiz || quiz.isCompleted()) return result;
+    showBanner(window.AsnwStars?.SUB_GOAL_BANNER ?? "Bravo! Nivelul urmator!");
+
+    const lv = quiz.getLevel();
+    const max = quiz.getMaxLevel?.() ?? lv;
+    if (lv < max && typeof quiz.switchLevel === "function") {
+      quiz.switchLevel(lv + 1);
+      lastGreenCells = null;
+      renderProgress();
+      buildLevelPicker();
+    }
+
+    return {
+      ...result,
+      levelAdvanced: true,
+      runComplete: true,
+      nextRound: quiz.beginRound(quiz.pickNextRound()),
+      banner: undefined,
+    };
+  }
+
+  function applyAsnwArenaIllustration() {
+    aamArena?.syncAsnwFromProfile?.();
+  }
+
+  function applyQuizTitleDisplay() {
+    const id = QuizRegistry.getActiveId();
+    if (!id) return;
+    const meta = QuizRegistry.get(id);
+    if (!meta) return;
+    dom.quizTitleEl.textContent =
+      window.AsnwProfile?.resolveQuizTitle?.(id, meta.title) ?? meta.title;
+  }
+
   function switchQuiz(id) {
     if (id === QuizRegistry.getActiveId() && quiz && !quiz.isCompleted()) return;
     QuizRegistry.setActive(id);
     const meta = QuizRegistry.get(id);
-    dom.quizTitleEl.textContent = meta.title;
+    applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
-    aamArena.reset();
+    aamArena?.reset();
+    window.AsnwStars?.reset?.();
     buildQuizPicker();
     buildLevelPicker();
     lastGreenCells = null;
     renderProgress();
     dom.playPauseBtn.disabled = false;
-    engine.startRound(quiz.beginRound(quiz.pickNextRound()));
+    engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
   }
 
-  QuizRegistry.setActive("addition-eff") ||
-    QuizRegistry.setActive(QuizRegistry.getDefaultId()) ||
-    QuizRegistry.setActive("addition-table") ||
-    QuizRegistry.setActive("prime-divisions");
+  function resolveStartupQuizId() {
+    return window.StartupQuiz?.resolveStartupQuizId?.() ?? null;
+  }
+
+  const startupQuizId = resolveStartupQuizId();
+  if (startupQuizId) QuizRegistry.setActive(startupQuizId);
   quiz = QuizRegistry.createActive();
 
   let aamCpEnabled = false;
@@ -339,23 +386,61 @@
     cpShell.setPanelEnabled("aam", on);
   };
 
-  // CP — Depanare: border verde subțire pe fiecare componentă din #div-strat-info.
+  // CP — Depanare layout: profil ASNW + border debug.
   const DEBUG_BORDERS_KEY = "debugInfoBorders";
   let debugInfoBorders =
-    window.LayoutConfig?.get(DEBUG_BORDERS_KEY, true) !== false;
+    window.LayoutConfig?.get(DEBUG_BORDERS_KEY, false) === true;
+  let debugBordersInput = null;
+
   function applyDebugInfoBorders() {
-    dom.gameEl.classList.toggle("debug-info-borders", debugInfoBorders);
+    const asnwOn = window.AsnwProfile?.isMasterOn() === true;
+    const show = debugInfoBorders && !asnwOn;
+    dom.gameEl.classList.toggle("debug-info-borders", show);
+    if (debugBordersInput) {
+      debugBordersInput.disabled = asnwOn;
+      debugBordersInput.checked = asnwOn ? false : debugInfoBorders;
+    }
   }
+
   applyDebugInfoBorders();
   (function buildDebugPanel() {
     const mount = cpShell.getMountEl("debug");
     if (!mount) return;
     mount.replaceChildren();
+
+    window.AsnwProfile?.buildAsnwSection(mount, {
+      gameEl: dom.gameEl,
+      onChange: () => {
+        applyDebugInfoBorders();
+        applyQuizTitleDisplay();
+        applyAsnwArenaIllustration();
+        applyAsnwSuccessionList();
+        applyAsnwStars();
+      },
+    });
+
+    window.StartupQuiz?.appendStartupQuizControl(mount, {
+      onChange: (id) => {
+        if (engine) switchQuiz(id);
+      },
+    });
+
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideDivLabels");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideLevelInfo");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideHintMessage");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideProgressVisual");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "simplifiedQuizTitle");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "emptyArenaIllustration");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "emptySuccessionList");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "liftNoRiseTeleport");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "starsProgress");
+
     const row = document.createElement("label");
     row.className = "control-panel-lift-row";
     const input = document.createElement("input");
     input.type = "checkbox";
     input.checked = debugInfoBorders;
+    debugBordersInput = input;
     input.addEventListener("change", () => {
       debugInfoBorders = input.checked;
       window.LayoutConfig?.set(DEBUG_BORDERS_KEY, debugInfoBorders);
@@ -365,6 +450,7 @@
     span.textContent = "Border verde subțire pe fiecare componentă din div-info";
     row.append(input, span);
     mount.appendChild(row);
+    applyDebugInfoBorders();
   })();
 
   aamArena = AamArena.create(dom);
@@ -386,6 +472,7 @@
     dom,
     getQuiz: () => quiz,
     showBanner,
+    onSubGoal: handleAsnwSubGoal,
     onProgressUpdate: renderProgress,
     onRender: (state) => aamArena.prepareRound(quiz, state),
     onLiftPanelBuilt: (panelEl) => stage.mountRatioControl(panelEl),
@@ -457,7 +544,7 @@
     requestAnimationFrame(() => layoutStage?.remeasure?.());
   }
 
-  dom.quizTitleEl.textContent = QuizRegistry.get(QuizRegistry.getActiveId()).title;
+  applyQuizTitleDisplay();
   syncLayoutMode();
   buildQuizPicker();
   buildLevelPicker();

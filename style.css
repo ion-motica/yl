@@ -650,6 +650,103 @@ body {
   user-select: none;
 }
 
+/* Profil ASNW — pas 1: etichete dev ascunse */
+.game.asnw-hide-div-labels .arena-zone-label {
+  display: none !important;
+}
+
+/* Profil ASNW — pas 2: nume nivel ascuns */
+.game.asnw-hide-level-info #level-info {
+  display: none !important;
+}
+
+/* Profil ASNW — pas 3: mesaj hint ascuns */
+.game.asnw-hide-hint-message #message {
+  display: none !important;
+}
+
+/* Profil ASNW — pas 4: progres pătrățele v/r ascuns */
+.game.asnw-hide-progress-visual .progress-visual {
+  display: none !important;
+}
+
+/* Profil ASNW — pas 6: ilustrare din arena goală / ascunsă */
+.game.asnw-empty-arena-illustration #div-ilustrare-din-arena {
+  display: none !important;
+}
+
+/* Profil ASNW — pas 7: listă operații fără conținut */
+.game.asnw-empty-succession-list #div-lista-operatii {
+  display: none !important;
+}
+
+.control-panel-asnw-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-left: 0.65rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid rgba(52, 211, 153, 0.35);
+}
+
+.control-panel-asnw-flag span,
+.control-panel-asnw-canonical span {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.control-panel-asnw-flag input:disabled + span,
+.control-panel-asnw-canonical input:disabled + span {
+  opacity: 0.45;
+}
+
+.control-panel-asnw-master span {
+  font-weight: 700;
+}
+
+.control-panel-startup-quiz select {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid #2d3d52;
+  border-radius: 8px;
+  background: #1a2332;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.asnw-stars-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.15rem 0 0.5rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+.asnw-star {
+  display: inline-block;
+  width: 2.875rem;
+  height: 2.875rem;
+  font-size: 2.875rem;
+  line-height: 2.875rem;
+  text-align: center;
+  color: transparent;
+  -webkit-text-stroke: 2.5px #373a3d;
+}
+
+.asnw-star::before {
+  content: "★";
+}
+
+.asnw-star.lit {
+  color: #facc15;
+  -webkit-text-stroke: 0;
+  filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.45));
+}
+
 .arena-ilustrare-din-arena,
 .arena-lista-operatii {
   pointer-events: none;

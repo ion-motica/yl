@@ -351,7 +351,21 @@
       dom.onAamCpEnabledChange?.(on);
     }
 
+    function isAsnwArenaIllustrationEmpty() {
+      return global.AsnwProfile?.isEffective?.("emptyArenaIllustration") === true;
+    }
+
+    /** ASNW: golește zona din arena; pe layout normal blochează ilustrația acolo. */
+    function enforceAsnwEmptyArena() {
+      if (!isAsnwArenaIllustrationEmpty()) return false;
+      clearBodyEl(arenaBodyEl);
+      ilustrareArenaEl?.removeAttribute("data-equation");
+      return !isLayoutSwapped();
+    }
+
     function prepareRound(quiz, state) {
+      const blockArenaIllustration = enforceAsnwEmptyArena();
+
       if (!global.fname || !quiz?.getAamIllustration) {
         setPanelVisible(false);
         clearIllustrationBody();
@@ -360,9 +374,14 @@
       }
 
       const spec = quiz.getAamIllustration(state);
-      if (!spec?.enabled) {
+      if (!spec?.enabled || blockArenaIllustration) {
         setPanelVisible(false);
-        clearIllustrationBody();
+        if (blockArenaIllustration) {
+          clearBodyEl(liftBodyEl);
+          ilustrareLiftEl?.removeAttribute("data-equation");
+        } else {
+          clearIllustrationBody();
+        }
         clearEquationMeta();
         return Promise.resolve();
       }
@@ -385,6 +404,9 @@
     }
 
     function relayout() {
+      if (enforceAsnwEmptyArena() && !isLayoutSwapped()) {
+        return Promise.resolve();
+      }
       const equation = getStoredEquation();
       clearIllustrationBody();
       clearEquationMeta();
@@ -392,6 +414,18 @@
       const { hostEl } = getIllustrationTarget();
       hostEl.dataset.equation = equation;
       return showIllustration(equation);
+    }
+
+    function syncAsnwFromProfile() {
+      const blocked = enforceAsnwEmptyArena();
+      if (blocked && !isLayoutSwapped()) {
+        setPanelVisible(false);
+        clearBodyEl(liftBodyEl);
+        ilustrareLiftEl?.removeAttribute("data-equation");
+        clearEquationMeta();
+        return Promise.resolve();
+      }
+      return relayout();
     }
 
     function reset() {
@@ -403,7 +437,7 @@
     buildControlPanel();
     setPanelVisible(false);
 
-    return { prepareRound, relayout, reset };
+    return { prepareRound, relayout, reset, syncAsnwFromProfile };
   }
 
   global.AamArena = { create: createAamArena, normalizePrompt, canParseAam };
