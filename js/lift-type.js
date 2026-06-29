@@ -50,6 +50,9 @@
 
   /** Tip efectiv pe arena — fallback la default dacă opțiunea nu e implementată încă. */
   function getEffectiveLiftTypeId() {
+    if (global.AsnwProfile?.isEffective?.("liftFixedQuestionBar")) {
+      return "fixed-question-bar";
+    }
     const stored = getStoredLiftTypeId();
     const def = defForId(stored);
     if (def?.implemented) return stored;

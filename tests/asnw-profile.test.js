@@ -163,3 +163,17 @@ test("liftNoRiseTeleport is effective when master ON", () => {
   Asnw.setMasterOn(false);
   assert.equal(Asnw.isEffective("liftNoRiseTeleport"), false);
 });
+
+test("liftFixedQuestionBar is effective when master ON", () => {
+  const Asnw = loadAsnwProfile();
+  assert.equal(Asnw.isEffective("liftFixedQuestionBar"), true);
+  Asnw.setMasterOn(false);
+  assert.equal(Asnw.isEffective("liftFixedQuestionBar"), false);
+});
+
+test("handOverButtons is effective when master ON", () => {
+  const Asnw = loadAsnwProfile();
+  assert.equal(Asnw.isEffective("handOverButtons"), true);
+  Asnw.setMasterOn(false);
+  assert.equal(Asnw.isEffective("handOverButtons"), false);
+});

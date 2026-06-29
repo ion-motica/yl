@@ -27,12 +27,23 @@ function loadLiftType(storage = {}) {
 beforeEach(() => {
   delete globalThis.LayoutConfig;
   delete globalThis.LiftType;
+  delete globalThis.AsnwProfile;
 });
 
 test("default lift type is question-in-lift", () => {
   const LiftType = loadLiftType();
   assert.equal(LiftType.getStoredLiftTypeId(), "question-in-lift");
   assert.equal(LiftType.getEffectiveLiftTypeId(), "question-in-lift");
+});
+
+test("ASNW liftFixedQuestionBar overrides effective lift type to bar", () => {
+  loadLiftType();
+  const asnwCode = readFileSync(join(rootDir, "js/asnw-profile.js"), "utf8");
+  new Function("window", asnwCode)(globalThis);
+  assert.equal(globalThis.LiftType.getEffectiveLiftTypeId(), "fixed-question-bar");
+  assert.equal(globalThis.LiftType.getEffectiveLiftMode(), "bar");
+  globalThis.AsnwProfile.setMasterOn(false);
+  assert.equal(globalThis.LiftType.getEffectiveLiftTypeId(), "question-in-lift");
 });
 
 test("implemented bar type is selectable and maps to bar mode", () => {

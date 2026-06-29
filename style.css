@@ -1992,3 +1992,57 @@ body {
     border-radius: 12px;
   }
 }
+
+/* ── Onboarding ASNW (ghidaje vizuale peste butoane) ─────────────────── */
+.asnw-onboarding-layer {
+  position: absolute;
+  inset: 0;
+  z-index: var(--zindex-meniuri);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.asnw-hand {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 52px;
+  height: 52px;
+  /* ton natural de piele */
+  color: #e8b07e;
+  /* vârful degetului ancorat pe centrul numărului (punctul left/top);
+     -13% compensează poziția vârfului în interiorul SVG-ului */
+  transform: translate(-50%, -13%);
+  transform-origin: 50% 13%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+  will-change: left, top;
+}
+
+.asnw-hand.is-visible {
+  opacity: 0.97;
+  animation: asnw-hand-bob 1.1s ease-in-out infinite;
+}
+
+.asnw-hand svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes asnw-hand-bob {
+  0%,
+  100% {
+    transform: translate(-50%, -13%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -22%) scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asnw-hand.is-visible {
+    animation: none;
+  }
+}

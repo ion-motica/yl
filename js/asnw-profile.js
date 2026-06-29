@@ -5,6 +5,7 @@
 
   /** Valori implicite când profilul ASNW master este activ (reset la bifare master). */
   const ASNW_PRESET = {
+    handOverButtons: true,
     hideDivLabels: true,
     emptyArenaIllustration: true,
     simplifiedQuizTitle: true,
@@ -15,6 +16,7 @@
     liftCloneStatic: true,
     starsProgress: true,
     liftNoRiseTeleport: true,
+    liftFixedQuestionBar: true,
   };
 
   /**
@@ -22,6 +24,13 @@
    * implemented: false → ascuns din CP până la pasul de implementare
    */
   const FLAG_DEFS = [
+    {
+      key: "handOverButtons",
+      storageKey: "asnwHandOverButtons",
+      label: "manuta peste butoane",
+      cssClass: null,
+      implemented: true,
+    },
     {
       key: "hideDivLabels",
       storageKey: "asnwHideDivLabels",
@@ -89,6 +98,13 @@
       key: "liftNoRiseTeleport",
       storageKey: "asnwLiftNoRiseTeleport",
       label: "Lift — fără urcare, teleport sus",
+      cssClass: null,
+      implemented: true,
+    },
+    {
+      key: "liftFixedQuestionBar",
+      storageKey: "asnwLiftFixedQuestionBar",
+      label: "Tip lift = Intrebare fixa si lift bara",
       cssClass: null,
       implemented: true,
     },

@@ -435,11 +435,12 @@
     engine?.relayoutLift?.();
   }
 
+  let liftTypeControl = null;
   (function buildLiftTypePanel() {
     const mount = cpShell.getMountEl("liftType");
     if (!mount) return;
     mount.replaceChildren();
-    window.LiftType?.appendLiftTypeControl(mount, {
+    liftTypeControl = window.LiftType?.appendLiftTypeControl(mount, {
       onChange: () => applyLiftLayout(),
     });
   })();
@@ -476,6 +477,9 @@
         applyAsnwArenaIllustration();
         applyAsnwSuccessionList();
         applyAsnwStars();
+        liftTypeControl?.syncUi?.();
+        applyLiftLayout();
+        window.AsnwOnboarding?.sync?.();
       },
     });
 
@@ -487,6 +491,7 @@
 
     window.LevelChangeReward?.appendLevelChangeControl(mount);
 
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "handOverButtons");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideDivLabels");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideLevelInfo");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideHintMessage");
@@ -495,6 +500,7 @@
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "emptyArenaIllustration");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "emptySuccessionList");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "liftNoRiseTeleport");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "liftFixedQuestionBar");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "starsProgress");
 
     const row = document.createElement("label");
@@ -549,6 +555,8 @@
       return false;
     },
   });
+
+  window.AsnwOnboarding?.init(dom);
 
   // ── Tabel desktop cu 3 coloane (Pasul 3c) ──────────────────────────────
   // Mobilul rămâne baza (nava-mamă, neatins). Tot ce se vede pe telefon e în
