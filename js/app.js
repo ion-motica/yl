@@ -492,6 +492,8 @@
     window.LevelChangeReward?.appendLevelChangeControl(mount);
 
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "handOverButtons");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "simulateTap");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "tapRippleOnQuestion");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideDivLabels");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideLevelInfo");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideHintMessage");

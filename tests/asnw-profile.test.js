@@ -177,3 +177,17 @@ test("handOverButtons is effective when master ON", () => {
   Asnw.setMasterOn(false);
   assert.equal(Asnw.isEffective("handOverButtons"), false);
 });
+
+test("simulateTap is effective when master ON", () => {
+  const Asnw = loadAsnwProfile();
+  assert.equal(Asnw.isEffective("simulateTap"), true);
+  Asnw.setMasterOn(false);
+  assert.equal(Asnw.isEffective("simulateTap"), false);
+});
+
+test("tapRippleOnQuestion is effective when master ON", () => {
+  const Asnw = loadAsnwProfile();
+  assert.equal(Asnw.isEffective("tapRippleOnQuestion"), true);
+  Asnw.setMasterOn(false);
+  assert.equal(Asnw.isEffective("tapRippleOnQuestion"), false);
+});

@@ -6,6 +6,8 @@
   /** Valori implicite când profilul ASNW master este activ (reset la bifare master). */
   const ASNW_PRESET = {
     handOverButtons: true,
+    simulateTap: true,
+    tapRippleOnQuestion: true,
     hideDivLabels: true,
     emptyArenaIllustration: true,
     simplifiedQuizTitle: true,
@@ -28,6 +30,20 @@
       key: "handOverButtons",
       storageKey: "asnwHandOverButtons",
       label: "manuta peste butoane",
+      cssClass: null,
+      implemented: true,
+    },
+    {
+      key: "simulateTap",
+      storageKey: "asnwSimulateTap",
+      label: "simuleaza tap pe buton",
+      cssClass: null,
+      implemented: true,
+    },
+    {
+      key: "tapRippleOnQuestion",
+      storageKey: "asnwTapRippleOnQuestion",
+      label: "Cerculete si peste un buton si peste semnul ?",
       cssClass: null,
       implemented: true,
     },

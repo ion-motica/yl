@@ -27,6 +27,7 @@
   let segStart = 0;
   let idx = 0;
   let prevIdx = 0;
+  let tappedThisHover = false;
 
   function profile() {
     return global.AsnwProfile;
@@ -41,7 +42,7 @@
     return isOn("handOverButtons");
   }
   function anyActive() {
-    return handActive();
+    return handActive() || isOn("simulateTap");
   }
 
   function buttonCount() {
@@ -92,6 +93,43 @@
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   }
 
+  // Cercuri concentrice care se sting, pornind din centrul numărului. Simulează
+  // efectul vizual al unui tap. Se declanșează o dată per oprire deasupra unui
+  // buton (sincronizat cu staționarea mânuții).
+  // Poziția semnului „?” din întrebare (relativ la strat), indiferent de modul
+  // lift (mobil, în mișcare, sau host fix bară/mingie). Întoarce null dacă „?”
+  // nu există (ex. răspuns deja dezvăluit) sau nu e vizibil.
+  function questionMarkPos() {
+    const qEl = dom?.topNumberEl?.querySelector(".q-mark, .q-q");
+    const layer = layerEl;
+    if (!qEl || !layer) return null;
+    const r = qEl.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return null;
+    const lr = layer.getBoundingClientRect();
+    return {
+      x: r.left + r.width / 2 - lr.left,
+      y: r.top + r.height / 2 - lr.top,
+    };
+  }
+
+  function spawnRipple(pos, variant) {
+    const layer = ensureLayer();
+    if (!layer || !pos) return;
+    const ripple = document.createElement("div");
+    ripple.className =
+      variant === "q" ? "asnw-ripple asnw-ripple--q" : "asnw-ripple";
+    ripple.style.left = `${pos.x}px`;
+    ripple.style.top = `${pos.y}px`;
+    for (let i = 0; i < 3; i++) {
+      const ring = document.createElement("span");
+      ring.className = "asnw-ripple-ring";
+      ring.style.animationDelay = `${i * 160}ms`;
+      ripple.appendChild(ring);
+    }
+    layer.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 1200);
+  }
+
   function placeHand(x, y) {
     if (!handEl) return;
     handEl.style.left = `${x}px`;
@@ -139,41 +177,56 @@
     if (isPaused()) dt = 0;
     clock += dt;
 
-    if (handActive()) {
-      ensureHand();
-      showHand(true);
+    // Mașina de stare (ciclare peste butoane + declanșare tap) rulează mereu cât
+    // timp modulul e activ — independent de vizibilitatea mânuții. Astfel bifa
+    // „simuleaza tap” funcționează și cu mânuța debifată (cercurile apar pe rând
+    // pe câte un număr).
+    const cur = buttonPos(idx);
+    let x = cur ? cur.x : 0;
+    let y = cur ? cur.y : 0;
 
-      const cur = buttonPos(idx);
-      if (cur) {
-        let x = cur.x;
-        let y = cur.y;
-
-        if (mode === "hover") {
-          x = cur.x;
-          y = cur.y;
-          if (clock - segStart >= HOVER_MS) {
-            prevIdx = idx;
-            idx = (idx + 1) % count;
-            mode = "glide";
-            segStart = clock;
-          }
-        } else {
-          const from = buttonPos(prevIdx);
-          const to = buttonPos(idx);
-          if (from && to) {
-            const p = Math.min(1, (clock - segStart) / GLIDE_MS);
-            x = from.x + (to.x - from.x) * easeInOut(p);
-            y = from.y + (to.y - from.y) * easeInOut(p);
-            if (p >= 1) {
-              mode = "hover";
-              segStart = clock;
-              x = to.x;
-              y = to.y;
+    if (cur) {
+      if (mode === "hover") {
+        x = cur.x;
+        y = cur.y;
+        if (!tappedThisHover) {
+          tappedThisHover = true;
+          if (isOn("simulateTap")) {
+            spawnRipple(cur);
+            if (isOn("tapRippleOnQuestion")) {
+              const qp = questionMarkPos();
+              if (qp) spawnRipple(qp, "q");
             }
           }
         }
-        placeHand(x, y);
+        if (clock - segStart >= HOVER_MS) {
+          prevIdx = idx;
+          idx = (idx + 1) % count;
+          mode = "glide";
+          segStart = clock;
+          tappedThisHover = false;
+        }
+      } else {
+        const from = buttonPos(prevIdx);
+        const to = buttonPos(idx);
+        if (from && to) {
+          const p = Math.min(1, (clock - segStart) / GLIDE_MS);
+          x = from.x + (to.x - from.x) * easeInOut(p);
+          y = from.y + (to.y - from.y) * easeInOut(p);
+          if (p >= 1) {
+            mode = "hover";
+            segStart = clock;
+            x = to.x;
+            y = to.y;
+          }
+        }
       }
+    }
+
+    if (handActive()) {
+      ensureHand();
+      showHand(true);
+      placeHand(x, y);
     } else {
       showHand(false);
     }
@@ -190,7 +243,8 @@
   function sync() {
     if (!dom) return;
     if (anyActive()) {
-      ensureHand();
+      ensureLayer();
+      if (handActive()) ensureHand();
       startLoop();
     } else {
       showHand(false);

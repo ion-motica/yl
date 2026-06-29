@@ -2041,8 +2041,50 @@ body {
   }
 }
 
+.asnw-ripple {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.asnw-ripple-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.3);
+  animation: asnw-ripple-anim 0.85s ease-out forwards;
+}
+
+.asnw-ripple--q .asnw-ripple-ring {
+  border-color: var(--win);
+}
+
+@keyframes asnw-ripple-anim {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .asnw-hand.is-visible {
     animation: none;
+  }
+  .asnw-ripple-ring {
+    animation-duration: 0.4s;
   }
 }
