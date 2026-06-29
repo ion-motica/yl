@@ -52,7 +52,7 @@ describe("addition-table-conexe-helper quiz", () => {
     assert.equal(message, "Prea ușor. trecem la nivelul 2");
     assert.equal(quiz.getLevel(), 2);
     assert.equal(quiz.getMinLevel(), 2);
-    assert.equal(quiz.getMaxLevel(), 10);
+    assert.equal(quiz.getMaxLevel(), 20);
   });
 
   it("hides progress display", () => {

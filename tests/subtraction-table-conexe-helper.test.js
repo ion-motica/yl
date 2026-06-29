@@ -48,19 +48,19 @@ describe("subtraction-table-conexe-helper quiz", () => {
     const quiz = setupTestEnv({ quizId: QUIZ_ID });
     assert.equal(quiz.getLevel(), 1);
     assert.equal(quiz.getMinLevel(), 1);
-    assert.equal(quiz.getMaxLevel(), 10);
+    assert.equal(quiz.getMaxLevel(), 20);
 
     const message = quiz.switchLevel(0);
     assert.equal(message, "Prea ușor. trecem la nivelul 1");
     assert.equal(quiz.getLevel(), 1);
   });
 
-  it("lists level 2 facts as subtrahend 2 with differences 0..10", () => {
+  it("lists level 2 facts as subtrahend 2 with differences 0..20", () => {
     const facts = globalThis.ConexeTableQuizSubtractionAdapter.listLevelFacts(2);
-    assert.equal(facts.length, 11);
+    assert.equal(facts.length, 21);
     assert.deepEqual(
       facts.map((fact) => fact.values.result).sort((left, right) => left - right),
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     );
     assert.ok(facts.every((fact) => fact.values.b === 2));
     assert.ok(facts.every((fact) => fact.values.a === fact.values.b + fact.values.result));

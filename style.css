@@ -435,14 +435,20 @@ body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+/* Indicator de progres = STELE (înlocuiesc fostele pătrățele verzi), cu un rând
+   de cerculețe roșii dedesubt (fostele combo roșii). Mutat în caseta întrebării,
+   sus (vezi .falling-inner din index.html). Stivă verticală: stele apoi roșii. */
 .progress-visual {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 0.4rem;
-  min-height: 1.5rem;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.1rem 0 0.35rem;
   position: relative;
+  pointer-events: none;
+  user-select: none;
   z-index: var(--zindex-info-arena);
 }
 
@@ -450,7 +456,6 @@ body {
   display: none;
 }
 
-.progress-visual.red-hidden .progress-sep,
 .progress-visual.red-hidden .combo-track {
   display: none;
 }
@@ -487,53 +492,63 @@ body {
   line-height: 1.05;
 }
 
+/* --asnw-star-cell = lățimea unei coloane (stea/cerc). Stelele și rândul roșu
+   folosesc aceeași lățime + același gap, ambele centrate, ca să stea perfect pe
+   coloane: cercul roșu cade exact sub steaua corespunzătoare. */
 .streak-track,
 .combo-track {
+  --asnw-star-cell: 1.55rem;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  gap: 0.45rem;
   justify-content: center;
 }
 
-.progress-sep {
-  width: 1px;
-  height: 1.1rem;
-  background: #3a4d66;
-}
-
-.progress-cell {
-  width: 1.2rem;
-  height: 1.2rem;
-  border-radius: 5px;
-  flex-shrink: 0;
-}
-
+/* Stele (fostele celule verzi). Goală = contur gri; aprinsă = aurie. */
 .streak-cell {
-  border: 2px solid #3d5a7a;
-  background: transparent;
+  position: relative;
+  width: var(--asnw-star-cell);
+  height: var(--asnw-star-cell);
+  font-size: var(--asnw-star-cell);
+  line-height: var(--asnw-star-cell);
+  text-align: center;
+  flex-shrink: 0;
+  color: transparent;
+  -webkit-text-stroke: 1.6px #3d5a7a;
+}
+
+.streak-cell::before {
+  content: "★";
 }
 
 .streak-cell.filled {
-  border-color: var(--correct);
-  background: var(--correct);
+  color: #facc15;
+  -webkit-text-stroke: 0;
+  filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.45));
 }
 
+/* Rândul roșu: câte o coloană pentru fiecare stea, dar doar sloturile cu greșeli
+   afișează cercul. Restul sunt placeholder-e invizibile, ca să păstreze coloana. */
 .combo-cell {
-  border: 2px solid var(--wrong);
+  width: var(--asnw-star-cell);
+  height: 0.62rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.combo-cell::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
   background: transparent;
 }
 
-.combo-cell.filled {
+.combo-cell.has-mistake::before {
   background: var(--wrong);
-}
-
-.combo-cell.partial-1 {
-  background: rgba(248, 113, 113, 0.28);
-}
-
-.combo-cell.partial-2 {
-  background: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 0 4px rgba(248, 113, 113, 0.55);
 }
 
 /* Arena umple tot shell-ul (Varianta A): liftul curge pe toată înălțimea
@@ -816,40 +831,6 @@ body {
   border-radius: 50%;
 }
 
-.asnw-stars-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.65rem;
-  width: 100%;
-  padding: 0.15rem 0 0.5rem;
-  pointer-events: none;
-  user-select: none;
-  position: relative;
-}
-
-.asnw-star {
-  display: inline-block;
-  position: relative;
-  width: 2.875rem;
-  height: 2.875rem;
-  font-size: 2.875rem;
-  line-height: 2.875rem;
-  text-align: center;
-  color: transparent;
-  -webkit-text-stroke: 2.5px #373a3d;
-}
-
-.asnw-star::before {
-  content: "★";
-}
-
-.asnw-star.lit {
-  color: #facc15;
-  -webkit-text-stroke: 0;
-  filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.45));
-}
-
 /* CP — La schimbare nivel */
 .control-panel-level-change {
   margin-top: 0.75rem;
@@ -876,8 +857,8 @@ body {
   color: var(--muted);
 }
 
-/* Pas 12 — recompense la schimbare nivel */
-.asnw-stars-row.celebrate {
+/* Pas 12 — recompense la schimbare nivel (acum pe rândul de stele = #streak-track) */
+.streak-track.celebrate {
   flex-wrap: wrap;
   justify-content: center;
   row-gap: 0.35rem;
@@ -888,13 +869,13 @@ body {
   overflow: visible;
 }
 
-.asnw-stars-row.celebrate .asnw-star {
+.streak-track.celebrate .streak-cell {
   color: #facc15;
   -webkit-text-stroke: 0;
   filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.55));
 }
 
-.asnw-stars-row.celebrate-pulse .asnw-star {
+.streak-track.celebrate-pulse .streak-cell {
   animation: asnw-star-pulse var(--asnw-pulse-cycle, 0.75s) ease-in-out
     var(--asnw-pulse-count, 2);
 }

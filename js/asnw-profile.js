@@ -14,11 +14,10 @@
     emptyArenaIllustration: true,
     simplifiedQuizTitle: true,
     hideLevelInfo: true,
-    hideProgressVisual: true,
+    hideProgressVisual: false,
     hideHintMessage: true,
     emptySuccessionList: true,
     liftCloneStatic: true,
-    starsProgress: true,
     liftNoRiseTeleport: true,
     liftFixedQuestionBar: true,
   };
@@ -118,13 +117,6 @@
       label: "Lift clonă static — ecran duplicat",
       cssClass: null,
       implemented: false,
-    },
-    {
-      key: "starsProgress",
-      storageKey: "asnwStarsProgress",
-      label: "Stelute 3× + sub-goal",
-      cssClass: null,
-      implemented: true,
     },
     {
       key: "liftNoRiseTeleport",

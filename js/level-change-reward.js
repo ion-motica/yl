@@ -78,7 +78,7 @@
   /** @returns {HTMLElement[]} */
   function spawnStarSpirals(starsRow) {
     if (!starsRow) return [];
-    const stars = starsRow.querySelectorAll(".asnw-star");
+    const stars = starsRow.querySelectorAll(".streak-cell");
     const spirals = [];
     stars.forEach((star, starIndex) => {
       const wrap = document.createElement("div");
@@ -102,7 +102,7 @@
   }
 
   function beginStarsHold(starsRow) {
-    global.AsnwStars?.beginCelebration?.();
+    // `.celebrate` aprinde toate stelele (auriu) prin CSS pe durata recompensei.
     starsRow?.classList.add("celebrate");
   }
 
@@ -110,7 +110,6 @@
     starsRow?.classList.remove("celebrate", "celebrate-pulse");
     label?.classList.remove("show");
     spirals?.forEach((el) => el.remove());
-    global.AsnwStars?.endCelebration?.();
   }
 
   /**
@@ -122,11 +121,14 @@
     const keys = getEnabledKeys();
     if (!keys.length) return 0;
 
-    const fallingEl = ctx.fallingEl ?? document.getElementById("falling");
-    // Rândul de stelute poate fi în liftul mobil (v1) sau în panoul fix (v2/v3).
+    const doc = typeof document !== "undefined" ? document : null;
+    const fallingEl = ctx.fallingEl ?? doc?.getElementById("falling") ?? null;
+    // Rândul de stele (#streak-track) poate fi în liftul mobil (v1) sau în panoul
+    // fix (v2/v3); îl căutăm întâi sub lift, apoi global.
     const starsRow =
-      fallingEl?.querySelector("#asnw-stars-row") ??
-      document.getElementById("asnw-stars-row");
+      fallingEl?.querySelector("#streak-track") ??
+      doc?.getElementById("streak-track") ??
+      null;
     let label = null;
     /** @type {HTMLElement[]} */
     let spirals = [];

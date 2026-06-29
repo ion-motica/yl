@@ -66,12 +66,12 @@ describe("division-table-conexe-helper quiz", () => {
     }
   });
 
-  it("lists level 2 facts as divisor 2 with quotients 1..10", () => {
+  it("lists level 2 facts as divisor 2 with quotients 1..20", () => {
     const facts = globalThis.ConexeTableQuizDivisionAdapter.listLevelFacts(2);
-    assert.equal(facts.length, 10);
+    assert.equal(facts.length, 20);
     assert.deepEqual(
       facts.map((fact) => fact.values.result).sort((left, right) => left - right),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     );
     assert.ok(facts.every((fact) => fact.values.b === 2));
     assert.ok(facts.every((fact) => fact.values.a === fact.values.b * fact.values.result));

@@ -122,15 +122,17 @@ test("hideHintMessage effective when master ON", () => {
   assert.ok(!gameEl.classList.has("asnw-hide-hint-message"));
 });
 
-test("hideProgressVisual effective when master ON", () => {
+test("hideProgressVisual visible by default, hideable when master ON", () => {
   const Asnw = loadAsnwProfile();
   const gameEl = mockGameEl();
-  Asnw.applyDomClasses(gameEl);
-  assert.ok(gameEl.classList.has("asnw-hide-progress-visual"));
-
-  Asnw.writeStoredFlag("hideProgressVisual", false);
+  // Preset nou: progresul (stelele) e VIZIBIL în first-use, deci clasa de
+  // ascundere NU se aplică implicit.
   Asnw.applyDomClasses(gameEl);
   assert.ok(!gameEl.classList.has("asnw-hide-progress-visual"));
+
+  Asnw.writeStoredFlag("hideProgressVisual", true);
+  Asnw.applyDomClasses(gameEl);
+  assert.ok(gameEl.classList.has("asnw-hide-progress-visual"));
 });
 
 test("resolveQuizTitle returns Adunari when simplified flag effective", () => {

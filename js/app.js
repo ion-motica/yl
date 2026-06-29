@@ -46,6 +46,7 @@
   let aamArena = null;
   let cpShell = null;
   let lastGreenCells = null;
+  let lastRenderedLevel = null;
 
   dom.getSwapQuestionIllustration = () =>
     engine?.getSwapQuestionIllustration?.() ?? false;
@@ -68,7 +69,7 @@
     for (let i = 0; i < green.cells; i++) {
       const cell = document.createElement("div");
       const meta = ProgressDisplay.cellMeta(green, i);
-      cell.className = "progress-cell streak-cell";
+      cell.className = "streak-cell";
       cell.setAttribute("aria-label", meta.aria);
       if (meta.title) cell.title = meta.title;
       dom.streakTrackEl.appendChild(cell);
@@ -78,13 +79,20 @@
     else dom.streakTrackEl.removeAttribute("title");
   }
 
-  function comboProgressClass(resolved, needed) {
-    if (resolved >= needed) return "filled";
-    if (resolved <= 0 || needed <= 1) return "";
-    if (needed <= 2) return "partial-1";
-
-    const ratio = resolved / needed;
-    return ratio >= 0.67 ? "partial-2" : "partial-1";
+  // Recompensa „La schimbare nivel” se declanșează când nivelul efectiv crește.
+  // Resetăm `lastRenderedLevel` la schimbările manuale (picker/quiz) ca să nu
+  // pornească recompensa fără să fie un progres real.
+  function maybePlayLevelReward(level, progressHidden) {
+    if (level == null) return;
+    if (
+      lastRenderedLevel != null &&
+      level > lastRenderedLevel &&
+      !progressHidden
+    ) {
+      const reward = window.LevelChangeReward;
+      if (reward?.isAnyEnabled?.()) reward.play({ fallingEl: dom.falling });
+    }
+    lastRenderedLevel = level;
   }
 
   function renderProgress() {
@@ -107,18 +115,41 @@
     const redHidden = display.red.mode === "none";
     dom.progressVisualEl?.classList.toggle("red-hidden", redHidden && !progressHidden);
 
+    // Cerculețe roșii SUB stele, pe aceleași coloane. Arătăm un cerc doar pentru
+    // greșelile încă NEREZOLVATE (resolved < needed); când recuperezi un combo,
+    // cercul lui dispare. Sunt ancorate la DREAPTA: prima greșeală → sub steaua
+    // cea mai din dreapta; următoarea sub vecina din stânga ei. Construim un slot
+    // per stea ca să rămână aliniate pe coloane; doar cele mai din dreapta `k`
+    // primesc cerc.
     dom.comboTrackEl.replaceChildren();
-    if (!redHidden) {
-      display.red.items.forEach((item) => {
-        const cell = document.createElement("div");
-        cell.className = "progress-cell combo-cell";
-        const stateClass = comboProgressClass(item.resolved, item.needed);
-        if (stateClass) cell.classList.add(stateClass);
-        cell.title = item.title;
-        cell.setAttribute("aria-label", item.title);
-        dom.comboTrackEl.appendChild(cell);
-      });
+    if (!progressHidden && !redHidden) {
+      const cells = display.green.cells || 0;
+      const pending = (display.red.items || []).filter(
+        (it) => (it.resolved ?? 0) < (it.needed ?? 1)
+      );
+      const k = Math.min(cells, pending.length);
+      if (k > 0) {
+        for (let i = 0; i < cells; i++) {
+          const slot = document.createElement("div");
+          slot.className = "combo-cell";
+          const fromRight = cells - 1 - i;
+          if (fromRight < k) {
+            const item = pending[fromRight];
+            slot.classList.add("has-mistake");
+            if (item.title) {
+              slot.title = item.title;
+              slot.setAttribute("aria-label", item.title);
+            }
+          }
+          dom.comboTrackEl.appendChild(slot);
+        }
+      }
     }
+
+    maybePlayLevelReward(
+      typeof quiz.getLevel === "function" ? quiz.getLevel() : null,
+      progressHidden
+    );
 
     dom.levelPickerEl.querySelectorAll(".level-btn").forEach((btn) => {
       btn.classList.toggle("active", Number(btn.dataset.level) === quiz.getLevel());
@@ -140,6 +171,7 @@
       dom.playPauseBtn.disabled = false;
       engine.cancelRisingAnimation();
       lastGreenCells = null;
+      lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
       renderProgress();
       engine.startRound(quiz.beginRound(quiz.pickNextRound()));
     });
@@ -293,44 +325,6 @@
     engine?.syncAsnwSuccessionList?.();
   }
 
-  function applyAsnwStars() {
-    window.AsnwStars?.syncVisibility?.(dom.falling);
-    if (!window.AsnwStars?.isActive?.()) window.AsnwStars?.reset?.();
-  }
-
-  function handleAsnwSubGoal(result) {
-    if (!quiz || quiz.isCompleted()) return result;
-
-    const reward = window.LevelChangeReward;
-    const rewardMs = reward?.isAnyEnabled?.()
-      ? reward.play({ fallingEl: dom.falling })
-      : 0;
-    if (!rewardMs) {
-      showBanner(window.AsnwStars?.SUB_GOAL_BANNER ?? "Bravo! Nivelul urmator!");
-    }
-
-    const lv = quiz.getLevel();
-    const max = quiz.getMaxLevel?.() ?? lv;
-    if (lv < max && typeof quiz.switchLevel === "function") {
-      quiz.switchLevel(lv + 1);
-      lastGreenCells = null;
-      renderProgress();
-      buildLevelPicker();
-    }
-
-    return {
-      ...result,
-      bounce: false,
-      resetFall: false,
-      holdFallDuringDelay: rewardMs > 0,
-      levelAdvanced: true,
-      runComplete: true,
-      runDelayMs: rewardMs || undefined,
-      nextRound: quiz.beginRound(quiz.pickNextRound()),
-      banner: undefined,
-    };
-  }
-
   function applyAsnwArenaIllustration() {
     aamArena?.syncAsnwFromProfile?.();
   }
@@ -351,10 +345,10 @@
     applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
     aamArena?.reset();
-    window.AsnwStars?.reset?.();
     buildQuizPicker();
     buildLevelPicker();
     lastGreenCells = null;
+    lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
     renderProgress();
     dom.playPauseBtn.disabled = false;
     engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
@@ -476,7 +470,7 @@
         applyQuizTitleDisplay();
         applyAsnwArenaIllustration();
         applyAsnwSuccessionList();
-        applyAsnwStars();
+        renderProgress();
         liftTypeControl?.syncUi?.();
         applyLiftLayout();
         window.AsnwOnboarding?.sync?.();
@@ -560,7 +554,6 @@
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "emptySuccessionList");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "liftNoRiseTeleport");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "liftFixedQuestionBar");
-    window.AsnwProfile?.appendCanonicalFlagRow(mount, "starsProgress");
 
     const row = document.createElement("label");
     row.className = "control-panel-lift-row";
@@ -599,7 +592,6 @@
     dom,
     getQuiz: () => quiz,
     showBanner,
-    onSubGoal: handleAsnwSubGoal,
     onProgressUpdate: renderProgress,
     onRender: (state) => aamArena.prepareRound(quiz, state),
     onLiftPanelBuilt: (panelEl) => stage.mountRatioControl(panelEl),

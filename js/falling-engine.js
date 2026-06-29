@@ -450,7 +450,6 @@
 
     function renderRound(state) {
       state = normalizeRoundState(state);
-      global.AsnwStars?.syncVisibility?.(dom.falling);
       lastRoundState = state;
       dom.fallingMainEl?.classList.remove("has-division-eq", "has-singapore-bond");
       dom.arenaQuestionSlotEl?.classList.remove("has-division-eq", "has-singapore-bond");
@@ -729,17 +728,6 @@
         correct: starCorrect,
         answered: pickedIndex != null && !timedOut,
       });
-
-      if (global.AsnwStars?.isActive?.()) {
-        const subGoal = global.AsnwStars.onAnswer({ correct: starCorrect });
-        if (subGoal && typeof config.onSubGoal === "function") {
-          result = config.onSubGoal(result) ?? result;
-          if (result.holdFallDuringDelay) {
-            fallHeld = true;
-            setInputEnabled(false);
-          }
-        }
-      }
 
       applyImmediateAnswerFeedback(result, wrongPick);
 

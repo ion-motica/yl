@@ -51,11 +51,11 @@ describe("multiplication-table-conexe-helper quiz", () => {
 
   it("lists level 10 facts as multiply by 10", () => {
     const facts = globalThis.ConexeTableQuizMultiplicationAdapter.listLevelFacts(10);
-    assert.equal(facts.length, 10);
+    assert.equal(facts.length, 20);
     assert.ok(facts.every((fact) => fact.values.a === 10));
     assert.deepEqual(
       facts.map((fact) => fact.values.b).sort((left, right) => left - right),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     );
     assert.ok(promptUsesMulFact(10, 10, "10*?=100"));
   });
