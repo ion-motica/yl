@@ -33,6 +33,8 @@
   let tappedThisHover = false;
   /** @type {{ el: HTMLElement, phase: number }[]} */
   let fluxParticles = [];
+  /** Ripple-uri de pe „?” care trebuie să urmeze semnul cât timp liftul se mișcă. */
+  let qRipples = [];
 
   function profile() {
     return global.AsnwProfile;
@@ -220,6 +222,7 @@
     }
     layer.appendChild(ripple);
     setTimeout(() => ripple.remove(), 1200);
+    return ripple;
   }
 
   function placeHand(x, y) {
@@ -288,7 +291,16 @@
             spawnRipple(cur);
             if (isOn("tapRippleOnQuestion")) {
               const qp = questionMarkPos();
-              if (qp) spawnRipple(qp);
+              if (qp) {
+                const qr = spawnRipple(qp);
+                if (qr) {
+                  qRipples.push(qr);
+                  setTimeout(() => {
+                    const i = qRipples.indexOf(qr);
+                    if (i >= 0) qRipples.splice(i, 1);
+                  }, 1200);
+                }
+              }
             }
           }
         }
@@ -338,6 +350,18 @@
       updateFlux({ x, y }, questionMarkPos(), numText, dt);
     } else {
       clearFlux();
+    }
+
+    // Ripple-urile de pe „?” urmează semnul cât liftul se mișcă (altfel rămân în
+    // urmă, fiindcă „?” își schimbă poziția pe parcursul animației ripple-ului).
+    if (qRipples.length) {
+      const qp = questionMarkPos();
+      if (qp) {
+        for (const qr of qRipples) {
+          qr.style.left = `${qp.x}px`;
+          qr.style.top = `${qp.y}px`;
+        }
+      }
     }
 
     rafId = requestAnimationFrame(loop);
