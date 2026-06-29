@@ -29,6 +29,7 @@
   let segStart = 0;
   let idx = 0;
   let prevIdx = 0;
+  let dir = 1; // sens de parcurgere ping-pong: 1 (→) / -1 (←)
   let tappedThisHover = false;
   /** @type {{ el: HTMLElement, phase: number }[]} */
   let fluxParticles = [];
@@ -146,6 +147,23 @@
 
   function easeInOut(t) {
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  // Indexul butonului mare (`.option`) aflat sub punctul (x,y) al mânuții, în
+  // coordonate relative la strat; -1 dacă e în spațiul dintre butoane.
+  function bigButtonUnder(x, y) {
+    const layer = layerEl;
+    if (!layer || !dom?.optionBtns) return -1;
+    const lr = layer.getBoundingClientRect();
+    const absX = lr.left + x;
+    const absY = lr.top + y;
+    for (let i = 0; i < dom.optionBtns.length; i++) {
+      const r = dom.optionBtns[i].getBoundingClientRect();
+      if (absX >= r.left && absX <= r.right && absY >= r.top && absY <= r.bottom) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   // Cercuri concentrice care se sting, pornind din centrul numărului. Simulează
@@ -274,13 +292,17 @@
             }
           }
         }
-        if (clock - segStart >= HOVER_MS) {
-          prevIdx = idx;
-          idx = (idx + 1) % count;
-          mode = "glide";
-          segStart = clock;
-          tappedThisHover = false;
-        }
+          if (clock - segStart >= HOVER_MS) {
+            prevIdx = idx;
+            // ping-pong: 0→1→2→1→0→1→2… (nu sare de la ultimul la primul)
+            if (count > 1) {
+              if (idx + dir > count - 1 || idx + dir < 0) dir = -dir;
+              idx += dir;
+            }
+            mode = "glide";
+            segStart = clock;
+            tappedThisHover = false;
+          }
       } else {
         const from = buttonPos(prevIdx);
         const to = buttonPos(idx);
@@ -306,9 +328,13 @@
       showHand(false);
     }
 
-    if (isOn("numbersFlowToQ") && cur) {
+    // Fluxul curge cât timp mânuța e peste un buton mare; pornește imediat ce
+    // intră pe noul buton mare (nu doar pe centrul numărului) și încetează în
+    // spațiul dintre butoane, până ajunge pe următorul.
+    const overBtn = bigButtonUnder(x, y);
+    if (isOn("numbersFlowToQ") && overBtn >= 0) {
       const numText =
-        dom.optionBtns[idx]?.querySelector(".prime")?.textContent ?? null;
+        dom.optionBtns[overBtn]?.querySelector(".prime")?.textContent ?? null;
       updateFlux({ x, y }, questionMarkPos(), numText, dt);
     } else {
       clearFlux();
