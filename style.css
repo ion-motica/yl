@@ -2065,10 +2065,6 @@ body {
   animation: asnw-ripple-anim 0.85s ease-out forwards;
 }
 
-.asnw-ripple--q .asnw-ripple-ring {
-  border-color: var(--win);
-}
-
 @keyframes asnw-ripple-anim {
   0% {
     opacity: 0.55;

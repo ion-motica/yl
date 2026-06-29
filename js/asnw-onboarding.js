@@ -103,21 +103,40 @@
     const qEl = dom?.topNumberEl?.querySelector(".q-mark, .q-q");
     const layer = layerEl;
     if (!qEl || !layer) return null;
-    const r = qEl.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return null;
+
+    // `?` e randat cu spații în jur (`<span class="q-mark"> ? </span>`), deci
+    // rect-ul span-ului e descentrat. Măsurăm exact glyph-ul `?` cu un Range.
+    let rect = null;
+    const txt = qEl.firstChild;
+    if (txt && txt.nodeType === 3) {
+      const s = txt.data.indexOf("?");
+      if (s >= 0) {
+        try {
+          const range = document.createRange();
+          range.setStart(txt, s);
+          range.setEnd(txt, s + 1);
+          const rr = range.getBoundingClientRect();
+          if (rr.width || rr.height) rect = rr;
+        } catch (e) {
+          /* fallback mai jos */
+        }
+      }
+    }
+    if (!rect) rect = qEl.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return null;
+
     const lr = layer.getBoundingClientRect();
     return {
-      x: r.left + r.width / 2 - lr.left,
-      y: r.top + r.height / 2 - lr.top,
+      x: rect.left + rect.width / 2 - lr.left,
+      y: rect.top + rect.height / 2 - lr.top,
     };
   }
 
-  function spawnRipple(pos, variant) {
+  function spawnRipple(pos) {
     const layer = ensureLayer();
     if (!layer || !pos) return;
     const ripple = document.createElement("div");
-    ripple.className =
-      variant === "q" ? "asnw-ripple asnw-ripple--q" : "asnw-ripple";
+    ripple.className = "asnw-ripple";
     ripple.style.left = `${pos.x}px`;
     ripple.style.top = `${pos.y}px`;
     for (let i = 0; i < 3; i++) {
@@ -195,7 +214,7 @@
             spawnRipple(cur);
             if (isOn("tapRippleOnQuestion")) {
               const qp = questionMarkPos();
-              if (qp) spawnRipple(qp, "q");
+              if (qp) spawnRipple(qp);
             }
           }
         }
