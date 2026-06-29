@@ -191,3 +191,10 @@ test("tapRippleOnQuestion is effective when master ON", () => {
   Asnw.setMasterOn(false);
   assert.equal(Asnw.isEffective("tapRippleOnQuestion"), false);
 });
+
+test("numbersFlowToQ is effective when master ON", () => {
+  const Asnw = loadAsnwProfile();
+  assert.equal(Asnw.isEffective("numbersFlowToQ"), true);
+  Asnw.setMasterOn(false);
+  assert.equal(Asnw.isEffective("numbersFlowToQ"), false);
+});

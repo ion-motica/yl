@@ -494,6 +494,33 @@
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "handOverButtons");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "simulateTap");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "tapRippleOnQuestion");
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "numbersFlowToQ");
+
+    (function buildNumbersFlowSlider() {
+      const row = document.createElement("div");
+      row.className = "control-panel-lift-field";
+      const label = document.createElement("label");
+      label.textContent = "cate numere de la buton la ?";
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "1";
+      slider.max = "36";
+      slider.step = "1";
+      slider.value = String(
+        window.LayoutConfig?.get("asnwNumbersFlowCount", 6) ?? 6
+      );
+      const out = document.createElement("span");
+      out.className = "control-panel-lift-slider-out";
+      out.textContent = slider.value;
+      slider.addEventListener("input", () => {
+        out.textContent = slider.value;
+        window.LayoutConfig?.set("asnwNumbersFlowCount", Number(slider.value));
+        window.AsnwOnboarding?.sync?.();
+      });
+      row.append(label, slider, out);
+      mount.appendChild(row);
+    })();
+
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideDivLabels");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideLevelInfo");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideHintMessage");

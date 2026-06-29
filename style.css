@@ -2076,6 +2076,21 @@ body {
   }
 }
 
+.asnw-flux-num {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  will-change: left, top, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .asnw-hand.is-visible {
     animation: none;

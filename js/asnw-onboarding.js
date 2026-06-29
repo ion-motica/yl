@@ -14,6 +14,8 @@
 
   const HOVER_MS = 600; // staționare deasupra unui buton
   const GLIDE_MS = 800; // glisare între butoane
+  const FLUX_DURATION = 1500; // timp ca un număr să urce de la buton la „?”
+  const FLUX_DEFAULT_COUNT = 6;
 
   let dom = null;
   let layerEl = null;
@@ -28,6 +30,8 @@
   let idx = 0;
   let prevIdx = 0;
   let tappedThisHover = false;
+  /** @type {{ el: HTMLElement, phase: number }[]} */
+  let fluxParticles = [];
 
   function profile() {
     return global.AsnwProfile;
@@ -42,7 +46,58 @@
     return isOn("handOverButtons");
   }
   function anyActive() {
-    return handActive() || isOn("simulateTap");
+    return handActive() || isOn("simulateTap") || isOn("numbersFlowToQ");
+  }
+
+  // Câte numere curg simultan pe traseu (slider „cate numere de la buton la ?”).
+  function flowCount() {
+    const v = global.LayoutConfig?.get("asnwNumbersFlowCount", FLUX_DEFAULT_COUNT);
+    const n = Math.round(Number(v));
+    if (!Number.isFinite(n)) return FLUX_DEFAULT_COUNT;
+    return Math.max(1, Math.min(36, n));
+  }
+
+  function clearFlux() {
+    if (fluxParticles.length === 0) return;
+    fluxParticles.forEach((p) => p.el.remove());
+    fluxParticles = [];
+  }
+
+  function ensureFluxParticles(n) {
+    const layer = ensureLayer();
+    if (!layer) return;
+    while (fluxParticles.length < n) {
+      const el = document.createElement("div");
+      el.className = "asnw-flux-num";
+      layer.appendChild(el);
+      fluxParticles.push({ el, phase: fluxParticles.length / n });
+    }
+    while (fluxParticles.length > n) {
+      fluxParticles.pop().el.remove();
+    }
+  }
+
+  // Mai multe numere transparente urcă simultan de la numărul butonului curent
+  // spre „?”, decalate. Când unul ajunge la „?”, reîncepe de la buton.
+  function updateFlux(origin, qPos, numText, dt) {
+    if (!origin || !qPos || numText == null) {
+      clearFlux();
+      return;
+    }
+    ensureFluxParticles(flowCount());
+    const dp = dt / FLUX_DURATION;
+    for (const p of fluxParticles) {
+      p.phase += dp;
+      if (p.phase >= 1) p.phase -= 1;
+      const t = p.phase;
+      const x = origin.x + (qPos.x - origin.x) * t;
+      const y = origin.y + (qPos.y - origin.y) * t;
+      p.el.style.left = `${x}px`;
+      p.el.style.top = `${y}px`;
+      // transparent, cu fade la capete
+      p.el.style.opacity = String(Math.sin(t * Math.PI) * 0.45);
+      if (p.el.textContent !== numText) p.el.textContent = numText;
+    }
   }
 
   function buttonCount() {
@@ -178,6 +233,7 @@
   function loop(ts) {
     if (!anyActive()) {
       showHand(false);
+      clearFlux();
       stopLoop();
       return;
     }
@@ -250,6 +306,14 @@
       showHand(false);
     }
 
+    if (isOn("numbersFlowToQ") && cur) {
+      const numText =
+        dom.optionBtns[idx]?.querySelector(".prime")?.textContent ?? null;
+      updateFlux({ x, y }, questionMarkPos(), numText, dt);
+    } else {
+      clearFlux();
+    }
+
     rafId = requestAnimationFrame(loop);
   }
 
@@ -267,6 +331,7 @@
       startLoop();
     } else {
       showHand(false);
+      clearFlux();
       stopLoop();
     }
   }
