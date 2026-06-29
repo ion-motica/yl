@@ -17,6 +17,28 @@
   const FLUX_DURATION = 1500; // timp ca un număr să urce de la buton la „?”
   const FLUX_DEFAULT_COUNT = 6;
 
+  // --- Decădere graduală a ghidajelor (fade pe zile + răspunsuri) ---------
+  // Un singur contor `p` (0..9) descrie cât de estompat e onboarding-ul.
+  // Ordine fixă: flux (1..3) → cerculețe (4..6) → mânuță (7..9). La p=9 totul
+  // dispărut. Fiecare element are 4 stări (plin → fade1 → fade2 → ascuns)
+  // atinse în 3 trepte. Vezi mapările `localStage`/`fadeFactor`.
+  //
+  // Comportament: fiecare ZI de utilizare pornește de la maxim (p=0) și se
+  // estompează cu o treaptă la fiecare 3 răspunsuri corecte CONSECUTIVE. Fără
+  // nicio revenire: un răspuns greșit doar rupe seria de corecte (p neschimbat).
+  // Activ în primele 3 zile distincte; după aceea dispare — dacă bifa
+  // „onboardingPersist” nu e pornită, caz în care ciclul zilnic continuă.
+  const FADE_MAX = 9;
+  const ACTIVE_DAYS = 3; // zilele 1..3 = activ (apoi off, dacă nu persistă)
+  const CORRECT_TO_FADE = 3; // 3 răspunsuri corecte consecutive → o treaptă de fade
+  const STAGE_OPACITY = [1, 0.6, 0.3, 0]; // factor opacitate per treaptă locală
+  const ELEMENT_OFFSET = { flux: 0, ripple: 3, hand: 6 };
+  const STORE_KEY = "asnwOnb";
+
+  /** @type {{p:number,streak:number,firstDate:?string,distinctDays:number,lastDay:?string}|null} */
+  let prog = null;
+  let nowFn = () => new Date();
+
   let dom = null;
   let layerEl = null;
   let handEl = null;
@@ -48,8 +70,186 @@
   function handActive() {
     return isOn("handOverButtons");
   }
+
+  // ---- Controller de decădere graduală -----------------------------------
+  function masterOn() {
+    return profile()?.isMasterOn?.() === true;
+  }
+
+  function defaultProg() {
+    return {
+      p: 0,
+      streak: 0,
+      firstDate: null,
+      distinctDays: 0,
+      lastDay: null,
+      dayOffset: 0, // doar pentru testare: simulează zile trecute (buton CP)
+    };
+  }
+
+  function persistOn() {
+    return isOn("onboardingPersist");
+  }
+
+  function loadProg() {
+    const raw = global.LayoutConfig?.get(STORE_KEY, null);
+    prog =
+      raw && typeof raw === "object"
+        ? { ...defaultProg(), ...raw }
+        : defaultProg();
+  }
+
+  function saveProg() {
+    global.LayoutConfig?.set(STORE_KEY, prog);
+  }
+
+  function ensureProg() {
+    if (!prog) loadProg();
+    return prog;
+  }
+
+  function dateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function today() {
+    const base = nowFn();
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    const off = ensureProg().dayOffset || 0;
+    if (off) d.setDate(d.getDate() + off);
+    return dateStr(d);
+  }
+
+  // Înregistrează ziua curentă ca „zi de utilizare” distinctă. La fiecare zi
+  // nouă, onboarding-ul repornește de la maxim (p=0, toate pline).
+  function registerUsageDay() {
+    ensureProg();
+    const d = today();
+    if (prog.lastDay === d) return false;
+    if (!prog.firstDate) prog.firstDate = d;
+    prog.distinctDays = (prog.distinctDays || 0) + 1;
+    prog.lastDay = d;
+    prog.p = 0; // zi nouă → full din nou
+    prog.streak = 0;
+    saveProg();
+    return true;
+  }
+
+  // "off" (master debifat sau expirat după 3 zile fără persistență) sau
+  // "active" (zilele 1..3, ori oricând dacă „onboardingPersist” e pornit).
+  function currentMode() {
+    if (!masterOn()) return "off";
+    ensureProg();
+    if (persistOn()) return "active";
+    return prog.distinctDays <= ACTIVE_DAYS ? "active" : "off";
+  }
+
+  // Treapta locală (0..3) a unui element, după mod și progres global.
+  function localStage(key) {
+    if (currentMode() === "off") return 3;
+    const s = ensureProg().p - ELEMENT_OFFSET[key];
+    return Math.max(0, Math.min(3, s));
+  }
+
+  function fadeFactor(key) {
+    return STAGE_OPACITY[localStage(key)];
+  }
+
+  function fluxStageCount() {
+    const base = flowCount();
+    switch (localStage("flux")) {
+      case 0:
+        return base;
+      case 1:
+        return Math.max(1, Math.round(base * 0.66));
+      case 2:
+        return Math.max(1, Math.round(base * 0.33));
+      default:
+        return 0;
+    }
+  }
+
+  // Câmpul vizibil acum (flag pornit ȘI treapta < 3).
+  function fluxVisible() {
+    return isOn("numbersFlowToQ") && localStage("flux") < 3;
+  }
+  function rippleVisible() {
+    return isOn("simulateTap") && localStage("ripple") < 3;
+  }
+  function handVisible() {
+    return handActive() && localStage("hand") < 3;
+  }
+
   function anyActive() {
-    return handActive() || isOn("simulateTap") || isOn("numbersFlowToQ");
+    return fluxVisible() || rippleVisible() || handVisible();
+  }
+
+  // Apelat din motor la fiecare răspuns. Estompează o treaptă la fiecare 3
+  // răspunsuri corecte CONSECUTIVE; fără nicio revenire. Un răspuns greșit real
+  // doar rupe seria de corecte (p neschimbat). Timeout-urile (cutia ajunge jos
+  // fără apăsare) trimit `answered:false` și sunt ignorate complet.
+  function notifyAnswer(outcome) {
+    if (!masterOn()) return;
+    if (outcome && outcome.answered === false) return;
+    registerUsageDay();
+    if (currentMode() !== "active") {
+      sync();
+      return;
+    }
+    if (outcome?.correct === true) {
+      prog.streak = (prog.streak || 0) + 1;
+      if (prog.streak >= CORRECT_TO_FADE) {
+        prog.streak = 0;
+        if (prog.p < FADE_MAX) prog.p += 1; // o treaptă de fade
+      }
+    } else {
+      prog.streak = 0; // greșeală reală rupe seria; fără revenire
+    }
+    saveProg();
+    sync();
+  }
+
+  // Apelat din motor la începutul fiecărei întrebări (pentru reminderul zilnic).
+  function notifyNewQuestion() {
+    if (!masterOn()) return;
+    registerUsageDay();
+    sync();
+  }
+
+  function resetProgress() {
+    prog = defaultProg();
+    saveProg();
+    sync();
+    updateDebugStatus();
+  }
+
+  // --- Ajutoare de testare în CP ------------------------------------------
+  let debugStatusEl = null;
+
+  function updateDebugStatus() {
+    if (!debugStatusEl) return;
+    ensureProg();
+    debugStatusEl.textContent = `zi ${prog.distinctDays} · fade ${prog.p}/${FADE_MAX} · ${currentMode()}`;
+  }
+
+  function setDebugStatusEl(el) {
+    debugStatusEl = el || null;
+    updateDebugStatus();
+  }
+
+  // Simulează trecerea la ziua următoare (resetează onboarding-ul la full ca
+  // într-o zi nouă reală). Util pentru a verifica ciclul pe zile fără a umbla
+  // la ceasul sistemului.
+  function debugAdvanceDay() {
+    ensureProg();
+    prog.dayOffset = (prog.dayOffset || 0) + 1;
+    saveProg();
+    registerUsageDay();
+    sync();
+    updateDebugStatus();
   }
 
   // Câte numere curg simultan pe traseu (slider „cate numere de la buton la ?”).
@@ -82,12 +282,12 @@
 
   // Mai multe numere transparente urcă simultan de la numărul butonului curent
   // spre „?”, decalate. Când unul ajunge la „?”, reîncepe de la buton.
-  function updateFlux(origin, qPos, numText, dt) {
-    if (!origin || !qPos || numText == null) {
+  function updateFlux(origin, qPos, numText, dt, count, opacityFactor = 1) {
+    if (!origin || !qPos || numText == null || count <= 0) {
       clearFlux();
       return;
     }
-    ensureFluxParticles(flowCount());
+    ensureFluxParticles(count);
     const dp = dt / FLUX_DURATION;
     for (const p of fluxParticles) {
       p.phase += dp;
@@ -97,8 +297,8 @@
       const y = origin.y + (qPos.y - origin.y) * t;
       p.el.style.left = `${x}px`;
       p.el.style.top = `${y}px`;
-      // transparent, cu fade la capete
-      p.el.style.opacity = String(Math.sin(t * Math.PI) * 0.45);
+      // transparent, cu fade la capete (modulat de treapta de decădere)
+      p.el.style.opacity = String(Math.sin(t * Math.PI) * 0.45 * opacityFactor);
       if (p.el.textContent !== numText) p.el.textContent = numText;
     }
   }
@@ -207,13 +407,14 @@
     };
   }
 
-  function spawnRipple(pos) {
+  function spawnRipple(pos, opacityFactor = 1) {
     const layer = ensureLayer();
     if (!layer || !pos) return;
     const ripple = document.createElement("div");
     ripple.className = "asnw-ripple";
     ripple.style.left = `${pos.x}px`;
     ripple.style.top = `${pos.y}px`;
+    if (opacityFactor < 1) ripple.style.opacity = String(opacityFactor);
     for (let i = 0; i < 3; i++) {
       const ring = document.createElement("span");
       ring.className = "asnw-ripple-ring";
@@ -234,6 +435,10 @@
   function showHand(on) {
     if (!handEl) return;
     handEl.classList.toggle("is-visible", on);
+    // La ascundere curățăm opacitatea inline setată în loop, altfel ar
+    // suprascrie `opacity:0` din CSS și mânuța ar rămâne fixă, slab vizibilă
+    // (mai ales la capătul celor 9 etape, când ar trebui să dispară complet).
+    if (!on) handEl.style.opacity = "";
   }
 
   function stopLoop() {
@@ -287,12 +492,13 @@
         y = cur.y;
         if (!tappedThisHover) {
           tappedThisHover = true;
-          if (isOn("simulateTap")) {
-            spawnRipple(cur);
+          if (rippleVisible()) {
+            const rf = fadeFactor("ripple");
+            spawnRipple(cur, rf);
             if (isOn("tapRippleOnQuestion")) {
               const qp = questionMarkPos();
               if (qp) {
-                const qr = spawnRipple(qp);
+                const qr = spawnRipple(qp, rf);
                 if (qr) {
                   qRipples.push(qr);
                   setTimeout(() => {
@@ -332,10 +538,11 @@
       }
     }
 
-    if (handActive()) {
+    if (handVisible()) {
       ensureHand();
       showHand(true);
       placeHand(x, y);
+      handEl.style.opacity = String(0.97 * fadeFactor("hand"));
     } else {
       showHand(false);
     }
@@ -344,10 +551,17 @@
     // intră pe noul buton mare (nu doar pe centrul numărului) și încetează în
     // spațiul dintre butoane, până ajunge pe următorul.
     const overBtn = bigButtonUnder(x, y);
-    if (isOn("numbersFlowToQ") && overBtn >= 0) {
+    if (fluxVisible() && overBtn >= 0) {
       const numText =
         dom.optionBtns[overBtn]?.querySelector(".prime")?.textContent ?? null;
-      updateFlux({ x, y }, questionMarkPos(), numText, dt);
+      updateFlux(
+        { x, y },
+        questionMarkPos(),
+        numText,
+        dt,
+        fluxStageCount(),
+        fadeFactor("flux")
+      );
     } else {
       clearFlux();
     }
@@ -369,6 +583,7 @@
 
   function init(domRef) {
     dom = domRef;
+    loadProg();
     sync();
   }
 
@@ -384,10 +599,25 @@
       clearFlux();
       stopLoop();
     }
+    updateDebugStatus();
   }
 
   global.AsnwOnboarding = {
     init,
     sync,
+    notifyAnswer,
+    notifyNewQuestion,
+    resetProgress,
+    debugAdvanceDay,
+    setDebugStatusEl,
+    getMode: currentMode,
+    getFade: () => ensureProg().p,
+    getProgress: () => ({ ...ensureProg() }),
+    localStage,
+    // Hook-uri pentru teste (data injectabilă + reîncărcare stare).
+    _setNowForTest: (fn) => {
+      nowFn = typeof fn === "function" ? fn : () => new Date();
+    },
+    _reload: loadProg,
   };
 })(window);

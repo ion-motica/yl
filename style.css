@@ -1994,6 +1994,34 @@ body {
 }
 
 /* ── Onboarding ASNW (ghidaje vizuale peste butoane) ─────────────────── */
+.control-panel-asnw-onb-debug {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.control-panel-asnw-onb-status {
+  flex: 1 1 100%;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.control-panel-asnw-reset {
+  flex: 1 1 auto;
+  padding: 6px 10px;
+  font: inherit;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.control-panel-asnw-reset:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .asnw-onboarding-layer {
   position: absolute;
   inset: 0;

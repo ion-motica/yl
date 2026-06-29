@@ -725,6 +725,11 @@
           ? dom.optionBtns[pickedIndex]?.querySelector(".prime")?.textContent
           : null;
 
+      global.AsnwOnboarding?.notifyAnswer?.({
+        correct: starCorrect,
+        answered: pickedIndex != null && !timedOut,
+      });
+
       if (global.AsnwStars?.isActive?.()) {
         const subGoal = global.AsnwStars.onAnswer({ correct: starCorrect });
         if (subGoal && typeof config.onSubGoal === "function") {
@@ -856,6 +861,7 @@
 
     function startRound(state) {
       state = normalizeRoundState(state);
+      global.AsnwOnboarding?.notifyNewQuestion?.();
       if (rafId == null) startFallLoop();
       cancelRisingAnimation();
       clearWrongMarks();

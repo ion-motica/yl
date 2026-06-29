@@ -521,6 +521,36 @@
       mount.appendChild(row);
     })();
 
+    (function buildOnboardingDebugRow() {
+      const row = document.createElement("div");
+      row.className = "control-panel-lift-field control-panel-asnw-onb-debug";
+
+      const status = document.createElement("span");
+      status.className = "control-panel-asnw-onb-status";
+      window.AsnwOnboarding?.setDebugStatusEl?.(status);
+
+      const resetBtn = document.createElement("button");
+      resetBtn.type = "button";
+      resetBtn.className = "control-panel-asnw-reset";
+      resetBtn.textContent = "reset onboarding (zi 1, full)";
+      resetBtn.addEventListener("click", () => {
+        window.AsnwOnboarding?.resetProgress?.();
+      });
+
+      const nextDayBtn = document.createElement("button");
+      nextDayBtn.type = "button";
+      nextDayBtn.className = "control-panel-asnw-reset";
+      nextDayBtn.textContent = "ziua urmatoare (test)";
+      nextDayBtn.addEventListener("click", () => {
+        window.AsnwOnboarding?.debugAdvanceDay?.();
+      });
+
+      row.append(status, resetBtn, nextDayBtn);
+      mount.appendChild(row);
+    })();
+
+    window.AsnwProfile?.appendCanonicalFlagRow(mount, "onboardingPersist");
+
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideDivLabels");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideLevelInfo");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "hideHintMessage");
