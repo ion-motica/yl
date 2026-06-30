@@ -97,7 +97,9 @@
   }
 
   function hideInfo11_20() {
-    if (dom.info11_20El) dom.info11_20El.hidden = true;
+    if (!dom.info11_20El) return;
+    dom.info11_20El.hidden = true;
+    dom.info11_20El.classList.remove("is-intensiv");
   }
 
   function renderInfo11_20() {
@@ -113,6 +115,7 @@
       return;
     }
     el.hidden = false;
+    el.classList.toggle("is-intensiv", info.mode === "intensiv");
     el.querySelector(".info11-mode").textContent = `Mod: ${info.mode}`;
     el.querySelector(".info11-wrong").textContent = `Facts greșite: ${info.wrongFactsText}`;
     const intensivEl = el.querySelector(".info11-intensiv");

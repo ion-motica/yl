@@ -264,28 +264,8 @@
           wrongFacts.push({ b: cur.factB, label: factLabel(cur.factB) });
         }
 
-        // 2 facts DISTINCTE greșite → intrăm efectiv în modul intensiv.
-        if (wrongFacts.length >= 2) {
-          intensivFacts = wrongFacts.map((w) => w.b);
-          factsLucrateIntensiv = wrongFacts.map((w) => w.label);
-          wrongFacts = [];
-          mode = "intensiv";
-          intensivCount = 0;
-          buildIntensivQuestion(); // prima întrebare intensivă (fact #0)
-          return {
-            outcome: "step-correct",
-            correct: true,
-            bounce: true,
-            flash: "wrong",
-            message: `Mod intensiv: antrenament pe ${factsLucrateIntensiv.join(", ")}`,
-            ...roundView(),
-          };
-        }
-
-        // Aceeași întrebare, reîncearcă. NU reconstruim întrebarea: motorul nu
-        // re-randează la greșeală (doar taie butonul greșit), deci o întrebare
-        // nouă ar deveni vizibilă abia la următoarea randare (când cade bara),
-        // dând impresia că „se schimbă întrebarea la timeout".
+        // 2 facts distincte greșite → rămânem pe aceeași întrebare până la
+        // răspuns corect; abia atunci intrăm în modul intensiv.
         return {
           outcome: "wrong-answer",
           correct: false,
@@ -297,6 +277,24 @@
 
       lastCorrectByB[cur.factB] = meta.responseMs ?? null;
       answeredCount++;
+
+      // 2 facts DISTINCTE greșite + răspuns corect pe întrebarea curentă → intensiv.
+      if (wrongFacts.length >= 2) {
+        intensivFacts = wrongFacts.map((w) => w.b);
+        factsLucrateIntensiv = wrongFacts.map((w) => w.label);
+        wrongFacts = [];
+        mode = "intensiv";
+        intensivCount = 0;
+        buildIntensivQuestion();
+        return {
+          outcome: "step-correct",
+          correct: true,
+          bounce: true,
+          message: `Mod intensiv: antrenament pe ${factsLucrateIntensiv.join(", ")}`,
+          ...roundView(),
+        };
+      }
+
       if (answeredCount >= QUESTIONS_PER_LEVEL) return advanceLevel();
 
       // Avans IMEDIAT la întrebarea următoare (fără finishRun/delay). Cronometrul

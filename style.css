@@ -471,6 +471,20 @@ body {
   user-select: none;
 }
 
+.div-info-11-20.is-intensiv {
+  background: rgba(72, 16, 24, 0.96);
+  border-bottom-color: rgba(248, 113, 113, 0.6);
+  color: #f8fafc;
+}
+
+.div-info-11-20.is-intensiv .info11-mode {
+  color: #fecaca;
+}
+
+.div-info-11-20.is-intensiv .info11-intensiv {
+  color: #fde68a;
+}
+
 .div-info-11-20[hidden] {
   display: none !important;
 }
