@@ -82,7 +82,7 @@
     const qfTypes = QFG.getActiveQFTypes(QF_PROFILE).filter((t) => t.answerType === "number");
 
     const QUESTIONS_PER_LEVEL = 36;
-    const FAST_MS = 3000; // sub 3s → highlight
+    const FAST_MS = 1500; // ≤ 1.5s → highlight
 
     let level = MIN_LEVEL;
     let mode = "anchor";      // "anchor" | "intensiv" (intensiv = afișat un tur, apoi revine)
@@ -262,15 +262,15 @@
       answeredCount++;
       if (answeredCount >= QUESTIONS_PER_LEVEL) return advanceLevel();
 
-      // run-complete + nextRound → motorul reia prin startRound, care resetează
-      // cronometrul (roundStartedAt) pentru fiecare întrebare nouă. Altfel timpii
-      // s-ar cumula de la prima întrebare a sesiunii.
+      // Avans IMEDIAT la întrebarea următoare (fără finishRun/delay). Cronometrul
+      // e corect: nextAnchorQuestion() face o întrebare nouă, iar renderRound îi
+      // vede semnătura schimbată și resetează roundStartedAt.
       return {
-        outcome: "run-complete",
+        outcome: "step-correct",
         correct: true,
-        runComplete: true,
+        bounce: true,
         message: "Corect!",
-        nextRound: nextAnchorQuestion(),
+        ...nextAnchorQuestion(),
       };
     }
 
@@ -312,7 +312,7 @@
             return {
               label: `${b}×${A}`,
               timeText: b in lastCorrectByB ? formatMs(ms) : "-",
-              fast: ms != null && ms < FAST_MS,
+              fast: ms != null && ms <= FAST_MS,
             };
           }),
         };

@@ -130,8 +130,12 @@
       (info.facts || []).forEach((f) => {
         const row = document.createElement("p");
         row.className = "info11-time-row";
-        if (f.fast) row.classList.add("fast");
-        row.textContent = `${f.label} : ${f.timeText}`;
+        row.append(`${f.label} : `);
+        const val = document.createElement("span");
+        val.className = "info11-time-val";
+        if (f.fast) val.classList.add("fast");
+        val.textContent = f.timeText;
+        row.appendChild(val);
         timesEl.appendChild(row);
       });
     }
