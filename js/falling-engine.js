@@ -448,8 +448,26 @@
       return `${state.targetSum}=${(mark ?? "?")}+${state.bondKnownAddend}`;
     }
 
+    // Semnătura unei întrebări: dacă se schimbă, înseamnă că a apărut o întrebare
+    // NOUĂ (nu o re-randare a aceleiași — ex. timeout pe aceeași întrebare).
+    function roundSignature(s) {
+      if (!s) return null;
+      const opts = Array.isArray(s.options) ? s.options.map(String).join("|") : "";
+      const prompt =
+        s.promptHtml ??
+        s.prompt ??
+        (s.dividend != null ? `${s.dividend}:${s.divisor}` : "");
+      return `${s.questionFormat || ""}#${prompt}#${opts}`;
+    }
+
     function renderRound(state) {
       state = normalizeRoundState(state);
+      // Cronometrul măsoară: apariția întrebării → apăsarea răspunsului corect.
+      // Resetăm doar când întrebarea e nouă; pe calea startRound, releaseRoundHold
+      // suprascrie oricum (ca să nu numărăm „hold"-ul liftului).
+      if (roundSignature(state) !== roundSignature(lastRoundState)) {
+        roundStartedAt = nowMs();
+      }
       lastRoundState = state;
       dom.fallingMainEl?.classList.remove("has-division-eq", "has-singapore-bond");
       dom.arenaQuestionSlotEl?.classList.remove("has-division-eq", "has-singapore-bond");

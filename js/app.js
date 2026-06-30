@@ -115,6 +115,10 @@
     el.hidden = false;
     el.querySelector(".info11-mode").textContent = `Mod: ${info.mode}`;
     el.querySelector(".info11-wrong").textContent = `Facts greșite: ${info.wrongFactsText}`;
+    const intensivEl = el.querySelector(".info11-intensiv");
+    if (intensivEl) intensivEl.textContent = `Facts lucrate intensiv: ${info.intensivText ?? "—"}`;
+    const countEl = el.querySelector(".info11-count");
+    if (countEl && info.answeredText != null) countEl.textContent = `Întrebări: ${info.answeredText}`;
 
     const timesEl = el.querySelector(".info11-times");
     if (timesEl) {
@@ -126,6 +130,7 @@
       (info.facts || []).forEach((f) => {
         const row = document.createElement("p");
         row.className = "info11-time-row";
+        if (f.fast) row.classList.add("fast");
         row.textContent = `${f.label} : ${f.timeText}`;
         timesEl.appendChild(row);
       });

@@ -486,9 +486,23 @@ body {
   letter-spacing: 0.01em;
 }
 
-.div-info-11-20 .info11-wrong {
+.div-info-11-20 .info11-wrong,
+.div-info-11-20 .info11-intensiv,
+.div-info-11-20 .info11-count {
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+.div-info-11-20 .info11-intensiv {
+  color: #e8b84a;
+}
+
+.div-info-11-20 .info11-time-row.fast {
+  color: #0f1419;
+  background: #34d399;
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  font-weight: 800;
 }
 
 .div-info-11-20 .info11-times-head {

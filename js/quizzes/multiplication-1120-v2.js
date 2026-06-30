@@ -81,9 +81,15 @@
 
     const qfTypes = QFG.getActiveQFTypes(QF_PROFILE).filter((t) => t.answerType === "number");
 
+    const QUESTIONS_PER_LEVEL = 36;
+    const FAST_MS = 3000; // sub 3s → highlight
+
     let level = MIN_LEVEL;
+    let mode = "anchor";      // "anchor" | "intensiv" (intensiv = afișat un tur, apoi revine)
     let wrongFacts = [];      // facts ancoră greșite (distincte), pt. panou
+    let factsLucrateIntensiv = []; // ultimul lot de facts „lucrate intensiv"
     let lastCorrectByB = {};  // { [b]: responseMs } — timpul ultimului răspuns corect / fact
+    let answeredCount = 0;    // răspunsuri corecte în nivelul curent (spre 36)
     let anchorQueue = [];     // ancorele rămase în tura curentă (ordine mic → mare cu variație)
     let recentFactorFlags = [];
     let current = null;
@@ -181,14 +187,36 @@
     }
 
     function resetLevelState() {
+      mode = "anchor";
       wrongFacts = [];
+      factsLucrateIntensiv = [];
       lastCorrectByB = {};
+      answeredCount = 0;
       anchorQueue = [];
       recentFactorFlags = [];
       current = null;
     }
 
+    function advanceLevel() {
+      global.alert?.("ai raspuns la 36 de intrebari, next level");
+      level = Math.min(MAX_LEVEL, level + 1);
+      resetLevelState();
+      return {
+        outcome: "run-complete",
+        correct: true,
+        runComplete: true,
+        levelAdvanced: true,
+        flash: "win",
+        banner: `Nivel ${level} · ${factorForLevel(level)}×`,
+        message: `Nivel ${level}`,
+        nextRound: nextAnchorQuestion(),
+      };
+    }
+
     function onAnswer(index, meta = {}) {
+      // Am arătat un tur în „Mod: intensiv" → revenim la anchor la următorul răspuns.
+      if (mode === "intensiv") mode = "anchor";
+
       const cur = current;
       const chosen = cur.options[index];
       const isCorrect = Number(chosen) === Number(cur.correct);
@@ -197,6 +225,26 @@
         if (!wrongFacts.some((w) => w.b === cur.factB)) {
           wrongFacts.push({ b: cur.factB, label: factLabel(cur.factB) });
         }
+
+        // 2 facts DISTINCTE greșite → (simulare) mod intensiv.
+        if (wrongFacts.length >= 2) {
+          global.alert?.(
+            "aici se va intra in modul intensiv. apasa pe ok si simulam incetarea modului intensiv"
+          );
+          factsLucrateIntensiv = wrongFacts.map((w) => w.label);
+          wrongFacts = [];
+          mode = "intensiv";
+          // Rămânem pe aceeași întrebare (retry), doar resetăm greșelile și
+          // arătăm „Mod: intensiv" un tur. Fără salt → fără reveal pe pick greșit.
+          return {
+            outcome: "wrong-answer",
+            correct: false,
+            flash: "wrong",
+            message: "Mod intensiv (simulat) încheiat. Continuă.",
+            ...roundView(),
+          };
+        }
+
         // Aceeași întrebare, reîncearcă. NU reconstruim întrebarea: motorul nu
         // re-randează la greșeală (doar taie butonul greșit), deci o întrebare
         // nouă ar deveni vizibilă abia la următoarea randare (când cade bara),
@@ -211,12 +259,18 @@
       }
 
       lastCorrectByB[cur.factB] = meta.responseMs ?? null;
+      answeredCount++;
+      if (answeredCount >= QUESTIONS_PER_LEVEL) return advanceLevel();
+
+      // run-complete + nextRound → motorul reia prin startRound, care resetează
+      // cronometrul (roundStartedAt) pentru fiecare întrebare nouă. Altfel timpii
+      // s-ar cumula de la prima întrebare a sesiunii.
       return {
-        outcome: "step-correct",
+        outcome: "run-complete",
         correct: true,
-        bounce: true,
+        runComplete: true,
         message: "Corect!",
-        ...nextAnchorQuestion(),
+        nextRound: nextAnchorQuestion(),
       };
     }
 
@@ -245,14 +299,22 @@
         const A = factorForLevel(level);
         return {
           visible: true,
-          mode: "test anchors",
+          mode: mode === "intensiv" ? "intensiv" : "test anchors",
           wrongFactsText: wrongFacts.length
             ? wrongFacts.map((w) => w.label).join(", ")
             : "—",
-          facts: ANCHORS.map((b) => ({
-            label: `${b}×${A}`,
-            timeText: b in lastCorrectByB ? formatMs(lastCorrectByB[b]) : "-",
-          })),
+          intensivText: factsLucrateIntensiv.length
+            ? factsLucrateIntensiv.join(", ")
+            : "—",
+          answeredText: `${answeredCount} / ${QUESTIONS_PER_LEVEL}`,
+          facts: ANCHORS.map((b) => {
+            const ms = b in lastCorrectByB ? lastCorrectByB[b] : null;
+            return {
+              label: `${b}×${A}`,
+              timeText: b in lastCorrectByB ? formatMs(ms) : "-",
+              fast: ms != null && ms < FAST_MS,
+            };
+          }),
         };
       },
 
