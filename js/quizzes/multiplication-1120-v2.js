@@ -81,18 +81,21 @@
 
     const qfTypes = QFG.getActiveQFTypes(QF_PROFILE).filter((t) => t.answerType === "number");
 
-    const QUESTIONS_PER_LEVEL = 36;
+    const QUESTIONS_PER_LEVEL = 21;
     const FAST_MS = 1500; // ≤ 1.5s → highlight
-    const INTENSIV_QUESTIONS = 10; // întrebări în modul intensiv, apoi revine la anchor
+    const INTENSIV_QUESTIONS = 10; // întrebări per sesiune intensiv
+    const INTENSIV_SESSIONS_PER_LEVEL = 2; // 2 sesiuni intensiv → nivel următor
 
     let level = MIN_LEVEL;
     let mode = "anchor";      // "anchor" | "intensiv"
     let wrongFacts = [];      // facts ancoră greșite (distincte) în anchor test
     let factsLucrateIntensiv = []; // facts antrenate în (ultimul) intensiv, pt. panou
     let intensivFacts = [];   // cele 2 facts (B) lucrate în intensivul curent
+    let intensivQueue = [];   // 10 B-uri (5+5), amestecate aleator
     let intensivCount = 0;    // câte întrebări intensive au fost rezolvate (0..10)
+    let intensivSessionsDone = 0; // sesiuni intensiv încheiate în nivelul curent
     let lastCorrectByB = {};  // { [b]: responseMs } — timpul ultimului răspuns corect / fact
-    let answeredCount = 0;    // răspunsuri corecte în nivelul curent (spre 36)
+    let answeredCount = 0;    // răspunsuri corecte anchor în nivelul curent (spre 21)
     let anchorQueue = [];     // ancorele rămase în tura curentă (ordine mic → mare cu variație)
     let recentFactorFlags = [];
     let current = null;
@@ -191,10 +194,15 @@
       return roundView();
     }
 
-    // Construiește întrebarea intensivă curentă: alternăm cele 2 facts greșite,
-    // forme cu răspuns numeric, fără răspunsul banal == factorul nivelului.
+    // 5+5 pe cele 2 facts, apoi amestecate aleator.
+    function buildIntensivQueue() {
+      const [b1, b2] = intensivFacts;
+      return shuffle([...Array(5).fill(b1), ...Array(5).fill(b2)]);
+    }
+
+    // Construiește întrebarea intensivă curentă din coada amestecată.
     function buildIntensivQuestion() {
-      const b = intensivFacts[intensivCount % intensivFacts.length];
+      const b = intensivQueue[intensivCount];
       buildQuestionForB(b, { excludeFactor: true });
     }
 
@@ -203,7 +211,9 @@
       wrongFacts = [];
       factsLucrateIntensiv = [];
       intensivFacts = [];
+      intensivQueue = [];
       intensivCount = 0;
+      intensivSessionsDone = 0;
       lastCorrectByB = {};
       answeredCount = 0;
       anchorQueue = [];
@@ -211,8 +221,12 @@
       current = null;
     }
 
-    function advanceLevel() {
-      global.alert?.("ai raspuns la 36 de intrebari, next level");
+    function advanceLevel(via = "anchor") {
+      const msg =
+        via === "intensiv"
+          ? "ai terminat 2 sesiuni intensiv, next level"
+          : `ai raspuns la ${QUESTIONS_PER_LEVEL} de intrebari, next level`;
+      global.alert?.(msg);
       level = Math.min(MAX_LEVEL, level + 1);
       resetLevelState();
       return {
@@ -234,12 +248,16 @@
 
       // ── MOD INTENSIV ───────────────────────────────────────────────────────
       // Instrument de antrenament (NU mastery): 10 întrebări pe cele 2 facts
-      // greșite, alternate. Greșelile sunt IGNORATE — avansăm indiferent de
-      // corect/greșit. La final revenim la anchor; contorul de 36 NU e atins.
+      // greșite (5+5, ordine aleatoare). Greșelile sunt IGNORATE — avansăm indiferent de
+      // corect/greșit. La final revenim la anchor (sau nivel următor la 2 sesiuni).
       if (mode === "intensiv") {
         intensivCount++;
         if (intensivCount >= INTENSIV_QUESTIONS) {
+          intensivSessionsDone++;
           mode = "anchor";
+          if (intensivSessionsDone >= INTENSIV_SESSIONS_PER_LEVEL) {
+            return advanceLevel("intensiv");
+          }
           return {
             outcome: "step-correct",
             correct: true,
@@ -285,6 +303,7 @@
         wrongFacts = [];
         mode = "intensiv";
         intensivCount = 0;
+        intensivQueue = buildIntensivQueue();
         buildIntensivQuestion();
         return {
           outcome: "step-correct",
@@ -342,6 +361,7 @@
             ? factsLucrateIntensiv.join(", ")
             : "—",
           answeredText: `${answeredCount} / ${QUESTIONS_PER_LEVEL}`,
+          intensivSessionsText: `${intensivSessionsDone} / ${INTENSIV_SESSIONS_PER_LEVEL}`,
           facts: ANCHORS.map((b) => {
             const ms = b in lastCorrectByB ? lastCorrectByB[b] : null;
             return {

@@ -502,7 +502,8 @@ body {
 
 .div-info-11-20 .info11-wrong,
 .div-info-11-20 .info11-intensiv,
-.div-info-11-20 .info11-count {
+.div-info-11-20 .info11-count,
+.div-info-11-20 .info11-sessions {
   font-size: 0.95rem;
   font-weight: 600;
 }

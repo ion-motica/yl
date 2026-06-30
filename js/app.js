@@ -122,6 +122,10 @@
     if (intensivEl) intensivEl.textContent = `Facts lucrate intensiv: ${info.intensivText ?? "—"}`;
     const countEl = el.querySelector(".info11-count");
     if (countEl && info.answeredText != null) countEl.textContent = `Întrebări: ${info.answeredText}`;
+    const sessionsEl = el.querySelector(".info11-sessions");
+    if (sessionsEl && info.intensivSessionsText != null) {
+      sessionsEl.textContent = `Sesiuni intensiv: ${info.intensivSessionsText}`;
+    }
 
     const timesEl = el.querySelector(".info11-times");
     if (timesEl) {
