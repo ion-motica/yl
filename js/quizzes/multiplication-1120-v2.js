@@ -83,11 +83,14 @@
 
     const QUESTIONS_PER_LEVEL = 36;
     const FAST_MS = 1500; // ≤ 1.5s → highlight
+    const INTENSIV_QUESTIONS = 10; // întrebări în modul intensiv, apoi revine la anchor
 
     let level = MIN_LEVEL;
-    let mode = "anchor";      // "anchor" | "intensiv" (intensiv = afișat un tur, apoi revine)
-    let wrongFacts = [];      // facts ancoră greșite (distincte), pt. panou
-    let factsLucrateIntensiv = []; // ultimul lot de facts „lucrate intensiv"
+    let mode = "anchor";      // "anchor" | "intensiv"
+    let wrongFacts = [];      // facts ancoră greșite (distincte) în anchor test
+    let factsLucrateIntensiv = []; // facts antrenate în (ultimul) intensiv, pt. panou
+    let intensivFacts = [];   // cele 2 facts (B) lucrate în intensivul curent
+    let intensivCount = 0;    // câte întrebări intensive au fost rezolvate (0..10)
     let lastCorrectByB = {};  // { [b]: responseMs } — timpul ultimului răspuns corect / fact
     let answeredCount = 0;    // răspunsuri corecte în nivelul curent (spre 36)
     let anchorQueue = [];     // ancorele rămase în tura curentă (ordine mic → mare cu variație)
@@ -135,7 +138,9 @@
       return anchorQueue.shift();
     }
 
-    function buildQuestionForB(b) {
+    // excludeFactor=true → nu punem niciodată întrebări al căror răspuns e chiar
+    // factorul nivelului (ex. 11 la nivel 1 — banal). Folosit la modul intensiv.
+    function buildQuestionForB(b, { excludeFactor = false } = {}) {
       const A = factorForLevel(level);
       const fact = makeFact(b);
 
@@ -144,7 +149,7 @@
         if (!r || r.answerType !== "number") continue;
         const val = Number(r.correctAnswer);
         if (!Number.isFinite(val)) continue;
-        if (val === A && factorCapHit()) continue;
+        if (val === A && (excludeFactor || factorCapHit())) continue;
 
         const opt = sameLastDigitOptions(val, shuffle);
         current = {
@@ -186,10 +191,19 @@
       return roundView();
     }
 
+    // Construiește întrebarea intensivă curentă: alternăm cele 2 facts greșite,
+    // forme cu răspuns numeric, fără răspunsul banal == factorul nivelului.
+    function buildIntensivQuestion() {
+      const b = intensivFacts[intensivCount % intensivFacts.length];
+      buildQuestionForB(b, { excludeFactor: true });
+    }
+
     function resetLevelState() {
       mode = "anchor";
       wrongFacts = [];
       factsLucrateIntensiv = [];
+      intensivFacts = [];
+      intensivCount = 0;
       lastCorrectByB = {};
       answeredCount = 0;
       anchorQueue = [];
@@ -214,33 +228,56 @@
     }
 
     function onAnswer(index, meta = {}) {
-      // Am arătat un tur în „Mod: intensiv" → revenim la anchor la următorul răspuns.
-      if (mode === "intensiv") mode = "anchor";
-
       const cur = current;
       const chosen = cur.options[index];
       const isCorrect = Number(chosen) === Number(cur.correct);
 
+      // ── MOD INTENSIV ───────────────────────────────────────────────────────
+      // Instrument de antrenament (NU mastery): 10 întrebări pe cele 2 facts
+      // greșite, alternate. Greșelile sunt IGNORATE — avansăm indiferent de
+      // corect/greșit. La final revenim la anchor; contorul de 36 NU e atins.
+      if (mode === "intensiv") {
+        intensivCount++;
+        if (intensivCount >= INTENSIV_QUESTIONS) {
+          mode = "anchor";
+          return {
+            outcome: "step-correct",
+            correct: true,
+            bounce: true,
+            message: "Înapoi la test anchors.",
+            ...nextAnchorQuestion(),
+          };
+        }
+        buildIntensivQuestion();
+        return {
+          outcome: "step-correct",
+          correct: true,
+          bounce: true,
+          message: `Intensiv ${intensivCount + 1}/${INTENSIV_QUESTIONS}`,
+          ...roundView(),
+        };
+      }
+
+      // ── ANCHOR TEST ────────────────────────────────────────────────────────
       if (!isCorrect) {
         if (!wrongFacts.some((w) => w.b === cur.factB)) {
           wrongFacts.push({ b: cur.factB, label: factLabel(cur.factB) });
         }
 
-        // 2 facts DISTINCTE greșite → (simulare) mod intensiv.
+        // 2 facts DISTINCTE greșite → intrăm efectiv în modul intensiv.
         if (wrongFacts.length >= 2) {
-          global.alert?.(
-            "aici se va intra in modul intensiv. apasa pe ok si simulam incetarea modului intensiv"
-          );
+          intensivFacts = wrongFacts.map((w) => w.b);
           factsLucrateIntensiv = wrongFacts.map((w) => w.label);
           wrongFacts = [];
           mode = "intensiv";
-          // Rămânem pe aceeași întrebare (retry), doar resetăm greșelile și
-          // arătăm „Mod: intensiv" un tur. Fără salt → fără reveal pe pick greșit.
+          intensivCount = 0;
+          buildIntensivQuestion(); // prima întrebare intensivă (fact #0)
           return {
-            outcome: "wrong-answer",
-            correct: false,
+            outcome: "step-correct",
+            correct: true,
+            bounce: true,
             flash: "wrong",
-            message: "Mod intensiv (simulat) încheiat. Continuă.",
+            message: `Mod intensiv: antrenament pe ${factsLucrateIntensiv.join(", ")}`,
             ...roundView(),
           };
         }
