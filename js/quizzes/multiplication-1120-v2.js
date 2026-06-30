@@ -197,8 +197,10 @@
         if (!wrongFacts.some((w) => w.b === cur.factB)) {
           wrongFacts.push({ b: cur.factB, label: factLabel(cur.factB) });
         }
-        // Retry: alt QF aleator pentru același B×A.
-        buildQuestionForB(cur.factB);
+        // Aceeași întrebare, reîncearcă. NU reconstruim întrebarea: motorul nu
+        // re-randează la greșeală (doar taie butonul greșit), deci o întrebare
+        // nouă ar deveni vizibilă abia la următoarea randare (când cade bara),
+        // dând impresia că „se schimbă întrebarea la timeout".
         return {
           outcome: "wrong-answer",
           correct: false,

@@ -766,8 +766,23 @@
 
     function handleBottomMiss() {
       if (locked || getQuiz().isCompleted()) return;
+      // Liniile „picked-wrong" trebuie să rămână peste timeout dacă întrebarea
+      // este aceeași după reset (la fel ca retry-ul de la celelalte quiz-uri).
+      // Capturăm indicii ÎNAINTE ca `cancelRisingAnimation` să golească setul,
+      // apoi îi reaplicăm doar dacă opțiunile afișate au rămas identice.
+      const wrongBefore = [...wrongPicksThisStep];
+      const optionsBefore = lastRoundState ? [...(lastRoundState.options || [])] : null;
       cancelRisingAnimation();
       applyAnswerResult(getQuiz().onTimeout(attemptMeta({ timedOut: true })));
+      const optionsAfter = lastRoundState ? lastRoundState.options || [] : [];
+      const sameQuestion =
+        optionsBefore != null &&
+        optionsBefore.length === optionsAfter.length &&
+        optionsBefore.every((value, i) => String(value) === String(optionsAfter[i]));
+      if (sameQuestion && wrongBefore.length) {
+        wrongBefore.forEach((i) => wrongPicksThisStep.add(i));
+        syncWrongMarks();
+      }
       setInputEnabled(true);
     }
 
