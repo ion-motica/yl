@@ -435,9 +435,6 @@ body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-/* Indicator de progres = STELE (înlocuiesc fostele pătrățele verzi), cu un rând
-   de cerculețe roșii dedesubt (fostele combo roșii). Mutat în caseta întrebării,
-   sus (vezi .falling-inner din index.html). Stivă verticală: stele apoi roșii. */
 .progress-visual {
   display: flex;
   flex-direction: column;
@@ -454,6 +451,56 @@ body {
 
 .progress-visual.hidden {
   display: none;
+}
+
+.div-info-11-20 {
+  position: absolute;
+  top: 200px;
+  left: 0;
+  right: 0;
+  z-index: 1; /* în fundal: sub titlu (10), lift (20) și butoane (60) */
+  box-sizing: border-box;
+  padding: 0.45rem 0.7rem 0.55rem;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: var(--text);
+  background: rgba(14, 22, 34, 0.92);
+  border-bottom: 2px solid rgba(122, 168, 255, 0.45);
+  text-align: left;
+  pointer-events: none;
+  user-select: none;
+}
+
+.div-info-11-20[hidden] {
+  display: none !important;
+}
+
+.div-info-11-20 p {
+  margin: 0.15rem 0;
+}
+
+.div-info-11-20 .info11-mode {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
+
+.div-info-11-20 .info11-wrong {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.div-info-11-20 .info11-times-head {
+  margin-top: 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.div-info-11-20 .info11-time-row {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: "Courier New", Courier, monospace;
 }
 
 .progress-visual.red-hidden .combo-track {

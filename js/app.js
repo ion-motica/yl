@@ -39,6 +39,7 @@
     rising: document.getElementById("rising"),
     risingNumberEl: document.getElementById("rising-number"),
     optionBtns: [...document.querySelectorAll(".option")],
+    info11_20El: document.getElementById("divInfo11_20"),
   };
 
   let quiz = null;
@@ -93,6 +94,42 @@
       if (reward?.isAnyEnabled?.()) reward.play({ fallingEl: dom.falling });
     }
     lastRenderedLevel = level;
+  }
+
+  function hideInfo11_20() {
+    if (dom.info11_20El) dom.info11_20El.hidden = true;
+  }
+
+  function renderInfo11_20() {
+    const el = dom.info11_20El;
+    if (!el) return;
+    if (typeof quiz?.getInfo11_20 !== "function") {
+      hideInfo11_20();
+      return;
+    }
+    const info = quiz.getInfo11_20();
+    if (!info?.visible) {
+      hideInfo11_20();
+      return;
+    }
+    el.hidden = false;
+    el.querySelector(".info11-mode").textContent = `Mod: ${info.mode}`;
+    el.querySelector(".info11-wrong").textContent = `Facts greșite: ${info.wrongFactsText}`;
+
+    const timesEl = el.querySelector(".info11-times");
+    if (timesEl) {
+      timesEl.replaceChildren();
+      const head = document.createElement("p");
+      head.className = "info11-times-head";
+      head.textContent = "Timp ultim corect:";
+      timesEl.appendChild(head);
+      (info.facts || []).forEach((f) => {
+        const row = document.createElement("p");
+        row.className = "info11-time-row";
+        row.textContent = `${f.label} : ${f.timeText}`;
+        timesEl.appendChild(row);
+      });
+    }
   }
 
   function renderProgress() {
@@ -154,6 +191,8 @@
     dom.levelPickerEl.querySelectorAll(".level-btn").forEach((btn) => {
       btn.classList.toggle("active", Number(btn.dataset.level) === quiz.getLevel());
     });
+
+    renderInfo11_20();
   }
 
 
