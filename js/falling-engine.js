@@ -52,16 +52,53 @@
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
 
+    function questionFitContainer() {
+      if (
+        swapQuestionIllustration &&
+        dom.arenaQuestionSlotEl &&
+        !dom.arenaQuestionSlotEl.hidden
+      ) {
+        return dom.arenaQuestionSlotEl;
+      }
+      if (dom.liftFixedHost && !dom.liftFixedHost.hidden) {
+        return dom.liftFixedHost;
+      }
+      return dom.falling;
+    }
+
     // Reduce font size pas cu pas până când textul încape pe un singur rând.
     function fitNumberText(el) {
-      el.style.fontSize = "";           // resetează la valoarea CSS (2.5rem)
-      const container = el.parentElement;
-      if (!container) return;
-      let fs = parseFloat(getComputedStyle(el).fontSize);
-      while (el.scrollWidth > container.clientWidth && fs > 14) {
-        fs -= 2;
-        el.style.fontSize = fs + "px";
+      if (!el) return;
+
+      function runFit() {
+        const container = questionFitContainer() || el.parentElement;
+        if (!container) return;
+
+        const inner = container.querySelector(".falling-inner");
+        const measureEl = inner || container;
+        const maxWidth = measureEl.clientWidth - 8;
+        if (maxWidth <= 0) return;
+
+        el.style.fontSize = "";
+        el.style.transform = "";
+        el.style.display = "block";
+        el.style.width = "100%";
+        el.style.maxWidth = "100%";
+        el.style.textAlign = "center";
+        el.style.boxSizing = "border-box";
+
+        let fs = parseFloat(getComputedStyle(el).fontSize);
+        const minFs = 10;
+        el.style.overflow = "visible";
+        while (el.scrollWidth > maxWidth && fs > minFs) {
+          fs -= 1;
+          el.style.fontSize = fs + "px";
+        }
+        el.style.overflow = "hidden";
       }
+
+      runFit();
+      requestAnimationFrame(runFit);
     }
 
     function nowMs() {
@@ -495,7 +532,7 @@
           if (raw.includes("?")) {
             dom.topNumberEl.innerHTML = raw.replace(
               /\?/g,
-              '<span class="q-mark"> ? </span>'
+              '<span class="q-mark">?</span>'
             );
           } else {
             dom.topNumberEl.textContent = raw;

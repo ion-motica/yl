@@ -1076,6 +1076,11 @@ body {
 }
 
 .arena-question-slot .number {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
   font-size: 5rem;
   font-weight: 700;
   line-height: 1.1;
@@ -1558,6 +1563,10 @@ body {
   margin: 0;
   padding: 0;
   line-height: 1.1;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-align: center;
 }
 
 .division-line--last {
@@ -1566,6 +1575,11 @@ body {
 }
 
 .falling-main .number {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
   font-size: 5rem;
   font-weight: 700;
   line-height: 1.1;
@@ -1575,6 +1589,29 @@ body {
 .q-mark {
   color: var(--win);
   font-weight: 800;
+}
+
+.sqrt {
+  display: inline-flex;
+  align-items: flex-start;
+  white-space: nowrap;
+}
+
+.sqrt-symbol {
+  font-size: 1.25em;
+  line-height: 1;
+  margin-right: 2px;
+}
+
+.sqrt-content {
+  border-top: 2px solid currentColor;
+  padding: 0 3px;
+  line-height: 1.15;
+}
+
+.falling-main .number sup {
+  font-size: 0.7em;
+  line-height: 0;
 }
 
 .falling-options {
