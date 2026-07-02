@@ -233,18 +233,20 @@
       }
     }
 
-    function pickN(excludeN) {
-      const pool =
-        excludeN != null ? N_VALUES.filter((value) => value !== excludeN) : N_VALUES;
+    function pickN(k, excludeN) {
+      let pool = N_VALUES.filter((value) => value !== k);
+      if (excludeN != null) {
+        pool = pool.filter((value) => value !== excludeN);
+      }
       if (!pool.length) {
-        return N_VALUES[randomInt(0, N_VALUES.length - 1)];
+        pool = N_VALUES.filter((value) => value !== k);
       }
       return pool[randomInt(0, pool.length - 1)];
     }
 
     function pickNewQuestion(excludeN) {
       const k = kForLevel(level);
-      const n = pickN(excludeN);
+      const n = pickN(k, excludeN);
       let phase = currentPhase;
 
       if (phase === PHASE.FOUR) {

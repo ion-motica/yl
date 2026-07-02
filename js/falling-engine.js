@@ -52,53 +52,79 @@
     /** Indici greșiți pe același număr (centrul) — rămân gri până la răspuns corect. */
     const wrongPicksThisStep = new Set();
 
-    function questionFitContainer() {
+    // Reduce font size pas cu pas până când textul încape în lift (chenarul albastru).
+    function questionMaxWidth() {
       if (
         swapQuestionIllustration &&
         dom.arenaQuestionSlotEl &&
         !dom.arenaQuestionSlotEl.hidden
       ) {
-        return dom.arenaQuestionSlotEl;
+        return Math.max(0, dom.arenaQuestionSlotEl.clientWidth - 16);
       }
-      if (dom.liftFixedHost && !dom.liftFixedHost.hidden) {
-        return dom.liftFixedHost;
-      }
-      return dom.falling;
+
+      const lift = dom.falling;
+      if (!lift) return 0;
+
+      const rect = lift.getBoundingClientRect();
+      const inner = lift.querySelector(".falling-inner");
+      const padX = inner
+        ? Math.max(12, (rect.width - inner.clientWidth) / 2 + 8)
+        : 16;
+
+      return Math.max(0, Math.floor(rect.width - padX * 2));
     }
 
-    // Reduce font size pas cu pas până când textul încape pe un singur rând.
+    function measureQuestionWidth(el) {
+      el.style.display = "inline-block";
+      el.style.width = "max-content";
+      el.style.maxWidth = "none";
+      el.style.margin = "0";
+      el.style.overflow = "visible";
+      el.style.verticalAlign = "top";
+      return el.scrollWidth;
+    }
+
     function fitNumberText(el) {
       if (!el) return;
 
       function runFit() {
-        const container = questionFitContainer() || el.parentElement;
-        if (!container) return;
-
-        const inner = container.querySelector(".falling-inner");
-        const measureEl = inner || container;
-        const maxWidth = measureEl.clientWidth - 8;
+        const maxWidth = questionMaxWidth();
         if (maxWidth <= 0) return;
 
         el.style.fontSize = "";
         el.style.transform = "";
-        el.style.display = "block";
-        el.style.width = "100%";
-        el.style.maxWidth = "100%";
+        el.style.transformOrigin = "center top";
         el.style.textAlign = "center";
         el.style.boxSizing = "border-box";
 
         let fs = parseFloat(getComputedStyle(el).fontSize);
         const minFs = 10;
-        el.style.overflow = "visible";
-        while (el.scrollWidth > maxWidth && fs > minFs) {
+        let textWidth = measureQuestionWidth(el);
+
+        while (textWidth > maxWidth && fs > minFs) {
           fs -= 1;
           el.style.fontSize = fs + "px";
+          textWidth = measureQuestionWidth(el);
         }
-        el.style.overflow = "hidden";
+
+        if (textWidth > maxWidth && textWidth > 0) {
+          const scale = maxWidth / textWidth;
+          el.style.transform = `scale(${scale})`;
+        }
+
+        el.style.display = "inline-block";
+        el.style.width = "auto";
+        el.style.maxWidth = maxWidth + "px";
+        el.style.marginLeft = "auto";
+        el.style.marginRight = "auto";
+        el.style.overflow = "visible";
       }
 
       runFit();
-      requestAnimationFrame(runFit);
+      requestAnimationFrame(() => {
+        runFit();
+        requestAnimationFrame(runFit);
+      });
     }
 
     function nowMs() {
@@ -161,6 +187,9 @@
       syncBoxHeight();
       fallY = frac * travelSpan();
       dom.falling.style.top = `${fallY}px`;
+      if (dom.topNumberEl && lastRoundState) {
+        fitNumberText(dom.topNumberEl);
+      }
       config.onResize?.();
     }
 

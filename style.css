@@ -1066,9 +1066,11 @@ body {
 
 .arena-question-slot {
   width: 100%;
+  align-self: stretch;
   text-align: center;
   padding: 0.15rem 8px 0.25rem;
   line-height: 1.1;
+  overflow: hidden;
 }
 
 .arena-question-slot[hidden] {
@@ -1076,10 +1078,12 @@ body {
 }
 
 .arena-question-slot .number {
-  display: block;
-  width: 100%;
+  display: inline-block;
+  width: auto;
   max-width: 100%;
-  overflow: hidden;
+  margin-left: auto;
+  margin-right: auto;
+  overflow: visible;
   box-sizing: border-box;
   font-size: 5rem;
   font-weight: 700;
@@ -1563,6 +1567,7 @@ body {
   margin: 0;
   padding: 0;
   line-height: 1.1;
+  align-self: stretch;
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -1575,10 +1580,12 @@ body {
 }
 
 .falling-main .number {
-  display: block;
-  width: 100%;
+  display: inline-block;
+  width: auto;
   max-width: 100%;
-  overflow: hidden;
+  margin-left: auto;
+  margin-right: auto;
+  overflow: visible;
   box-sizing: border-box;
   font-size: 5rem;
   font-weight: 700;
@@ -1595,6 +1602,7 @@ body {
   display: inline-flex;
   align-items: flex-start;
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .sqrt-symbol {
