@@ -1091,11 +1091,6 @@ body {
   white-space: nowrap;
 }
 
-.arena-question-slot .number .sqrt-content sup {
-  font-size: 0.65em;
-  line-height: 0;
-}
-
 .arena-ilustrare-body,
 .lift-ilustrare-body {
   width: 100%;
@@ -1606,40 +1601,44 @@ body {
 .sqrt {
   display: inline-flex;
   align-items: flex-start;
-  vertical-align: middle;
+  vertical-align: -0.05em;
   white-space: nowrap;
 }
 
-.sqrt-symbol {
-  font-size: 1.25em;
-  line-height: 0.95;
+.sqrt-sign {
+  display: inline-block;
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 1.22em;
+  font-weight: 700;
+  line-height: 0.82;
   margin-right: -0.02em;
-  transform: translateY(0.04em);
+  transform: translateY(0.11em) scaleX(0.95);
 }
 
-.sqrt-content {
+.sqrt-radicand {
   display: inline-flex;
   align-items: baseline;
   gap: 0.14em;
-  border-top: 0.08em solid currentColor;
-  padding: 0.04em 0.12em 0 0.12em;
+  border-top: 0.075em solid currentColor;
+  padding: 0.03em 0.12em 0 0.10em;
   line-height: 1.05;
-  min-height: 1em;
+  min-height: 0.88em;
   box-sizing: border-box;
+  transform: translateY(-5%);
 }
 
-.sqrt-content sup {
+.sqrt-radicand sup,
+.falling-main .number .sqrt-radicand sup,
+.arena-question-slot .number .sqrt-radicand sup {
   font-size: 0.65em;
-  line-height: 0;
+  line-height: 1;
+  align-self: flex-start;
+  position: relative;
+  top: calc(-0.42em * 0.95 * 0.9 * 0.8 * 0.9 * 0.9);
 }
 
 .falling-main .number sup {
   font-size: 0.7em;
-  line-height: 0;
-}
-
-.falling-main .number .sqrt-content sup {
-  font-size: 0.65em;
   line-height: 0;
 }
 

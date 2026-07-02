@@ -43,9 +43,9 @@
 
   function renderSqrt(contentHtml) {
     return (
-      '<span class="sqrt">' +
-      '<span class="sqrt-symbol">√</span>' +
-      `<span class="sqrt-content">${contentHtml}</span>` +
+      '<span class="sqrt" aria-label="radical">' +
+      '<span class="sqrt-sign">√</span>' +
+      `<span class="sqrt-radicand">${contentHtml}</span>` +
       "</span>"
     );
   }
