@@ -68,7 +68,7 @@
       return `${left} = ${renderSqrt(`${n} · ${renderPower(qMarkHtml(), 2)}`)}`;
     }
     if (phase === PHASE.THREE) {
-      return `${left} = ${renderSqrt(`${n} · ${renderPower(k, qMarkHtml())}`)}`;
+      return `${left} = ${renderSqrt(`${n} · ${k}<sup>${qMarkHtml()}</sup>`)}`;
     }
     if (phase === PHASE.FIVE) {
       return `${left} = ${renderSqrt(`${n} · ${qMarkHtml()}`)}`;

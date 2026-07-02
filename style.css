@@ -1091,6 +1091,11 @@ body {
   white-space: nowrap;
 }
 
+.arena-question-slot .number .sqrt-content sup {
+  font-size: 0.65em;
+  line-height: 0;
+}
+
 .arena-ilustrare-body,
 .lift-ilustrare-body {
   width: 100%;
@@ -1601,24 +1606,40 @@ body {
 .sqrt {
   display: inline-flex;
   align-items: flex-start;
-  white-space: nowrap;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .sqrt-symbol {
   font-size: 1.25em;
-  line-height: 1;
-  margin-right: 2px;
+  line-height: 0.95;
+  margin-right: -0.02em;
+  transform: translateY(0.04em);
 }
 
 .sqrt-content {
-  border-top: 2px solid currentColor;
-  padding: 0 3px;
-  line-height: 1.15;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.14em;
+  border-top: 0.08em solid currentColor;
+  padding: 0.04em 0.12em 0 0.12em;
+  line-height: 1.05;
+  min-height: 1em;
+  box-sizing: border-box;
+}
+
+.sqrt-content sup {
+  font-size: 0.65em;
+  line-height: 0;
 }
 
 .falling-main .number sup {
   font-size: 0.7em;
+  line-height: 0;
+}
+
+.falling-main .number .sqrt-content sup {
+  font-size: 0.65em;
   line-height: 0;
 }
 
