@@ -3,12 +3,17 @@
 
   const QUIZ_ID = "sub-sau-langa-radical";
   const MIN_LEVEL = 1;
-  const MAX_LEVEL = 3;
+  const MAX_LEVEL = 5;
   const CONSECUTIVE_NEEDED = 5;
+  const ADVANCED_LEVEL_CONSECUTIVE_NEEDED = 12;
+  const ADVANCED_LEVEL_QUESTION_LIMIT = 21;
   const HINT = "Alege raspunsul corect.";
+  const COMPLETE_MESSAGE = "Felicitari! Ai terminat quizul!";
 
   const K_VALUES = [2, 3, 4];
   const N_VALUES = [2, 3];
+  const LEVEL_4_VALUES = [2, 3, 4, 5];
+  const LEVEL_5_VALUES = [4, 5, 6];
   const ORDER_FACTORS_LIKE_LEFT_SIDE = true;
   const FALLBACK_TRAPS = [1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 16, 18, 24, 27, 32];
 
@@ -21,6 +26,8 @@
     1: ["L1-IN-1", "L1-IN-2", "L1-IN-3", "L1-OUT-1", "L1-OUT-2", "L1-OUT-3"],
     2: ["L2-IN-1", "L2-IN-2", "L2-OUT-1", "L2-OUT-2", "L2-OUT-3"],
     3: ["L3-IN-1", "L3-OUT-1", "L3-OUT-2", "L3-OUT-3"],
+    4: ["L3-IN-1", "L3-OUT-1", "L3-OUT-2", "L3-OUT-3"],
+    5: ["L3-IN-1", "L3-OUT-1", "L3-OUT-2", "L3-OUT-3"],
   };
 
   function qMarkHtml() {
@@ -65,8 +72,22 @@
     return items[randomInt(0, items.length - 1)];
   }
 
-  function pickNForK(k) {
-    return pickRandom(N_VALUES.filter((value) => value !== k));
+  function valuesForLevel(level) {
+    if (level >= 5) return LEVEL_5_VALUES;
+    if (level >= 4) return LEVEL_4_VALUES;
+    return null;
+  }
+
+  function kValuesForLevel(level) {
+    return valuesForLevel(level) ?? K_VALUES;
+  }
+
+  function nValuesForLevel(level) {
+    return valuesForLevel(level) ?? N_VALUES;
+  }
+
+  function pickNForK(k, level) {
+    return pickRandom(nValuesForLevel(level).filter((value) => value !== k));
   }
 
   function buildPromptHtml(form, k, n) {
@@ -197,13 +218,21 @@
     return form.includes("-IN-") ? DIRECTION.IN : DIRECTION.OUT;
   }
 
+  function consecutiveNeededForLevel(level) {
+    return level >= 3 ? ADVANCED_LEVEL_CONSECUTIVE_NEEDED : CONSECUTIVE_NEEDED;
+  }
+
+  function questionLimitForLevel(level) {
+    return level >= 3 ? ADVANCED_LEVEL_QUESTION_LIMIT : null;
+  }
+
   function buildQuestion(level, lastQuestionSignature) {
     const { shuffle } = global.GameUtils;
     let question = null;
 
     for (let attempt = 0; attempt < 8; attempt += 1) {
-      const k = pickRandom(K_VALUES);
-      const n = pickNForK(k);
+      const k = pickRandom(kValuesForLevel(level));
+      const n = pickNForK(k, level);
       const form = pickRandom(FORMS_BY_LEVEL[level]);
       const signature = signatureFor(level, form, k, n);
       const { value, kind } = answerInfo(form, k, n);
@@ -235,6 +264,7 @@
 
     let currentLevel = MIN_LEVEL;
     let consecutiveCorrect = 0;
+    let questionsAnsweredOnLevel = 0;
     let lastQuestionSignature = null;
     let current = null;
     let gameCompleted = false;
@@ -266,6 +296,7 @@
 
     function resetLevelState() {
       consecutiveCorrect = 0;
+      questionsAnsweredOnLevel = 0;
       current = null;
     }
 
@@ -277,19 +308,26 @@
         runComplete: true,
         gameComplete: true,
         flash: "win",
-        banner: "Felicitari! Ai terminat quizul!",
-        message: "Felicitari! Ai terminat quizul!",
-        ...roundView(),
+        banner: COMPLETE_MESSAGE,
+        prompt: COMPLETE_MESSAGE,
+        promptHtml: COMPLETE_MESSAGE,
+        message: COMPLETE_MESSAGE,
+        hintMessage: COMPLETE_MESSAGE,
+        options: ["-", "-", "-"],
+        correctIndex: 0,
       };
     }
 
     function advanceLevel() {
+      const completedLevel = currentLevel;
+
       if (currentLevel >= MAX_LEVEL) {
         return completeGame();
       }
 
       currentLevel += 1;
       consecutiveCorrect = 0;
+      questionsAnsweredOnLevel = 0;
       pickNewQuestion();
 
       return {
@@ -299,28 +337,32 @@
         levelAdvanced: true,
         flash: "win",
         banner: getLevelLabel(),
-        message: "5 corecte consecutive! Next level!",
+        message: `${consecutiveNeededForLevel(completedLevel)} corecte consecutive! Next level!`,
         nextRound: roundView(),
       };
     }
 
     function afterAnswer(isCorrect) {
+      const questionLimit = questionLimitForLevel(currentLevel);
+
       if (!isCorrect) {
         consecutiveCorrect = 0;
-        pickNewQuestion();
         return {
-          outcome: "step-correct",
+          outcome: "wrong-answer",
           correct: false,
           flash: "wrong",
-          resetFall: true,
           message: "Nu e corect.",
           ...roundView(),
         };
       }
 
+      questionsAnsweredOnLevel += 1;
       consecutiveCorrect += 1;
 
-      if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
+      if (
+        consecutiveCorrect >= consecutiveNeededForLevel(currentLevel) ||
+        (questionLimit && questionsAnsweredOnLevel >= questionLimit)
+      ) {
         return advanceLevel();
       }
 
@@ -343,7 +385,10 @@
       getLevelButtonTitle,
 
       getProgressDisplay() {
-        const percent = Math.round((consecutiveCorrect / CONSECUTIVE_NEEDED) * 100);
+        const consecutivePercent = consecutiveCorrect / consecutiveNeededForLevel(currentLevel);
+        const answeredPercent =
+          questionLimitForLevel(currentLevel) ? questionsAnsweredOnLevel / questionLimitForLevel(currentLevel) : 0;
+        const percent = Math.round(Math.max(consecutivePercent, answeredPercent) * 100);
         return {
           green: ProgressDisplay.greenPercent(Math.min(100, percent)),
           red: ProgressDisplay.redNone(),
@@ -375,8 +420,9 @@
 
       onTimeout() {
         return {
-          outcome: "round",
-          resetFall: true,
+          outcome: "timeout",
+          correct: false,
+          message: "Incearca din nou.",
           ...roundView(),
         };
       },

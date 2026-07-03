@@ -667,6 +667,7 @@
 
     function finishRun(result) {
       if (result.gameComplete) {
+        if (hasRenderableState(result)) renderRound(result);
         if (rafId) cancelAnimationFrame(rafId);
         rafId = null;
         dom.playPauseBtn.disabled = true;
