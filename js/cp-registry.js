@@ -3,7 +3,7 @@
 
   const LEGACY_DEFAULT_ORDER = ["lift", "aam", "debug"];
   const LEGACY_DEFAULT_ORDER_V2 = ["debug", "lift", "aam"];
-  const DEFAULT_ORDER = ["liftType", "debug", "lift", "aam"];
+  const DEFAULT_ORDER = ["subquiz", "liftType", "debug", "lift", "aam"];
   const panels = new Map();
 
   function register(def) {
@@ -33,10 +33,17 @@
     return stored;
   }
 
-  function ensureLiftTypeFirst(order) {
-    if (!panels.has("liftType")) return order;
-    const rest = order.filter((id) => id !== "liftType");
-    return ["liftType", ...rest];
+  function ensurePrimaryPanelsFirst(order) {
+    let next = order;
+    if (panels.has("liftType")) {
+      const rest = next.filter((id) => id !== "liftType");
+      next = ["liftType", ...rest];
+    }
+    if (panels.has("subquiz")) {
+      const rest = next.filter((id) => id !== "subquiz");
+      next = ["subquiz", ...rest];
+    }
+    return next;
   }
 
   function getOrder() {
@@ -52,7 +59,7 @@
       panels.forEach((_v, id) => {
         if (!known.includes(id)) known.push(id);
       });
-      const ordered = ensureLiftTypeFirst(known);
+      const ordered = ensurePrimaryPanelsFirst(known);
       if (ordered.join("|") !== known.join("|") && Config) {
         Config.set("cpOrder", ordered);
       }

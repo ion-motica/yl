@@ -209,6 +209,7 @@
     });
 
     renderInfo11_20();
+    renderSubquizStartControl();
   }
 
 
@@ -399,6 +400,7 @@
     const meta = QuizRegistry.get(id);
     applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
+    cpShell?.refreshEnabledStates?.();
     aamArena?.reset();
     buildQuizPicker();
     buildLevelPicker();
@@ -418,6 +420,11 @@
   quiz = QuizRegistry.createActive();
 
   let aamCpEnabled = false;
+  CpRegistry.register({
+    id: "subquiz",
+    title: "CP — Subquiz",
+    isEnabled: () => typeof quiz?.getSubquizStartOptions === "function",
+  });
   CpRegistry.register({
     id: "liftType",
     title: "CP — Tip lift",
@@ -484,6 +491,19 @@
     engine?.relayoutLift?.();
   }
 
+  let subquizStartControlEl = null;
+
+  (function buildSubquizPanel() {
+    const mount = cpShell.getMountEl("subquiz");
+    if (!mount) return;
+    mount.replaceChildren();
+    subquizStartControlEl = document.createElement("div");
+    subquizStartControlEl.className = "control-panel-lift-field subquiz-start-control";
+    subquizStartControlEl.hidden = true;
+    mount.appendChild(subquizStartControlEl);
+    renderSubquizStartControl();
+  })();
+
   let liftTypeControl = null;
   (function buildLiftTypePanel() {
     const mount = cpShell.getMountEl("liftType");
@@ -510,6 +530,53 @@
       debugBordersInput.disabled = asnwOn;
       debugBordersInput.checked = asnwOn ? false : debugInfoBorders;
     }
+  }
+
+  function renderSubquizStartControl() {
+    if (!subquizStartControlEl) return;
+    const getOptions = quiz?.getSubquizStartOptions;
+    const setOption = quiz?.setSubquizStartOption;
+    if (typeof getOptions !== "function" || typeof setOption !== "function") {
+      subquizStartControlEl.hidden = true;
+      subquizStartControlEl.replaceChildren();
+      return;
+    }
+
+    const options = getOptions.call(quiz) || [];
+    if (!options.length) {
+      subquizStartControlEl.hidden = true;
+      subquizStartControlEl.replaceChildren();
+      return;
+    }
+
+    subquizStartControlEl.hidden = false;
+    subquizStartControlEl.replaceChildren();
+
+    const label = document.createElement("span");
+    label.textContent = "Testeaza doar subquizul:";
+    subquizStartControlEl.appendChild(label);
+
+    const active = quiz.getSubquizStartOption?.();
+    options.forEach((opt) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "control-panel-asnw-reset";
+      btn.textContent = opt.label;
+      btn.disabled = opt.disabled === true;
+      btn.classList.toggle("active", opt.id === active);
+      btn.addEventListener("click", () => {
+        if (opt.disabled) return;
+        const changed = quiz.setSubquizStartOption(opt.id);
+        if (!changed) return;
+        dom.playPauseBtn.disabled = false;
+        engine?.cancelRisingAnimation?.();
+        lastGreenCells = null;
+        lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
+        renderProgress();
+        engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+      });
+      subquizStartControlEl.appendChild(btn);
+    });
   }
 
   applyDebugInfoBorders();

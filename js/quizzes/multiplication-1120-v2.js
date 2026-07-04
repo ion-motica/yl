@@ -11,6 +11,22 @@
   const MIN_LEVEL = 1;
   const MAX_LEVEL = 10;
   const ANCHORS = [2, 3, 4, 5, 15];
+  const SUBQUIZ_ANCHORS = [1, 2, 3, 4, 5, 10, 15, 20];
+  const NONANCHORS = [6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19];
+  const START_STAGE_KEY = "yl:mul1120v2:startStage";
+  const DEFAULT_START_STAGE = "anchorSumValuesOnly";
+  const STAGES = {
+    normal: { id: "normal", order: null, title: "Normal" },
+    anchors: { id: "anchors", order: 1, title: "anchors" },
+    intensiv: { id: "intensiv", order: 2, title: "intensiv" },
+    anchorSumValues: { id: "anchorSumValues", order: 3, title: "valori ancore suma" },
+  };
+  const START_OPTIONS = {
+    normal: { id: "normal", stage: "normal" },
+    anchorsOnly: { id: "anchorsOnly", stage: "normal" },
+    intensivOnly: { id: "intensivOnly", stage: "intensiv" },
+    anchorSumValuesOnly: { id: "anchorSumValuesOnly", stage: "anchorSumValues" },
+  };
   const HINT = "Alege răspunsul corect.";
 
   const QF_PROFILE = {
@@ -26,6 +42,25 @@
 
   function factorForLevel(level) {
     return 10 + level;
+  }
+
+  function readStartStage() {
+    try {
+      const stored = global.localStorage?.getItem?.(START_STAGE_KEY);
+      if (stored === "anchorSumValues") return "anchorSumValuesOnly";
+      if (stored && START_OPTIONS[stored]) return stored;
+    } catch (err) {
+      // localStorage can be unavailable in tests or privacy modes.
+    }
+    return DEFAULT_START_STAGE;
+  }
+
+  function writeStartStage(stageId) {
+    try {
+      global.localStorage?.setItem?.(START_STAGE_KEY, stageId);
+    } catch (err) {
+      // Ignore storage failures; the in-memory selection still applies.
+    }
   }
 
   function formatMs(ms) {
@@ -73,6 +108,41 @@
     return { options, correctIndex: options.indexOf(String(correct)) };
   }
 
+  function decomposeNonanchor(b) {
+    if (b >= 16) return { big: 15, small: b - 15 };
+    if (b >= 11) return { big: 10, small: b - 10 };
+    return { big: 5, small: b - 5 };
+  }
+
+  function sameTableOptionsForFactor(tableFactor, correctAnchor, shuffle) {
+    const used = new Set([correctAnchor]);
+    const candidates = [];
+
+    function tryAdd(anchor) {
+      if (anchor < 1 || anchor > 20 || used.has(anchor)) return;
+      used.add(anchor);
+      candidates.push(anchor);
+    }
+
+    [1, 2, 3, -1, -2, -3].forEach((delta) => tryAdd(correctAnchor + delta));
+    SUBQUIZ_ANCHORS.forEach(tryAdd);
+
+    const picked = candidates.slice(0, 2).map((anchor) => String(tableFactor * anchor));
+    while (picked.length < 2) {
+      const fallbackAnchor = Math.min(20, correctAnchor + picked.length + 1);
+      const value = String(tableFactor * fallbackAnchor);
+      if (!picked.includes(value) && value !== String(tableFactor * correctAnchor)) {
+        picked.push(value);
+      } else {
+        picked.push(String(tableFactor * Math.max(1, correctAnchor - picked.length - 1)));
+      }
+    }
+
+    const correct = String(tableFactor * correctAnchor);
+    const options = shuffle([correct, picked[0], picked[1]]);
+    return { options, correctIndex: options.indexOf(correct) };
+  }
+
   function createQuiz(config) {
     const quizId = config.quizId;
     const { randomInt, shuffle } = global.GameUtils;
@@ -87,6 +157,8 @@
     const INTENSIV_SESSIONS_PER_LEVEL = 2; // 2 sesiuni intensiv → nivel următor
 
     let level = MIN_LEVEL;
+    let startStageSelection = readStartStage();
+    let stage = START_OPTIONS[startStageSelection]?.stage ?? "normal";
     let mode = "anchor";      // "anchor" | "intensiv"
     let wrongFacts = [];      // facts ancoră greșite (distincte) în anchor test
     let factsLucrateIntensiv = []; // facts antrenate în (ultimul) intensiv, pt. panou
@@ -95,10 +167,24 @@
     let intensivCount = 0;    // câte întrebări intensive au fost rezolvate (0..10)
     let intensivSessionsDone = 0; // sesiuni intensiv încheiate în nivelul curent
     let lastCorrectByB = {};  // { [b]: responseMs } — timpul ultimului răspuns corect / fact
-    let answeredCount = 0;    // răspunsuri corecte anchor în nivelul curent (spre 21)
+    let answeredCount = 0;    // răspunsuri anchor în nivelul curent (corecte sau greșite, spre 21)
     let anchorQueue = [];     // ancorele rămase în tura curentă (ordine mic → mare cu variație)
     let recentFactorFlags = [];
+    let subquizQuestionCount = 0;
+    let subquizCorrectStreak = 0;
     let current = null;
+
+    function isDirectTestMode() {
+      return startStageSelection !== "normal";
+    }
+
+    function isDirectTestModeFor(optionId) {
+      return startStageSelection === optionId;
+    }
+
+    function stageForStartSelection() {
+      return START_OPTIONS[startStageSelection]?.stage ?? "normal";
+    }
 
     // ≤ 1 răspuns == A la fiecare 5 întrebări (plafon 11×).
     function factorCapHit() {
@@ -206,7 +292,64 @@
       buildQuestionForB(b, { excludeFactor: true });
     }
 
+    function startDirectIntensiv() {
+      mode = "intensiv";
+      intensivFacts = [2, 3];
+      factsLucrateIntensiv = intensivFacts.map((b) => factLabel(b));
+      wrongFacts = [];
+      intensivCount = 0;
+      intensivQueue = buildIntensivQueue();
+    }
+
+    function resetSubquizState() {
+      subquizQuestionCount = 0;
+      subquizCorrectStreak = 0;
+    }
+
+    function enterStage(nextStage) {
+      stage = STAGES[nextStage] ? nextStage : "normal";
+      resetSubquizState();
+      current = null;
+      if (stage === "intensiv") startDirectIntensiv();
+      else if (stage === "normal") mode = "anchor";
+      else mode = stage;
+    }
+
+    function pickNonanchorB() {
+      return NONANCHORS[randomInt(0, NONANCHORS.length - 1)];
+    }
+
+    function buildAnchorSumQuestion() {
+      const A = factorForLevel(level);
+      const b = pickNonanchorB();
+      const parts = decomposeNonanchor(b);
+      const missingBig = randomInt(0, 1) === 0;
+      const missingAnchor = missingBig ? parts.big : parts.small;
+      const shownAnchor = missingBig ? parts.small : parts.big;
+      const prompt = missingBig
+        ? `${A}*${b}=?+${A}*${shownAnchor}`
+        : `${A}*${b}=${A}*${shownAnchor}+?`;
+      const opt = sameTableOptionsForFactor(A, missingAnchor, shuffle);
+
+      current = {
+        type: "anchorSumValues",
+        factB: b,
+        prompt,
+        correct: A * missingAnchor,
+        options: opt.options,
+        correctIndex: opt.correctIndex,
+        missingAnchor,
+        shownAnchor,
+      };
+    }
+
+    function nextAnchorSumQuestion() {
+      buildAnchorSumQuestion();
+      return roundView();
+    }
+
     function resetLevelState() {
+      stage = stageForStartSelection();
       mode = "anchor";
       wrongFacts = [];
       factsLucrateIntensiv = [];
@@ -218,12 +361,40 @@
       answeredCount = 0;
       anchorQueue = [];
       recentFactorFlags = [];
+      resetSubquizState();
       current = null;
+      if (stage === "intensiv") startDirectIntensiv();
+      else if (stage !== "normal") mode = stage;
+    }
+
+    function nextRoundForStage() {
+      if (stage === "anchorSumValues") return nextAnchorSumQuestion();
+      if (stage === "intensiv") {
+        buildIntensivQuestion();
+        return roundView();
+      }
+      return nextAnchorQuestion();
+    }
+
+    function completeNormal(via = "anchor") {
+      if (isDirectTestMode()) return advanceLevel(via);
+      enterStage("anchorSumValues");
+      return {
+        outcome: "run-complete",
+        correct: true,
+        runComplete: true,
+        flash: "win",
+        banner: `Subquiz 3 · ${STAGES.anchorSumValues.title}`,
+        message: `Subquiz 3: ${STAGES.anchorSumValues.title}`,
+        nextRound: nextAnchorSumQuestion(),
+      };
     }
 
     function advanceLevel(via = "anchor") {
       const msg =
-        via === "intensiv"
+        via === "anchorSumValues"
+          ? "ai terminat subquiz 3, next level"
+          : via === "intensiv"
           ? "ai terminat 2 sesiuni intensiv, next level"
           : `ai raspuns la ${QUESTIONS_PER_LEVEL} de intrebari, next level`;
       global.alert?.(msg);
@@ -237,7 +408,27 @@
         flash: "win",
         banner: `Nivel ${level} · ${factorForLevel(level)}×`,
         message: `Nivel ${level}`,
-        nextRound: nextAnchorQuestion(),
+        nextRound: nextRoundForStage(),
+      };
+    }
+
+    function onAnchorSumAnswer(isCorrect, chosen) {
+      subquizQuestionCount++;
+      if (isCorrect) subquizCorrectStreak++;
+      else subquizCorrectStreak = 0;
+
+      if (subquizQuestionCount >= 12 || subquizCorrectStreak >= 7) {
+        return advanceLevel("anchorSumValues");
+      }
+
+      buildAnchorSumQuestion();
+      return {
+        outcome: isCorrect ? "step-correct" : "wrong-answer",
+        correct: isCorrect,
+        bounce: isCorrect,
+        flash: isCorrect ? undefined : "wrong",
+        message: isCorrect ? "Corect!" : `${chosen} nu e bun. Mai încearcă!`,
+        ...roundView(),
       };
     }
 
@@ -246,6 +437,10 @@
       const chosen = cur.options[index];
       const isCorrect = Number(chosen) === Number(cur.correct);
 
+      if (stage === "anchorSumValues") {
+        return onAnchorSumAnswer(isCorrect, chosen);
+      }
+
       // ── MOD INTENSIV ───────────────────────────────────────────────────────
       // Instrument de antrenament (NU mastery): 10 întrebări pe cele 2 facts
       // greșite (5+5, ordine aleatoare). Greșelile sunt IGNORATE — avansăm indiferent de
@@ -253,10 +448,11 @@
       if (mode === "intensiv") {
         intensivCount++;
         if (intensivCount >= INTENSIV_QUESTIONS) {
+          if (isDirectTestModeFor("intensivOnly")) return advanceLevel("intensiv");
           intensivSessionsDone++;
           mode = "anchor";
           if (intensivSessionsDone >= INTENSIV_SESSIONS_PER_LEVEL) {
-            return advanceLevel("intensiv");
+            return completeNormal("intensiv");
           }
           return {
             outcome: "step-correct",
@@ -277,10 +473,14 @@
       }
 
       // ── ANCHOR TEST ────────────────────────────────────────────────────────
+      answeredCount++;
+
       if (!isCorrect) {
         if (!wrongFacts.some((w) => w.b === cur.factB)) {
           wrongFacts.push({ b: cur.factB, label: factLabel(cur.factB) });
         }
+
+        if (answeredCount >= QUESTIONS_PER_LEVEL) return completeNormal();
 
         // 2 facts distincte greșite → rămânem pe aceeași întrebare până la
         // răspuns corect; abia atunci intrăm în modul intensiv.
@@ -294,10 +494,9 @@
       }
 
       lastCorrectByB[cur.factB] = meta.responseMs ?? null;
-      answeredCount++;
 
       // 2 facts DISTINCTE greșite + răspuns corect pe întrebarea curentă → intensiv.
-      if (wrongFacts.length >= 2) {
+      if (wrongFacts.length >= 2 && !isDirectTestModeFor("anchorsOnly")) {
         intensivFacts = wrongFacts.map((w) => w.b);
         factsLucrateIntensiv = wrongFacts.map((w) => w.label);
         wrongFacts = [];
@@ -314,7 +513,7 @@
         };
       }
 
-      if (answeredCount >= QUESTIONS_PER_LEVEL) return advanceLevel();
+      if (answeredCount >= QUESTIONS_PER_LEVEL) return completeNormal();
 
       // Avans IMEDIAT la întrebarea următoare (fără finishRun/delay). Cronometrul
       // e corect: nextAnchorQuestion() face o întrebare nouă, iar renderRound îi
@@ -343,7 +542,12 @@
       getLevel: () => level,
       getMaxLevel: () => MAX_LEVEL,
       getMinLevel: () => MIN_LEVEL,
-      getLevelLabel: () => `Nivel ${level} · ${factorForLevel(level)}× ancore`,
+      getLevelLabel: () =>
+        stage === "anchorSumValues"
+          ? `Nivel ${level} · Subquiz 3 · ${STAGES.anchorSumValues.title}`
+          : stage === "intensiv"
+          ? `Nivel ${level} · Subquiz 2 · ${STAGES.intensiv.title}`
+          : `Nivel ${level} · ${factorForLevel(level)}× ancore`,
       getLevelButtonTitle: (lv) => `Nivel ${lv}: ${factorForLevel(lv)}× ancore`,
       isCompleted: () => false,
 
@@ -353,14 +557,26 @@
         const A = factorForLevel(level);
         return {
           visible: true,
-          mode: mode === "intensiv" ? "intensiv" : "test anchors",
+          mode:
+            stage === "anchorSumValues"
+              ? `Subquiz 3: ${STAGES.anchorSumValues.title}`
+              : stage === "intensiv"
+              ? `Subquiz 2: ${STAGES.intensiv.title}`
+              : mode === "intensiv"
+              ? "intensiv"
+              : "test anchors",
           wrongFactsText: wrongFacts.length
             ? wrongFacts.map((w) => w.label).join(", ")
             : "—",
           intensivText: factsLucrateIntensiv.length
             ? factsLucrateIntensiv.join(", ")
             : "—",
-          answeredText: `${answeredCount} / ${QUESTIONS_PER_LEVEL}`,
+          answeredText:
+            stage === "anchorSumValues"
+              ? `${subquizQuestionCount} / 12 · streak ${subquizCorrectStreak} / 7`
+              : stage === "intensiv"
+              ? `${intensivCount} / ${INTENSIV_QUESTIONS}`
+              : `${answeredCount} / ${QUESTIONS_PER_LEVEL}`,
           intensivSessionsText: `${intensivSessionsDone} / ${INTENSIV_SESSIONS_PER_LEVEL}`,
           facts: ANCHORS.map((b) => {
             const ms = b in lastCorrectByB ? lastCorrectByB[b] : null;
@@ -380,11 +596,37 @@
       },
 
       pickNextRound() {
-        return nextAnchorQuestion();
+        return nextRoundForStage();
       },
 
       beginRound(next) {
-        return next ?? nextAnchorQuestion();
+        return next ?? nextRoundForStage();
+      },
+
+      getSubquizStage: () => stage,
+
+      getSubquizStartOption: () => startStageSelection,
+
+      getSubquizStartOptions() {
+        return [
+          { id: "normal", label: "Normal" },
+          { id: "anchorsOnly", label: "1 anchors" },
+          { id: "intensivOnly", label: "2 intensiv" },
+          {
+            id: "anchorSumValuesOnly",
+            label: `${STAGES.anchorSumValues.order} ${STAGES.anchorSumValues.title}`,
+          },
+          { id: "rapidAnchorAdditions", label: "4 adunari rapide cu ancore", disabled: true },
+          { id: "effectiveAnchorAddition", label: "5 adunare efectiva ancore", disabled: true },
+        ];
+      },
+
+      setSubquizStartOption(stageId) {
+        if (!START_OPTIONS[stageId]) return false;
+        startStageSelection = stageId;
+        writeStartStage(stageId);
+        resetLevelState();
+        return true;
       },
 
       onAnswer,

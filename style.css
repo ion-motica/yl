@@ -1374,6 +1374,12 @@ body {
   width: 100%;
 }
 
+.subquiz-start-control {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .control-panel-lift-slider-out,
 .control-panel-aam-slider-out {
   font-size: 0.78rem;
@@ -2142,6 +2148,16 @@ body {
 
 .control-panel-asnw-reset:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.control-panel-asnw-reset.active {
+  color: #0f1419;
+  background: var(--accent);
+}
+
+.control-panel-asnw-reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .asnw-onboarding-layer {
