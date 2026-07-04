@@ -57,14 +57,14 @@ describe("multiplication-1120-v2 subquiz stages", () => {
     delete globalThis.Mul1120V2Quiz;
   });
 
-  it("starts directly in subquiz 4 rapid-additions mode by temporary default", () => {
+  it("starts directly in subquiz 5 effective-addition mode by temporary default", () => {
     const quiz = setupQuiz();
     const state = quiz.beginRound();
 
-    assert.equal(quiz.getSubquizStartOption(), "rapidAnchorAdditions");
-    assert.equal(quiz.getSubquizStage(), "rapidAnchorAdditions");
-    assert.equal(state.prompt, "165+44=165+40+?");
-    assert.deepEqual(state.options, ["4", "14", "5"]);
+    assert.equal(quiz.getSubquizStartOption(), "effectiveAnchorAddition");
+    assert.equal(quiz.getSubquizStage(), "effectiveAnchorAddition");
+    assert.equal(state.prompt, "55+11=?");
+    assert.deepEqual(state.options, ["66", "56", "76"]);
     assert.equal(state.correctIndex, 0);
   });
 
@@ -128,6 +128,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 repeats a single candidate until the first correct answer", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     let state = quiz.beginRound();
 
     for (let i = 0; i < 3; i += 1) {
@@ -143,6 +144,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 advances level after 12 total answers when multiple candidates remain", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(2);
     let state = quiz.beginRound();
 
@@ -157,6 +159,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 uses 3 times candidate count as the exit limit, capped at 12", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(4);
     let state = quiz.beginRound();
 
@@ -173,6 +176,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 does not repeat the same question immediately when alternatives exist", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(2);
     let state = quiz.beginRound();
 
@@ -183,6 +187,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 keeps the same question after a wrong answer and timeout", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(2);
     let state = quiz.beginRound();
 
@@ -199,6 +204,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 rounds the large near-hundred term to the next hundred", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(9);
     const state = quiz.beginRound();
 
@@ -208,6 +214,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 rounds the small term to the nearest ten", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(3);
     let state = quiz.beginRound();
 
@@ -218,6 +225,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 4 skips both-ending-in-5 sums unless they cross a hundred", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(5);
     const state = quiz.beginRound();
 
@@ -225,16 +233,160 @@ describe("multiplication-1120-v2 subquiz stages", () => {
     assert.equal(state.correctIndex, 0);
   });
 
-  it("subquiz 4 announces no candidates and moves on", () => {
+  it("subquiz 4 announces no candidates and completes when already at level 10", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("rapidAnchorAdditions");
     quiz.switchLevel(10);
     let state = quiz.beginRound();
 
     assert.equal(state.prompt, "no candidates");
     state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
 
-    assert.equal(state.levelAdvanced, true);
+    assert.equal(state.gameComplete, true);
+    assert.equal(quiz.isCompleted(), true);
     assert.equal(quiz.getLevel(), 10);
+  });
+
+  it("normal mode continues from subquiz 4 into subquiz 5", () => {
+    const quiz = setupQuiz();
+    quiz.setSubquizStartOption("normal");
+    let state = quiz.beginRound();
+
+    for (let i = 0; i < 21; i += 1) {
+      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    }
+    for (let i = 0; i < 12; i += 1) {
+      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    }
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+
+    assert.equal(quiz.getLevel(), 1);
+    assert.equal(quiz.getSubquizStage(), "effectiveAnchorAddition");
+    assert.equal(state.prompt, "55+11=?");
+  });
+
+  it("subquiz 5 advances level after 21 total answers", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    for (let i = 0; i < 21; i += 1) {
+      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    }
+
+    assert.equal(state.levelAdvanced, true);
+    assert.equal(quiz.getLevel(), 2);
+    assert.equal(quiz.getSubquizStage(), "effectiveAnchorAddition");
+    assert.equal(state.runDelayMs, 0);
+  });
+
+  it("subquiz 5 advances level after 10 consecutive correct answers", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    for (let i = 0; i < 10; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+
+    assert.equal(state.levelAdvanced, true);
+    assert.equal(quiz.getLevel(), 2);
+  });
+
+  it("subquiz 5 completes the quiz at the end of level 10", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(10);
+    let state = quiz.beginRound();
+
+    for (let i = 0; i < 10; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+
+    assert.equal(state.gameComplete, true);
+    assert.equal(quiz.isCompleted(), true);
+    assert.equal(quiz.getLevel(), 10);
+    assert.equal(state.message, "Ai ajuns la final.");
+  });
+
+  it("subquiz 5 does not repeat the same question immediately", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    assert.equal(state.prompt, "55+11=?");
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.notEqual(state.prompt, "55+11=?");
+  });
+
+  it("subquiz 5 keeps the same question after wrong answer until corrected", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    assert.equal(state.prompt, "55+11=?");
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    assert.equal(state.prompt, "55+11=?");
+    assert.equal(state.correctIndex, 0);
+
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.notEqual(state.prompt, "55+11=?");
+  });
+
+  it("subquiz 5 retries a missed addition after two to five later turns", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    assert.equal(state.prompt, "55+11=?");
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    assert.equal(state.prompt, "55+11=?");
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.equal(state.prompt, "55+22=?");
+
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.equal(state.prompt, "55+11=?");
+  });
+
+  it("subquiz 5 enters intensive mode after two additions have at least two mistakes", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    assert.equal(state.prompt, "55+11=?");
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.equal(state.prompt, "55+22=?");
+
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+
+    assert.equal(quiz.getInfo11_20().mode, "Subquiz 5: intensiv");
+    assert.match(state.prompt, /\?/);
+    assert.notEqual(state.prompt, "55+11=?");
+  });
+
+  it("subquiz 5 intensive mode returns to normal subquiz 5 flow after ten questions", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+
+    for (let i = 0; i < 10; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+
+    assert.equal(quiz.getInfo11_20().mode, "Subquiz 5: adunare efectiva ancore");
+    assert.match(state.prompt, /^\d+\+\d+=\?$/);
+  });
+
+  it("subquiz 5 picks the next question near the current one", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    assert.equal(state.prompt, "55+11=?");
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.equal(state.prompt, "55+22=?");
   });
 
   it("direct anchors mode runs only anchors and advances level after 21 answers", () => {
