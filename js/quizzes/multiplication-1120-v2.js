@@ -14,7 +14,7 @@
   const SUBQUIZ_ANCHORS = [1, 2, 3, 4, 5, 10, 15, 20];
   const NONANCHORS = [6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19];
   const START_STAGE_KEY = "yl:mul1120v2:startStage";
-  const DEFAULT_START_STAGE = "effectiveAnchorAddition";
+  const DEFAULT_START_STAGE = "nonAnchorProducts";
   const STAGES = {
     normal: { id: "normal", order: null, title: "Normal" },
     anchors: { id: "anchors", order: 1, title: "anchors" },
@@ -22,6 +22,7 @@
     anchorSumValues: { id: "anchorSumValues", order: 3, title: "valori ancore suma" },
     rapidAnchorAdditions: { id: "rapidAnchorAdditions", order: 4, title: "adunari rapide cu ancore" },
     effectiveAnchorAddition: { id: "effectiveAnchorAddition", order: 5, title: "adunare efectiva ancore" },
+    nonAnchorProducts: { id: "nonAnchorProducts", order: 6, title: "inmultiri non-anchors" },
   };
   const START_OPTIONS = {
     normal: { id: "normal", stage: "normal" },
@@ -30,6 +31,7 @@
     anchorSumValuesOnly: { id: "anchorSumValuesOnly", stage: "anchorSumValues" },
     rapidAnchorAdditions: { id: "rapidAnchorAdditions", stage: "rapidAnchorAdditions" },
     effectiveAnchorAddition: { id: "effectiveAnchorAddition", stage: "effectiveAnchorAddition" },
+    nonAnchorProducts: { id: "nonAnchorProducts", stage: "nonAnchorProducts" },
   };
   const HINT = "Alege răspunsul corect.";
 
@@ -224,6 +226,12 @@
     let effectiveRetryQueue = [];
     let effectiveIntensiveQueue = [];
     let effectiveIntensiveCount = 0;
+    let productQuestionCount = 0;
+    let productCorrectStreak = 0;
+    let productWrongBs = [];
+    let productIntensiveQueue = [];
+    let productIntensiveCount = 0;
+    let productQueue = [];
     let completed = false;
     let current = null;
 
@@ -369,6 +377,12 @@
       effectiveRetryQueue = [];
       effectiveIntensiveQueue = [];
       effectiveIntensiveCount = 0;
+      productQuestionCount = 0;
+      productCorrectStreak = 0;
+      productWrongBs = [];
+      productIntensiveQueue = [];
+      productIntensiveCount = 0;
+      productQueue = [];
     }
 
     function enterStage(nextStage) {
@@ -699,6 +713,89 @@
       };
     }
 
+    function buildProductPass() {
+      return [...NONANCHORS];
+    }
+
+    function pickProductB() {
+      if (!productQueue.length) productQueue = buildProductPass();
+      return productQueue.shift();
+    }
+
+    function makeProductFact(b) {
+      return Catalog.createFact({
+        operation: "mul",
+        values: { a: b, b: factorForLevel(level) },
+      });
+    }
+
+    function buildProductQuestionForB(b) {
+      const A = factorForLevel(level);
+      const correct = b * A;
+      const opt = sameLastDigitOptions(correct, shuffle);
+      current = {
+        type: "nonAnchorProducts",
+        factB: b,
+        prompt: `${b}*${A}=?`,
+        correct,
+        options: opt.options,
+        correctIndex: opt.correctIndex,
+      };
+    }
+
+    function nextProductQuestion() {
+      buildProductQuestionForB(pickProductB());
+      return roundView();
+    }
+
+    function buildProductIntensiveQueue(problemBs) {
+      const entries = [];
+      problemBs.slice(0, 2).forEach((b) => {
+        const fact = makeProductFact(b);
+        const validTypes = qfTypes.filter((qfType) => {
+          const built = QFG.buildOptions(qfType, fact, shuffle);
+          return built && built.answerType === "number";
+        });
+        validTypes.slice(0, 5).forEach((qfType) => entries.push({ b, qfType }));
+      });
+      return shuffle(entries);
+    }
+
+    function buildProductIntensiveQuestion() {
+      const entry = productIntensiveQueue[productIntensiveCount];
+      if (!entry) {
+        mode = "nonAnchorProducts";
+        productIntensiveQueue = [];
+        productIntensiveCount = 0;
+        buildProductQuestionForB(pickProductB());
+        return;
+      }
+      const fact = makeProductFact(entry.b);
+      const built = QFG.buildOptions(entry.qfType, fact, shuffle);
+      if (!built || built.answerType !== "number") {
+        buildProductQuestionForB(entry.b);
+        return;
+      }
+      current = {
+        type: "nonAnchorProductsIntensive",
+        factB: entry.b,
+        prompt: built.prompt,
+        correct: Number(built.options[built.correctIndex]),
+        options: built.options,
+        correctIndex: built.correctIndex,
+      };
+    }
+
+    function startProductIntensive() {
+      const trainingBs = productWrongBs.slice(0, 2);
+      mode = "nonAnchorProductsIntensiv";
+      factsLucrateIntensiv = trainingBs.map((b) => `${b}*${factorForLevel(level)}=?`);
+      productIntensiveQueue = buildProductIntensiveQueue(trainingBs);
+      productIntensiveCount = 0;
+      productWrongBs = productWrongBs.filter((b) => !trainingBs.includes(b));
+      buildProductIntensiveQuestion();
+    }
+
     function rapidProgressText() {
       const candidateCount = getRapidCandidates().length;
       if (candidateCount === 0) return "no candidates";
@@ -730,6 +827,7 @@
       if (stage === "anchorSumValues") return nextAnchorSumQuestion();
       if (stage === "rapidAnchorAdditions") return nextRapidAnchorAdditionQuestion();
       if (stage === "effectiveAnchorAddition") return nextEffectiveAnchorAdditionQuestion();
+      if (stage === "nonAnchorProducts") return nextProductQuestion();
       if (stage === "intensiv") {
         buildIntensivQuestion();
         return roundView();
@@ -776,6 +874,19 @@
       };
     }
 
+    function completeEffectiveAnchorAddition() {
+      if (isDirectTestMode()) return advanceLevel("effectiveAnchorAddition");
+      enterStage("nonAnchorProducts");
+      return {
+        outcome: "step-correct",
+        correct: true,
+        bounce: true,
+        flash: "win",
+        message: `Subquiz 6: ${STAGES.nonAnchorProducts.title}`,
+        ...nextProductQuestion(),
+      };
+    }
+
     function advanceLevel(via = "anchor") {
       if (level >= MAX_LEVEL) {
         completed = true;
@@ -800,6 +911,8 @@
           ? "no candidates, mai departe"
           : via === "effectiveAnchorAddition"
           ? "ai terminat subquiz 5, next level"
+          : via === "nonAnchorProducts"
+          ? "ai terminat subquiz 6, next level"
           : via === "rapidAnchorAdditions"
           ? "ai terminat subquiz 4, mai departe"
           : via === "anchorSumValues"
@@ -913,7 +1026,7 @@
       else subquizCorrectStreak = 0;
 
       if (subquizQuestionCount >= 21 || subquizCorrectStreak >= 10) {
-        return advanceLevel("effectiveAnchorAddition");
+        return completeEffectiveAnchorAddition();
       }
 
       if (!isCorrect) {
@@ -948,6 +1061,73 @@
       };
     }
 
+    function onProductAnswer(isCorrect, chosen) {
+      if (mode === "nonAnchorProductsIntensiv") {
+        productIntensiveCount++;
+        if (productIntensiveCount >= productIntensiveQueue.length) {
+          mode = "nonAnchorProducts";
+          productIntensiveQueue = [];
+          productIntensiveCount = 0;
+          buildProductQuestionForB(pickProductB());
+          return {
+            outcome: "step-correct",
+            correct: true,
+            bounce: true,
+            message: "Inapoi la subquiz 6.",
+            ...roundView(),
+          };
+        }
+        buildProductIntensiveQuestion();
+        return {
+          outcome: "step-correct",
+          correct: true,
+          bounce: true,
+          message: `Intensiv subquiz 6 ${productIntensiveCount + 1}/10`,
+          ...roundView(),
+        };
+      }
+
+      productQuestionCount++;
+      if (isCorrect) productCorrectStreak++;
+      else productCorrectStreak = 0;
+
+      if (!isCorrect) {
+        if (!productWrongBs.includes(current.factB)) productWrongBs.push(current.factB);
+        if (productQuestionCount >= 21) return advanceLevel("nonAnchorProducts");
+        return {
+          outcome: "wrong-answer",
+          correct: false,
+          flash: "wrong",
+          message: `${chosen} nu e bun. Mai încearcă!`,
+          ...roundView(),
+        };
+      }
+
+      if (productWrongBs.length >= 2) {
+        startProductIntensive();
+        return {
+          outcome: "step-correct",
+          correct: true,
+          bounce: true,
+          message: `Mod intensiv subquiz 6: ${factsLucrateIntensiv.join(", ")}`,
+          ...roundView(),
+        };
+      }
+
+      if (productCorrectStreak >= NONANCHORS.length || productQuestionCount >= 21) {
+        return advanceLevel("nonAnchorProducts");
+      }
+
+      buildProductQuestionForB(pickProductB());
+      return {
+        outcome: "step-correct",
+        correct: true,
+        bounce: true,
+        message: "Corect!",
+        ...roundView(),
+      };
+    }
+
     function onAnswer(index, meta = {}) {
       const cur = current;
       const chosen = cur.options[index];
@@ -963,6 +1143,10 @@
 
       if (stage === "effectiveAnchorAddition") {
         return onEffectiveAnchorAdditionAnswer(isCorrect, chosen);
+      }
+
+      if (stage === "nonAnchorProducts") {
+        return onProductAnswer(isCorrect, chosen);
       }
 
       // ── MOD INTENSIV ───────────────────────────────────────────────────────
@@ -1067,8 +1251,12 @@
       getMaxLevel: () => MAX_LEVEL,
       getMinLevel: () => MIN_LEVEL,
       getLevelLabel: () =>
-        mode === "effectiveIntensiv"
+        mode === "nonAnchorProductsIntensiv"
+          ? `Nivel ${level} · Subquiz 6 · intensiv`
+          : mode === "effectiveIntensiv"
           ? `Nivel ${level} · Subquiz 5 · intensiv`
+          : stage === "nonAnchorProducts"
+          ? `Nivel ${level} · Subquiz 6 · ${STAGES.nonAnchorProducts.title}`
           : stage === "effectiveAnchorAddition"
           ? `Nivel ${level} · Subquiz 5 · ${STAGES.effectiveAnchorAddition.title}`
           : stage === "rapidAnchorAdditions"
@@ -1088,8 +1276,12 @@
         return {
           visible: true,
           mode:
-            mode === "effectiveIntensiv"
+            mode === "nonAnchorProductsIntensiv"
+              ? "Subquiz 6: intensiv"
+              : mode === "effectiveIntensiv"
               ? "Subquiz 5: intensiv"
+              : stage === "nonAnchorProducts"
+              ? `Subquiz 6: ${STAGES.nonAnchorProducts.title}`
               : stage === "effectiveAnchorAddition"
               ? `Subquiz 5: ${STAGES.effectiveAnchorAddition.title}`
               : stage === "rapidAnchorAdditions"
@@ -1108,8 +1300,12 @@
             ? factsLucrateIntensiv.join(", ")
             : "—",
           answeredText:
-            mode === "effectiveIntensiv"
+            mode === "nonAnchorProductsIntensiv"
+              ? `${productIntensiveCount} / ${productIntensiveQueue.length || 10}`
+              : mode === "effectiveIntensiv"
               ? `${effectiveIntensiveCount} / ${effectiveIntensiveQueue.length || 10}`
+              : stage === "nonAnchorProducts"
+              ? `${productQuestionCount} / 21 · perfect ${productCorrectStreak} / ${NONANCHORS.length}`
               : stage === "effectiveAnchorAddition"
               ? `${subquizQuestionCount} / 21 · streak ${subquizCorrectStreak} / 10`
               : stage === "rapidAnchorAdditions"
@@ -1165,6 +1361,10 @@
           {
             id: "effectiveAnchorAddition",
             label: `${STAGES.effectiveAnchorAddition.order} ${STAGES.effectiveAnchorAddition.title}`,
+          },
+          {
+            id: "nonAnchorProducts",
+            label: `${STAGES.nonAnchorProducts.order} ${STAGES.nonAnchorProducts.title}`,
           },
         ];
       },
