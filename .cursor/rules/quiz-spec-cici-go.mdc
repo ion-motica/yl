@@ -1,0 +1,49 @@
+---
+description: Protocol cici/go și spec quiz (q1, q2, q form) pentru quiz-uri YL
+alwaysApply: true
+---
+
+# Quiz — spec, cici, go
+
+## Comenzi
+
+- **cici** = doar planificare. Zero modificări de fișiere. Zero comenzi care schimbă proiectul.
+- **go** = implementare strict pe bucata agreată la ultimul cici.
+- Fără commit/push decât la cerere explicită.
+
+## La task quiz (nou sau modificare)
+
+Cere sau extrage:
+
+1. **Spec** — șablon: `documente de referinta/QUIZ-SPEC-SABLON.md`
+2. **Bucata curentă** — singurul scope pentru următorul **go**
+3. **Criterii gata** — 2–5 teste manuale concrete în browser
+
+Dacă lipsește bucata curentă → oprește-te, propune una; nu implementa din spec-ul întreg.
+
+## Termeni (nu amesteca)
+
+- **Fact** = ce calculezi (`a`, `b`, `c`)
+- **q form** = cum arată întrebarea și variantele de răspuns
+- **q2 / subquiz** = fază/mod (`anchor`, `intensiv`) — distinct de q form
+- **q1** = quiz mare: nivel, persistență, ordinea q2, intrare/ieșire globală
+
+## Prea multe cereri odată
+
+Dacă apar 2+ din: logică quiz, UI/CSS, motor global, refactor, commit, fază nouă, mastery, persistență → listează cererile, alege **o singură bucată**, restul NU în bucata asta.
+
+## Implementare
+
+- Minim diff; un concept per schimbare
+- Quiz nou = fișier quiz + hook-uri/motoare existente; **nu** rescrie `falling-engine` decât dacă se cere explicit
+- **Nu** adăuga eff/mastery/faze viitoare „pentru viitor”
+- CSS/layout: varianta simplă întâi
+- Scope: quiz-uri **de acum înainte**; nu refactoriza quiz-uri vechi fără acord
+
+## Răspuns cici
+
+Doar: ce ai înțeles → întrebări → plan → fișiere posibile (fără modificare) → riscuri. Așteaptă **go**.
+
+## Răspuns după go
+
+Română, scurt: ce s-a schimbat, ce testezi manual, ce ar trebui să vezi.
