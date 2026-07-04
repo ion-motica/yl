@@ -14,18 +14,20 @@
   const SUBQUIZ_ANCHORS = [1, 2, 3, 4, 5, 10, 15, 20];
   const NONANCHORS = [6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19];
   const START_STAGE_KEY = "yl:mul1120v2:startStage";
-  const DEFAULT_START_STAGE = "anchorSumValuesOnly";
+  const DEFAULT_START_STAGE = "rapidAnchorAdditions";
   const STAGES = {
     normal: { id: "normal", order: null, title: "Normal" },
     anchors: { id: "anchors", order: 1, title: "anchors" },
     intensiv: { id: "intensiv", order: 2, title: "intensiv" },
     anchorSumValues: { id: "anchorSumValues", order: 3, title: "valori ancore suma" },
+    rapidAnchorAdditions: { id: "rapidAnchorAdditions", order: 4, title: "adunari rapide cu ancore" },
   };
   const START_OPTIONS = {
     normal: { id: "normal", stage: "normal" },
     anchorsOnly: { id: "anchorsOnly", stage: "normal" },
     intensivOnly: { id: "intensivOnly", stage: "intensiv" },
     anchorSumValuesOnly: { id: "anchorSumValuesOnly", stage: "anchorSumValues" },
+    rapidAnchorAdditions: { id: "rapidAnchorAdditions", stage: "rapidAnchorAdditions" },
   };
   const HINT = "Alege răspunsul corect.";
 
@@ -143,6 +145,24 @@
     return { options, correctIndex: options.indexOf(correct) };
   }
 
+  function nearbyNumberOptions(correctNum, shuffle) {
+    const correct = Number(correctNum);
+    const used = new Set([correct]);
+    const candidates = [];
+
+    function tryAdd(value) {
+      if (!Number.isFinite(value) || value < 0 || used.has(value)) return;
+      used.add(value);
+      candidates.push(value);
+    }
+
+    [10, -10, 1, -1, 2, -2, 5, -5, 20, -20].forEach((delta) => tryAdd(correct + delta));
+    while (candidates.length < 2) tryAdd(correct + candidates.length + 3);
+
+    const options = shuffle([String(correct), String(candidates[0]), String(candidates[1])]);
+    return { options, correctIndex: options.indexOf(String(correct)) };
+  }
+
   function createQuiz(config) {
     const quizId = config.quizId;
     const { randomInt, shuffle } = global.GameUtils;
@@ -172,6 +192,9 @@
     let recentFactorFlags = [];
     let subquizQuestionCount = 0;
     let subquizCorrectStreak = 0;
+    let rapidCandidates = null;
+    let rapidCandidateIndex = 0;
+    let lastRapidPrompt = null;
     let current = null;
 
     function isDirectTestMode() {
@@ -304,6 +327,9 @@
     function resetSubquizState() {
       subquizQuestionCount = 0;
       subquizCorrectStreak = 0;
+      rapidCandidates = null;
+      rapidCandidateIndex = 0;
+      lastRapidPrompt = null;
     }
 
     function enterStage(nextStage) {
@@ -348,6 +374,137 @@
       return roundView();
     }
 
+    function crossesNextHundred(from, total) {
+      return Math.floor(from / 100) < Math.floor(total / 100);
+    }
+
+    function hasColumnCarry(a, b) {
+      return (a % 10) + (b % 10) >= 10;
+    }
+
+    function nextHundred(value) {
+      return Math.ceil((value + 1) / 100) * 100;
+    }
+
+    function buildRapidCandidateForB(b) {
+      const A = factorForLevel(level);
+      const parts = decomposeNonanchor(b);
+      const bigTerm = A * parts.big;
+      const smallTerm = A * parts.small;
+      const total = bigTerm + smallTerm;
+      const crossesHundred = crossesNextHundred(bigTerm, total);
+      const bothEndInFive = bigTerm % 10 === 5 && smallTerm % 10 === 5;
+      const bigDivisibleByTen = bigTerm % 10 === 0;
+      const smallDivisibleByTen = smallTerm % 10 === 0;
+      const shouldRoundToHundred =
+        crossesHundred &&
+        (bothEndInFive ||
+          (bigDivisibleByTen && !smallDivisibleByTen) ||
+          nextHundred(bigTerm) - bigTerm <= 10);
+
+      if (!hasColumnCarry(bigTerm, smallTerm) && !crossesHundred) return null;
+      if (bothEndInFive && !crossesHundred) return null;
+      if ((bigDivisibleByTen || smallDivisibleByTen) && !shouldRoundToHundred) return null;
+
+      if (shouldRoundToHundred) {
+        const rounded = nextHundred(bigTerm);
+        return {
+          b,
+          prompt: `${bigTerm}+${smallTerm}=${rounded}+?`,
+          correct: total - rounded,
+          bigTerm,
+          smallTerm,
+          strategy: "roundBigToHundred",
+        };
+      }
+
+      const lower = Math.floor(smallTerm / 10) * 10;
+      const upper = Math.ceil(smallTerm / 10) * 10;
+      if (smallTerm - lower <= upper - smallTerm) {
+        return {
+          b,
+          prompt: `${bigTerm}+${smallTerm}=${bigTerm}+${lower}+?`,
+          correct: smallTerm - lower,
+          bigTerm,
+          smallTerm,
+          strategy: "splitSecond",
+        };
+      }
+
+      return {
+        b,
+        prompt: `${bigTerm}+${smallTerm}=${bigTerm}+${upper}-?`,
+        correct: upper - smallTerm,
+        bigTerm,
+        smallTerm,
+        strategy: "roundSecondUp",
+      };
+    }
+
+    function getRapidCandidates() {
+      if (!rapidCandidates) {
+        rapidCandidates = NONANCHORS.map(buildRapidCandidateForB).filter(Boolean);
+      }
+      return rapidCandidates;
+    }
+
+    function pickRapidCandidate() {
+      const candidates = getRapidCandidates();
+      if (!candidates.length) return null;
+      if (candidates.length === 1) return candidates[0];
+
+      let available = candidates.filter((candidate) => candidate.prompt !== lastRapidPrompt);
+      if (!available.length) available = candidates;
+      const picked = available[rapidCandidateIndex % available.length];
+      rapidCandidateIndex += 1;
+      return picked;
+    }
+
+    function buildNoRapidCandidatesQuestion() {
+      current = {
+        type: "rapidAnchorAdditionsNoCandidates",
+        factB: null,
+        prompt: "no candidates",
+        correct: 0,
+        options: ["0", "1", "2"],
+        correctIndex: 0,
+      };
+    }
+
+    function buildRapidAnchorAdditionQuestion() {
+      const candidate = pickRapidCandidate();
+      if (!candidate) {
+        buildNoRapidCandidatesQuestion();
+        return;
+      }
+
+      const opt = nearbyNumberOptions(candidate.correct, shuffle);
+      current = {
+        type: "rapidAnchorAdditions",
+        factB: candidate.b,
+        prompt: candidate.prompt,
+        correct: candidate.correct,
+        options: opt.options,
+        correctIndex: opt.correctIndex,
+        strategy: candidate.strategy,
+        bigTerm: candidate.bigTerm,
+        smallTerm: candidate.smallTerm,
+      };
+      lastRapidPrompt = candidate.prompt;
+    }
+
+    function nextRapidAnchorAdditionQuestion() {
+      buildRapidAnchorAdditionQuestion();
+      return roundView();
+    }
+
+    function rapidProgressText() {
+      const candidateCount = getRapidCandidates().length;
+      if (candidateCount === 0) return "no candidates";
+      if (candidateCount === 1) return `${subquizQuestionCount} · pana la primul corect`;
+      return `${subquizQuestionCount} / ${Math.min(12, candidateCount * 3)}`;
+    }
+
     function resetLevelState() {
       stage = stageForStartSelection();
       mode = "anchor";
@@ -369,6 +526,7 @@
 
     function nextRoundForStage() {
       if (stage === "anchorSumValues") return nextAnchorSumQuestion();
+      if (stage === "rapidAnchorAdditions") return nextRapidAnchorAdditionQuestion();
       if (stage === "intensiv") {
         buildIntensivQuestion();
         return roundView();
@@ -380,19 +538,35 @@
       if (isDirectTestMode()) return advanceLevel(via);
       enterStage("anchorSumValues");
       return {
-        outcome: "run-complete",
+        outcome: "step-correct",
         correct: true,
-        runComplete: true,
+        bounce: true,
         flash: "win",
-        banner: `Subquiz 3 · ${STAGES.anchorSumValues.title}`,
         message: `Subquiz 3: ${STAGES.anchorSumValues.title}`,
-        nextRound: nextAnchorSumQuestion(),
+        ...nextAnchorSumQuestion(),
+      };
+    }
+
+    function completeAnchorSum() {
+      if (isDirectTestMode()) return advanceLevel("anchorSumValues");
+      enterStage("rapidAnchorAdditions");
+      return {
+        outcome: "step-correct",
+        correct: true,
+        bounce: true,
+        flash: "win",
+        message: `Subquiz 4: ${STAGES.rapidAnchorAdditions.title}`,
+        ...nextRapidAnchorAdditionQuestion(),
       };
     }
 
     function advanceLevel(via = "anchor") {
       const msg =
-        via === "anchorSumValues"
+        via === "rapidAnchorAdditionsNoCandidates"
+          ? "no candidates, next level"
+          : via === "rapidAnchorAdditions"
+          ? "ai terminat subquiz 4, next level"
+          : via === "anchorSumValues"
           ? "ai terminat subquiz 3, next level"
           : via === "intensiv"
           ? "ai terminat 2 sesiuni intensiv, next level"
@@ -418,7 +592,7 @@
       else subquizCorrectStreak = 0;
 
       if (subquizQuestionCount >= 12 || subquizCorrectStreak >= 7) {
-        return advanceLevel("anchorSumValues");
+        return completeAnchorSum();
       }
 
       buildAnchorSumQuestion();
@@ -432,6 +606,45 @@
       };
     }
 
+    function onRapidAnchorAdditionAnswer(isCorrect, chosen) {
+      if (current?.type === "rapidAnchorAdditionsNoCandidates") {
+        return advanceLevel("rapidAnchorAdditionsNoCandidates");
+      }
+
+      subquizQuestionCount++;
+      if (isCorrect) subquizCorrectStreak++;
+      else subquizCorrectStreak = 0;
+
+      const candidateCount = getRapidCandidates().length;
+      const multipleCandidateLimit = Math.min(12, candidateCount * 3);
+      if (candidateCount > 1 && subquizQuestionCount >= multipleCandidateLimit) {
+        return advanceLevel("rapidAnchorAdditions");
+      }
+
+      if (!isCorrect) {
+        return {
+          outcome: "wrong-answer",
+          correct: false,
+          flash: "wrong",
+          message: `${chosen} nu e bun. Mai încearcă!`,
+          ...roundView(),
+        };
+      }
+
+      if (candidateCount === 1 && isCorrect) {
+        return advanceLevel("rapidAnchorAdditions");
+      }
+
+      buildRapidAnchorAdditionQuestion();
+      return {
+        outcome: "step-correct",
+        correct: true,
+        bounce: true,
+        message: "Corect!",
+        ...roundView(),
+      };
+    }
+
     function onAnswer(index, meta = {}) {
       const cur = current;
       const chosen = cur.options[index];
@@ -439,6 +652,10 @@
 
       if (stage === "anchorSumValues") {
         return onAnchorSumAnswer(isCorrect, chosen);
+      }
+
+      if (stage === "rapidAnchorAdditions") {
+        return onRapidAnchorAdditionAnswer(isCorrect, chosen);
       }
 
       // ── MOD INTENSIV ───────────────────────────────────────────────────────
@@ -543,7 +760,9 @@
       getMaxLevel: () => MAX_LEVEL,
       getMinLevel: () => MIN_LEVEL,
       getLevelLabel: () =>
-        stage === "anchorSumValues"
+        stage === "rapidAnchorAdditions"
+          ? `Nivel ${level} · Subquiz 4 · ${STAGES.rapidAnchorAdditions.title}`
+          : stage === "anchorSumValues"
           ? `Nivel ${level} · Subquiz 3 · ${STAGES.anchorSumValues.title}`
           : stage === "intensiv"
           ? `Nivel ${level} · Subquiz 2 · ${STAGES.intensiv.title}`
@@ -558,7 +777,9 @@
         return {
           visible: true,
           mode:
-            stage === "anchorSumValues"
+            stage === "rapidAnchorAdditions"
+              ? `Subquiz 4: ${STAGES.rapidAnchorAdditions.title}`
+              : stage === "anchorSumValues"
               ? `Subquiz 3: ${STAGES.anchorSumValues.title}`
               : stage === "intensiv"
               ? `Subquiz 2: ${STAGES.intensiv.title}`
@@ -572,7 +793,9 @@
             ? factsLucrateIntensiv.join(", ")
             : "—",
           answeredText:
-            stage === "anchorSumValues"
+            stage === "rapidAnchorAdditions"
+              ? rapidProgressText()
+              : stage === "anchorSumValues"
               ? `${subquizQuestionCount} / 12 · streak ${subquizCorrectStreak} / 7`
               : stage === "intensiv"
               ? `${intensivCount} / ${INTENSIV_QUESTIONS}`
@@ -616,7 +839,10 @@
             id: "anchorSumValuesOnly",
             label: `${STAGES.anchorSumValues.order} ${STAGES.anchorSumValues.title}`,
           },
-          { id: "rapidAnchorAdditions", label: "4 adunari rapide cu ancore", disabled: true },
+          {
+            id: "rapidAnchorAdditions",
+            label: `${STAGES.rapidAnchorAdditions.order} ${STAGES.rapidAnchorAdditions.title}`,
+          },
           { id: "effectiveAnchorAddition", label: "5 adunare efectiva ancore", disabled: true },
         ];
       },
