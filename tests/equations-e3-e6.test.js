@@ -84,6 +84,67 @@ test("cycles the missing number through all numeric slots", () => {
   assert.deepEqual(seen, ["a", "b", "c", "d"]);
 });
 
+test("avoids visible common known numbers on both sides", () => {
+  loadQuiz();
+
+  const quizApi = globalThis.EquationTonomatQuiz;
+  const familyIds = Object.keys(quizApi.FAMILY_DEFS);
+
+  for (const familyId of familyIds) {
+    const slots = [
+      ...quizApi.FAMILY_DEFS[familyId].left,
+      ...quizApi.FAMILY_DEFS[familyId].right,
+    ];
+
+    for (const operator of quizApi.OPS) {
+      for (let unknownIndex = 0; unknownIndex < slots.length; unknownIndex += 1) {
+        const question = quizApi.buildQuestion(
+          { familyId, operators: [operator] },
+          { level: 3, operator, unknownIndex }
+        );
+        const leftKnown = new Set(
+          question.leftSlots
+            .filter((slot) => slot !== question.unknownSlot)
+            .map((slot) => question.values[slot])
+        );
+        const common = question.rightSlots
+          .filter((slot) => slot !== question.unknownSlot)
+          .filter((slot) => leftKnown.has(question.values[slot]));
+
+        assert.deepEqual(common, [], question.prompt);
+      }
+    }
+  }
+});
+
+test("shows unequal families in both orientations, including two-vs-three", () => {
+  loadQuiz();
+
+  const quizApi = globalThis.EquationTonomatQuiz;
+  const e4 = [0, 1, 2, 3].map((unknownIndex) =>
+    quizApi.buildQuestion(
+      { familyId: "E4", operators: ["+"] },
+      { operator: "+", unknownIndex }
+    )
+  );
+  const e5Balanced = [0, 1, 2, 3, 4].map((unknownIndex) =>
+    quizApi.buildQuestion(
+      { familyId: "E5_BAL", operators: ["+"] },
+      { operator: "+", unknownIndex }
+    )
+  );
+
+  assert.deepEqual(
+    [...new Set(e4.map((question) => question.leftSlots.length))].sort(),
+    [1, 3]
+  );
+  assert.deepEqual(
+    [...new Set(e5Balanced.map((question) => question.leftSlots.length))].sort(),
+    [2, 3]
+  );
+  assert.ok(e5Balanced.some((question) => question.flipped), "expected 2-vs-3 flipped prompt");
+});
+
 test("records the minimum attempt metadata", () => {
   loadQuiz();
   globalThis.GameUtils.shuffle = (items) => [...items];

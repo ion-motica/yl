@@ -318,13 +318,36 @@
       .join(slots.length > 1 ? ` ${op} ` : "");
   }
 
-  function renderPrompt(family, values, op, unknownSlot) {
-    return `${renderSide(family.left, values, op, unknownSlot)} = ${renderSide(
-      family.right,
+  function displaySidesFor(family, flipped = false) {
+    return flipped
+      ? { left: family.right, right: family.left, flipped: true }
+      : { left: family.left, right: family.right, flipped: false };
+  }
+
+  function shouldFlipSides(family, indexSeed) {
+    if (family.left.length === family.right.length) return false;
+    return Math.floor(Math.max(0, Number(indexSeed) || 0) / 2) % 2 === 1;
+  }
+
+  function renderPrompt(family, values, op, unknownSlot, flipped = false) {
+    const sides = displaySidesFor(family, flipped);
+    return `${renderSide(sides.left, values, op, unknownSlot)} = ${renderSide(
+      sides.right,
       values,
       op,
       unknownSlot
     )}`;
+  }
+
+  function hasKnownCommonVisibleValue(leftSlots, rightSlots, values, unknownSlot) {
+    const leftKnown = new Set(
+      leftSlots
+        .filter((slot) => slot !== unknownSlot)
+        .map((slot) => values[slot])
+    );
+    return rightSlots
+      .filter((slot) => slot !== unknownSlot)
+      .some((slot) => leftKnown.has(values[slot]));
   }
 
   function buildOptions(correct) {
@@ -353,13 +376,24 @@
     const op = OPS.includes(opts.operator)
       ? opts.operator
       : pick(cfg.operators.filter((item) => OPS.includes(item)));
-    const values = buildValues(family, op, opts.level ?? MIN_LEVEL);
     const slots = [...family.left, ...family.right];
     const unknownIndex = clampInt(opts.unknownIndex ?? randomInt(0, slots.length - 1), 0, slots.length - 1);
     const unknownSlot = slots[unknownIndex];
+    const flipped =
+      opts.flipped == null
+        ? shouldFlipSides(family, opts.orientationSeed ?? unknownIndex)
+        : Boolean(opts.flipped) && family.left.length !== family.right.length;
+    const displaySides = displaySidesFor(family, flipped);
+    let values = null;
+
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      values = buildValues(family, op, opts.level ?? MIN_LEVEL);
+      if (!hasKnownCommonVisibleValue(displaySides.left, displaySides.right, values, unknownSlot)) break;
+    }
+
     const correct = values[unknownSlot];
     const { options, correctIndex } = buildOptions(correct);
-    const prompt = renderPrompt(family, values, op, unknownSlot);
+    const prompt = renderPrompt(family, values, op, unknownSlot, flipped);
 
     return {
       familyId: family.id,
@@ -368,6 +402,9 @@
       operator: op,
       signMode: SAME_SIGN,
       slots,
+      leftSlots: [...displaySides.left],
+      rightSlots: [...displaySides.right],
+      flipped,
       unknownSlot,
       unknownIndex,
       values,
@@ -379,6 +416,7 @@
         family: family.id,
         operator: op,
         signMode: SAME_SIGN,
+        flipped,
         unknownSlot,
         correct,
       },
@@ -387,7 +425,11 @@
 
   function sideValuesForQuestion(question, side) {
     const family = FAMILY_DEFS[question.familyId];
-    return family[side].map((slot) => question.values[slot]);
+    const slots =
+      side === "left"
+        ? question.leftSlots ?? family.left
+        : question.rightSlots ?? family.right;
+    return slots.map((slot) => question.values[slot]);
   }
 
   function validateQuestion(question) {
