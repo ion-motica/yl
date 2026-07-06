@@ -95,6 +95,12 @@
     return Math.min(max, Math.max(min, Math.round(n)));
   }
 
+  function normalizeQuestionsPerRun(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return DEFAULT_CONFIG.questionsPerRun;
+    return Math.min(50, Math.max(5, Math.round(n)));
+  }
+
   function maxTermForLevel(level) {
     return Math.min(9, 4 + clampInt(level, MIN_LEVEL, MAX_LEVEL));
   }
@@ -117,10 +123,8 @@
         input.showSummaryInArena == null
           ? DEFAULT_CONFIG.showSummaryInArena
           : Boolean(input.showSummaryInArena),
-      questionsPerRun: clampInt(
-        input.questionsPerRun ?? DEFAULT_CONFIG.questionsPerRun,
-        5,
-        50
+      questionsPerRun: normalizeQuestionsPerRun(
+        input.questionsPerRun ?? DEFAULT_CONFIG.questionsPerRun
       ),
     };
   }
@@ -650,6 +654,26 @@
         ...quizConfig,
         operators: [...quizConfig.operators],
       }),
+      getSharedConfig: () => ({
+        v: 1,
+        familyId: quizConfig.familyId,
+        operators: [...quizConfig.operators],
+        signMode: quizConfig.signMode,
+        showSummaryInArena: quizConfig.showSummaryInArena,
+        questionsPerRun: quizConfig.questionsPerRun,
+      }),
+      applySharedConfig(shared = {}) {
+        if (!shared || typeof shared !== "object" || Array.isArray(shared)) return false;
+        quizConfig = normalizeConfig({
+          familyId: shared.familyId,
+          operators: shared.operators,
+          signMode: shared.signMode,
+          showSummaryInArena: shared.showSummaryInArena,
+          questionsPerRun: shared.questionsPerRun,
+        });
+        restartAfterConfigChange();
+        return true;
+      },
       setTonomatConfig(patch = {}) {
         quizConfig = normalizeConfig({ ...quizConfig, ...patch });
         restartAfterConfigChange();

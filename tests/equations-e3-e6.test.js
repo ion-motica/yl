@@ -177,3 +177,50 @@ test("records the minimum attempt metadata", () => {
   assert.equal(entry.correct, false);
   assert.equal(entry.responseMs, 321);
 });
+
+test("exports and applies shared config best-effort", () => {
+  loadQuiz();
+
+  const quiz = globalThis.QuizRegistry.get("equations-e3-e6").create();
+  assert.equal(
+    quiz.applySharedConfig({
+      v: 1,
+      familyId: "E5_BAL",
+      operators: ["*", "nope", "/"],
+      signMode: "future-mode",
+      showSummaryInArena: false,
+      questionsPerRun: 999,
+      removedSetting: "ignored",
+    }),
+    true
+  );
+
+  assert.deepEqual(quiz.getSharedConfig(), {
+    v: 1,
+    familyId: "E5_BAL",
+    operators: ["*", "/"],
+    signMode: "same",
+    showSummaryInArena: false,
+    questionsPerRun: 50,
+  });
+});
+
+test("shared config falls back to defaults when values no longer apply", () => {
+  loadQuiz();
+
+  const quiz = globalThis.QuizRegistry.get("equations-e3-e6").create();
+  quiz.applySharedConfig({
+    familyId: "deleted-family",
+    operators: ["deleted-op"],
+    questionsPerRun: "not a number",
+  });
+
+  assert.deepEqual(quiz.getSharedConfig(), {
+    v: 1,
+    familyId: "E3",
+    operators: ["+"],
+    signMode: "same",
+    showSummaryInArena: true,
+    questionsPerRun: 20,
+  });
+});

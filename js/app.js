@@ -400,6 +400,7 @@
     const meta = QuizRegistry.get(id);
     applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
+    applyRequestedQuizConfig();
     cpShell?.refreshEnabledStates?.();
     renderEquationTonomatPanel();
     aamArena?.reset();
@@ -433,6 +434,14 @@
     });
   }
 
+  function applyRequestedQuizConfig() {
+    const requestedQuizId = window.StartupQuiz?.getRequestedQuizId?.();
+    if (requestedQuizId && requestedQuizId !== QuizRegistry.getActiveId()) return false;
+    const cfg = window.StartupQuiz?.getRequestedQuizConfig?.();
+    if (!cfg || typeof quiz?.applySharedConfig !== "function") return false;
+    return quiz.applySharedConfig(cfg) === true;
+  }
+
   function resolveStartupQuizId() {
     return window.StartupQuiz?.resolveStartupQuizId?.() ?? null;
   }
@@ -440,6 +449,7 @@
   const startupQuizId = resolveStartupQuizId();
   if (startupQuizId) QuizRegistry.setActive(startupQuizId);
   quiz = QuizRegistry.createActive();
+  applyRequestedQuizConfig();
 
   let aamCpEnabled = false;
   CpRegistry.register({

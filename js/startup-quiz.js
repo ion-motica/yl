@@ -23,10 +23,80 @@
     Config.set(STORAGE_KEY, id);
   }
 
+  function getRequestedQuizId() {
+    try {
+      const search = global.location?.search;
+      if (typeof search !== "string" || !search) return null;
+      const id = new URLSearchParams(search).get("quiz");
+      return typeof id === "string" && id ? id : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function decodeBase64Url(value) {
+    try {
+      const normalized = String(value).replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+      if (typeof global.atob === "function") return global.atob(padded);
+    } catch (err) {
+      return null;
+    }
+    return null;
+  }
+
+  function fallbackSearchParam(search, name) {
+    const raw = String(search || "").replace(/^\?/, "");
+    const escapedName = String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = raw.match(new RegExp(`(?:^|&)${escapedName}(?:=|%20|\\s)+([^&]+)`));
+    if (!match) return null;
+    try {
+      return decodeURIComponent(match[1].replace(/\+/g, "%20"));
+    } catch (err) {
+      return match[1];
+    }
+  }
+
+  function readSearchParam(search, name) {
+    const value = new URLSearchParams(search).get(name);
+    if (typeof value === "string" && value) return value;
+    return fallbackSearchParam(search, name);
+  }
+
+  function tryParseConfig(value) {
+    if (typeof value !== "string" || !value) return null;
+    const candidates = [value];
+    const decoded = decodeBase64Url(value);
+    if (decoded) candidates.push(decoded);
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+      } catch (err) {
+        // Invalid or stale shared config: ignore it and keep defaults.
+      }
+    }
+    return null;
+  }
+
+  function getRequestedQuizConfig() {
+    try {
+      const search = global.location?.search;
+      if (typeof search !== "string" || !search) return null;
+      return tryParseConfig(readSearchParam(search, "cfg"));
+    } catch (err) {
+      return null;
+    }
+  }
+
   /** Quiz la pornirea aplicației (independent de profilul ASNW). */
   function resolveStartupQuizId() {
     const Registry = global.QuizRegistry;
     if (!Registry) return null;
+
+    const requested = getRequestedQuizId();
+    if (requested && Registry.get(requested)) return requested;
 
     const preferred = getStoredQuizId();
     if (preferred && Registry.get(preferred)) return preferred;
@@ -96,6 +166,8 @@
     STORAGE_KEY,
     FALLBACK_QUIZ_ID,
     getStoredQuizId,
+    getRequestedQuizId,
+    getRequestedQuizConfig,
     setStoredQuizId,
     resolveStartupQuizId,
     appendStartupQuizControl,
