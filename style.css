@@ -1403,6 +1403,41 @@ body {
   flex-shrink: 0;
 }
 
+.tonomat-op-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.tonomat-op-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 2.1rem;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.tonomat-note,
+.tonomat-preview-title {
+  margin: 0.45rem 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.tonomat-preview {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+}
+
 .control-panel-aam-axis-note,
 .aam-axis-note {
   margin: -0.2rem 0 0.45rem;

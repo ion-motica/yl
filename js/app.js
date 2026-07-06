@@ -401,6 +401,7 @@
     applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
     cpShell?.refreshEnabledStates?.();
+    renderEquationTonomatPanel();
     aamArena?.reset();
     buildQuizPicker();
     buildLevelPicker();
@@ -409,6 +410,27 @@
     renderProgress();
     dom.playPauseBtn.disabled = false;
     engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+  }
+
+  function restartActiveRound() {
+    if (!quiz) return;
+    dom.playPauseBtn.disabled = false;
+    engine?.cancelRisingAnimation?.();
+    lastGreenCells = null;
+    lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
+    buildLevelPicker();
+    renderProgress();
+    engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+  }
+
+  function renderEquationTonomatPanel() {
+    const mount = cpShell?.getMountEl("equationTonomat");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendTonomatControlPanel !== "function") return;
+    quiz.appendTonomatControlPanel(mount, {
+      onChange: restartActiveRound,
+    });
   }
 
   function resolveStartupQuizId() {
@@ -424,6 +446,11 @@
     id: "subquiz",
     title: "CP — Subquiz",
     isEnabled: () => typeof quiz?.getSubquizStartOptions === "function",
+  });
+  CpRegistry.register({
+    id: "equationTonomat",
+    title: "CP - Ecuatii",
+    isEnabled: () => typeof quiz?.appendTonomatControlPanel === "function",
   });
   CpRegistry.register({
     id: "liftType",
@@ -459,6 +486,7 @@
     aamCpEnabled = on;
     cpShell.setPanelEnabled("aam", on);
   };
+  renderEquationTonomatPanel();
 
   // Stratul „tip lift” = doar prezentare: (a) clasa de mod pe #game și (b) unde
   // trăiește conținutul (`.falling-inner`). NU recreăm noduri — doar
