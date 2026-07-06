@@ -160,6 +160,44 @@
     return { valid: true, value };
   }
 
+  function evalExpression(values, ops) {
+    if (!values.length || values.some((value) => !Number.isInteger(value) || value <= 0)) {
+      return { valid: false, value: null };
+    }
+    if (!ops.length) return { valid: true, value: values[0] };
+
+    const terms = [values[0]];
+    const additiveOps = [];
+
+    for (let i = 0; i < ops.length; i += 1) {
+      const op = ops[i];
+      const next = values[i + 1];
+      if (op === "*") {
+        terms[terms.length - 1] *= next;
+      } else if (op === "/") {
+        const current = terms[terms.length - 1];
+        if (next === 0 || current % next !== 0) return { valid: false, value: null };
+        terms[terms.length - 1] = current / next;
+      } else if (op === "+" || op === "-") {
+        additiveOps.push(op);
+        terms.push(next);
+      } else {
+        return { valid: false, value: null };
+      }
+    }
+
+    let value = terms[0];
+    for (let i = 0; i < additiveOps.length; i += 1) {
+      if (additiveOps[i] === "+") {
+        value += terms[i + 1];
+      } else {
+        value -= terms[i + 1];
+        if (value < 0) return { valid: false, value };
+      }
+    }
+    return { valid: true, value };
+  }
+
   function positiveParts(total, count, maxTerm) {
     const parts = [];
     let remaining = total;
@@ -316,10 +354,80 @@
       : buildBalancedValues(family, op, level);
   }
 
-  function renderSide(slots, values, op, unknownSlot) {
+  function expressionTuples(length, ops, maxTerm) {
+    const byValue = new Map();
+
+    function add(tuple) {
+      const result = evalExpression(tuple, ops);
+      if (!result.valid || result.value <= 0 || result.value > 180) return;
+      if (!byValue.has(result.value)) byValue.set(result.value, []);
+      byValue.get(result.value).push(tuple);
+    }
+
+    function walk(prefix) {
+      if (prefix.length === length) {
+        add(prefix);
+        return;
+      }
+      for (let value = 1; value <= maxTerm; value += 1) {
+        walk([...prefix, value]);
+      }
+    }
+
+    walk([]);
+    return byValue;
+  }
+
+  function buildMixedValues(family, leftOps, rightOps, level) {
+    const maxTerm = maxTermForLevel(level);
+    const leftCandidates = expressionTuples(family.left.length, leftOps, maxTerm);
+    const rightCandidates = expressionTuples(family.right.length, rightOps, maxTerm);
+    const common = [...leftCandidates.keys()].filter((value) => rightCandidates.has(value));
+    if (!common.length) {
+      const fallbackOp = leftOps[0] || rightOps[0] || "+";
+      return buildValues(family, fallbackOp, level);
+    }
+
+    const target = pick(common);
+    const leftValues = [...pick(leftCandidates.get(target))];
+    const rightValues = [...pick(rightCandidates.get(target))];
+    const values = {};
+    family.left.forEach((slot, index) => {
+      values[slot] = leftValues[index];
+    });
+    family.right.forEach((slot, index) => {
+      values[slot] = rightValues[index];
+    });
+    return values;
+  }
+
+  function chooseQuestionOps(operators, slotsCount) {
+    if (slotsCount <= 0) return [];
+    const selected = normalizeOperators(operators);
+    if (selected.length === 1) return Array.from({ length: slotsCount }, () => selected[0]);
+
+    const shuffled = shuffle(selected);
+    const chosen = shuffled.slice(0, slotsCount);
+    while (chosen.length < slotsCount) chosen.push(pick(selected));
+    return shuffle(chosen);
+  }
+
+  function splitOpsForSides(family, allOps) {
+    const leftCount = Math.max(0, family.left.length - 1);
+    return {
+      leftOps: allOps.slice(0, leftCount),
+      rightOps: allOps.slice(leftCount),
+    };
+  }
+
+  function renderSide(slots, values, ops, unknownSlot) {
+    if (slots.length === 1) return slots[0] === unknownSlot ? "?" : String(values[slots[0]]);
     return slots
-      .map((slot) => (slot === unknownSlot ? "?" : String(values[slot])))
-      .join(slots.length > 1 ? ` ${op} ` : "");
+      .map((slot, index) => {
+        const value = slot === unknownSlot ? "?" : String(values[slot]);
+        return index === 0 ? value : `${ops[index - 1]} ${value}`;
+      })
+      .join(" ");
   }
 
   function displaySidesFor(family, flipped = false) {
@@ -333,12 +441,14 @@
     return Math.floor(Math.max(0, Number(indexSeed) || 0) / 2) % 2 === 1;
   }
 
-  function renderPrompt(family, values, op, unknownSlot, flipped = false) {
+  function renderPrompt(family, values, leftOps, rightOps, unknownSlot, flipped = false) {
     const sides = displaySidesFor(family, flipped);
-    return `${renderSide(sides.left, values, op, unknownSlot)} = ${renderSide(
+    const displayLeftOps = flipped ? rightOps : leftOps;
+    const displayRightOps = flipped ? leftOps : rightOps;
+    return `${renderSide(sides.left, values, displayLeftOps, unknownSlot)} = ${renderSide(
       sides.right,
       values,
-      op,
+      displayRightOps,
       unknownSlot
     )}`;
   }
@@ -378,9 +488,19 @@
   function buildQuestion(config = {}, opts = {}) {
     const cfg = normalizeConfig({ ...DEFAULT_CONFIG, ...config });
     const family = FAMILY_DEFS[cfg.familyId] || FAMILY_DEFS.E3;
-    const op = OPS.includes(opts.operator)
-      ? opts.operator
-      : pick(cfg.operators.filter((item) => OPS.includes(item)));
+    const operatorSlotsCount = Math.max(0, family.left.length - 1) + Math.max(0, family.right.length - 1);
+    const forcedOps = Array.isArray(opts.operators)
+      ? opts.operators.filter((item) => OPS.includes(item))
+      : OPS.includes(opts.operator)
+        ? Array.from({ length: operatorSlotsCount }, () => opts.operator)
+        : null;
+    const questionOps =
+      forcedOps && forcedOps.length === operatorSlotsCount
+        ? forcedOps
+        : chooseQuestionOps(cfg.operators, operatorSlotsCount);
+    const { leftOps, rightOps } = splitOpsForSides(family, questionOps);
+    const uniqueOps = [...new Set(questionOps)];
+    const op = uniqueOps.length === 1 ? uniqueOps[0] : null;
     const slots = [...family.left, ...family.right];
     const unknownIndex = clampInt(opts.unknownIndex ?? randomInt(0, slots.length - 1), 0, slots.length - 1);
     const unknownSlot = slots[unknownIndex];
@@ -392,20 +512,28 @@
     let values = null;
 
     for (let attempt = 0; attempt < 80; attempt += 1) {
-      values = buildValues(family, op, opts.level ?? MIN_LEVEL);
+      values =
+        op == null
+          ? buildMixedValues(family, leftOps, rightOps, opts.level ?? MIN_LEVEL)
+          : buildValues(family, op, opts.level ?? MIN_LEVEL);
       if (!hasKnownCommonVisibleValue(displaySides.left, displaySides.right, values, unknownSlot)) break;
     }
 
     const correct = values[unknownSlot];
     const { options, correctIndex } = buildOptions(correct);
-    const prompt = renderPrompt(family, values, op, unknownSlot, flipped);
+    const prompt = renderPrompt(family, values, leftOps, rightOps, unknownSlot, flipped);
+    const displayLeftOps = flipped ? rightOps : leftOps;
+    const displayRightOps = flipped ? leftOps : rightOps;
 
     return {
       familyId: family.id,
       familyLabel: family.label,
       familyShortLabel: family.shortLabel,
-      operator: op,
-      signMode: SAME_SIGN,
+      operator: op ?? questionOps.join(" "),
+      operators: [...questionOps],
+      leftOps: [...displayLeftOps],
+      rightOps: [...displayRightOps],
+      signMode: uniqueOps.length === 1 ? SAME_SIGN : COMPLEMENTARY_SIGNS,
       slots,
       leftSlots: [...displaySides.left],
       rightSlots: [...displaySides.right],
@@ -419,8 +547,9 @@
       correctIndex,
       metadata: {
         family: family.id,
-        operator: op,
-        signMode: SAME_SIGN,
+        operator: op ?? questionOps.join(" "),
+        operators: [...questionOps],
+        signMode: uniqueOps.length === 1 ? SAME_SIGN : COMPLEMENTARY_SIGNS,
         flipped,
         unknownSlot,
         correct,
@@ -439,11 +568,18 @@
 
   function validateQuestion(question) {
     const family = FAMILY_DEFS[question?.familyId];
-    if (!family || !OPS.includes(question.operator)) return false;
+    const questionOps = Array.isArray(question.operators)
+      ? question.operators
+      : OPS.includes(question.operator)
+        ? Array.from({ length: Math.max(0, question.slots?.length - 2) }, () => question.operator)
+        : [];
+    if (!family || questionOps.some((op) => !OPS.includes(op))) return false;
     const allValues = [...family.left, ...family.right].map((slot) => question.values?.[slot]);
     if (allValues.some((value) => !Number.isInteger(value) || value <= 0)) return false;
-    const left = evalSide(sideValuesForQuestion(question, "left"), question.operator);
-    const right = evalSide(sideValuesForQuestion(question, "right"), question.operator);
+    const leftOps = question.leftOps ?? [];
+    const rightOps = question.rightOps ?? [];
+    const left = evalExpression(sideValuesForQuestion(question, "left"), leftOps);
+    const right = evalExpression(sideValuesForQuestion(question, "right"), rightOps);
     return left.valid && right.valid && left.value === right.value;
   }
 
@@ -461,10 +597,11 @@
   function createSummaryRows(config, current, level, answered) {
     if (!config.showSummaryInArena) return [];
     const family = FAMILY_DEFS[config.familyId] || FAMILY_DEFS.E3;
+    const mode = current?.signMode === COMPLEMENTARY_SIGNS ? "semne din bife" : "acelasi semn";
     return [
       { prompt: "Familie:", answer: family.shortLabel },
-      { prompt: "Semne:", answer: config.operators.join(" ") },
-      { prompt: "Mod:", answer: "acelasi semn" },
+      { prompt: "Semne:", answer: (current?.operators ?? config.operators).join(" ") },
+      { prompt: "Mod:", answer: mode },
       { prompt: "Pozitie ?:", answer: current?.unknownSlot ?? "-" },
       { prompt: "Intrebari:", answer: `${answered}/${config.questionsPerRun}` },
       { prompt: "Nivel:", answer: String(level) },
@@ -557,14 +694,14 @@
 
     function levelLabel(targetLevel = level) {
       const ops = quizConfig.operators.join(" ");
-      return `Nivel ${targetLevel} - ${family().shortLabel} - ${ops} - acelasi semn`;
+      return `Nivel ${targetLevel} - ${family().shortLabel} - semne: ${ops}`;
     }
 
     function recordAttempt(isCorrect, chosen, meta = {}) {
       const entry = {
         at: meta.at ?? new Date().toISOString(),
         family: current.familyId,
-        operators: [current.operator],
+        operators: [...(current.operators ?? [current.operator])],
         signMode: current.signMode,
         unknownSlot: current.unknownSlot,
         correctAnswer: current.correct,
@@ -807,23 +944,6 @@
         opField.append(opTitle, opRow);
         mount.appendChild(opField);
 
-        const modeField = document.createElement("div");
-        modeField.className = "control-panel-lift-field";
-        const modeLabel = document.createElement("label");
-        modeLabel.textContent = "Mod semne";
-        const modeSelect = document.createElement("select");
-        const sameOption = document.createElement("option");
-        sameOption.value = SAME_SIGN;
-        sameOption.textContent = "Acelasi semn";
-        sameOption.selected = true;
-        const complementaryOption = document.createElement("option");
-        complementaryOption.value = COMPLEMENTARY_SIGNS;
-        complementaryOption.textContent = "Semne complementare - etapa 2";
-        complementaryOption.disabled = true;
-        modeSelect.append(sameOption, complementaryOption);
-        modeField.append(modeLabel, modeSelect);
-        mount.appendChild(modeField);
-
         appendCheckbox(mount, "Arata detalii in lista din arena", quizConfig.showSummaryInArena, (checked) => {
           this.setTonomatConfig({ showSummaryInArena: checked });
           notifyChange();
@@ -893,7 +1013,7 @@
         const note = document.createElement("p");
         note.className = "tonomat-note";
         note.textContent =
-          "Etapa 1: acelasi semn peste tot. TODO etapa 2: semne complementare +/-, */.";
+          "Semnele bifate intra in locurile disponibile. Daca sunt mai multe decat incap, se aleg aleator la fiecare intrebare.";
         mount.appendChild(note);
 
         const previewTitle = document.createElement("p");

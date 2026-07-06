@@ -162,6 +162,27 @@ test("shows unequal families in both orientations, including two-vs-three", () =
   assert.ok(e5Balanced.some((question) => question.flipped), "expected 2-vs-3 flipped prompt");
 });
 
+test("uses checked signs as the pool for mixed-sign questions", () => {
+  loadQuiz();
+  globalThis.GameUtils.shuffle = (items) => [...items].reverse();
+
+  const quizApi = globalThis.EquationTonomatQuiz;
+  const twoSigns = quizApi.buildQuestion(
+    { familyId: "E4_BAL", operators: ["+", "-"] },
+    { level: 2, unknownIndex: 0 }
+  );
+  const fourSigns = quizApi.buildQuestion(
+    { familyId: "E5", operators: ["+", "-", "*", "/"] },
+    { level: 2, unknownIndex: 0 }
+  );
+
+  assert.deepEqual([...twoSigns.operators].sort(), ["+", "-"]);
+  assert.equal(fourSigns.operators.length, 3);
+  assert.ok(fourSigns.operators.every((op) => ["+", "-", "*", "/"].includes(op)));
+  assert.ok(quizApi.validateQuestion(twoSigns), twoSigns.prompt);
+  assert.ok(quizApi.validateQuestion(fourSigns), fourSigns.prompt);
+});
+
 test("records the minimum attempt metadata", () => {
   loadQuiz();
   globalThis.GameUtils.shuffle = (items) => [...items];
@@ -175,7 +196,7 @@ test("records the minimum attempt metadata", () => {
   const [entry] = quiz.getAttemptLog();
 
   assert.equal(entry.family, "E5_BAL");
-  assert.deepEqual(entry.operators, ["/"]);
+  assert.deepEqual(entry.operators, ["/", "/", "/"]);
   assert.equal(typeof entry.unknownSlot, "string");
   assert.equal(Number.isInteger(entry.correctAnswer), true);
   assert.equal(entry.userAnswer, Number(state.options[wrongIndex]));
