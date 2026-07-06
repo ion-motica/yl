@@ -1451,6 +1451,40 @@ body {
   font-weight: 700;
 }
 
+.tonomat-share {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tonomat-share-button {
+  min-height: 2rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.18);
+  color: #e2e8f0;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tonomat-share-button:hover,
+.tonomat-share-button:focus-visible {
+  background: rgba(37, 99, 235, 0.28);
+}
+
+.tonomat-share-link {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-size: 0.78rem;
+}
+
+.tonomat-share-status {
+  min-height: 1rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
 .tonomat-note,
 .tonomat-preview-title {
   margin: 0.45rem 0;

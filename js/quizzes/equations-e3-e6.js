@@ -485,6 +485,31 @@
     return input;
   }
 
+  function base64UrlEncode(text) {
+    const toBase64 =
+      typeof global.btoa === "function"
+        ? global.btoa.bind(global)
+        : typeof Buffer !== "undefined"
+          ? (value) => Buffer.from(value, "binary").toString("base64")
+          : null;
+
+    if (!toBase64) return encodeURIComponent(text);
+
+    if (typeof global.TextEncoder === "function") {
+      const bytes = new global.TextEncoder().encode(text);
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return toBase64(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    return toBase64(unescape(encodeURIComponent(text)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
+  }
+
   function createQuiz(config = {}) {
     let level = MIN_LEVEL;
     let quizConfig = normalizeConfig({ ...DEFAULT_CONFIG, ...config });
@@ -662,6 +687,17 @@
         showSummaryInArena: quizConfig.showSummaryInArena,
         questionsPerRun: quizConfig.questionsPerRun,
       }),
+      getSharedLink(baseHref) {
+        const fallbackHref = "index.html";
+        const base = global.location?.href ?? "http://localhost/";
+        const currentHref = baseHref ?? global.location?.href ?? fallbackHref;
+        const url = new URL(currentHref, base);
+        url.hash = "";
+        url.search = "";
+        url.searchParams.set("quiz", QUIZ_ID);
+        url.searchParams.set("cfg", base64UrlEncode(JSON.stringify(this.getSharedConfig())));
+        return url.href;
+      },
       applySharedConfig(shared = {}) {
         if (!shared || typeof shared !== "object" || Array.isArray(shared)) return false;
         quizConfig = normalizeConfig({
@@ -694,6 +730,7 @@
       appendTonomatControlPanel(mount, opts = {}) {
         if (!mount) return null;
         mount.replaceChildren();
+        let renderSharedLink = () => {};
 
         const renderPreview = () => {
           previewList.replaceChildren();
@@ -706,6 +743,7 @@
 
         const notifyChange = () => {
           renderPreview();
+          renderSharedLink();
           opts.onChange?.();
         };
 
@@ -808,6 +846,49 @@
         });
         countField.append(countLabel, countInput);
         mount.appendChild(countField);
+
+        const shareField = document.createElement("div");
+        shareField.className = "control-panel-lift-field tonomat-share";
+        const shareButton = document.createElement("button");
+        shareButton.type = "button";
+        shareButton.className = "tonomat-share-button";
+        shareButton.textContent = "Copiaza link la quiz si configuratie";
+        const shareInput = document.createElement("input");
+        shareInput.type = "text";
+        shareInput.className = "tonomat-share-link";
+        shareInput.readOnly = true;
+        shareInput.setAttribute("aria-label", "Link la quiz si configuratie");
+        const shareStatus = document.createElement("span");
+        shareStatus.className = "tonomat-share-status";
+        renderSharedLink = () => {
+          shareInput.value = this.getSharedLink();
+          shareStatus.textContent = "";
+        };
+        shareButton.addEventListener("click", async () => {
+          const link = this.getSharedLink();
+          shareInput.value = link;
+          shareInput.focus();
+          shareInput.select();
+
+          try {
+            if (global.navigator?.clipboard?.writeText) {
+              await global.navigator.clipboard.writeText(link);
+              shareStatus.textContent = "Link copiat.";
+              return;
+            }
+            if (document.execCommand?.("copy")) {
+              shareStatus.textContent = "Link copiat.";
+              return;
+            }
+          } catch (_) {
+            // The visible input remains as a manual-copy fallback.
+          }
+
+          shareStatus.textContent = "Copiaza manual linkul de mai sus.";
+        });
+        shareField.append(shareButton, shareInput, shareStatus);
+        mount.appendChild(shareField);
+        renderSharedLink();
 
         const note = document.createElement("p");
         note.className = "tonomat-note";

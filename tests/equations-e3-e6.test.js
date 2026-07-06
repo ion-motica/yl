@@ -19,6 +19,11 @@ function loadQuiz() {
   loadScript("js/quizzes/equations-e3-e6.js");
 }
 
+function decodeBase64Url(value) {
+  const padded = `${value}${"=".repeat((4 - (value.length % 4)) % 4)}`;
+  return Buffer.from(padded.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+}
+
 beforeEach(() => {
   delete globalThis.GameUtils;
   delete globalThis.ProgressDisplay;
@@ -203,6 +208,28 @@ test("exports and applies shared config best-effort", () => {
     showSummaryInArena: false,
     questionsPerRun: 50,
   });
+});
+
+test("builds a shareable URL with quiz id and current config", () => {
+  loadQuiz();
+
+  const quiz = globalThis.QuizRegistry.get("equations-e3-e6").create();
+  quiz.setTonomatConfig({
+    familyId: "E5_BAL",
+    operators: ["*", "/"],
+    showSummaryInArena: false,
+    questionsPerRun: 12,
+  });
+
+  const link = quiz.getSharedLink("https://example.github.io/yl/index.html?old=1#section");
+  const url = new URL(link);
+  const encodedConfig = url.searchParams.get("cfg");
+
+  assert.equal(url.href.startsWith("https://example.github.io/yl/index.html?"), true);
+  assert.equal(url.hash, "");
+  assert.equal(url.searchParams.get("quiz"), "equations-e3-e6");
+  assert.ok(encodedConfig);
+  assert.deepEqual(JSON.parse(decodeBase64Url(encodedConfig)), quiz.getSharedConfig());
 });
 
 test("shared config falls back to defaults when values no longer apply", () => {
