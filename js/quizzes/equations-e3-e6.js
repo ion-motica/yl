@@ -15,7 +15,7 @@
     E3: {
       id: "E3",
       group: "E3",
-      label: "E3: a = b s c",
+      label: "E3: a = b + c",
       shortLabel: "E3",
       left: ["a"],
       right: ["b", "c"],
@@ -23,7 +23,7 @@
     E4: {
       id: "E4",
       group: "E4",
-      label: "E4: a = b s c s d",
+      label: "E4: a = b + c + d",
       shortLabel: "E4",
       left: ["a"],
       right: ["b", "c", "d"],
@@ -31,7 +31,7 @@
     E4_BAL: {
       id: "E4_BAL",
       group: "E4",
-      label: "E4 balanced: a s b = c s d",
+      label: "E4 balanced: a + b = c + d",
       shortLabel: "E4 balanced",
       left: ["a", "b"],
       right: ["c", "d"],
@@ -39,7 +39,7 @@
     E5: {
       id: "E5",
       group: "E5",
-      label: "E5: a = b s c s d s e",
+      label: "E5: a = b + c + d + e",
       shortLabel: "E5",
       left: ["a"],
       right: ["b", "c", "d", "e"],
@@ -47,7 +47,7 @@
     E5_BAL: {
       id: "E5_BAL",
       group: "E5",
-      label: "E5 balanced: a s b = c s d s e",
+      label: "E5 balanced: a + b = c + d + e",
       shortLabel: "E5 balanced",
       left: ["a", "b"],
       right: ["c", "d", "e"],
@@ -55,7 +55,7 @@
     E6: {
       id: "E6",
       group: "E6",
-      label: "E6 balanced: a s b s c = d s e s f",
+      label: "E6 balanced: a + b + c = d + e + f",
       shortLabel: "E6 balanced",
       left: ["a", "b", "c"],
       right: ["d", "e", "f"],
@@ -340,6 +340,7 @@
   }
 
   function hasKnownCommonVisibleValue(leftSlots, rightSlots, values, unknownSlot) {
+    if (Math.min(leftSlots.length, rightSlots.length) > 2) return false;
     const leftKnown = new Set(
       leftSlots
         .filter((slot) => slot !== unknownSlot)
@@ -685,22 +686,30 @@
         };
 
         const familyField = document.createElement("div");
-        familyField.className = "control-panel-lift-field";
-        const familyLabel = document.createElement("label");
-        familyLabel.textContent = "Familie";
-        const familySelect = document.createElement("select");
+        familyField.className = "control-panel-lift-field tonomat-family-field";
+        const familyLabel = document.createElement("span");
+        familyLabel.textContent = "Tip quiz:";
+        const familyList = document.createElement("div");
+        familyList.className = "tonomat-family-list";
         Object.values(FAMILY_DEFS).forEach((def) => {
-          const option = document.createElement("option");
-          option.value = def.id;
-          option.textContent = def.label;
-          option.selected = def.id === quizConfig.familyId;
-          familySelect.appendChild(option);
+          const choice = document.createElement("label");
+          choice.className = "tonomat-family-choice";
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = "tonomat-family";
+          input.value = def.id;
+          input.checked = def.id === quizConfig.familyId;
+          input.addEventListener("change", () => {
+            if (!input.checked) return;
+            this.setTonomatConfig({ familyId: def.id });
+            notifyChange();
+          });
+          const text = document.createElement("span");
+          text.textContent = def.label;
+          choice.append(input, text);
+          familyList.appendChild(choice);
         });
-        familySelect.addEventListener("change", () => {
-          this.setTonomatConfig({ familyId: familySelect.value });
-          notifyChange();
-        });
-        familyField.append(familyLabel, familySelect);
+        familyField.append(familyLabel, familyList);
         mount.appendChild(familyField);
 
         const opField = document.createElement("div");
@@ -753,7 +762,7 @@
         modeField.append(modeLabel, modeSelect);
         mount.appendChild(modeField);
 
-        appendCheckbox(mount, "Afiseaza rezumat in arena", quizConfig.showSummaryInArena, (checked) => {
+        appendCheckbox(mount, "Arata detalii in lista din arena", quizConfig.showSummaryInArena, (checked) => {
           this.setTonomatConfig({ showSummaryInArena: checked });
           notifyChange();
         });

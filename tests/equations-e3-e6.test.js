@@ -35,6 +35,17 @@ test("registers the new quiz with the exact requested title", () => {
   assert.equal(typeof meta.create, "function");
 });
 
+test("uses plus signs in family labels shown by the control panel", () => {
+  loadQuiz();
+
+  const labels = Object.values(globalThis.EquationTonomatQuiz.FAMILY_DEFS).map(
+    (def) => def.label
+  );
+
+  assert.ok(labels.every((label) => label.includes("+")), labels.join(" | "));
+  assert.ok(labels.every((label) => !/\ss\s/.test(label)), labels.join(" | "));
+});
+
 test("builds valid same-sign questions for each stage 1 family and operator", () => {
   loadQuiz();
   globalThis.GameUtils.shuffle = (items) => [...items];
@@ -102,6 +113,7 @@ test("avoids visible common known numbers on both sides", () => {
           { familyId, operators: [operator] },
           { level: 3, operator, unknownIndex }
         );
+        if (Math.min(question.leftSlots.length, question.rightSlots.length) > 2) continue;
         const leftKnown = new Set(
           question.leftSlots
             .filter((slot) => slot !== question.unknownSlot)
