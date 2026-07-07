@@ -1451,6 +1451,76 @@ body {
   font-weight: 700;
 }
 
+.pre-eq-inline-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pre-eq-inline-field > span {
+  white-space: nowrap;
+}
+
+.pre-eq-sign-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pre-eq-stepper-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pre-eq-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+}
+
+.pre-eq-stepper button {
+  width: 1.85rem;
+  min-height: 1.85rem;
+  padding: 0;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pre-eq-stepper button:hover,
+.pre-eq-stepper button:focus-visible {
+  border-color: var(--accent);
+}
+
+.pre-eq-stepper input[type="number"] {
+  width: 3.15rem;
+  min-height: 1.85rem;
+  padding: 0.15rem 0.25rem;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pre-eq-intervals-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.4rem;
+}
+
+.pre-eq-intervals-values {
+  color: #e2e8f0;
+}
+
 .tonomat-share {
   display: grid;
   gap: 0.35rem;
