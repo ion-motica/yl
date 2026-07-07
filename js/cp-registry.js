@@ -3,7 +3,15 @@
 
   const LEGACY_DEFAULT_ORDER = ["lift", "aam", "debug"];
   const LEGACY_DEFAULT_ORDER_V2 = ["debug", "lift", "aam"];
-  const DEFAULT_ORDER = ["subquiz", "equationTonomat", "liftType", "debug", "lift", "aam"];
+  const DEFAULT_ORDER = [
+    "subquiz",
+    "preEquationNav",
+    "equationTonomat",
+    "liftType",
+    "debug",
+    "lift",
+    "aam",
+  ];
   const panels = new Map();
 
   function register(def) {

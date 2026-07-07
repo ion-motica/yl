@@ -152,6 +152,9 @@
     if (!quiz) return;
     const display = ProgressDisplay.resolve(quiz);
     dom.levelInfoEl.textContent = quiz.getLevelLabel();
+    const currentLevel =
+      typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
+    const previousRenderedLevel = lastRenderedLevel;
 
     const streakCells = dom.streakTrackEl.querySelectorAll(".streak-cell");
     if (streakCells.length !== display.green.cells || lastGreenCells !== display.green.cells) {
@@ -199,10 +202,14 @@
       }
     }
 
-    maybePlayLevelReward(
-      typeof quiz.getLevel === "function" ? quiz.getLevel() : null,
-      progressHidden
-    );
+    maybePlayLevelReward(currentLevel, progressHidden);
+    if (
+      previousRenderedLevel != null &&
+      currentLevel != null &&
+      currentLevel !== previousRenderedLevel
+    ) {
+      renderPreEquationNavigationPanel();
+    }
 
     dom.levelPickerEl.querySelectorAll(".level-btn").forEach((btn) => {
       btn.classList.toggle("active", Number(btn.dataset.level) === quiz.getLevel());
@@ -229,6 +236,7 @@
       lastGreenCells = null;
       lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
       renderProgress();
+      renderPreEquationNavigationPanel();
       engine.startRound(quiz.beginRound(quiz.pickNextRound()));
     });
     return btn;
@@ -403,6 +411,7 @@
     applyRequestedQuizConfig();
     cpShell?.refreshEnabledStates?.();
     renderEquationTonomatPanel();
+    renderPreEquationNavigationPanel();
     aamArena?.reset();
     buildQuizPicker();
     buildLevelPicker();
@@ -434,6 +443,19 @@
     });
   }
 
+  function renderPreEquationNavigationPanel() {
+    const mount = cpShell?.getMountEl("preEquationNav");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendPreEquationNavigationControlPanel !== "function") return;
+    quiz.appendPreEquationNavigationControlPanel(mount, {
+      onChange: () => {
+        restartActiveRound();
+        renderPreEquationNavigationPanel();
+      },
+    });
+  }
+
   function applyRequestedQuizConfig() {
     const requestedQuizId = window.StartupQuiz?.getRequestedQuizId?.();
     if (requestedQuizId && requestedQuizId !== QuizRegistry.getActiveId()) return false;
@@ -461,6 +483,12 @@
     id: "equationTonomat",
     title: "CP - Ecuatii",
     isEnabled: () => typeof quiz?.appendTonomatControlPanel === "function",
+  });
+  CpRegistry.register({
+    id: "preEquationNav",
+    title: "CP - Pre-ecuatii",
+    isEnabled: () =>
+      typeof quiz?.appendPreEquationNavigationControlPanel === "function",
   });
   CpRegistry.register({
     id: "liftType",
@@ -497,6 +525,7 @@
     cpShell.setPanelEnabled("aam", on);
   };
   renderEquationTonomatPanel();
+  renderPreEquationNavigationPanel();
 
   // Stratul „tip lift” = doar prezentare: (a) clasa de mod pe #game și (b) unde
   // trăiește conținutul (`.falling-inner`). NU recreăm noduri — doar
