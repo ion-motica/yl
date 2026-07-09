@@ -21,6 +21,12 @@
   const EFFECTIVE_STREAK_TO_EXIT = 10;
   const PRODUCT_MAX_QUESTIONS = 21;
   const PRODUCT_STREAK_TO_EXIT = NONANCHORS.length;
+  const PRODUCT_DOMAIN_QUESTION_COUNT = 15;
+  const PRODUCT_DOMAINS = [
+    { id: "6-10", min: 6, max: 10 },
+    { id: "11-15", min: 11, max: 15 },
+    { id: "16-20", min: 16, max: 20 },
+  ];
   const FAST_MS = 1500;
 
   const START_OPTIONS = {
@@ -32,6 +38,7 @@
         "rapidAnchorAdditions",
         "effectiveAnchorAddition",
         "nonAnchorProducts",
+        "domainProducts",
       ],
     },
     anchorsOnly: { id: "anchorsOnly", route: ["anchors"] },
@@ -43,6 +50,7 @@
       route: ["effectiveAnchorAddition"],
     },
     nonAnchorProducts: { id: "nonAnchorProducts", route: ["nonAnchorProducts"] },
+    domainProducts: { id: "domainProducts", route: ["domainProducts"] },
   };
 
   const QF_PROFILE = {
@@ -230,6 +238,7 @@
       effectiveIntensiveState: null,
       productState: null,
       productIntensiveState: null,
+      domainProductState: null,
       intensiveFactsText: [],
     };
 
@@ -645,6 +654,122 @@
       shared.intensiveFactsText = trainingBs.map((b) => `${b}*${factorForLevel(level)}=?`);
       state.wrongBs = state.wrongBs.filter((b) => !trainingBs.includes(b));
       return trainingBs;
+    }
+
+    function factorsForProductDomain(domain) {
+      const factors = [];
+      for (let b = domain.min; b <= domain.max; b += 1) factors.push(b);
+      return factors;
+    }
+
+    function buildDomainProductOptions(correct, product) {
+      const wrong = [];
+      const addWrong = (value) => {
+        if (value < 0 || value === correct || wrong.includes(value)) return;
+        wrong.push(value);
+      };
+
+      if (correct === product) {
+        [10, 20, 30].forEach((delta) => {
+          addWrong(correct - delta);
+          addWrong(correct + delta);
+        });
+      } else {
+        [1, 2, 3].forEach((delta) => {
+          addWrong(correct - delta);
+          addWrong(correct + delta);
+        });
+      }
+
+      while (wrong.length < 2) addWrong(correct + wrong.length + 1);
+
+      const options = shuffle([String(correct), String(wrong[0]), String(wrong[1])]);
+      return { options, correctIndex: options.indexOf(String(correct)) };
+    }
+
+    function buildDomainProductItem(b, qfType) {
+      const product = factorForLevel(level) * b;
+      const fact = Catalog.createFact({
+        operation: "mul",
+        values: { a: factorForLevel(level), b },
+      });
+      const built = QFG.buildOptions(qfType, fact, shuffle);
+      if (!built || built.answerType !== "number") return null;
+      const correct = Number(built.options[built.correctIndex]);
+      if (!Number.isFinite(correct) || correct === factorForLevel(level)) return null;
+      const opt = buildDomainProductOptions(correct, product);
+
+      return {
+        prompt: built.prompt,
+        correctAnswer: correct,
+        options: opt.options,
+        correctIndex: opt.correctIndex,
+        metadata: {
+          factB: b,
+          subquiz: "domainProducts",
+          qfTypeId: qfType.id,
+          domainId: null,
+        },
+      };
+    }
+
+    function avoidImmediateDomainFactRepeats(entries, limit) {
+      const pool = [...entries];
+      const ordered = [];
+
+      while (pool.length && ordered.length < limit) {
+        const previousFact = ordered[ordered.length - 1]?.metadata?.factB;
+        let nextIndex = 0;
+        if (previousFact != null && pool[0]?.metadata?.factB === previousFact) {
+          const alternateIndex = pool.findIndex((item) => item.metadata?.factB !== previousFact);
+          if (alternateIndex >= 0) nextIndex = alternateIndex;
+        }
+        ordered.push(pool.splice(nextIndex, 1)[0]);
+      }
+
+      return ordered;
+    }
+
+    function buildDomainProductQueue(domain) {
+      const entries = [];
+      const factors = factorsForProductDomain(domain);
+      qfTypes.forEach((qfType) => {
+        factors.forEach((b) => {
+          const item = buildDomainProductItem(b, qfType);
+          if (item) {
+            item.metadata.domainId = domain.id;
+            entries.push(item);
+          }
+        });
+      });
+      return avoidImmediateDomainFactRepeats(shuffle(entries), PRODUCT_DOMAIN_QUESTION_COUNT);
+    }
+
+    function enterNextProductDomain(state) {
+      const domain = state.domainOrder[state.domainIndex] ?? null;
+      state.currentDomain = domain;
+      state.currentDomainCount = 0;
+      state.currentQueue = domain ? buildDomainProductQueue(domain) : [];
+    }
+
+    function buildDomainProductQuestion(state) {
+      if (!state.currentDomain) enterNextProductDomain(state);
+      if (!state.currentQueue.length) {
+        state.domainIndex += 1;
+        enterNextProductDomain(state);
+      }
+
+      const item = state.currentQueue.shift();
+      if (!item) {
+        return {
+          prompt: "Final subquiz 7",
+          correctAnswer: 0,
+          options: ["0", "1", "2"],
+          correctIndex: 0,
+          metadata: { subquiz: "domainProducts", complete: true },
+        };
+      }
+      return item;
     }
 
     function buildIntensiveQueue(facts) {
@@ -1387,6 +1512,114 @@
       });
     }
 
+    function domainProductsDefinition() {
+      return global.SubquizDefinition.define({
+        id: "domainProducts",
+        title: "domenii non-anchors EFF",
+        hintMessage: HINT,
+        initialState() {
+          const state = {
+            domainOrder: shuffle([...PRODUCT_DOMAINS]),
+            domainIndex: 0,
+            currentDomain: null,
+            currentDomainCount: 0,
+            totalCount: 0,
+            currentQueue: [],
+          };
+          enterNextProductDomain(state);
+          shared.domainProductState = state;
+          return state;
+        },
+        generator({ state }) {
+          shared.domainProductState = state;
+          return buildDomainProductQuestion(state);
+        },
+        onAnswer(event) {
+          const { item, index, state, runtime } = event;
+          const chosen = item.options[index];
+          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+
+          if (item.metadata?.complete) {
+            return {
+              action: "exit",
+              reason: "domainProductsComplete",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                flash: "win",
+                message: "ai terminat subquiz 7 modular",
+              },
+            };
+          }
+
+          state.currentDomainCount += 1;
+          state.totalCount += 1;
+
+          if (state.currentDomainCount >= PRODUCT_DOMAIN_QUESTION_COUNT) {
+            state.domainIndex += 1;
+            if (state.domainIndex >= state.domainOrder.length) {
+              return {
+                action: "exit",
+                reason: "domainProductsComplete",
+                view: {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  flash: "win",
+                  message: "ai terminat subquiz 7 modular",
+                },
+              };
+            }
+            enterNextProductDomain(state);
+            runtime.nextItem({ reason: "domainNext" });
+            return {
+              action: "continue",
+              view: roundViewFrom(runtime, {
+                outcome: isCorrect ? "step-correct" : "wrong-answer",
+                correct: isCorrect,
+                bounce: isCorrect,
+                flash: isCorrect ? undefined : "wrong",
+                message: `Domeniul urmator: ${state.currentDomain.id}`,
+              }),
+            };
+          }
+
+          if (!isCorrect) {
+            return {
+              action: "stay",
+              view: roundViewFrom(runtime, {
+                outcome: "wrong-answer",
+                correct: false,
+                flash: "wrong",
+                message: `${chosen} nu e bun. Mai incearca!`,
+              }),
+            };
+          }
+
+          runtime.nextItem({ reason: "domainProductNext" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Corect!",
+            }),
+          };
+        },
+        onTimeout({ runtime }) {
+          return {
+            action: "stay",
+            view: roundViewFrom(runtime, {
+              outcome: "round",
+              resetFall: true,
+            }),
+          };
+        },
+      });
+    }
+
     function createOrchestrator() {
       const route = START_OPTIONS[startStageSelection]?.route ?? START_OPTIONS.normal.route;
       orchestrator = global.SubquizOrchestrator.create({
@@ -1399,6 +1632,7 @@
           effectiveAnchorIntensiveDefinition(),
           nonAnchorProductsDefinition(),
           nonAnchorProductsIntensiveDefinition(),
+          domainProductsDefinition(),
         ],
         activeSubquizIds: route,
         context: {
@@ -1419,6 +1653,7 @@
       shared.effectiveIntensiveState = null;
       shared.productState = null;
       shared.productIntensiveState = null;
+      shared.domainProductState = null;
       shared.intensiveFactsText = [];
       createOrchestrator();
     }
@@ -1450,6 +1685,9 @@
       if (id === "nonAnchorProducts") {
         return `Nivel ${level} - Subquiz 6 - inmultiri non-anchors`;
       }
+      if (id === "domainProducts") {
+        return `Nivel ${level} - Subquiz 7 - domenii non-anchors EFF`;
+      }
       return `Nivel ${level} - Subquiz 1 - anchors (modular)`;
     }
 
@@ -1478,7 +1716,9 @@
       }
 
       const msg =
-        via === "nonAnchorProducts"
+        via === "domainProducts"
+          ? "ai terminat subquiz 7 modular, next level"
+          : via === "nonAnchorProducts"
           ? "ai terminat subquiz 6 modular, next level"
           : via === "effectiveAnchorAddition"
           ? "ai terminat subquiz 5 modular, next level"
@@ -1551,6 +1791,7 @@
           { id: "rapidAnchorAdditions", label: "4 adunari rapide cu ancore" },
           { id: "effectiveAnchorAddition", label: "5 adunare efectiva ancore" },
           { id: "nonAnchorProducts", label: "6 inmultiri non-anchors" },
+          { id: "domainProducts", label: "7 domenii non-anchors EFF" },
         ];
       },
       setSubquizStartOption(stageId) {
@@ -1571,6 +1812,7 @@
         const effectiveIntensiveState = shared.effectiveIntensiveState;
         const productState = shared.productState;
         const productIntensiveState = shared.productIntensiveState;
+        const domainProductState = shared.domainProductState;
         const currentId = activeSubquizId();
         const rapidCandidateCount = rapidState?.candidates?.length ?? 0;
         const rapidLimit =
@@ -1592,6 +1834,8 @@
               ? "Subquiz 5: adunare efectiva ancore"
               : currentId === "nonAnchorProducts"
               ? "Subquiz 6: inmultiri non-anchors"
+              : currentId === "domainProducts"
+              ? "Subquiz 7: domenii non-anchors EFF"
               : "Subquiz 1: anchors modular",
           wrongFactsText: anchorState?.wrongFacts?.length
             ? anchorState.wrongFacts.map((fact) => fact.label).join(", ")
@@ -1618,6 +1862,8 @@
               ? `${effectiveState?.questionCount ?? 0} / ${EFFECTIVE_MAX_QUESTIONS} - streak ${effectiveState?.correctStreak ?? 0} / ${EFFECTIVE_STREAK_TO_EXIT}`
               : currentId === "nonAnchorProducts"
               ? `${productState?.questionCount ?? 0} / ${PRODUCT_MAX_QUESTIONS} - perfect ${productState?.correctStreak ?? 0} / ${PRODUCT_STREAK_TO_EXIT}`
+              : currentId === "domainProducts"
+              ? `${domainProductState?.currentDomain?.id ?? "-"}: ${domainProductState?.currentDomainCount ?? 0} / ${PRODUCT_DOMAIN_QUESTION_COUNT} - domenii ${Math.min((domainProductState?.domainIndex ?? 0) + 1, PRODUCT_DOMAINS.length)} / ${PRODUCT_DOMAINS.length}`
               : `${anchorState?.answeredCount ?? 0} / ${QUESTIONS_PER_LEVEL}`,
           intensivSessionsText:
             `${anchorState?.intensiveSessionsDone ?? 0} / ${INTENSIVE_SESSIONS_PER_LEVEL}`,

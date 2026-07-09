@@ -22,7 +22,7 @@ function setupLocalStorage() {
   };
 }
 
-function setupQuiz() {
+function setupQuiz({ shuffle = (items) => [...items], randomInt = (min) => min } = {}) {
   globalThis.window = globalThis;
   globalThis.alert = () => {};
   setupLocalStorage();
@@ -39,8 +39,8 @@ function setupQuiz() {
     "js/quizzes/multiplication-1120-v2-modular.js",
   ].forEach(loadScript);
 
-  globalThis.GameUtils.shuffle = (items) => [...items];
-  globalThis.GameUtils.randomInt = (min) => min;
+  globalThis.GameUtils.shuffle = shuffle;
+  globalThis.GameUtils.randomInt = randomInt;
 
   const meta = globalThis.QuizRegistry.get(QUIZ_ID);
   return meta.create(meta);
@@ -95,6 +95,7 @@ describe("multiplication-1120-v2 modular clone", () => {
         "4 adunari rapide cu ancore",
         "5 adunare efectiva ancore",
         "6 inmultiri non-anchors",
+        "7 domenii non-anchors EFF",
       ]
     );
   });
@@ -124,6 +125,15 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.equal(quiz.getSubquizStage(), "nonAnchorProducts");
     assert.equal(quiz.getLevelLabel(), "Nivel 1 - Subquiz 6 - inmultiri non-anchors");
     assert.equal(quiz.getInfo11_20().mode, "Subquiz 6: inmultiri non-anchors");
+  });
+
+  it("reports direct modular subquiz 7 before the first round starts", () => {
+    const quiz = setupQuiz();
+    quiz.setSubquizStartOption("domainProducts");
+
+    assert.equal(quiz.getSubquizStage(), "domainProducts");
+    assert.equal(quiz.getLevelLabel(), "Nivel 1 - Subquiz 7 - domenii non-anchors EFF");
+    assert.equal(quiz.getInfo11_20().mode, "Subquiz 7: domenii non-anchors EFF");
   });
 
   it("advances level after 21 anchor answers in the first modular stage", () => {
@@ -596,5 +606,145 @@ describe("multiplication-1120-v2 modular clone", () => {
     state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
     assert.equal(state.levelAdvanced, true);
     assert.equal(quiz.getLevel(), 2);
+  });
+
+  it("normal route continues from modular subquiz 6 into modular subquiz 7", () => {
+    const quiz = setupQuiz();
+    let state = quiz.beginRound();
+
+    for (let i = 0; i < 21; i += 1) {
+      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    }
+    for (let i = 0; i < 12; i += 1) {
+      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    }
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    for (let i = 0; i < 10; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+    for (let i = 0; i < 12; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+
+    assert.equal(quiz.getLevel(), 1);
+    assert.equal(quiz.getSubquizStage(), "domainProducts");
+    assert.equal(quiz.getInfo11_20().mode, "Subquiz 7: domenii non-anchors EFF");
+    assert.equal(state.prompt, "11*?=66");
+  });
+
+  it("direct modular subquiz 7 runs each domain for 15 equation-form questions", () => {
+    const quiz = setupQuiz();
+    quiz.setSubquizStartOption("domainProducts");
+    quiz.switchLevel(7);
+    let state = quiz.beginRound();
+
+    assert.equal(state.prompt, "17*?=102");
+    assert.equal(state.options[state.correctIndex], "6");
+    assert.match(quiz.getInfo11_20().answeredText, /^6-10: 0 \/ 15/);
+
+    for (let i = 0; i < 15; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+    assert.equal(state.prompt, "17*?=187");
+    assert.match(quiz.getInfo11_20().answeredText, /^11-15: 0 \/ 15/);
+
+    for (let i = 0; i < 15; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+    assert.equal(state.prompt, "17*?=272");
+    assert.match(quiz.getInfo11_20().answeredText, /^16-20: 0 \/ 15/);
+
+    for (let i = 0; i < 15; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+    assert.equal(state.levelAdvanced, true);
+    assert.equal(quiz.getLevel(), 8);
+    assert.equal(quiz.getSubquizStage(), "domainProducts");
+  });
+
+  it("direct modular subquiz 7 never asks for the level factor as the answer", () => {
+    const quiz = setupQuiz();
+    quiz.setSubquizStartOption("domainProducts");
+    quiz.switchLevel(7);
+    let state = quiz.beginRound();
+
+    for (let i = 0; i < 45; i += 1) {
+      assert.notEqual(Number(state.options[state.correctIndex]), 17);
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+  });
+
+  it("direct modular subquiz 7 uses close traps when the missing factor is found by division", () => {
+    const quiz = setupQuiz();
+    quiz.setSubquizStartOption("domainProducts");
+    quiz.switchLevel(7);
+    const state = quiz.beginRound();
+    const correct = Number(state.options[state.correctIndex]);
+
+    assert.equal(state.prompt, "17*?=102");
+    assert.deepEqual(
+      state.options.map(Number).sort((a, b) => a - b),
+      [5, 6, 7]
+    );
+    state.options.forEach((option) => {
+      assert.ok(Math.abs(Number(option) - correct) <= 3);
+    });
+  });
+
+  it("direct modular subquiz 7 uses same-last-digit traps when the missing product is found by multiplication", () => {
+    const quiz = setupQuiz();
+    quiz.setSubquizStartOption("domainProducts");
+    quiz.switchLevel(7);
+    let state = quiz.beginRound();
+
+    while (state.prompt !== "17*6=?") {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+
+    const correct = Number(state.options[state.correctIndex]);
+    assert.deepEqual(
+      state.options.map(Number).sort((a, b) => a - b),
+      [92, 102, 112]
+    );
+    state.options.forEach((option) => {
+      const value = Number(option);
+      assert.equal(value % 10, correct % 10);
+      assert.ok(Math.abs(value - correct) <= 30);
+    });
+  });
+
+  it("direct modular subquiz 7 avoids immediate repeats of the same fact across equation forms", () => {
+    const quiz = setupQuiz({
+      shuffle: (items) => {
+        if (items.every((item) => item?.metadata?.subquiz === "domainProducts")) {
+          return [...items].sort((a, b) => a.metadata.factB - b.metadata.factB);
+        }
+        return [...items];
+      },
+    });
+    quiz.setSubquizStartOption("domainProducts");
+    quiz.switchLevel(7);
+    let state = quiz.beginRound();
+    let previousFact = null;
+
+    for (let i = 0; i < 15; i += 1) {
+      const correct = Number(state.options[state.correctIndex]);
+      const currentFact = correct > 20 ? correct / 17 : correct;
+      assert.notEqual(currentFact, previousFact);
+      previousFact = currentFact;
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    }
+  });
+
+  it("direct modular subquiz 7 keeps the same question after a wrong answer", () => {
+    const quiz = setupQuiz();
+    quiz.setSubquizStartOption("domainProducts");
+    let state = quiz.beginRound();
+
+    assert.equal(state.prompt, "11*?=66");
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    assert.equal(state.prompt, "11*?=66");
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.notEqual(state.prompt, "11*?=66");
   });
 });
