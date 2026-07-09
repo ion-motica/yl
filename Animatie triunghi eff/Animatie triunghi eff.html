@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Animatie triunghi eff</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --stage: #0c1a2c;
+      --panel: #0f2035;
+      --panel-2: #122844;
+      --ink: #f4f7fb;
+      --muted: #9fb1c8;
+      --line: #70e1d6;
+      --line-soft: rgba(112, 225, 214, 0.42);
+      --gold: #ffd166;
+      --orange: #f8961e;
+      --pink: #ef476f;
+      --blue: #4cc9f0;
+      --red: #ff4d6d;
+      --green: #43d17a;
+      --rgb-blue: #4ea8ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at 18% 14%, rgba(76, 201, 240, 0.14), transparent 26%),
+        linear-gradient(135deg, #040914, var(--bg) 56%, #0b1728);
+      color: var(--ink);
+    }
+
+    main {
+      width: min(980px, calc(100vw - 32px));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 28px;
+    }
+
+    .stage {
+      position: relative;
+      width: 360px;
+      height: 360px;
+      flex: 0 0 360px;
+      border: 1px solid rgba(112, 225, 214, 0.24);
+      background:
+        radial-gradient(circle at 50% 36%, rgba(112, 225, 214, 0.1), transparent 42%),
+        linear-gradient(180deg, rgba(21, 42, 68, 0.96), var(--stage));
+      box-shadow: inset 0 0 40px rgba(112, 225, 214, 0.05), 0 18px 46px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+    }
+
+    .triangle-scene {
+      position: absolute;
+      inset: 0;
+      width: 360px;
+      height: 360px;
+      transform-origin: 50% 50%;
+      --counter-rotation: 0deg;
+      will-change: transform;
+    }
+
+    .geometry {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .height-line {
+      stroke: var(--line-soft);
+      stroke-dasharray: 5 7;
+      stroke-width: 1.2;
+    }
+
+    .arrow-s1,
+    .arrow-s2,
+    .arrow-curve,
+    .tree-trunk {
+      fill: none;
+    }
+
+    .arrow-s1 {
+      stroke: var(--gold);
+      stroke-width: 4;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 7px rgba(255, 209, 102, 0.36));
+    }
+
+    .arrow-s2 {
+      stroke: var(--blue);
+      stroke-width: 2.8;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 5px rgba(76, 201, 240, 0.34));
+    }
+
+    .arrow-curve {
+      stroke-width: 3.5;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.16));
+    }
+
+    .tree-trunk {
+      stroke-width: 4.2;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.18));
+    }
+
+    .group-red {
+      stroke: var(--red);
+    }
+
+    .group-green {
+      stroke: var(--green);
+    }
+
+    .group-blue {
+      stroke: var(--rgb-blue);
+    }
+
+    .c1,
+    .c2 {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      transform: translate(-50%, -50%) rotate(var(--counter-rotation));
+      z-index: 3;
+    }
+
+    .c1 {
+      width: 74px;
+      height: 74px;
+      background: #f8fbff;
+      border: 2px solid rgba(112, 225, 214, 0.95);
+      color: #07111f;
+      box-shadow: 0 0 0 8px rgba(112, 225, 214, 0.08), 0 16px 30px rgba(0, 0, 0, 0.32);
+      font-size: 30px;
+      font-weight: 800;
+      transition: transform 360ms ease, border-color 360ms ease, box-shadow 360ms ease;
+    }
+
+    .c2 {
+      width: 48px;
+      height: 48px;
+      background: #101827;
+      border: 2px solid var(--pink);
+      color: var(--pink);
+      box-shadow: 0 0 0 6px rgba(239, 71, 111, 0.1), 0 10px 22px rgba(0, 0, 0, 0.28);
+      font-size: 28px;
+      font-weight: 900;
+      transition: background-color 180ms ease;
+    }
+
+    .stage.changed .c1 {
+      animation: pop 420ms ease both;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 10px rgba(255, 209, 102, 0.12), 0 16px 30px rgba(0, 0, 0, 0.32);
+    }
+
+    .stage.changed .right {
+      animation-delay: 60ms;
+    }
+
+    .stage.changed .left {
+      animation-delay: 120ms;
+    }
+
+    @keyframes pop {
+      0% {
+        transform: translate(-50%, -50%) rotate(var(--counter-rotation)) scale(0.82);
+      }
+      58% {
+        transform: translate(-50%, -50%) rotate(var(--counter-rotation)) scale(1.1);
+      }
+      100% {
+        transform: translate(-50%, -50%) rotate(var(--counter-rotation)) scale(1);
+      }
+    }
+
+    .control-panel {
+      width: 300px;
+      min-height: 300px;
+      padding: 22px;
+      border: 1px solid rgba(112, 225, 214, 0.22);
+      background: linear-gradient(180deg, var(--panel), #0b1728);
+      box-shadow: 0 18px 46px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .equation {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .control {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 18px;
+    }
+
+    .mode-control {
+      gap: 10px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .control span {
+      color: var(--gold);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .radio-row {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      align-items: start;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .radio-row input {
+      width: 16px;
+      height: 16px;
+      margin: 1px 0 0;
+      accent-color: var(--gold);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+
+    button {
+      width: 100%;
+      min-height: 46px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--orange);
+      color: #09111f;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(248, 150, 30, 0.24);
+    }
+
+    button:hover {
+      background: #ffab36;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    @media (max-width: 760px) {
+      main {
+        flex-direction: column;
+        padding: 20px 0;
+      }
+
+      .control-panel {
+        width: 360px;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="stage" id="stage" aria-label="Triunghi invizibil cu cercuri c1, sageti s1 si sageti s2">
+      <div class="triangle-scene" id="triangleScene">
+        <svg class="geometry" id="geometry" viewBox="0 0 360 360" aria-hidden="true">
+          <defs>
+            <marker id="arrowS1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#ffd166"></path>
+            </marker>
+            <marker id="arrowS2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#4cc9f0"></path>
+            </marker>
+            <marker id="arrowRed" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4d6d"></path>
+            </marker>
+            <marker id="arrowGreen" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#43d17a"></path>
+            </marker>
+            <marker id="arrowBlue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ea8ff"></path>
+            </marker>
+          </defs>
+          <g id="heightLayer"></g>
+          <g id="s1Layer"></g>
+          <g id="s2Layer"></g>
+        </svg>
+
+        <div class="c1 top" id="topNumber">4</div>
+        <div class="c1 right" id="rightNumber">10</div>
+        <div class="c1 left" id="leftNumber">6</div>
+
+        <div class="c2" id="signA">-</div>
+        <div class="c2" id="signB">-</div>
+        <div class="c2" id="signC">+</div>
+      </div>
+    </div>
+
+    <section class="control-panel" aria-label="Control panel">
+      <h1>Animatie triunghi eff</h1>
+      <p class="equation" id="equation">4 + 6 = 10</p>
+
+      <div class="control">
+        <label for="rotationSpeed">Viteza rotire triunghi <span id="rotationSpeedValue">10</span></label>
+        <input id="rotationSpeed" type="range" min="-100" max="100" value="10">
+      </div>
+
+      <div class="control">
+        <label for="triangleZoom">Zoom triunghi <span id="triangleZoomValue">80%</span></label>
+        <input id="triangleZoom" type="range" min="2" max="100" value="80">
+      </div>
+
+      <div class="control">
+        <label for="s1Length">Lungimea sagetii <span id="s1Value">70%</span></label>
+        <input id="s1Length" type="range" min="0" max="200" value="70">
+      </div>
+
+      <div class="control">
+        <label for="c2Distance">Distanta baza s1 - c2 <span id="c2Value">26px</span></label>
+        <input id="c2Distance" type="range" min="8" max="58" value="26">
+      </div>
+
+      <div class="control">
+        <label for="circleTransparency">Transparenta c1/c2 <span id="circleTransparencyValue">80%</span></label>
+        <input id="circleTransparency" type="range" min="0" max="100" value="80">
+      </div>
+
+      <div class="control">
+        <label for="branchCurve">Curbura candelabru <span id="branchCurveValue">95px</span></label>
+        <input id="branchCurve" type="range" min="20" max="180" value="95">
+      </div>
+
+      <div class="control">
+        <label for="s2CenterDistance">Modul 2: Distanta s2-centru c1 <span id="s2CenterDistanceValue">25px</span></label>
+        <input id="s2CenterDistance" type="range" min="0" max="62" value="25">
+      </div>
+
+      <div class="control mode-control" aria-label="Mod sageti">
+        <label class="radio-row">
+          <input type="radio" name="arrowMode" value="separate">
+          <span>Mod s1 si s2 separate, drepte</span>
+        </label>
+        <label class="radio-row">
+          <input type="radio" name="arrowMode" value="united" checked>
+          <span>Mod sageti s1 si s2 unite in centrul c2, curbate frumos</span>
+        </label>
+      </div>
+
+      <button id="changeButton" type="button">schimba numerele</button>
+    </section>
+  </main>
+
+  <script>
+    const triples = [
+      [4, 6, 10],
+      [2, 4, 6],
+      [3, 5, 8],
+      [6, 7, 13],
+      [8, 9, 17],
+      [10, 12, 22],
+      [5, 11, 16],
+      [7, 14, 21]
+    ];
+
+    const stage = document.getElementById("stage");
+    const triangleScene = document.getElementById("triangleScene");
+    const topNumber = document.getElementById("topNumber");
+    const rightNumber = document.getElementById("rightNumber");
+    const leftNumber = document.getElementById("leftNumber");
+    const equation = document.getElementById("equation");
+    const changeButton = document.getElementById("changeButton");
+    const rotationSpeed = document.getElementById("rotationSpeed");
+    const triangleZoom = document.getElementById("triangleZoom");
+    const s1Length = document.getElementById("s1Length");
+    const c2Distance = document.getElementById("c2Distance");
+    const circleTransparency = document.getElementById("circleTransparency");
+    const branchCurve = document.getElementById("branchCurve");
+    const s2CenterDistance = document.getElementById("s2CenterDistance");
+    const rotationSpeedValue = document.getElementById("rotationSpeedValue");
+    const triangleZoomValue = document.getElementById("triangleZoomValue");
+    const s1Value = document.getElementById("s1Value");
+    const c2Value = document.getElementById("c2Value");
+    const circleTransparencyValue = document.getElementById("circleTransparencyValue");
+    const branchCurveValue = document.getElementById("branchCurveValue");
+    const s2CenterDistanceValue = document.getElementById("s2CenterDistanceValue");
+    const heightLayer = document.getElementById("heightLayer");
+    const s1Layer = document.getElementById("s1Layer");
+    const s2Layer = document.getElementById("s2Layer");
+    const arrowModeInputs = document.querySelectorAll('input[name="arrowMode"]');
+
+    const c1Radius = 37;
+    const c2Radius = 24;
+    const triangleSide = 224;
+    const triangleHeight = (Math.sqrt(3) / 2) * triangleSide;
+    const triangleCenter = point(180, 180);
+    const triangleTopY = triangleCenter.y - (2 / 3) * triangleHeight;
+    const triangleBaseY = triangleCenter.y + (1 / 3) * triangleHeight;
+    const vertices = {
+      a: { x: 180, y: triangleTopY, el: topNumber },
+      b: { x: 68, y: triangleBaseY, el: leftNumber },
+      c: { x: 292, y: triangleBaseY, el: rightNumber }
+    };
+
+    const c2Elements = {
+      a: document.getElementById("signA"),
+      b: document.getElementById("signB"),
+      c: document.getElementById("signC")
+    };
+
+    const groupStyles = {
+      a: { className: "group-green", marker: "arrowGreen" },
+      b: { className: "group-blue", marker: "arrowBlue" },
+      c: { className: "group-red", marker: "arrowRed" }
+    };
+
+    let currentIndex = 0;
+    let rotationAngle = 0;
+    let lastFrameTime = null;
+
+    function point(x, y) {
+      return { x, y };
+    }
+
+    function subtract(a, b) {
+      return point(a.x - b.x, a.y - b.y);
+    }
+
+    function add(a, b) {
+      return point(a.x + b.x, a.y + b.y);
+    }
+
+    function scale(a, value) {
+      return point(a.x * value, a.y * value);
+    }
+
+    function length(a) {
+      return Math.hypot(a.x, a.y);
+    }
+
+    function unit(a) {
+      const size = length(a);
+      return size === 0 ? point(0, 0) : point(a.x / size, a.y / size);
+    }
+
+    function footFromPointToLine(p, lineA, lineB) {
+      const line = subtract(lineB, lineA);
+      const t = ((p.x - lineA.x) * line.x + (p.y - lineA.y) * line.y) / (line.x * line.x + line.y * line.y);
+      return add(lineA, scale(line, t));
+    }
+
+    function lineEl(className, start, end, markerId) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("class", className);
+      line.setAttribute("x1", start.x);
+      line.setAttribute("y1", start.y);
+      line.setAttribute("x2", end.x);
+      line.setAttribute("y2", end.y);
+      if (markerId) line.setAttribute("marker-end", `url(#${markerId})`);
+      return line;
+    }
+
+    function curveEl(className, start, control, end, markerId) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", className);
+      path.setAttribute("d", `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`);
+      if (markerId) path.setAttribute("marker-end", `url(#${markerId})`);
+      return path;
+    }
+
+    function cubicEl(className, start, controlA, controlB, end, markerId) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", className);
+      path.setAttribute("d", `M ${start.x} ${start.y} C ${controlA.x} ${controlA.y}, ${controlB.x} ${controlB.y}, ${end.x} ${end.y}`);
+      if (markerId) path.setAttribute("marker-end", `url(#${markerId})`);
+      return path;
+    }
+
+    function doubleCubicEl(className, start, controlA, controlB, mid, controlC, controlD, end, markerId) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", className);
+      path.setAttribute("d", `M ${start.x} ${start.y} C ${controlA.x} ${controlA.y}, ${controlB.x} ${controlB.y}, ${mid.x} ${mid.y} C ${controlC.x} ${controlC.y}, ${controlD.x} ${controlD.y}, ${end.x} ${end.y}`);
+      if (markerId) path.setAttribute("marker-end", `url(#${markerId})`);
+      return path;
+    }
+
+    function quadraticEl(className, start, control, end, markerId) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", className);
+      path.setAttribute("d", `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`);
+      if (markerId) path.setAttribute("marker-end", `url(#${markerId})`);
+      return path;
+    }
+
+    function clearGeometry() {
+      heightLayer.replaceChildren();
+      s1Layer.replaceChildren();
+      s2Layer.replaceChildren();
+    }
+
+    function edgePoint(from, to, radius) {
+      return add(from, scale(unit(subtract(to, from)), radius));
+    }
+
+    function currentArrowMode() {
+      return document.querySelector('input[name="arrowMode"]:checked').value;
+    }
+
+    function bendPoint(start, end, amount) {
+      const mid = scale(add(start, end), 0.5);
+      const direction = subtract(end, start);
+      const normal = unit(point(-direction.y, direction.x));
+      const side = mid.x < 180 ? -1 : 1;
+      return add(mid, scale(normal, amount * side));
+    }
+
+    function dot(a, b) {
+      return a.x * b.x + a.y * b.y;
+    }
+
+    function altitudeAnchor(key, signs) {
+      const center = vertices[key];
+      const towardSign = unit(subtract(signs[key], center));
+      return add(center, scale(towardSign, Number(s2CenterDistance.value)));
+    }
+
+    function chandelierBranch(sourceKey, signKey, signs) {
+      const center = vertices[sourceKey];
+      const merge = signs[signKey];
+      const towardMerge = unit(subtract(merge, center));
+      const start = add(center, scale(towardMerge, Number(s2CenterDistance.value)));
+      const midpoint = scale(add(start, merge), 0.5);
+      const segment = subtract(merge, start);
+      const normalA = unit(point(-segment.y, segment.x));
+      const normalB = scale(normalA, -1);
+      const candidateA = add(midpoint, scale(normalA, Number(branchCurve.value)));
+      const candidateB = add(midpoint, scale(normalB, Number(branchCurve.value)));
+      const control = length(subtract(candidateA, triangleCenter)) > length(subtract(candidateB, triangleCenter)) ? candidateA : candidateB;
+      return { start, merge, control };
+    }
+
+    function applyCircleTransparency() {
+      const transparency = Number(circleTransparency.value);
+      const alpha = 1 - transparency / 100;
+      circleTransparencyValue.textContent = `${transparency}%`;
+      document.querySelectorAll(".c1").forEach((circle) => {
+        circle.style.backgroundColor = `rgba(248, 251, 255, ${alpha})`;
+        circle.style.color = transparency > 55 ? "#f8fbff" : "#07111f";
+      });
+      document.querySelectorAll(".c2").forEach((circle) => {
+        circle.style.backgroundColor = `rgba(16, 24, 39, ${alpha})`;
+      });
+    }
+
+    function updateTriangleTransform() {
+      rotationSpeedValue.textContent = rotationSpeed.value;
+      triangleZoomValue.textContent = `${triangleZoom.value}%`;
+      const scaleValue = Number(triangleZoom.value) / 100;
+      triangleScene.style.transform = `rotate(${-rotationAngle}deg) scale(${scaleValue})`;
+      triangleScene.style.setProperty("--counter-rotation", `${rotationAngle}deg`);
+    }
+
+    function drawGeometry() {
+      clearGeometry();
+      s1Value.textContent = `${s1Length.value}%`;
+      c2Value.textContent = `${c2Distance.value}px`;
+      branchCurveValue.textContent = `${branchCurve.value}px`;
+      s2CenterDistanceValue.textContent = `${s2CenterDistance.value}px`;
+      applyCircleTransparency();
+
+      Object.values(vertices).forEach((vertex) => {
+        vertex.el.style.left = `${vertex.x}px`;
+        vertex.el.style.top = `${vertex.y}px`;
+      });
+
+      const altitudeData = {
+        a: { p: vertices.a, q1: vertices.b, q2: vertices.c },
+        b: { p: vertices.b, q1: vertices.a, q2: vertices.c },
+        c: { p: vertices.c, q1: vertices.a, q2: vertices.b }
+      };
+
+      const signs = {};
+      const arrowStarts = {};
+      const arrowTips = {};
+
+      Object.entries(altitudeData).forEach(([key, data]) => {
+        const foot = footFromPointToLine(data.p, data.q1, data.q2);
+        const towardVertex = unit(subtract(data.p, foot));
+        const fullHeight = length(subtract(data.p, foot)) - c1Radius;
+        const arrowLength = fullHeight * (Number(s1Length.value) / 100);
+        const tip = subtract(data.p, scale(towardVertex, c1Radius));
+        const base = subtract(tip, scale(towardVertex, arrowLength));
+        const signCenter = subtract(base, scale(towardVertex, Number(c2Distance.value)));
+
+        heightLayer.appendChild(lineEl("height-line", data.p, foot));
+
+        signs[key] = signCenter;
+        arrowStarts[key] = base;
+        arrowTips[key] = tip;
+        c2Elements[key].style.left = `${signCenter.x}px`;
+        c2Elements[key].style.top = `${signCenter.y}px`;
+      });
+
+      if (currentArrowMode() === "separate") {
+        Object.keys(altitudeData).forEach((key) => {
+          s1Layer.appendChild(lineEl("arrow-s1", arrowStarts[key], arrowTips[key], "arrowS1"));
+        });
+      } else {
+        Object.keys(altitudeData).forEach((key) => {
+          const style = groupStyles[key];
+          const start = signs[key];
+          const end = altitudeAnchor(key, signs);
+          s1Layer.appendChild(lineEl(`tree-trunk ${style.className}`, start, end, style.marker));
+        });
+      }
+
+      const routes = [
+        ["a", "c"],
+        ["b", "c"],
+        ["c", "a"],
+        ["b", "a"],
+        ["c", "b"],
+        ["a", "b"]
+      ];
+
+      routes.forEach(([sourceKey, signKey]) => {
+        const source = vertices[sourceKey];
+        const target = signs[signKey];
+        const branch = currentArrowMode() === "separate" ? null : chandelierBranch(sourceKey, signKey, signs);
+        const start = currentArrowMode() === "separate" ? edgePoint(source, target, c1Radius + 2) : branch.start;
+        const end = currentArrowMode() === "separate" ? edgePoint(target, source, c2Radius + 2) : target;
+
+        if (currentArrowMode() === "separate") {
+          s2Layer.appendChild(lineEl("arrow-s2", start, end, "arrowS2"));
+        } else {
+          const style = groupStyles[signKey];
+          s2Layer.appendChild(quadraticEl(`arrow-curve ${style.className}`, start, branch.control, branch.merge, null));
+        }
+      });
+    }
+
+    function randomIndex() {
+      if (triples.length === 1) return 0;
+
+      let nextIndex = currentIndex;
+      while (nextIndex === currentIndex) {
+        nextIndex = Math.floor(Math.random() * triples.length);
+      }
+      return nextIndex;
+    }
+
+    function showTriple(index) {
+      const [a, b, c] = triples[index];
+      topNumber.textContent = a;
+      leftNumber.textContent = b;
+      rightNumber.textContent = c;
+      equation.innerHTML = `${a} + ${b} = ${c}<br>${c} - ${b} = ${a}<br>${c} - ${a} = ${b}`;
+
+      stage.classList.remove("changed");
+      void stage.offsetWidth;
+      stage.classList.add("changed");
+    }
+
+    changeButton.addEventListener("click", () => {
+      currentIndex = randomIndex();
+      showTriple(currentIndex);
+    });
+
+    s1Length.addEventListener("input", drawGeometry);
+    rotationSpeed.addEventListener("input", updateTriangleTransform);
+    triangleZoom.addEventListener("input", updateTriangleTransform);
+    c2Distance.addEventListener("input", drawGeometry);
+    circleTransparency.addEventListener("input", drawGeometry);
+    branchCurve.addEventListener("input", drawGeometry);
+    s2CenterDistance.addEventListener("input", drawGeometry);
+    arrowModeInputs.forEach((input) => input.addEventListener("change", drawGeometry));
+
+    drawGeometry();
+    showTriple(currentIndex);
+    updateTriangleTransform();
+
+    function animateTriangle(time) {
+      if (lastFrameTime === null) lastFrameTime = time;
+      const deltaSeconds = (time - lastFrameTime) / 1000;
+      lastFrameTime = time;
+
+      const speed = Number(rotationSpeed.value);
+      if (speed !== 0) {
+        rotationAngle = (rotationAngle + speed * deltaSeconds) % 360;
+        updateTriangleTransform();
+      }
+
+      requestAnimationFrame(animateTriangle);
+    }
+
+    requestAnimationFrame(animateTriangle);
+  </script>
+</body>
+</html>
