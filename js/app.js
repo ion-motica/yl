@@ -235,9 +235,9 @@
       engine.cancelRisingAnimation();
       lastGreenCells = null;
       lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
+      engine.startRound(quiz.beginRound(quiz.pickNextRound()));
       renderProgress();
       renderPreEquationNavigationPanel();
-      engine.startRound(quiz.beginRound(quiz.pickNextRound()));
     });
     return btn;
   }
@@ -417,9 +417,9 @@
     buildLevelPicker();
     lastGreenCells = null;
     lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
-    renderProgress();
     dom.playPauseBtn.disabled = false;
     engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+    renderProgress();
   }
 
   function restartActiveRound() {
@@ -429,8 +429,8 @@
     lastGreenCells = null;
     lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
     buildLevelPicker();
-    renderProgress();
     engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+    renderProgress();
   }
 
   function renderEquationTonomatPanel() {
@@ -639,8 +639,8 @@
         engine?.cancelRisingAnimation?.();
         lastGreenCells = null;
         lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
-        renderProgress();
         engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+        renderProgress();
       });
       subquizStartControlEl.appendChild(btn);
     });
@@ -858,9 +858,9 @@
   syncLayoutMode();
   buildQuizPicker();
   buildLevelPicker();
-  renderProgress();
   applyLiftLayout();
   engine.startRound(quiz.beginRound(quiz.pickNextRound()));
+  renderProgress();
   engine.startFallLoop();
   applyDesktopGrid();
 

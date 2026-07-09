@@ -16,13 +16,33 @@
   const INTENSIVE_SESSIONS_PER_LEVEL = 2;
   const ANCHOR_SUM_MAX_QUESTIONS = 12;
   const ANCHOR_SUM_STREAK_TO_EXIT = 7;
+  const RAPID_MAX_QUESTIONS = 12;
+  const EFFECTIVE_MAX_QUESTIONS = 21;
+  const EFFECTIVE_STREAK_TO_EXIT = 10;
+  const PRODUCT_MAX_QUESTIONS = 21;
+  const PRODUCT_STREAK_TO_EXIT = NONANCHORS.length;
   const FAST_MS = 1500;
 
   const START_OPTIONS = {
-    normal: { id: "normal", route: ["anchors", "anchorSumValues"] },
+    normal: {
+      id: "normal",
+      route: [
+        "anchors",
+        "anchorSumValues",
+        "rapidAnchorAdditions",
+        "effectiveAnchorAddition",
+        "nonAnchorProducts",
+      ],
+    },
     anchorsOnly: { id: "anchorsOnly", route: ["anchors"] },
     intensivOnly: { id: "intensivOnly", route: ["intensiv"] },
     anchorSumValuesOnly: { id: "anchorSumValuesOnly", route: ["anchorSumValues"] },
+    rapidAnchorAdditions: { id: "rapidAnchorAdditions", route: ["rapidAnchorAdditions"] },
+    effectiveAnchorAddition: {
+      id: "effectiveAnchorAddition",
+      route: ["effectiveAnchorAddition"],
+    },
+    nonAnchorProducts: { id: "nonAnchorProducts", route: ["nonAnchorProducts"] },
   };
 
   const QF_PROFILE = {
@@ -121,10 +141,58 @@
     return { options, correctIndex: options.indexOf(correct) };
   }
 
+  function nearbyNumberOptions(correctNum, shuffle) {
+    const correct = Number(correctNum);
+    const used = new Set([correct]);
+    const candidates = [];
+
+    function tryAdd(value) {
+      if (!Number.isFinite(value) || value < 0 || used.has(value)) return;
+      used.add(value);
+      candidates.push(value);
+    }
+
+    [10, -10, 1, -1, 2, -2, 5, -5, 20, -20].forEach((delta) => tryAdd(correct + delta));
+    while (candidates.length < 2) tryAdd(correct + candidates.length + 3);
+
+    const options = shuffle([String(correct), String(candidates[0]), String(candidates[1])]);
+    return { options, correctIndex: options.indexOf(String(correct)) };
+  }
+
+  function finalSumOptions(correctNum, shuffle) {
+    const correct = Number(correctNum);
+    const used = new Set([correct]);
+    const candidates = [];
+
+    function tryAdd(value) {
+      if (!Number.isFinite(value) || value <= 0 || used.has(value)) return;
+      used.add(value);
+      candidates.push(value);
+    }
+
+    [-10, 10, 2, -2, 12, -12, 20, -20, 1, -1].forEach((delta) => tryAdd(correct + delta));
+    while (candidates.length < 2) tryAdd(correct + candidates.length + 3);
+
+    const options = shuffle([String(correct), String(candidates[0]), String(candidates[1])]);
+    return { options, correctIndex: options.indexOf(String(correct)) };
+  }
+
   function decomposeNonanchor(b) {
     if (b >= 16) return { big: 15, small: b - 15 };
     if (b >= 11) return { big: 10, small: b - 10 };
     return { big: 5, small: b - 5 };
+  }
+
+  function crossesNextHundred(from, total) {
+    return Math.floor(from / 100) < Math.floor(total / 100);
+  }
+
+  function hasColumnCarry(a, b) {
+    return (a % 10) + (b % 10) >= 10;
+  }
+
+  function nextHundred(value) {
+    return Math.ceil((value + 1) / 100) * 100;
   }
 
   function buildAnchorPass(randomInt) {
@@ -157,6 +225,11 @@
       anchorState: null,
       intensiveState: null,
       anchorSumState: null,
+      rapidState: null,
+      effectiveState: null,
+      effectiveIntensiveState: null,
+      productState: null,
+      productIntensiveState: null,
       intensiveFactsText: [],
     };
 
@@ -248,6 +321,330 @@
           subquiz: "anchorSumValues",
         },
       };
+    }
+
+    function buildRapidCandidateForB(b) {
+      const A = factorForLevel(level);
+      const parts = decomposeNonanchor(b);
+      const bigTerm = A * parts.big;
+      const smallTerm = A * parts.small;
+      const total = bigTerm + smallTerm;
+      const crossesHundred = crossesNextHundred(bigTerm, total);
+      const bothEndInFive = bigTerm % 10 === 5 && smallTerm % 10 === 5;
+      const bigDivisibleByTen = bigTerm % 10 === 0;
+      const smallDivisibleByTen = smallTerm % 10 === 0;
+      const shouldRoundToHundred =
+        crossesHundred &&
+        (bothEndInFive ||
+          (bigDivisibleByTen && !smallDivisibleByTen) ||
+          nextHundred(bigTerm) - bigTerm <= 10);
+
+      if (!hasColumnCarry(bigTerm, smallTerm) && !crossesHundred) return null;
+      if (bothEndInFive && !crossesHundred) return null;
+      if ((bigDivisibleByTen || smallDivisibleByTen) && !shouldRoundToHundred) {
+        return null;
+      }
+
+      if (shouldRoundToHundred) {
+        const rounded = nextHundred(bigTerm);
+        return {
+          b,
+          prompt: `${bigTerm}+${smallTerm}=${rounded}+?`,
+          correct: total - rounded,
+          bigTerm,
+          smallTerm,
+          strategy: "roundBigToHundred",
+        };
+      }
+
+      const lower = Math.floor(smallTerm / 10) * 10;
+      const upper = Math.ceil(smallTerm / 10) * 10;
+      if (smallTerm - lower <= upper - smallTerm) {
+        return {
+          b,
+          prompt: `${bigTerm}+${smallTerm}=${bigTerm}+${lower}+?`,
+          correct: smallTerm - lower,
+          bigTerm,
+          smallTerm,
+          strategy: "splitSecond",
+        };
+      }
+
+      return {
+        b,
+        prompt: `${bigTerm}+${smallTerm}=${bigTerm}+${upper}-?`,
+        correct: upper - smallTerm,
+        bigTerm,
+        smallTerm,
+        strategy: "roundSecondUp",
+      };
+    }
+
+    function buildRapidNoCandidatesQuestion() {
+      return {
+        prompt: "no candidates",
+        correctAnswer: 0,
+        options: ["0", "1", "2"],
+        correctIndex: 0,
+        metadata: { subquiz: "rapidAnchorAdditions", noCandidates: true },
+      };
+    }
+
+    function pickRapidCandidate(state) {
+      const candidates = state.candidates ?? [];
+      if (!candidates.length) return null;
+      if (candidates.length === 1) return candidates[0];
+
+      let available = candidates.filter((candidate) => candidate.prompt !== state.lastPrompt);
+      if (!available.length) available = candidates;
+      const picked = available[state.candidateIndex % available.length];
+      state.candidateIndex += 1;
+      return picked;
+    }
+
+    function buildRapidQuestion(state) {
+      const candidate = pickRapidCandidate(state);
+      if (!candidate) return buildRapidNoCandidatesQuestion();
+
+      const opt = nearbyNumberOptions(candidate.correct, shuffle);
+      state.lastPrompt = candidate.prompt;
+      return {
+        prompt: candidate.prompt,
+        correctAnswer: candidate.correct,
+        options: opt.options,
+        correctIndex: opt.correctIndex,
+        metadata: {
+          factB: candidate.b,
+          subquiz: "rapidAnchorAdditions",
+          strategy: candidate.strategy,
+          bigTerm: candidate.bigTerm,
+          smallTerm: candidate.smallTerm,
+        },
+      };
+    }
+
+    function buildEffectiveCandidateForB(b) {
+      const A = factorForLevel(level);
+      const parts = decomposeNonanchor(b);
+      const bigTerm = A * parts.big;
+      const smallTerm = A * parts.small;
+      return {
+        b,
+        prompt: `${bigTerm}+${smallTerm}=?`,
+        correct: bigTerm + smallTerm,
+        bigTerm,
+        smallTerm,
+      };
+    }
+
+    function makeEffectiveFact(candidate) {
+      return Catalog.createFact({
+        operation: "add",
+        values: { a: candidate.bigTerm, b: candidate.smallTerm },
+      });
+    }
+
+    function buildEffectiveOptions(candidate) {
+      const opt = finalSumOptions(candidate.correct, shuffle);
+      return {
+        prompt: candidate.prompt,
+        correctAnswer: candidate.correct,
+        options: opt.options,
+        correctIndex: opt.correctIndex,
+        metadata: {
+          factB: candidate.b,
+          subquiz: "effectiveAnchorAddition",
+          bigTerm: candidate.bigTerm,
+          smallTerm: candidate.smallTerm,
+        },
+      };
+    }
+
+    function buildEffectiveEffOptions(candidate, qfType) {
+      const fact = makeEffectiveFact(candidate);
+      const built = QFG.buildOptions(qfType, fact, shuffle);
+      if (!built || built.answerType !== "number") return null;
+      return {
+        prompt: built.prompt,
+        correctAnswer: Number(built.options[built.correctIndex]),
+        options: built.options,
+        correctIndex: built.correctIndex,
+        metadata: {
+          factB: candidate.b,
+          subquiz: "effectiveAnchorAdditionIntensive",
+          qfTypeId: qfType.id,
+          bigTerm: candidate.bigTerm,
+          smallTerm: candidate.smallTerm,
+        },
+      };
+    }
+
+    function dueEffectiveRetry(state) {
+      const due = state.retryQueue.filter((entry) => entry.dueTurn <= state.turnCount);
+      if (!due.length) return null;
+      due.sort((a, b) => a.dueTurn - b.dueTurn);
+      const picked = due[0];
+      state.retryQueue = state.retryQueue.filter((entry) => entry !== picked);
+      return buildEffectiveCandidateForB(picked.b);
+    }
+
+    function pickEffectiveCandidate(state) {
+      const retry = dueEffectiveRetry(state);
+      if (retry && retry.prompt !== state.lastPrompt) return retry;
+
+      const candidates = NONANCHORS.map(buildEffectiveCandidateForB);
+      let available = candidates.filter((candidate) => candidate.prompt !== state.lastPrompt);
+      if (!available.length) available = candidates;
+
+      if (state.lastB != null && available.length > 1) {
+        const nearby = available.filter((candidate) => Math.abs(candidate.b - state.lastB) <= 3);
+        if (nearby.length) return nearby[randomInt(0, nearby.length - 1)];
+
+        const minDistance = Math.min(
+          ...available.map((candidate) => Math.abs(candidate.b - state.lastB))
+        );
+        const closest = available.filter(
+          (candidate) => Math.abs(candidate.b - state.lastB) === minDistance
+        );
+        return closest[randomInt(0, closest.length - 1)];
+      }
+
+      const picked = available[randomInt(0, available.length - 1)];
+      state.candidateIndex += 1;
+      return picked;
+    }
+
+    function buildEffectiveQuestion(state) {
+      const candidate = pickEffectiveCandidate(state);
+      const item = buildEffectiveOptions(candidate);
+      state.lastPrompt = candidate.prompt;
+      state.lastB = candidate.b;
+      state.turnCount += 1;
+      return item;
+    }
+
+    function scheduleEffectiveRetry(state, b) {
+      const dueTurn = state.turnCount + randomInt(2, 5);
+      state.retryQueue = state.retryQueue.filter((entry) => entry.b !== b);
+      state.retryQueue.push({ b, dueTurn });
+    }
+
+    function noteEffectiveMistake(state, b) {
+      state.errorCounts[b] = (state.errorCounts[b] ?? 0) + 1;
+      if (state.errorCounts[b] >= 2 && !state.problemBs.includes(b)) {
+        state.problemBs.push(b);
+      }
+      scheduleEffectiveRetry(state, b);
+    }
+
+    function buildEffectiveIntensiveQueue(problemBs) {
+      const entries = [];
+      problemBs.slice(0, 2).forEach((b) => {
+        const candidate = buildEffectiveCandidateForB(b);
+        const validTypes = qfTypes.filter((qfType) => {
+          const built = buildEffectiveEffOptions(candidate, qfType);
+          return built && Number.isFinite(Number(built.correctAnswer));
+        });
+        validTypes.slice(0, 5).forEach((qfType) => entries.push({ b, qfType }));
+      });
+      return shuffle(entries);
+    }
+
+    function buildEffectiveIntensiveQuestion(state) {
+      const entry = state.queue[state.count] ?? state.queue[state.queue.length - 1];
+      if (!entry) {
+        return buildEffectiveOptions(buildEffectiveCandidateForB(NONANCHORS[0]));
+      }
+      const candidate = buildEffectiveCandidateForB(entry.b);
+      return buildEffectiveEffOptions(candidate, entry.qfType) ?? buildEffectiveOptions(candidate);
+    }
+
+    function prepareEffectiveIntensive(state) {
+      const trainingBs = state.problemBs.slice(0, 2);
+      shared.intensiveFactsText = trainingBs.map((b) => buildEffectiveCandidateForB(b).prompt);
+      trainingBs.forEach((b) => {
+        state.errorCounts[b] = 0;
+      });
+      state.problemBs = state.problemBs.filter((b) => !trainingBs.includes(b));
+      state.retryQueue = state.retryQueue.filter((entry) => !trainingBs.includes(entry.b));
+      return trainingBs;
+    }
+
+    function buildProductPass() {
+      return [...NONANCHORS];
+    }
+
+    function pickProductB(state) {
+      if (!state.queue.length) state.queue = buildProductPass();
+      return state.queue.shift();
+    }
+
+    function makeProductFact(b) {
+      return Catalog.createFact({
+        operation: "mul",
+        values: { a: b, b: factorForLevel(level) },
+      });
+    }
+
+    function buildProductQuestionForB(b) {
+      const A = factorForLevel(level);
+      const correct = b * A;
+      const opt = sameLastDigitOptions(correct, shuffle);
+      return {
+        prompt: `${b}*${A}=?`,
+        correctAnswer: correct,
+        options: opt.options,
+        correctIndex: opt.correctIndex,
+        metadata: {
+          factB: b,
+          subquiz: "nonAnchorProducts",
+        },
+      };
+    }
+
+    function buildProductQuestion(state) {
+      return buildProductQuestionForB(pickProductB(state));
+    }
+
+    function buildProductIntensiveQueue(problemBs) {
+      const entries = [];
+      problemBs.slice(0, 2).forEach((b) => {
+        const fact = makeProductFact(b);
+        const validTypes = qfTypes.filter((qfType) => {
+          const built = QFG.buildOptions(qfType, fact, shuffle);
+          return built && built.answerType === "number";
+        });
+        validTypes.slice(0, 5).forEach((qfType) => entries.push({ b, qfType }));
+      });
+      return shuffle(entries);
+    }
+
+    function buildProductIntensiveQuestion(state) {
+      const entry = state.queue[state.count] ?? state.queue[state.queue.length - 1];
+      if (!entry) return buildProductQuestionForB(NONANCHORS[0]);
+
+      const fact = makeProductFact(entry.b);
+      const built = QFG.buildOptions(entry.qfType, fact, shuffle);
+      if (!built || built.answerType !== "number") return buildProductQuestionForB(entry.b);
+
+      return {
+        prompt: built.prompt,
+        correctAnswer: Number(built.options[built.correctIndex]),
+        options: built.options,
+        correctIndex: built.correctIndex,
+        metadata: {
+          factB: entry.b,
+          subquiz: "nonAnchorProductsIntensive",
+          qfTypeId: entry.qfType.id,
+        },
+      };
+    }
+
+    function prepareProductIntensive(state) {
+      const trainingBs = state.wrongBs.slice(0, 2);
+      shared.intensiveFactsText = trainingBs.map((b) => `${b}*${factorForLevel(level)}=?`);
+      state.wrongBs = state.wrongBs.filter((b) => !trainingBs.includes(b));
+      return trainingBs;
     }
 
     function buildIntensiveQueue(facts) {
@@ -529,10 +926,480 @@
       });
     }
 
+    function rapidAnchorDefinition() {
+      return global.SubquizDefinition.define({
+        id: "rapidAnchorAdditions",
+        title: "adunari rapide cu ancore",
+        hintMessage: HINT,
+        initialState() {
+          const candidates = NONANCHORS.map(buildRapidCandidateForB).filter(Boolean);
+          const state = {
+            candidates,
+            candidateIndex: 0,
+            questionCount: 0,
+            correctStreak: 0,
+            lastPrompt: null,
+          };
+          shared.rapidState = state;
+          return state;
+        },
+        generator({ state }) {
+          return buildRapidQuestion(state);
+        },
+        onAnswer(event) {
+          const { item, index, state, runtime } = event;
+          const chosen = item.options[index];
+          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const candidateCount = state.candidates.length;
+
+          if (item.metadata?.noCandidates || candidateCount === 0) {
+            return {
+              action: "exit",
+              reason: "rapidNoCandidates",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                flash: "win",
+                message: "no candidates, mai departe",
+              },
+            };
+          }
+
+          state.questionCount += 1;
+          state.correctStreak = isCorrect ? state.correctStreak + 1 : 0;
+
+          const multipleCandidateLimit = Math.min(RAPID_MAX_QUESTIONS, candidateCount * 3);
+          if (candidateCount > 1 && state.questionCount >= multipleCandidateLimit) {
+            return {
+              action: "exit",
+              reason: "rapidQuestionLimit",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                flash: "win",
+                message: "ai terminat subquiz 4 modular",
+              },
+            };
+          }
+
+          if (!isCorrect) {
+            return {
+              action: "stay",
+              view: roundViewFrom(runtime, {
+                outcome: "wrong-answer",
+                correct: false,
+                flash: "wrong",
+                message: `${chosen} nu e bun. Mai incearca!`,
+              }),
+            };
+          }
+
+          if (candidateCount === 1) {
+            return {
+              action: "exit",
+              reason: "rapidSingleCorrect",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                flash: "win",
+                message: "ai terminat subquiz 4 modular",
+              },
+            };
+          }
+
+          runtime.nextItem({ reason: "rapidNext" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Corect!",
+            }),
+          };
+        },
+        onTimeout({ runtime }) {
+          return {
+            action: "stay",
+            view: roundViewFrom(runtime, {
+              outcome: "round",
+              resetFall: true,
+            }),
+          };
+        },
+      });
+    }
+
+    function effectiveAnchorDefinition() {
+      return global.SubquizDefinition.define({
+        id: "effectiveAnchorAddition",
+        title: "adunare efectiva ancore",
+        hintMessage: HINT,
+        initialState() {
+          const state = {
+            questionCount: 0,
+            correctStreak: 0,
+            candidateIndex: 0,
+            lastPrompt: null,
+            lastB: null,
+            turnCount: 0,
+            errorCounts: {},
+            problemBs: [],
+            retryQueue: [],
+          };
+          shared.effectiveState = state;
+          shared.effectiveIntensiveState = null;
+          return state;
+        },
+        generator({ state }) {
+          return buildEffectiveQuestion(state);
+        },
+        onResume({ runtime }) {
+          runtime.nextItem({ reason: "effectiveIntensiveReturn" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Inapoi la subquiz 5.",
+            }),
+          };
+        },
+        onAnswer(event) {
+          const { item, index, state, runtime } = event;
+          const chosen = item.options[index];
+          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const factB = item.metadata.factB;
+
+          state.questionCount += 1;
+          state.correctStreak = isCorrect ? state.correctStreak + 1 : 0;
+
+          if (
+            state.questionCount >= EFFECTIVE_MAX_QUESTIONS ||
+            state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
+          ) {
+            return {
+              action: "exit",
+              reason:
+                state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
+                  ? "effectiveCorrectStreak"
+                  : "effectiveQuestionCount",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                flash: "win",
+                message: "ai terminat subquiz 5 modular",
+              },
+            };
+          }
+
+          if (!isCorrect) {
+            noteEffectiveMistake(state, factB);
+            return {
+              action: "stay",
+              view: roundViewFrom(runtime, {
+                outcome: "wrong-answer",
+                correct: false,
+                flash: "wrong",
+                message: `${chosen} nu e bun. Mai incearca!`,
+              }),
+            };
+          }
+
+          if (state.problemBs.length >= 2) {
+            const facts = prepareEffectiveIntensive(state);
+            return {
+              action: "push",
+              targetId: "effectiveAnchorAdditionIntensive",
+              payload: { facts },
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                message: `Mod intensiv subquiz 5: ${shared.intensiveFactsText.join(", ")}`,
+              },
+            };
+          }
+
+          runtime.nextItem({ reason: "effectiveNext" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Corect!",
+            }),
+          };
+        },
+        onTimeout({ runtime }) {
+          return {
+            action: "stay",
+            view: roundViewFrom(runtime, {
+              outcome: "round",
+              resetFall: true,
+            }),
+          };
+        },
+      });
+    }
+
+    function effectiveAnchorIntensiveDefinition() {
+      return global.SubquizDefinition.define({
+        id: "effectiveAnchorAdditionIntensive",
+        title: "intensiv adunare efectiva ancore",
+        hintMessage: HINT,
+        initialState({ payload }) {
+          const facts = Array.isArray(payload?.facts) && payload.facts.length >= 2
+            ? payload.facts.slice(0, 2)
+            : NONANCHORS.slice(0, 2);
+          const state = {
+            facts,
+            count: 0,
+            queue: buildEffectiveIntensiveQueue(facts),
+          };
+          shared.effectiveIntensiveState = state;
+          shared.intensiveFactsText = facts.map((b) => buildEffectiveCandidateForB(b).prompt);
+          return state;
+        },
+        generator({ state }) {
+          return buildEffectiveIntensiveQuestion(state);
+        },
+        onAnswer({ state, runtime }) {
+          state.count += 1;
+          if (state.count >= state.queue.length) {
+            return {
+              action: "pop",
+              reason: "effectiveIntensiveComplete",
+              payload: {
+                effectiveIntensiveCompleted: true,
+                facts: state.facts,
+              },
+            };
+          }
+
+          runtime.nextItem({ reason: "effectiveIntensiveNext" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: `Intensiv subquiz 5 ${state.count + 1}/${state.queue.length || 10}`,
+            }),
+          };
+        },
+        onTimeout({ runtime }) {
+          return {
+            action: "stay",
+            view: roundViewFrom(runtime, {
+              outcome: "round",
+              resetFall: true,
+            }),
+          };
+        },
+      });
+    }
+
+    function nonAnchorProductsDefinition() {
+      return global.SubquizDefinition.define({
+        id: "nonAnchorProducts",
+        title: "inmultiri non-anchors",
+        hintMessage: HINT,
+        initialState() {
+          const state = {
+            questionCount: 0,
+            correctStreak: 0,
+            wrongBs: [],
+            queue: [],
+          };
+          shared.productState = state;
+          shared.productIntensiveState = null;
+          return state;
+        },
+        generator({ state }) {
+          return buildProductQuestion(state);
+        },
+        onResume({ runtime }) {
+          runtime.nextItem({ reason: "productIntensiveReturn" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Inapoi la subquiz 6.",
+            }),
+          };
+        },
+        onAnswer(event) {
+          const { item, index, state, runtime } = event;
+          const chosen = item.options[index];
+          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const factB = item.metadata.factB;
+
+          state.questionCount += 1;
+          state.correctStreak = isCorrect ? state.correctStreak + 1 : 0;
+
+          if (!isCorrect) {
+            if (!state.wrongBs.includes(factB)) state.wrongBs.push(factB);
+            if (state.questionCount >= PRODUCT_MAX_QUESTIONS) {
+              return {
+                action: "exit",
+                reason: "productQuestionCount",
+                view: {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  flash: "win",
+                  message: "ai terminat subquiz 6 modular",
+                },
+              };
+            }
+            return {
+              action: "stay",
+              view: roundViewFrom(runtime, {
+                outcome: "wrong-answer",
+                correct: false,
+                flash: "wrong",
+                message: `${chosen} nu e bun. Mai incearca!`,
+              }),
+            };
+          }
+
+          if (
+            state.correctStreak >= PRODUCT_STREAK_TO_EXIT ||
+            state.questionCount >= PRODUCT_MAX_QUESTIONS
+          ) {
+            return {
+              action: "exit",
+              reason:
+                state.correctStreak >= PRODUCT_STREAK_TO_EXIT
+                  ? "productCorrectStreak"
+                  : "productQuestionCount",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                flash: "win",
+                message: "ai terminat subquiz 6 modular",
+              },
+            };
+          }
+
+          if (state.wrongBs.length >= 2) {
+            const facts = prepareProductIntensive(state);
+            return {
+              action: "push",
+              targetId: "nonAnchorProductsIntensive",
+              payload: { facts },
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                message: `Mod intensiv subquiz 6: ${shared.intensiveFactsText.join(", ")}`,
+              },
+            };
+          }
+
+          runtime.nextItem({ reason: "productNext" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Corect!",
+            }),
+          };
+        },
+        onTimeout({ runtime }) {
+          return {
+            action: "stay",
+            view: roundViewFrom(runtime, {
+              outcome: "round",
+              resetFall: true,
+            }),
+          };
+        },
+      });
+    }
+
+    function nonAnchorProductsIntensiveDefinition() {
+      return global.SubquizDefinition.define({
+        id: "nonAnchorProductsIntensive",
+        title: "intensiv inmultiri non-anchors",
+        hintMessage: HINT,
+        initialState({ payload }) {
+          const facts = Array.isArray(payload?.facts) && payload.facts.length >= 2
+            ? payload.facts.slice(0, 2)
+            : NONANCHORS.slice(0, 2);
+          const state = {
+            facts,
+            count: 0,
+            queue: buildProductIntensiveQueue(facts),
+          };
+          shared.productIntensiveState = state;
+          shared.intensiveFactsText = facts.map((b) => `${b}*${factorForLevel(level)}=?`);
+          return state;
+        },
+        generator({ state }) {
+          return buildProductIntensiveQuestion(state);
+        },
+        onAnswer({ state, runtime }) {
+          state.count += 1;
+          if (state.count >= state.queue.length) {
+            return {
+              action: "pop",
+              reason: "productIntensiveComplete",
+              payload: {
+                productIntensiveCompleted: true,
+                facts: state.facts,
+              },
+            };
+          }
+
+          runtime.nextItem({ reason: "productIntensiveNext" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: `Intensiv subquiz 6 ${state.count + 1}/${state.queue.length || 10}`,
+            }),
+          };
+        },
+        onTimeout({ runtime }) {
+          return {
+            action: "stay",
+            view: roundViewFrom(runtime, {
+              outcome: "round",
+              resetFall: true,
+            }),
+          };
+        },
+      });
+    }
+
     function createOrchestrator() {
       const route = START_OPTIONS[startStageSelection]?.route ?? START_OPTIONS.normal.route;
       orchestrator = global.SubquizOrchestrator.create({
-        definitions: [anchorDefinition(), intensiveDefinition(), anchorSumDefinition()],
+        definitions: [
+          anchorDefinition(),
+          intensiveDefinition(),
+          anchorSumDefinition(),
+          rapidAnchorDefinition(),
+          effectiveAnchorDefinition(),
+          effectiveAnchorIntensiveDefinition(),
+          nonAnchorProductsDefinition(),
+          nonAnchorProductsIntensiveDefinition(),
+        ],
         activeSubquizIds: route,
         context: {
           quizId,
@@ -547,15 +1414,41 @@
       shared.anchorState = null;
       shared.intensiveState = null;
       shared.anchorSumState = null;
+      shared.rapidState = null;
+      shared.effectiveState = null;
+      shared.effectiveIntensiveState = null;
+      shared.productState = null;
+      shared.productIntensiveState = null;
       shared.intensiveFactsText = [];
       createOrchestrator();
     }
 
+    function activeSubquizId() {
+      const currentId = orchestrator?.getCurrentId?.();
+      if (currentId) return currentId;
+      return START_OPTIONS[startStageSelection]?.route?.[0] ?? START_OPTIONS.normal.route[0];
+    }
+
     function activeRouteLabel() {
-      const id = orchestrator?.getCurrentId?.();
+      const id = activeSubquizId();
       if (id === "intensiv") return `Nivel ${level} - Subquiz 2 - intensiv`;
+      if (id === "effectiveAnchorAdditionIntensive") {
+        return `Nivel ${level} - Subquiz 5 - intensiv`;
+      }
+      if (id === "nonAnchorProductsIntensive") {
+        return `Nivel ${level} - Subquiz 6 - intensiv`;
+      }
       if (id === "anchorSumValues") {
         return `Nivel ${level} - Subquiz 3 - valori ancore suma`;
+      }
+      if (id === "rapidAnchorAdditions") {
+        return `Nivel ${level} - Subquiz 4 - adunari rapide cu ancore`;
+      }
+      if (id === "effectiveAnchorAddition") {
+        return `Nivel ${level} - Subquiz 5 - adunare efectiva ancore`;
+      }
+      if (id === "nonAnchorProducts") {
+        return `Nivel ${level} - Subquiz 6 - inmultiri non-anchors`;
       }
       return `Nivel ${level} - Subquiz 1 - anchors (modular)`;
     }
@@ -585,7 +1478,13 @@
       }
 
       const msg =
-        via === "anchorSumValues"
+        via === "nonAnchorProducts"
+          ? "ai terminat subquiz 6 modular, next level"
+          : via === "effectiveAnchorAddition"
+          ? "ai terminat subquiz 5 modular, next level"
+          : via === "rapidAnchorAdditions"
+          ? "ai terminat subquiz 4 modular, next level"
+          : via === "anchorSumValues"
           ? "ai terminat subquiz 3 modular, next level"
           : via === "intensiv"
           ? "ai terminat intensiv modular, next level"
@@ -641,7 +1540,7 @@
         return next ?? beginRoute();
       },
 
-      getSubquizStage: () => orchestrator?.getCurrentId?.() ?? "anchors",
+      getSubquizStage: activeSubquizId,
       getSubquizStartOption: () => startStageSelection,
       getSubquizStartOptions() {
         return [
@@ -649,6 +1548,9 @@
           { id: "anchorsOnly", label: "1 anchors" },
           { id: "intensivOnly", label: "2 intensiv" },
           { id: "anchorSumValuesOnly", label: "3 valori ancore suma" },
+          { id: "rapidAnchorAdditions", label: "4 adunari rapide cu ancore" },
+          { id: "effectiveAnchorAddition", label: "5 adunare efectiva ancore" },
+          { id: "nonAnchorProducts", label: "6 inmultiri non-anchors" },
         ];
       },
       setSubquizStartOption(stageId) {
@@ -664,14 +1566,32 @@
         const anchorState = shared.anchorState;
         const intensiveState = shared.intensiveState;
         const anchorSumState = shared.anchorSumState;
-        const currentId = orchestrator?.getCurrentId?.();
+        const rapidState = shared.rapidState;
+        const effectiveState = shared.effectiveState;
+        const effectiveIntensiveState = shared.effectiveIntensiveState;
+        const productState = shared.productState;
+        const productIntensiveState = shared.productIntensiveState;
+        const currentId = activeSubquizId();
+        const rapidCandidateCount = rapidState?.candidates?.length ?? 0;
+        const rapidLimit =
+          rapidCandidateCount > 1 ? Math.min(RAPID_MAX_QUESTIONS, rapidCandidateCount * 3) : null;
         return {
           visible: true,
           mode:
             currentId === "intensiv"
               ? "Subquiz 2: intensiv"
+              : currentId === "effectiveAnchorAdditionIntensive"
+              ? "Subquiz 5: intensiv"
+              : currentId === "nonAnchorProductsIntensive"
+              ? "Subquiz 6: intensiv"
               : currentId === "anchorSumValues"
               ? "Subquiz 3: valori ancore suma"
+              : currentId === "rapidAnchorAdditions"
+              ? "Subquiz 4: adunari rapide cu ancore"
+              : currentId === "effectiveAnchorAddition"
+              ? "Subquiz 5: adunare efectiva ancore"
+              : currentId === "nonAnchorProducts"
+              ? "Subquiz 6: inmultiri non-anchors"
               : "Subquiz 1: anchors modular",
           wrongFactsText: anchorState?.wrongFacts?.length
             ? anchorState.wrongFacts.map((fact) => fact.label).join(", ")
@@ -682,8 +1602,22 @@
           answeredText:
             currentId === "intensiv"
               ? `${intensiveState?.count ?? 0} / ${INTENSIVE_QUESTIONS}`
+              : currentId === "effectiveAnchorAdditionIntensive"
+              ? `${effectiveIntensiveState?.count ?? 0} / ${effectiveIntensiveState?.queue?.length || 10}`
+              : currentId === "nonAnchorProductsIntensive"
+              ? `${productIntensiveState?.count ?? 0} / ${productIntensiveState?.queue?.length || 10}`
               : currentId === "anchorSumValues"
               ? `${anchorSumState?.questionCount ?? 0} / ${ANCHOR_SUM_MAX_QUESTIONS} - streak ${anchorSumState?.correctStreak ?? 0} / ${ANCHOR_SUM_STREAK_TO_EXIT}`
+              : currentId === "rapidAnchorAdditions"
+              ? rapidCandidateCount === 0
+                ? "no candidates"
+                : rapidCandidateCount === 1
+                ? `${rapidState?.questionCount ?? 0} - pana la primul corect`
+                : `${rapidState?.questionCount ?? 0} / ${rapidLimit}`
+              : currentId === "effectiveAnchorAddition"
+              ? `${effectiveState?.questionCount ?? 0} / ${EFFECTIVE_MAX_QUESTIONS} - streak ${effectiveState?.correctStreak ?? 0} / ${EFFECTIVE_STREAK_TO_EXIT}`
+              : currentId === "nonAnchorProducts"
+              ? `${productState?.questionCount ?? 0} / ${PRODUCT_MAX_QUESTIONS} - perfect ${productState?.correctStreak ?? 0} / ${PRODUCT_STREAK_TO_EXIT}`
               : `${anchorState?.answeredCount ?? 0} / ${QUESTIONS_PER_LEVEL}`,
           intensivSessionsText:
             `${anchorState?.intensiveSessionsDone ?? 0} / ${INTENSIVE_SESSIONS_PER_LEVEL}`,
@@ -713,7 +1647,7 @@
   global.QuizRegistry.register({
     id: QUIZ_ID,
     title: QUIZ_TITLE,
-    description: "Lab modular pentru T*/ 11-20 v2. Etapa 1: anchors + intensiv intern.",
+    description: "Lab modular pentru T*/ 11-20 v2. Include anchors, intensiv si subquizurile 3-6.",
     order: 2.1,
     gestionareGreseli: { activ: false },
     create(meta = {}) {
