@@ -255,55 +255,6 @@
         });
       }
     }
-    return;
-    {
-
-    if (typeof quiz?.getInfo11_20 !== "function") {
-      hideInfo11_20();
-      return;
-    }
-    const info = quiz.getInfo11_20();
-    if (!info?.visible) {
-      hideInfo11_20();
-      return;
-    }
-    el.hidden = false;
-    el.classList.toggle("is-intensiv", info.mode === "intensiv");
-    el.classList.toggle(
-      "is-sq2-eff-vbs",
-      info.mode === "Subquiz 2: Intensiv cu eff VBS" || info.theme === "sq2-eff-vbs"
-    );
-    el.querySelector(".info11-mode").textContent = `Mod: ${info.mode}`;
-    el.querySelector(".info11-wrong").textContent = `Facts greșite: ${info.wrongFactsText}`;
-    const intensivEl = el.querySelector(".info11-intensiv");
-    if (intensivEl) intensivEl.textContent = `Facts lucrate intensiv: ${info.intensivText ?? "—"}`;
-    const countEl = el.querySelector(".info11-count");
-    if (countEl && info.answeredText != null) countEl.textContent = `Întrebări: ${info.answeredText}`;
-    const sessionsEl = el.querySelector(".info11-sessions");
-    if (sessionsEl && info.intensivSessionsText != null) {
-      sessionsEl.textContent = `Sesiuni intensiv: ${info.intensivSessionsText}`;
-    }
-
-    const timesEl = el.querySelector(".info11-times");
-    if (timesEl) {
-      timesEl.replaceChildren();
-      const head = document.createElement("p");
-      head.className = "info11-times-head";
-      head.textContent = "Timp ultim corect:";
-      timesEl.appendChild(head);
-      (info.facts || []).forEach((f) => {
-        const row = document.createElement("p");
-        row.className = "info11-time-row";
-        row.append(`${f.label} : `);
-        const val = document.createElement("span");
-        val.className = "info11-time-val";
-        if (f.fast) val.classList.add("fast");
-        val.textContent = f.timeText;
-        row.appendChild(val);
-        timesEl.appendChild(row);
-      });
-    }
-    }
   }
 
   function renderProgress() {
