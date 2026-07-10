@@ -185,6 +185,7 @@
       startFirst,
       onAnswer,
       onTimeout,
+      command: handle,
       setActiveSubquizIds,
       getCurrentId: () => currentId,
       getCurrentRuntime: () => currentRuntime,

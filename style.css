@@ -485,6 +485,20 @@ body {
   color: #fde68a;
 }
 
+.div-info-11-20.is-sq2-eff-vbs {
+  background: linear-gradient(90deg, rgba(154, 72, 12, 0.97), rgba(92, 43, 12, 0.94));
+  border-bottom-color: rgba(251, 146, 60, 0.8);
+  color: #fff7ed;
+}
+
+.div-info-11-20.is-sq2-eff-vbs .info11-mode {
+  color: #60a5fa;
+}
+
+.div-info-11-20.is-sq2-eff-vbs .info11-intensiv {
+  color: #fde68a;
+}
+
 .div-info-11-20[hidden] {
   display: none !important;
 }
@@ -1378,6 +1392,40 @@ body {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.arena-quiz-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  margin-top: 0.4rem;
+}
+
+.arena-quiz-action {
+  min-height: 1.9rem;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  background: rgba(15, 23, 42, 0.82);
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.arena-quiz-action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.sq2-eff-vbs-field {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sq2-eff-vbs-radio {
+  margin-bottom: 0;
 }
 
 .control-panel-lift-slider-out,

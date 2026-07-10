@@ -40,6 +40,7 @@
     risingNumberEl: document.getElementById("rising-number"),
     optionBtns: [...document.querySelectorAll(".option")],
     info11_20El: document.getElementById("divInfo11_20"),
+    arenaActionsEl: null,
   };
 
   let quiz = null;
@@ -100,6 +101,7 @@
     if (!dom.info11_20El) return;
     dom.info11_20El.hidden = true;
     dom.info11_20El.classList.remove("is-intensiv");
+    dom.info11_20El.classList.remove("is-sq2-eff-vbs");
   }
 
   function renderInfo11_20() {
@@ -116,6 +118,10 @@
     }
     el.hidden = false;
     el.classList.toggle("is-intensiv", info.mode === "intensiv");
+    el.classList.toggle(
+      "is-sq2-eff-vbs",
+      info.mode === "Subquiz 2: Intensiv cu eff VBS" || info.theme === "sq2-eff-vbs"
+    );
     el.querySelector(".info11-mode").textContent = `Mod: ${info.mode}`;
     el.querySelector(".info11-wrong").textContent = `Facts greșite: ${info.wrongFactsText}`;
     const intensivEl = el.querySelector(".info11-intensiv");
@@ -217,6 +223,7 @@
 
     renderInfo11_20();
     renderSubquizStartControl();
+    renderArenaActions();
   }
 
 
@@ -412,6 +419,8 @@
     cpShell?.refreshEnabledStates?.();
     renderEquationTonomatPanel();
     renderPreEquationNavigationPanel();
+    renderSq2EffVbsPanel();
+    renderArenaActions();
     aamArena?.reset();
     buildQuizPicker();
     buildLevelPicker();
@@ -433,6 +442,44 @@
     renderProgress();
   }
 
+  function renderArenaActions() {
+    if (!dom.arenaActionsEl) return;
+    const getActions = quiz?.getArenaActions;
+    const runAction = quiz?.runArenaAction;
+    if (typeof getActions !== "function" || typeof runAction !== "function") {
+      dom.arenaActionsEl.hidden = true;
+      dom.arenaActionsEl.replaceChildren();
+      return;
+    }
+
+    const actions = getActions.call(quiz) || [];
+    if (!actions.length) {
+      dom.arenaActionsEl.hidden = true;
+      dom.arenaActionsEl.replaceChildren();
+      return;
+    }
+
+    dom.arenaActionsEl.hidden = false;
+    dom.arenaActionsEl.replaceChildren();
+    actions.forEach((action) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "arena-quiz-action";
+      btn.textContent = action.label;
+      btn.disabled = action.disabled === true;
+      btn.addEventListener("click", () => {
+        if (action.disabled) return;
+        const next = quiz.runArenaAction(action.id);
+        if (!next) return;
+        dom.playPauseBtn.disabled = false;
+        engine?.cancelRisingAnimation?.();
+        engine?.startRound(quiz.beginRound(next));
+        renderProgress();
+      });
+      dom.arenaActionsEl.appendChild(btn);
+    });
+  }
+
   function renderEquationTonomatPanel() {
     const mount = cpShell?.getMountEl("equationTonomat");
     if (!mount) return;
@@ -452,6 +499,19 @@
       onChange: () => {
         restartActiveRound();
         renderPreEquationNavigationPanel();
+      },
+    });
+  }
+
+  function renderSq2EffVbsPanel() {
+    const mount = cpShell?.getMountEl("sq2EffVbs");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendSq2ControlPanel !== "function") return;
+    quiz.appendSq2ControlPanel(mount, {
+      onChange: () => {
+        renderSq2EffVbsPanel();
+        renderProgress();
       },
     });
   }
@@ -491,6 +551,11 @@
       typeof quiz?.appendPreEquationNavigationControlPanel === "function",
   });
   CpRegistry.register({
+    id: "sq2EffVbs",
+    title: "CP — SQ2 EFF VBS",
+    isEnabled: () => typeof quiz?.appendSq2ControlPanel === "function",
+  });
+  CpRegistry.register({
     id: "liftType",
     title: "CP — Tip lift",
     isEnabled: () => true,
@@ -526,6 +591,7 @@
   };
   renderEquationTonomatPanel();
   renderPreEquationNavigationPanel();
+  renderSq2EffVbsPanel();
 
   // Stratul „tip lift” = doar prezentare: (a) clasa de mod pe #game și (b) unde
   // trăiește conținutul (`.falling-inner`). NU recreăm noduri — doar
@@ -559,6 +625,14 @@
   }
 
   let subquizStartControlEl = null;
+
+  (function buildArenaActionsHost() {
+    dom.arenaActionsEl = document.createElement("div");
+    dom.arenaActionsEl.className = "arena-quiz-actions";
+    dom.arenaActionsEl.hidden = true;
+    dom.stratInfoEl?.appendChild(dom.arenaActionsEl);
+    renderArenaActions();
+  })();
 
   (function buildSubquizPanel() {
     const mount = cpShell.getMountEl("subquiz");

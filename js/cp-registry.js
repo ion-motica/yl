@@ -5,6 +5,7 @@
   const LEGACY_DEFAULT_ORDER_V2 = ["debug", "lift", "aam"];
   const DEFAULT_ORDER = [
     "subquiz",
+    "sq2EffVbs",
     "preEquationNav",
     "equationTonomat",
     "liftType",
@@ -50,6 +51,11 @@
     if (panels.has("subquiz")) {
       const rest = next.filter((id) => id !== "subquiz");
       next = ["subquiz", ...rest];
+    }
+    if (panels.has("sq2EffVbs")) {
+      const rest = next.filter((id) => id !== "sq2EffVbs");
+      const insertAt = rest[0] === "subquiz" ? 1 : 0;
+      next = [...rest.slice(0, insertAt), "sq2EffVbs", ...rest.slice(insertAt)];
     }
     return next;
   }

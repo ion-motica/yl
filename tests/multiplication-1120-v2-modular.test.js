@@ -50,6 +50,11 @@ function wrongIndex(state) {
   return (state.correctIndex + 1) % state.options.length;
 }
 
+function answerWrongThenCorrect(quiz, state, responseMs = 900) {
+  const retried = quiz.onAnswer(wrongIndex(state), { responseMs });
+  return quiz.onAnswer(retried.correctIndex, { responseMs });
+}
+
 describe("multiplication-1120-v2 modular clone", () => {
   beforeEach(() => {
     delete globalThis.QuizRegistry;
@@ -142,7 +147,7 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     for (let i = 0; i < 21; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
 
     assert.equal(state.levelAdvanced, true);
@@ -191,7 +196,7 @@ describe("multiplication-1120-v2 modular clone", () => {
 
     assert.equal(quiz.getSubquizStage(), "intensiv");
     for (let i = 0; i < 10; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
 
     assert.equal(state.levelAdvanced, true);
@@ -204,7 +209,7 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     for (let i = 0; i < 21; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
 
     assert.equal(quiz.getLevel(), 1);
@@ -214,14 +219,14 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.deepEqual(state.options, ["55", "66", "77"]);
   });
 
-  it("direct modular subquiz 3 advances level after 12 total answers", () => {
+  it("direct modular subquiz 3 advances level after 12 counted attempts once the current question is corrected", () => {
     const quiz = setupQuiz();
     quiz.setSubquizStartOption("anchorSumValuesOnly");
     let state = quiz.beginRound();
 
     assert.equal(quiz.getSubquizStage(), "anchorSumValues");
-    for (let i = 0; i < 12; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 6; i += 1) {
+      state = answerWrongThenCorrect(quiz, state);
     }
 
     assert.equal(state.levelAdvanced, true);
@@ -247,10 +252,10 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     for (let i = 0; i < 21; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
-    for (let i = 0; i < 12; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 6; i += 1) {
+      state = answerWrongThenCorrect(quiz, state);
     }
 
     assert.equal(quiz.getLevel(), 1);
@@ -285,12 +290,12 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     assert.equal(state.prompt, "70+42=100+?");
-    for (let i = 0; i < 5; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 2; i += 1) {
+      state = answerWrongThenCorrect(quiz, state);
       assert.equal(state.levelAdvanced, undefined);
     }
 
-    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = answerWrongThenCorrect(quiz, state);
     assert.equal(state.levelAdvanced, true);
     assert.equal(quiz.getLevel(), 5);
   });
@@ -341,10 +346,10 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     for (let i = 0; i < 21; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
-    for (let i = 0; i < 12; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 6; i += 1) {
+      state = answerWrongThenCorrect(quiz, state);
     }
     state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
 
@@ -354,14 +359,26 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.equal(state.prompt, "55+11=?");
   });
 
-  it("direct modular subquiz 5 advances level after 21 total answers", () => {
+  it("direct modular subquiz 5 advances level after 21 counted attempts once the current question is corrected", () => {
     const quiz = setupQuiz();
     quiz.setSubquizStartOption("effectiveAnchorAddition");
     let state = quiz.beginRound();
 
-    for (let i = 0; i < 21; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 9; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+      assert.equal(state.levelAdvanced, undefined);
     }
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    assert.equal(state.levelAdvanced, undefined);
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.equal(state.levelAdvanced, undefined);
+    for (let i = 0; i < 8; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+      assert.equal(state.levelAdvanced, undefined);
+    }
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    assert.equal(state.levelAdvanced, undefined);
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
 
     assert.equal(state.levelAdvanced, true);
     assert.equal(quiz.getLevel(), 2);
@@ -496,10 +513,10 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     for (let i = 0; i < 21; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
-    for (let i = 0; i < 12; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 6; i += 1) {
+      state = answerWrongThenCorrect(quiz, state);
     }
     state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     for (let i = 0; i < 10; i += 1) {
@@ -527,16 +544,26 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.equal(quiz.getSubquizStage(), "nonAnchorProducts");
   });
 
-  it("direct modular subquiz 6 advances after 21 main questions regardless of mistakes", () => {
+  it("direct modular subquiz 6 advances after 21 main attempts once the current question is corrected", () => {
     const quiz = setupQuiz();
     quiz.setSubquizStartOption("nonAnchorProducts");
     let state = quiz.beginRound();
 
-    for (let i = 0; i < 20; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 11; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
       assert.equal(state.levelAdvanced, undefined);
     }
     state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    assert.equal(state.levelAdvanced, undefined);
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.equal(state.levelAdvanced, undefined);
+    for (let i = 0; i < 7; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+      assert.equal(state.levelAdvanced, undefined);
+    }
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    assert.equal(state.levelAdvanced, undefined);
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
 
     assert.equal(state.levelAdvanced, true);
     assert.equal(quiz.getLevel(), 2);
@@ -598,14 +625,12 @@ describe("multiplication-1120-v2 modular clone", () => {
     }
 
     assert.equal(quiz.getSubquizStage(), "nonAnchorProducts");
-    for (let i = 0; i < 16; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
-      assert.equal(state.levelAdvanced, undefined);
-    }
+    assert.equal(quiz.getLevel(), 1);
+    assert.equal(state.levelAdvanced, undefined);
 
-    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
-    assert.equal(state.levelAdvanced, true);
-    assert.equal(quiz.getLevel(), 2);
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
+    assert.equal(quiz.getLevel(), 1);
+    assert.equal(state.levelAdvanced, undefined);
   });
 
   it("normal route continues from modular subquiz 6 into modular subquiz 7", () => {
@@ -613,10 +638,10 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     for (let i = 0; i < 21; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
-    for (let i = 0; i < 12; i += 1) {
-      state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    for (let i = 0; i < 7; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
     state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     for (let i = 0; i < 10; i += 1) {

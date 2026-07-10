@@ -74,6 +74,27 @@
     return { action: "continue", view: fallbackView, ...command };
   }
 
+  function blockWrongTransition(command, event, view) {
+    if (event.isCorrect) return command;
+    if (command?.allowOnWrong === true) return command;
+    if (event.runtime?.definition?.allowTransitionOnWrong === true) return command;
+    if (command?.action === "stay") return command;
+
+    event.runtime?.setCurrentItem?.(event.item);
+
+    return {
+      action: "stay",
+      blockedTransition: command,
+      view: view({
+        outcome: "wrong-answer",
+        correct: false,
+        flash: "wrong",
+        message: `${event.chosen} nu e bun. Mai incearca!`,
+      }),
+      event,
+    };
+  }
+
   function createRuntime(definition, context = {}, payload = {}) {
     const def = define(definition);
     const generator = global.ItemGenerator.create(def.generator ?? def.nextItem);
@@ -131,7 +152,8 @@
       };
 
       if (typeof def.onAnswer === "function") {
-        return normalizeCommand(def.onAnswer(event), view());
+        const command = normalizeCommand(def.onAnswer(event), view());
+        return blockWrongTransition(command, event, view);
       }
 
       state.questionCount += 1;
@@ -147,7 +169,13 @@
         typeof def.exitRule === "function"
           ? def.exitRule(event)
           : objectExitRule(def.exitRule, state);
-      if (exit) return { action: "exit", reason: exit.reason ?? "exit", event };
+      if (exit) {
+        return blockWrongTransition(
+          { action: "exit", reason: exit.reason ?? "exit", event },
+          event,
+          view
+        );
+      }
 
       if (!graded.isCorrect && def.wrongAnswerRule?.mode === "retrySame") {
         return {
