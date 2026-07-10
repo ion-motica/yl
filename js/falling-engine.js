@@ -797,7 +797,7 @@
       config.onProgressUpdate?.();
     }
 
-    function applyAnswerResult(result, pickedIndex) {
+    function applyAnswerResult(result, pickedIndex, meta = {}) {
       const shouldRender = hasRenderableState(result);
       const beforeState = lastRoundState;
       result = normalizeResult(result);
@@ -812,6 +812,15 @@
       global.AsnwOnboarding?.notifyAnswer?.({
         correct: starCorrect,
         answered: pickedIndex != null && !timedOut,
+      });
+
+      config.onAttemptLogged?.({
+        beforeState,
+        result,
+        pickedIndex,
+        meta,
+        correct: starCorrect,
+        timedOut,
       });
 
       applyImmediateAnswerFeedback(result, wrongPick);
@@ -846,7 +855,8 @@
     function resolveChoice(index) {
       hideRising();
       animating = false;
-      applyAnswerResult(getQuiz().onAnswer(index, attemptMeta()), index);
+      const meta = attemptMeta();
+      applyAnswerResult(getQuiz().onAnswer(index, meta), index, meta);
     }
 
     function handleBottomMiss() {
@@ -858,7 +868,8 @@
       const wrongBefore = [...wrongPicksThisStep];
       const optionsBefore = lastRoundState ? [...(lastRoundState.options || [])] : null;
       cancelRisingAnimation();
-      applyAnswerResult(getQuiz().onTimeout(attemptMeta({ timedOut: true })));
+      const meta = attemptMeta({ timedOut: true });
+      applyAnswerResult(getQuiz().onTimeout(meta), null, meta);
       const optionsAfter = lastRoundState ? lastRoundState.options || [] : [];
       const sameQuestion =
         optionsBefore != null &&

@@ -486,8 +486,20 @@ body {
 }
 
 .div-info-11-20.is-sq2-eff-vbs {
-  background: linear-gradient(90deg, rgba(154, 72, 12, 0.97), rgba(92, 43, 12, 0.94));
+  background: rgba(14, 22, 34, 0.92);
   border-bottom-color: rgba(251, 146, 60, 0.8);
+  color: var(--text);
+}
+
+.div-info-11-20.is-sq2-eff-vbs .info11-mode,
+.div-info-11-20.is-sq2-eff-vbs .info11-wrong,
+.div-info-11-20.is-sq2-eff-vbs .info11-intensiv,
+.div-info-11-20.is-sq2-eff-vbs .info11-count,
+.div-info-11-20.is-sq2-eff-vbs .info11-sessions {
+  margin-left: -0.35rem;
+  margin-right: -0.35rem;
+  padding: 0.04rem 0.35rem;
+  background: linear-gradient(90deg, rgba(154, 72, 12, 0.97), rgba(92, 43, 12, 0.94));
   color: #fff7ed;
 }
 
@@ -531,6 +543,25 @@ body {
   background: #34d399;
   border-radius: 4px;
   padding: 0 0.3rem;
+  font-weight: 800;
+}
+
+.div-info-11-20 .info11-time-val {
+  display: inline-block;
+  margin-right: 0.25rem;
+  border-radius: 4px;
+  padding: 0 0.3rem;
+}
+
+.div-info-11-20 .info11-time-val.wrong {
+  color: #fff7ed;
+  background: #dc2626;
+  font-weight: 800;
+}
+
+.div-info-11-20 .info11-time-val.timeout {
+  color: #111827;
+  background: #fbbf24;
   font-weight: 800;
 }
 
@@ -1400,6 +1431,7 @@ body {
   gap: 0.35rem;
   justify-content: center;
   margin-top: 0.4rem;
+  pointer-events: auto;
 }
 
 .arena-quiz-action {
@@ -1411,6 +1443,7 @@ body {
   color: #e2e8f0;
   font-size: 0.72rem;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .arena-quiz-action:disabled {

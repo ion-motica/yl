@@ -49,6 +49,13 @@
   let cpShell = null;
   let lastGreenCells = null;
   let lastRenderedLevel = null;
+  const RESPONSE_TIMES_ENABLED_KEY = "showResponseTimes";
+  const FAST_RESPONSE_MS = 1500;
+  const RESPONSE_TIMES_PER_FACT_MAX = 3;
+  let showResponseTimes =
+    window.LayoutConfig?.get(RESPONSE_TIMES_ENABLED_KEY, true) !== false;
+  let responseTimesInput = null;
+  const responseTimesByFact = new Map();
 
   dom.getSwapQuestionIllustration = () =>
     engine?.getSwapQuestionIllustration?.() ?? false;
@@ -104,9 +111,153 @@
     dom.info11_20El.classList.remove("is-sq2-eff-vbs");
   }
 
+  function resetResponseTimesSession() {
+    responseTimesByFact.clear();
+  }
+
+  function normalizeTextLabel(text) {
+    return String(text ?? "")
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function responseTimeLabel(state) {
+    const meta = state?.metadata || {};
+    if (meta.factA != null && meta.factB != null) return `${meta.factA}*${meta.factB}`;
+    if (meta.factId) return String(meta.factId);
+    if (state?.factId) return String(state.factId);
+    if (state?.promptHtml) return normalizeTextLabel(state.promptHtml);
+    if (state?.prompt) return normalizeTextLabel(state.prompt);
+    if (state?.dividend != null && state?.divisor != null) {
+      return `${state.dividend}:${state.divisor}`;
+    }
+    return "Intrebare";
+  }
+
+  function recordResponseTimeAttempt({ beforeState, meta, correct, timedOut }) {
+    if (!beforeState) return;
+    const label = responseTimeLabel(beforeState);
+    if (!label) return;
+    const existing =
+      responseTimesByFact.get(label) || { label, attempts: [], order: 0, timeoutStreak: 0 };
+
+    if (timedOut === true) {
+      existing.timeoutStreak = (existing.timeoutStreak || 0) + 1;
+      if (existing.timeoutStreak === 6) {
+        existing.attempts.push({ timeoutMarker: true });
+        existing.order = Date.now();
+      }
+      responseTimesByFact.set(label, existing);
+      return;
+    }
+
+    const responseMs = Number(meta?.responseMs);
+    if (!Number.isFinite(responseMs)) return;
+    existing.timeoutStreak = 0;
+    existing.attempts.unshift({
+      responseMs: Math.max(0, Math.round(responseMs)),
+      correct: correct === true,
+    });
+    let seenTimes = 0;
+    existing.attempts = existing.attempts.filter((attempt) => {
+      if (attempt.timeoutMarker) return true;
+      seenTimes += 1;
+      return seenTimes <= RESPONSE_TIMES_PER_FACT_MAX;
+    });
+    existing.order = Date.now();
+    responseTimesByFact.set(label, existing);
+  }
+
+  function getResponseTimeRows() {
+    return [...responseTimesByFact.values()]
+      .filter((row) => row.attempts.length > 0)
+      .sort((a, b) => b.order - a.order);
+  }
+
   function renderInfo11_20() {
     const el = dom.info11_20El;
     if (!el) return;
+
+    const info =
+      typeof quiz?.getInfo11_20 === "function" ? quiz.getInfo11_20() : null;
+    const hasSpecialInfo = info?.visible === true;
+    const timeRows = showResponseTimes ? getResponseTimeRows() : [];
+    const hasResponseTimes = timeRows.length > 0;
+
+    if (!hasSpecialInfo && !hasResponseTimes) {
+      hideInfo11_20();
+      return;
+    }
+
+    el.hidden = false;
+    el.classList.toggle("is-intensiv", hasSpecialInfo && info.mode === "intensiv");
+    el.classList.toggle(
+      "is-sq2-eff-vbs",
+      hasSpecialInfo &&
+        (info.mode === "Subquiz 2: Intensiv cu eff VBS" || info.theme === "sq2-eff-vbs")
+    );
+
+    const modeEl = el.querySelector(".info11-mode");
+    const wrongEl = el.querySelector(".info11-wrong");
+    const intensivEl = el.querySelector(".info11-intensiv");
+    const countEl = el.querySelector(".info11-count");
+    const sessionsEl = el.querySelector(".info11-sessions");
+
+    [modeEl, wrongEl, intensivEl, countEl, sessionsEl].forEach((node) => {
+      if (node) node.hidden = !hasSpecialInfo;
+    });
+
+    if (hasSpecialInfo) {
+      if (modeEl) modeEl.textContent = `Mod: ${info.mode}`;
+      if (wrongEl) wrongEl.textContent = `Facts gresite: ${info.wrongFactsText}`;
+      if (intensivEl) {
+        intensivEl.textContent = `Facts lucrate intensiv: ${info.intensivText ?? "-"}`;
+      }
+      if (countEl && info.answeredText != null) {
+        countEl.textContent = `Intrebari: ${info.answeredText}`;
+      }
+      if (sessionsEl && info.intensivSessionsText != null) {
+        sessionsEl.textContent = `Sesiuni intensiv: ${info.intensivSessionsText}`;
+      }
+    }
+
+    const timesEl = el.querySelector(".info11-times");
+    if (timesEl) {
+      timesEl.replaceChildren();
+      timesEl.hidden = !hasResponseTimes;
+      if (hasResponseTimes) {
+        const head = document.createElement("p");
+        head.className = "info11-times-head";
+        head.textContent = "Timpi raspuns:";
+        timesEl.appendChild(head);
+        timeRows.forEach((f) => {
+          const row = document.createElement("p");
+          row.className = "info11-time-row";
+          row.append(`${f.label} : `);
+          f.attempts.forEach((attempt) => {
+            const val = document.createElement("span");
+            val.className = "info11-time-val";
+            if (attempt.timeoutMarker) {
+              val.classList.add("timeout");
+              val.textContent = "timeout";
+              row.appendChild(val);
+              return;
+            }
+            if (attempt.correct && attempt.responseMs <= FAST_RESPONSE_MS) {
+              val.classList.add("fast");
+            }
+            if (!attempt.correct) val.classList.add("wrong");
+            val.textContent = `${(attempt.responseMs / 1000).toFixed(1)}s`;
+            row.appendChild(val);
+          });
+          timesEl.appendChild(row);
+        });
+      }
+    }
+    return;
+    {
+
     if (typeof quiz?.getInfo11_20 !== "function") {
       hideInfo11_20();
       return;
@@ -151,6 +302,7 @@
         row.appendChild(val);
         timesEl.appendChild(row);
       });
+    }
     }
   }
 
@@ -214,6 +366,7 @@
       currentLevel != null &&
       currentLevel !== previousRenderedLevel
     ) {
+      resetResponseTimesSession();
       renderPreEquationNavigationPanel();
     }
 
@@ -240,6 +393,7 @@
       if (levelMessage) dom.messageEl.textContent = levelMessage;
       dom.playPauseBtn.disabled = false;
       engine.cancelRisingAnimation();
+      resetResponseTimesSession();
       lastGreenCells = null;
       lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
       engine.startRound(quiz.beginRound(quiz.pickNextRound()));
@@ -415,6 +569,7 @@
     const meta = QuizRegistry.get(id);
     applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
+    resetResponseTimesSession();
     applyRequestedQuizConfig();
     cpShell?.refreshEnabledStates?.();
     renderEquationTonomatPanel();
@@ -435,6 +590,7 @@
     if (!quiz) return;
     dom.playPauseBtn.disabled = false;
     engine?.cancelRisingAnimation?.();
+    resetResponseTimesSession();
     lastGreenCells = null;
     lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
     buildLevelPicker();
@@ -468,7 +624,8 @@
       btn.textContent = action.label;
       btn.disabled = action.disabled === true;
       btn.addEventListener("click", () => {
-        if (action.disabled) return;
+        const currentAction = (quiz.getArenaActions?.() || []).find((item) => item.id === action.id);
+        if (currentAction?.disabled === true) return;
         const next = quiz.runArenaAction(action.id);
         if (!next) return;
         dom.playPauseBtn.disabled = false;
@@ -535,6 +692,11 @@
 
   let aamCpEnabled = false;
   CpRegistry.register({
+    id: "general",
+    title: "CP - General",
+    isEnabled: () => true,
+  });
+  CpRegistry.register({
     id: "subquiz",
     title: "CP — Subquiz",
     isEnabled: () => typeof quiz?.getSubquizStartOptions === "function",
@@ -592,6 +754,33 @@
   renderEquationTonomatPanel();
   renderPreEquationNavigationPanel();
   renderSq2EffVbsPanel();
+
+  function syncResponseTimesInput() {
+    if (responseTimesInput) responseTimesInput.checked = showResponseTimes;
+  }
+
+  (function buildGeneralPanel() {
+    const mount = cpShell.getMountEl("general");
+    if (!mount) return;
+    mount.replaceChildren();
+
+    const row = document.createElement("label");
+    row.className = "control-panel-lift-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = showResponseTimes;
+    responseTimesInput = input;
+    input.addEventListener("change", () => {
+      showResponseTimes = input.checked;
+      window.LayoutConfig?.set(RESPONSE_TIMES_ENABLED_KEY, showResponseTimes);
+      renderProgress();
+    });
+    const span = document.createElement("span");
+    span.textContent = "Afiseaza Timpi raspuns";
+    row.append(input, span);
+    mount.appendChild(row);
+    syncResponseTimesInput();
+  })();
 
   // Stratul „tip lift” = doar prezentare: (a) clasa de mod pe #game și (b) unde
   // trăiește conținutul (`.falling-inner`). NU recreăm noduri — doar
@@ -856,6 +1045,13 @@
     getQuiz: () => quiz,
     showBanner,
     onProgressUpdate: renderProgress,
+    onAttemptLogged: (entry) => {
+      recordResponseTimeAttempt(entry);
+      if (entry?.result?.levelAdvanced === true) {
+        resetResponseTimesSession();
+      }
+      renderProgress();
+    },
     onRender: (state) => aamArena.prepareRound(quiz, state),
     onLiftPanelBuilt: (panelEl) => stage.mountRatioControl(panelEl),
     onLayoutSwapChange: () => {

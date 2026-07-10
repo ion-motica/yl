@@ -4,6 +4,7 @@
   const LEGACY_DEFAULT_ORDER = ["lift", "aam", "debug"];
   const LEGACY_DEFAULT_ORDER_V2 = ["debug", "lift", "aam"];
   const DEFAULT_ORDER = [
+    "general",
     "subquiz",
     "sq2EffVbs",
     "preEquationNav",
@@ -48,9 +49,14 @@
       const rest = next.filter((id) => id !== "liftType");
       next = ["liftType", ...rest];
     }
+    if (panels.has("general")) {
+      const rest = next.filter((id) => id !== "general");
+      next = ["general", ...rest];
+    }
     if (panels.has("subquiz")) {
       const rest = next.filter((id) => id !== "subquiz");
-      next = ["subquiz", ...rest];
+      const insertAt = rest[0] === "general" ? 1 : 0;
+      next = [...rest.slice(0, insertAt), "subquiz", ...rest.slice(insertAt)];
     }
     if (panels.has("sq2EffVbs")) {
       const rest = next.filter((id) => id !== "sq2EffVbs");

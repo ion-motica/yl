@@ -118,6 +118,7 @@
         promptHtml: currentItem?.promptHtml,
         options: currentItem ? [...currentItem.options] : ["-", "-", "-"],
         correctIndex: currentItem?.correctIndex ?? 0,
+        metadata: currentItem?.metadata,
         hintMessage: def.hintMessage ?? context.hintMessage ?? "",
         ...extra,
       };

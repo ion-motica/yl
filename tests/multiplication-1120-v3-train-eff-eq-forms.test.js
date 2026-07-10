@@ -22,7 +22,7 @@ function setupLocalStorage() {
   };
 }
 
-function setupQuiz({ shuffle = (items) => [...items] } = {}) {
+function setupQuiz({ shuffle = (items) => [...items], random = () => 0 } = {}) {
   globalThis.window = globalThis;
   globalThis.alert = () => {};
   setupLocalStorage();
@@ -42,7 +42,7 @@ function setupQuiz({ shuffle = (items) => [...items] } = {}) {
   globalThis.GameUtils.shuffle = shuffle;
 
   const meta = globalThis.QuizRegistry.get(QUIZ_ID);
-  return meta.create(meta);
+  return meta.create({ ...meta, random });
 }
 
 function wrongIndex(state) {
@@ -79,6 +79,13 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.equal(state.prompt, "?*1=11");
     assert.equal(state.options.length, 3);
     assert.equal(quiz.getInfo11_20().facts.length, 11);
+  });
+
+  it("picks facts randomly with a bias toward smaller values instead of fixed ascending order", () => {
+    const quiz = setupQuiz({ random: () => 0.99 });
+    const state = quiz.beginRound();
+
+    assert.equal(state.prompt, "?*11=121");
   });
 
   it("advances to level 2 after 12 base answers while SQ2 interruptions return to base", () => {
@@ -207,5 +214,61 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
 
     assert.equal(quiz.getSubquizStage(), "base");
+  });
+
+  it("SQ2 avoids immediate fact repeats when it has multiple facts", () => {
+    const randomValues = [0, 0, 0, 0.99, 0, 0, 0];
+    const quiz = setupQuiz({
+      random: () => randomValues.shift() ?? 0,
+    });
+    quiz.setSq2Config?.({ factCount: 2, exitCount: 5, exitMode: "any" });
+    let state = quiz.beginRound();
+
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 800 });
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 700 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
+    const seen = [];
+    for (let i = 0; i < 4; i += 1) {
+      seen.push(state.metadata.factB);
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    }
+
+    for (let i = 1; i < seen.length; i += 1) {
+      assert.notEqual(seen[i], seen[i - 1]);
+    }
+  });
+
+  it("does not recycle the same SQ2 facts from stale wrong or slow base state", () => {
+    const quiz = setupQuiz();
+    quiz.setSq2Config?.({ factCount: 2, exitCount: 3, exitMode: "any" });
+    let state = quiz.beginRound();
+
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 800 });
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 700 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
+    const firstSq2Facts = quiz.getInfo11_20().intensivText;
+    assert.match(firstSq2Facts, /11\*1/);
+    assert.match(firstSq2Facts, /11\*3/);
+
+    while (quiz.getSubquizStage() === "sq2EffVbs") {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    }
+
+    [100, 200, 300, 400, 500].forEach((responseMs) => {
+      if (quiz.getSubquizStage() === "base") {
+        state = quiz.onAnswer(state.correctIndex, { responseMs });
+      }
+    });
+
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
+    const nextSq2Facts = quiz.getInfo11_20().intensivText;
+    assert.doesNotMatch(nextSq2Facts, /11\*1/);
+    assert.doesNotMatch(nextSq2Facts, /11\*3/);
   });
 });

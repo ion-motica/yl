@@ -92,6 +92,7 @@
   function createQuiz(config = {}) {
     const quizId = config.quizId ?? QUIZ_ID;
     const { shuffle } = global.GameUtils;
+    const random = typeof config.random === "function" ? config.random : Math.random;
     const QFG = global.QFGenerator;
     const Catalog = global.FactCatalog;
     const qfTypes = QFG.getActiveQFTypes(QF_PROFILE).filter(
@@ -117,9 +118,31 @@
       });
     }
 
-    function buildBQueue() {
+    function weightedSmallFactPick(values) {
+      const candidates = uniqueFacts(values);
+      const totalWeight = candidates.reduce((sum, b) => sum + 1 / b, 0);
+      let cursor = random() * totalWeight;
+
+      for (const b of candidates) {
+        cursor -= 1 / b;
+        if (cursor <= 0) return b;
+      }
+
+      return candidates[candidates.length - 1];
+    }
+
+    function buildBQueue(values = null) {
       const factor = factorForLevel(level);
-      return shuffle(Array.from({ length: factor }, (_, index) => index + 1));
+      const remaining = values ? uniqueFacts(values) : Array.from({ length: factor }, (_, index) => index + 1);
+      const queue = [];
+
+      while (remaining.length) {
+        const picked = weightedSmallFactPick(remaining);
+        queue.push(picked);
+        remaining.splice(remaining.indexOf(picked), 1);
+      }
+
+      return queue;
     }
 
     function pickB(state) {
@@ -220,11 +243,13 @@
       const state = shared.baseState;
       if (!state) return [];
       const picked = [];
+      const recent = uniqueFacts(state.recentSq2Facts);
 
-      function add(b) {
+      function add(b, { allowRecent = false } = {}) {
         if (!Number.isFinite(Number(b))) return;
         const factB = Number(b);
         if (factB < 1 || factB > factorForLevel(level) || picked.includes(factB)) return;
+        if (!allowRecent && recent.includes(factB)) return;
         picked.push(factB);
       }
 
@@ -239,7 +264,25 @@
         if (picked.length < sq2FactCount) add(entry.b);
       });
 
+      if (picked.length < sq2FactCount && recent.length) {
+        uniqueFacts(preferredBs).forEach((b) => add(b, { allowRecent: true }));
+        uniqueFacts(state.wrongFacts).forEach((b) => add(b, { allowRecent: true }));
+        slowFacts.forEach((entry) => {
+          if (picked.length < sq2FactCount) add(entry.b, { allowRecent: true });
+        });
+      }
+
       return picked.slice(0, sq2FactCount);
+    }
+
+    function noteSq2SelectedFacts(selected) {
+      const state = shared.baseState;
+      if (!state) return;
+      state.recentSq2Facts = uniqueFacts(selected);
+      state.wrongFacts = uniqueFacts(state.wrongFacts).filter((b) => !state.recentSq2Facts.includes(b));
+      state.recentSq2Facts.forEach((b) => {
+        delete state.responseTimesByB[b];
+      });
     }
 
     function startSq2WithFacts(facts, reason, view = {}) {
@@ -377,12 +420,14 @@
         hintMessage: HINT,
         initialState({ payload }) {
           const facts = uniqueFacts(payload?.facts).slice(0, 4);
+          noteSq2SelectedFacts(facts);
           const state = {
             facts: facts.length ? facts : [1],
             countsByB: {},
             correctCountsByB: {},
             questionCount: 0,
             queue: [],
+            lastFactB: null,
             reason: payload?.reason ?? "manual",
             levelFactorAnswerHistory: [],
           };
@@ -396,8 +441,12 @@
         },
         generator({ state }) {
           shared.sq2State = state;
-          if (!state.queue.length) state.queue = shuffle([...state.facts]);
+          if (!state.queue.length) state.queue = buildBQueue(state.facts);
+          if (state.facts.length > 1 && state.queue[0] === state.lastFactB) {
+            state.queue.push(state.queue.shift());
+          }
           const b = state.queue.shift() ?? state.facts[0];
+          state.lastFactB = b;
           return buildQuestionForB(b, "sq2EffVbs", state);
         },
         onAnswer(event) {
@@ -737,6 +786,7 @@
     gestionareGreseli: { activ: false },
     create(meta = {}) {
       return global.Mul1120V3TrainEffEqFormsQuiz.create({
+        ...meta,
         quizId: meta.id ?? QUIZ_ID,
       });
     },
