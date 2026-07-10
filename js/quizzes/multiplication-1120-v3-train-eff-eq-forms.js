@@ -15,9 +15,16 @@
   const SQ2_FACT_COUNT_KEY = "yl:mul1120v3:sq2FactCount";
   const SQ2_EXIT_COUNT_KEY = "yl:mul1120v3:sq2ExitCount";
   const SQ2_EXIT_MODE_KEY = "yl:mul1120v3:sq2ExitMode";
-  const SQ2_EQ_FORM_COUNT_KEY = "yl:mul1120v3:sq2EqFormCount";
+  const SQ2_EQ_FORM_COUNT_KEY = "yl:mul1120v3:sq2EqFormCount:v2";
+  const SQ2_INTENSIVE_MODE_KEY = "yl:mul1120v3:intensiveMode";
+  const SQ2_SBS_ANSWER_FACTOR_KEY = "yl:mul1120v3:sbsAnswerFactor";
+  const SQ2_SBS_ANSWER_PRODUCT_KEY = "yl:mul1120v3:sbsAnswerProduct";
   const SQ2_EQ_FORM_MIN = 1;
   const SQ2_EQ_FORM_MAX = 24;
+  const SQ2_SBS_FACT_COUNT = 3;
+  const SQ2_INTENSIVE_MODES = ["vbs", "sbs", "alternate", "random"];
+  const SQ2_VBS_ID = "sq2EffVbs";
+  const SQ2_SBS_ID = "sq2EffSbs";
 
   const QF_PROFILE = {
     f1_initial: true,
@@ -65,6 +72,26 @@
       return stored === "any" ? "any" : "correct";
     } catch (err) {
       return "correct";
+    }
+  }
+
+  function readChoiceSetting(key, allowed, fallback) {
+    try {
+      const stored = global.localStorage?.getItem?.(key);
+      return allowed.includes(stored) ? stored : fallback;
+    } catch (err) {
+      return fallback;
+    }
+  }
+
+  function readBoolSetting(key, fallback) {
+    try {
+      const stored = global.localStorage?.getItem?.(key);
+      if (stored === "true") return true;
+      if (stored === "false") return false;
+      return fallback;
+    } catch (err) {
+      return fallback;
     }
   }
 
@@ -118,12 +145,18 @@
     let sq2EqFormCount = readNumberSetting(
       SQ2_EQ_FORM_COUNT_KEY,
       rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX),
-      SQ2_EQ_FORM_MAX
+      SQ2_EQ_FORM_MIN
     );
+    let intensiveMode = readChoiceSetting(SQ2_INTENSIVE_MODE_KEY, SQ2_INTENSIVE_MODES, "vbs");
+    let nextAlternateIntensiveTarget = SQ2_VBS_ID;
+    let sbsAnswerFromFactor = readBoolSetting(SQ2_SBS_ANSWER_FACTOR_KEY, true);
+    let sbsAnswerFromProduct = readBoolSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, false);
+    ensureSbsAnswerSource();
     const shared = {
       baseState: null,
       sq2State: null,
       sq2FactsText: [],
+      levelFactorAnswerHistory: [],
     };
 
     function makeFact(b) {
@@ -153,8 +186,39 @@
       return uniqueFacts(bs).filter(isLevelFactB);
     }
 
+    function isIntensiveSubquiz(id) {
+      return id === SQ2_VBS_ID || id === SQ2_SBS_ID;
+    }
+
+    function intensiveLabel(id) {
+      return id === SQ2_SBS_ID ? "SBS" : "EFF VBS";
+    }
+
+    function intensiveTargetFactCount(id) {
+      return id === SQ2_SBS_ID ? SQ2_SBS_FACT_COUNT : sq2FactCount;
+    }
+
+    function ensureSbsAnswerSource() {
+      if (sbsAnswerFromFactor || sbsAnswerFromProduct) return;
+      sbsAnswerFromFactor = true;
+      writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, true);
+    }
+
+    function pickIntensiveTarget() {
+      if (intensiveMode === "sbs") return SQ2_SBS_ID;
+      if (intensiveMode === "alternate") {
+        const target = nextAlternateIntensiveTarget;
+        nextAlternateIntensiveTarget = target === SQ2_VBS_ID ? SQ2_SBS_ID : SQ2_VBS_ID;
+        return target;
+      }
+      if (intensiveMode === "random") {
+        return random() < 0.5 ? SQ2_VBS_ID : SQ2_SBS_ID;
+      }
+      return SQ2_VBS_ID;
+    }
+
     function qfTypesForSubquiz(subquizId) {
-      if (subquizId !== "sq2EffVbs") return qfTypes;
+      if (subquizId !== SQ2_VBS_ID) return qfTypes;
       return qfTypes.slice(0, sq2EqFormCount);
     }
 
@@ -179,7 +243,7 @@
     }
 
     function canUseLevelFactorAnswer(state) {
-      const history = state?.levelFactorAnswerHistory || [];
+      const history = shared.levelFactorAnswerHistory || state?.levelFactorAnswerHistory || [];
       const recent = history.slice(-(LEVEL_FACTOR_ANSWER_WINDOW - 1));
       return (
         recent.filter(Boolean).length < LEVEL_FACTOR_ANSWER_MAX_IN_WINDOW
@@ -187,11 +251,13 @@
     }
 
     function noteLevelFactorAnswer(state, isLevelFactorAnswer) {
-      if (!state) return;
-      state.levelFactorAnswerHistory = state.levelFactorAnswerHistory || [];
-      state.levelFactorAnswerHistory.push(Boolean(isLevelFactorAnswer));
-      if (state.levelFactorAnswerHistory.length > LEVEL_FACTOR_ANSWER_WINDOW - 1) {
-        state.levelFactorAnswerHistory.shift();
+      shared.levelFactorAnswerHistory = shared.levelFactorAnswerHistory || [];
+      shared.levelFactorAnswerHistory.push(Boolean(isLevelFactorAnswer));
+      if (shared.levelFactorAnswerHistory.length > LEVEL_FACTOR_ANSWER_WINDOW - 1) {
+        shared.levelFactorAnswerHistory.shift();
+      }
+      if (state) {
+        state.levelFactorAnswerHistory = [...shared.levelFactorAnswerHistory];
       }
     }
 
@@ -255,6 +321,104 @@
       return fallbackQuestionForB(b, subquizId, state);
     }
 
+    function pickSbsAnswerKind(index) {
+      ensureSbsAnswerSource();
+      if (sbsAnswerFromFactor && sbsAnswerFromProduct) {
+        return index === 0 ? "factor" : "product";
+      }
+      return sbsAnswerFromProduct ? "product" : "factor";
+    }
+
+    function buildSbsEntries(facts) {
+      const A = factorForLevel(level);
+      return validLevelFacts(facts)
+        .slice(0, SQ2_SBS_FACT_COUNT)
+        .map((b, index) => {
+          const answerKind = pickSbsAnswerKind(index);
+          const product = A * b;
+          return {
+            b,
+            product,
+            answerKind,
+            answerValue: answerKind === "product" ? product : b,
+          };
+        });
+    }
+
+    function buildSbsButtonOptions(entries) {
+      return entries
+        .map((entry) => Number(entry.answerValue))
+        .sort((a, b) => a - b)
+        .map(String);
+    }
+
+    function sbsQuestionItem(rendered, entry, state, extraMetadata = {}) {
+      const options = state.options.map(String);
+      const correct = Number(entry.answerValue);
+      const correctIndex = options.indexOf(String(correct));
+      const qfTypeId = extraMetadata.qfTypeId;
+      return {
+        prompt: rendered.prompt,
+        correctAnswer: correct,
+        options,
+        correctIndex,
+        metadata: {
+          subquiz: SQ2_SBS_ID,
+          factA: factorForLevel(level),
+          factB: entry.b,
+          product: entry.product,
+          answerKind: entry.answerKind,
+          sameButtonSet: true,
+          ...(qfTypeId ? { qfTypeId } : {}),
+          ...extraMetadata,
+        },
+      };
+    }
+
+    function getSbsEligibleForms(entry) {
+      const fact = makeFact(entry.b);
+      return qfTypes
+        .map((type) => {
+          const rendered = QFG.renderQF(type, fact);
+          if (!rendered || rendered.answerType !== "number") return null;
+          if (Number(rendered.correctAnswer) !== Number(entry.answerValue)) return null;
+          return { type, rendered };
+        })
+        .filter(Boolean)
+        .slice(0, sq2EqFormCount);
+    }
+
+    function nextSbsForm(entry, state) {
+      state.qfQueuesByKey = state.qfQueuesByKey || {};
+      const key = `${entry.b}:${entry.answerKind}`;
+      if (!state.qfQueuesByKey[key]?.length) {
+        state.qfQueuesByKey[key] = shuffle(getSbsEligibleForms(entry));
+      }
+      return state.qfQueuesByKey[key].shift() ?? null;
+    }
+
+    function buildSbsFallbackQuestion(entry, state) {
+      const A = factorForLevel(level);
+      const prompt =
+        entry.answerKind === "product" ? `${A}*${entry.b}=?` : `${A}*?=${entry.product}`;
+      return sbsQuestionItem({ prompt }, entry, state, { fallback: true });
+    }
+
+    function buildSbsQuestionForEntry(entry, state, options = {}) {
+      const A = factorForLevel(level);
+      const isLevelFactorAnswer = Number(entry.answerValue) === A;
+      if (!options.ignoreLevelFactorCap && isLevelFactorAnswer && !canUseLevelFactorAnswer(state)) {
+        return null;
+      }
+
+      const form = nextSbsForm(entry, state);
+      noteLevelFactorAnswer(state, isLevelFactorAnswer);
+      if (form) {
+        return sbsQuestionItem(form.rendered, entry, state, { qfTypeId: form.type.id });
+      }
+      return buildSbsFallbackQuestion(entry, state);
+    }
+
     function buildBaseQuestion(state) {
       return buildQuestionForB(pickB(state), "base", state);
     }
@@ -267,9 +431,10 @@
       return [...new Set((bs || []).filter((b) => Number.isFinite(Number(b))).map(Number))];
     }
 
-    function selectFactsForSq2(preferredBs = []) {
+    function selectFactsForSq2(preferredBs = [], options = {}) {
       const state = shared.baseState;
       if (!state) return [];
+      const targetCount = Math.max(1, Number(options.targetCount) || sq2FactCount);
       const picked = [];
       const recent = uniqueFacts(state.recentSq2Facts);
 
@@ -289,18 +454,32 @@
         .filter((entry) => Number.isFinite(entry.b) && Number.isFinite(entry.ms))
         .sort((a, b) => b.ms - a.ms);
       slowFacts.forEach((entry) => {
-        if (picked.length < sq2FactCount) add(entry.b);
+        if (picked.length < targetCount) add(entry.b);
       });
 
-      if (picked.length < sq2FactCount && recent.length) {
+      const currentWindow = state.factSequencer?.currentWindow?.() || [];
+      currentWindow.forEach((b) => {
+        if (picked.length < targetCount) add(b);
+      });
+      getLevelFactBs().forEach((b) => {
+        if (picked.length < targetCount) add(b);
+      });
+
+      if (picked.length < targetCount && recent.length) {
         uniqueFacts(preferredBs).forEach((b) => add(b, { allowRecent: true }));
         uniqueFacts(state.wrongFacts).forEach((b) => add(b, { allowRecent: true }));
         slowFacts.forEach((entry) => {
-          if (picked.length < sq2FactCount) add(entry.b, { allowRecent: true });
+          if (picked.length < targetCount) add(entry.b, { allowRecent: true });
+        });
+        currentWindow.forEach((b) => {
+          if (picked.length < targetCount) add(b, { allowRecent: true });
+        });
+        getLevelFactBs().forEach((b) => {
+          if (picked.length < targetCount) add(b, { allowRecent: true });
         });
       }
 
-      return picked.slice(0, sq2FactCount);
+      return picked.slice(0, targetCount);
     }
 
     function noteSq2SelectedFacts(selected) {
@@ -313,28 +492,29 @@
       });
     }
 
-    function startSq2WithFacts(facts, reason, view = {}) {
-      const selected = uniqueFacts(facts);
+    function startIntensiveWithFacts(facts, reason, view = {}, targetId = pickIntensiveTarget()) {
+      const selected = validLevelFacts(facts).slice(0, intensiveTargetFactCount(targetId));
       if (!selected.length) return null;
       shared.sq2FactsText = selected.map(factLabel);
       return {
         action: "push",
-        targetId: "sq2EffVbs",
+        targetId,
         payload: { facts: selected, reason },
         view: {
           outcome: "step-correct",
           correct: true,
           bounce: true,
-          message: `Subquiz 2 EFF VBS: ${shared.sq2FactsText.join(", ")}`,
+          message: `Subquiz 2 ${intensiveLabel(targetId)}: ${shared.sq2FactsText.join(", ")}`,
           ...view,
         },
       };
     }
 
     function maybeEnterSq2FromBase(state, reason) {
-      const facts = selectFactsForSq2();
+      const targetId = pickIntensiveTarget();
+      const facts = selectFactsForSq2([], { targetCount: intensiveTargetFactCount(targetId) });
       if (!facts.length) return null;
-      return startSq2WithFacts(facts, reason);
+      return startIntensiveWithFacts(facts, reason, {}, targetId);
     }
 
     function roundViewFrom(runtime, extra = {}) {
@@ -342,6 +522,54 @@
         hintMessage: HINT,
         ...extra,
       });
+    }
+
+    function handleIntensiveAnswer(event) {
+      const { item, index, state, runtime } = event;
+      shared.sq2State = state;
+      const chosen = item.options[index];
+      const isCorrect = Number(chosen) === Number(item.correctAnswer);
+      const factB = item.metadata.factB;
+
+      state.questionCount += 1;
+      state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
+      if (isCorrect) state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
+
+      const complete = state.facts.every((b) => {
+        const value =
+          sq2ExitMode === "any" ? state.countsByB[b] ?? 0 : state.correctCountsByB[b] ?? 0;
+        return value >= sq2ExitCount;
+      });
+
+      if (complete) {
+        return {
+          action: "pop",
+          reason: "sq2Complete",
+          payload: { sq2Completed: true },
+        };
+      }
+
+      runtime.nextItem({ reason: "sq2Next" });
+      return {
+        action: "continue",
+        view: roundViewFrom(runtime, {
+          outcome: "step-correct",
+          correct: isCorrect,
+          bounce: isCorrect,
+          flash: isCorrect ? undefined : "wrong",
+          message: isCorrect ? "Corect!" : `${chosen} nu e bun.`,
+        }),
+      };
+    }
+
+    function handleIntensiveTimeout({ runtime }) {
+      return {
+        action: "stay",
+        view: roundViewFrom(runtime, {
+          outcome: "round",
+          resetFall: true,
+        }),
+      };
     }
 
     function baseDefinition() {
@@ -443,7 +671,7 @@
 
     function sq2Definition() {
       return global.SubquizDefinition.define({
-        id: "sq2EffVbs",
+        id: SQ2_VBS_ID,
         title: "Intensiv cu eff VBS",
         hintMessage: HINT,
         initialState({ payload }) {
@@ -475,60 +703,77 @@
           }
           const b = state.queue.shift() ?? state.facts[0];
           state.lastFactB = b;
-          return buildQuestionForB(b, "sq2EffVbs", state);
+          return buildQuestionForB(b, SQ2_VBS_ID, state);
         },
-        onAnswer(event) {
-          const { item, index, state, runtime } = event;
-          shared.sq2State = state;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
-          const factB = item.metadata.factB;
+        onAnswer: handleIntensiveAnswer,
+        onTimeout: handleIntensiveTimeout,
+      });
+    }
 
-          state.questionCount += 1;
-          state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
-          if (isCorrect) state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
-
-          const complete = state.facts.every((b) => {
-            const value =
-              sq2ExitMode === "any" ? state.countsByB[b] ?? 0 : state.correctCountsByB[b] ?? 0;
-            return value >= sq2ExitCount;
+    function sq2SbsDefinition() {
+      return global.SubquizDefinition.define({
+        id: SQ2_SBS_ID,
+        title: "Intensiv SBS",
+        hintMessage: HINT,
+        initialState({ payload }) {
+          const facts = validLevelFacts(payload?.facts).slice(0, SQ2_SBS_FACT_COUNT);
+          noteSq2SelectedFacts(facts);
+          const entries = buildSbsEntries(facts.length ? facts : getLevelFactBs().slice(0, SQ2_SBS_FACT_COUNT));
+          const state = {
+            facts: entries.map((entry) => entry.b),
+            entries,
+            options: buildSbsButtonOptions(entries),
+            countsByB: {},
+            correctCountsByB: {},
+            questionCount: 0,
+            queue: [],
+            qfQueuesByKey: {},
+            lastFactB: null,
+            reason: payload?.reason ?? "manual",
+            levelFactorAnswerHistory: [],
+          };
+          state.facts.forEach((b) => {
+            state.countsByB[b] = 0;
+            state.correctCountsByB[b] = 0;
           });
-
-          if (complete) {
-            return {
-              action: "pop",
-              reason: "sq2Complete",
-              payload: { sq2Completed: true },
-            };
+          shared.sq2State = state;
+          shared.sq2FactsText = state.facts.map(factLabel);
+          return state;
+        },
+        generator({ state }) {
+          shared.sq2State = state;
+          if (!state.queue.length) state.queue = buildBQueue(state.facts);
+          if (state.facts.length > 1 && state.queue[0] === state.lastFactB) {
+            state.queue.push(state.queue.shift());
           }
 
-          runtime.nextItem({ reason: "sq2Next" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: isCorrect,
-              bounce: isCorrect,
-              flash: isCorrect ? undefined : "wrong",
-              message: isCorrect ? "Corect!" : `${chosen} nu e bun.`,
-            }),
-          };
+          const attempts = state.queue.length ? [...state.queue] : [...state.facts];
+          for (let index = 0; index < attempts.length; index += 1) {
+            const b = state.queue.shift() ?? attempts[index];
+            const entry = state.entries.find((item) => item.b === b);
+            if (!entry) continue;
+            const item = buildSbsQuestionForEntry(entry, state);
+            if (!item) {
+              state.queue.push(b);
+              continue;
+            }
+            state.lastFactB = b;
+            return item;
+          }
+
+          const fallbackB = state.queue.shift() ?? state.facts[0];
+          const fallbackEntry = state.entries.find((entry) => entry.b === fallbackB) ?? state.entries[0];
+          state.lastFactB = fallbackEntry.b;
+          return buildSbsQuestionForEntry(fallbackEntry, state, { ignoreLevelFactorCap: true });
         },
-        onTimeout({ runtime }) {
-          return {
-            action: "stay",
-            view: roundViewFrom(runtime, {
-              outcome: "round",
-              resetFall: true,
-            }),
-          };
-        },
+        onAnswer: handleIntensiveAnswer,
+        onTimeout: handleIntensiveTimeout,
       });
     }
 
     function createOrchestrator() {
       orchestrator = global.SubquizOrchestrator.create({
-        definitions: [baseDefinition(), sq2Definition()],
+        definitions: [baseDefinition(), sq2Definition(), sq2SbsDefinition()],
         activeSubquizIds: ["base"],
         context: {
           quizId,
@@ -542,6 +787,7 @@
       shared.baseState = null;
       shared.sq2State = null;
       shared.sq2FactsText = [];
+      shared.levelFactorAnswerHistory = [];
       createOrchestrator();
     }
 
@@ -597,10 +843,16 @@
       getLevel: () => level,
       getMaxLevel: () => MAX_LEVEL,
       getMinLevel: () => MIN_LEVEL,
-      getLevelLabel: () =>
-        orchestrator?.getCurrentId?.() === "sq2EffVbs"
-          ? `Nivel ${level} - Subquiz 2 - Intensiv cu eff VBS`
-          : `Nivel ${level} - Subquiz 1 - baza (${factorForLevel(level)}x)`,
+      getLevelLabel: () => {
+        const currentId = orchestrator?.getCurrentId?.();
+        if (currentId === SQ2_VBS_ID) {
+          return `Nivel ${level} - Subquiz 2 - Intensiv cu eff VBS`;
+        }
+        if (currentId === SQ2_SBS_ID) {
+          return `Nivel ${level} - Subquiz 2 - Intensiv SBS`;
+        }
+        return `Nivel ${level} - Subquiz 1 - baza (${factorForLevel(level)}x)`;
+      },
       getLevelButtonTitle: (targetLevel) =>
         `Nivel ${targetLevel}: ${factorForLevel(targetLevel)}*${FACT_B_MIN}-${factorForLevel(targetLevel)}`,
       isCompleted: () => completed,
@@ -649,16 +901,18 @@
         return {
           visible: true,
           mode:
-            currentId === "sq2EffVbs"
+            currentId === SQ2_VBS_ID
               ? "Subquiz 2: Intensiv cu eff VBS"
-              : "Subquiz 1: baza",
-          theme: currentId === "sq2EffVbs" ? "sq2-eff-vbs" : "base",
+              : currentId === SQ2_SBS_ID
+                ? "Subquiz 2: Intensiv SBS"
+                : "Subquiz 1: baza",
+          theme: isIntensiveSubquiz(currentId) ? "sq2-eff-vbs" : "base",
           wrongFactsText: baseState?.wrongFacts?.length
             ? baseState.wrongFacts.map(factLabel).join(", ")
             : "-",
-          intensivText: currentId === "sq2EffVbs" ? sq2Progress : shared.sq2FactsText.join(", ") || "-",
+          intensivText: isIntensiveSubquiz(currentId) ? sq2Progress : shared.sq2FactsText.join(", ") || "-",
           answeredText:
-            currentId === "sq2EffVbs"
+            isIntensiveSubquiz(currentId)
               ? `${sq2State?.questionCount ?? 0} intrebari SQ2`
               : `${baseState?.questionCount ?? 0} / ${QUESTIONS_PER_LEVEL}`,
           intensivSessionsText: "-",
@@ -699,26 +953,79 @@
         if (orchestrator?.getCurrentId?.() !== "base") return null;
         const factB = shared.baseState?.currentFactB;
         if (!factB) return null;
-        const result = orchestrator.command({
-          action: "push",
-          targetId: "sq2EffVbs",
-          payload: {
-            facts: uniqueFacts([factB]),
-            reason: "manualArenaButton",
-          },
-          view: {
-            outcome: "step-correct",
-            correct: true,
-            bounce: true,
-            flash: "win",
-            message: `Subquiz 2 EFF VBS: ${factLabel(factB)}`,
-          },
-        });
+        const targetId = pickIntensiveTarget();
+        const targetCount = targetId === SQ2_SBS_ID ? SQ2_SBS_FACT_COUNT : 1;
+        const facts = validLevelFacts([factB, ...selectFactsForSq2([factB], { targetCount })]).slice(
+          0,
+          targetCount
+        );
+        const command = startIntensiveWithFacts(facts, "manualArenaButton", { flash: "win" }, targetId);
+        if (!command) return null;
+        const result = orchestrator.command(command);
         return handleOrchestratorResult(result);
       },
 
       appendSq2ControlPanel(mount, hooks = {}) {
         if (!mount) return;
+        const intensiveModeRow = document.createElement("div");
+        intensiveModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
+        const intensiveModeText = document.createElement("span");
+        intensiveModeText.textContent = "Mod Intensiv:";
+        intensiveModeRow.appendChild(intensiveModeText);
+        [
+          ["vbs", "subq1"],
+          ["sbs", "subq2"],
+          ["alternate", "alternate"],
+          ["random", "random order"],
+        ].forEach(([mode, labelText]) => {
+          const label = document.createElement("label");
+          label.className = "control-panel-lift-row sq2-eff-vbs-radio";
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = "sq2-intensive-mode";
+          input.value = mode;
+          input.checked = intensiveMode === mode;
+          input.addEventListener("change", () => {
+            intensiveMode = mode;
+            if (mode === "alternate") nextAlternateIntensiveTarget = SQ2_VBS_ID;
+            writeSetting(SQ2_INTENSIVE_MODE_KEY, mode);
+            hooks.onChange?.();
+          });
+          label.append(input, document.createTextNode(labelText));
+          intensiveModeRow.appendChild(label);
+        });
+
+        const sbsAnswerRow = document.createElement("div");
+        sbsAnswerRow.className = "control-panel-lift-field sq2-eff-vbs-field";
+        const sbsAnswerText = document.createElement("span");
+        sbsAnswerText.textContent = "Raspunsuri din:";
+        sbsAnswerRow.appendChild(sbsAnswerText);
+        const factorInput = document.createElement("input");
+        const productInput = document.createElement("input");
+        function syncSbsAnswerSources() {
+          sbsAnswerFromFactor = factorInput.checked;
+          sbsAnswerFromProduct = productInput.checked;
+          if (!sbsAnswerFromFactor && !sbsAnswerFromProduct) {
+            sbsAnswerFromFactor = true;
+            factorInput.checked = true;
+          }
+          writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, sbsAnswerFromFactor);
+          writeSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, sbsAnswerFromProduct);
+          hooks.onChange?.();
+        }
+        [
+          [factorInput, "factor", sbsAnswerFromFactor],
+          [productInput, "produs", sbsAnswerFromProduct],
+        ].forEach(([input, labelText, checked]) => {
+          const label = document.createElement("label");
+          label.className = "control-panel-lift-row sq2-eff-vbs-radio";
+          input.type = "checkbox";
+          input.checked = checked;
+          input.addEventListener("change", syncSbsAnswerSources);
+          label.append(input, document.createTextNode(labelText));
+          sbsAnswerRow.appendChild(label);
+        });
+
         const factRow = document.createElement("div");
         factRow.className = "control-panel-lift-field sq2-eff-vbs-field";
         const factLabelEl = document.createElement("span");
@@ -791,8 +1098,8 @@
           exitRow.appendChild(label);
         });
 
-        const modeRow = document.createElement("div");
-        modeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
+        const exitModeRow = document.createElement("div");
+        exitModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
         ["correct", "any"].forEach((mode) => {
           const label = document.createElement("label");
           label.className = "control-panel-lift-row sq2-eff-vbs-radio";
@@ -807,13 +1114,27 @@
             hooks.onChange?.();
           });
           label.append(input, document.createTextNode(mode === "correct" ? "corect" : "corect sau incorect"));
-          modeRow.appendChild(label);
+          exitModeRow.appendChild(label);
         });
 
-        mount.append(factRow, eqFormRow, exitRow, modeRow);
+        mount.append(intensiveModeRow, sbsAnswerRow, factRow, eqFormRow, exitRow, exitModeRow);
       },
 
       setSq2Config(config = {}) {
+        if (SQ2_INTENSIVE_MODES.includes(config.intensiveMode)) {
+          intensiveMode = config.intensiveMode;
+          if (intensiveMode === "alternate") nextAlternateIntensiveTarget = SQ2_VBS_ID;
+          writeSetting(SQ2_INTENSIVE_MODE_KEY, intensiveMode);
+        }
+        if (typeof config.sbsAnswerFactor === "boolean") {
+          sbsAnswerFromFactor = config.sbsAnswerFactor;
+          writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, sbsAnswerFromFactor);
+        }
+        if (typeof config.sbsAnswerProduct === "boolean") {
+          sbsAnswerFromProduct = config.sbsAnswerProduct;
+          writeSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, sbsAnswerFromProduct);
+        }
+        ensureSbsAnswerSource();
         if ([1, 2, 3, 4].includes(Number(config.factCount))) {
           sq2FactCount = Number(config.factCount);
           writeSetting(SQ2_FACT_COUNT_KEY, sq2FactCount);

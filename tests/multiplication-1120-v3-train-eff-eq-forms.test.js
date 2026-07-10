@@ -50,6 +50,14 @@ function wrongIndex(state) {
   return (state.correctIndex + 1) % state.options.length;
 }
 
+function keepShortQfListsButStartBaseWithProduct(items) {
+  if (!items?.[0]?.id || items.length <= 2) return [...items];
+  const productFirst = items.filter(
+    (type) => type.id === "f1_initial:doua_nr_in_STANGA:trei_pozitii_pt_cate_un_numar:4"
+  );
+  return [...productFirst, ...items.filter((type) => !productFirst.includes(type))];
+}
+
 describe("multiplication-1120-v3 train eff eq forms", () => {
   beforeEach(() => {
     delete globalThis.QuizRegistry;
@@ -170,7 +178,7 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
   });
 
   it("limits the SQ2 equation forms with the configurable count", () => {
-    const oneFormQuiz = setupQuiz();
+    const oneFormQuiz = setupQuiz({ shuffle: keepShortQfListsButStartBaseWithProduct });
     oneFormQuiz.setSq2Config?.({
       factCount: 1,
       exitCount: 5,
@@ -183,7 +191,7 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     state = oneFormQuiz.onAnswer(state.correctIndex, { responseMs: 700 });
     assert.equal(state.prompt, "11*2=?");
 
-    const twoFormQuiz = setupQuiz();
+    const twoFormQuiz = setupQuiz({ shuffle: keepShortQfListsButStartBaseWithProduct });
     twoFormQuiz.setSq2Config?.({
       factCount: 1,
       exitCount: 5,
@@ -195,6 +203,114 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.equal(state.prompt, "?*2=22");
     state = twoFormQuiz.onAnswer(state.correctIndex, { responseMs: 700 });
     assert.equal(state.prompt, "11*?=22");
+  });
+
+  it("starts SBS manually with the current fact and a fixed factor button set", () => {
+    const quiz = setupQuiz();
+    quiz.setSq2Config?.({
+      intensiveMode: "sbs",
+      exitCount: 3,
+      exitMode: "any",
+      eqFormCount: 1,
+      sbsAnswerFactor: true,
+      sbsAnswerProduct: false,
+    });
+    let state = quiz.beginRound();
+
+    state = quiz.runArenaAction("sendCurrentFactToSq2");
+
+    assert.equal(quiz.getSubquizStage(), "sq2EffSbs");
+    assert.equal(quiz.getLevelLabel(), "Nivel 1 - Subquiz 2 - Intensiv SBS");
+    assert.deepEqual(state.options.map(Number), [2, 3, 4]);
+    assert.equal(Number(state.options[state.correctIndex]), state.metadata.factB);
+    assert.equal(state.metadata.answerKind, "factor");
+    assert.equal(state.metadata.sameButtonSet, true);
+  });
+
+  it("orders SBS button values ascending even when selected facts are not sorted", () => {
+    const quiz = setupQuiz({ random: () => 0.99 });
+    quiz.setSq2Config?.({
+      intensiveMode: "sbs",
+      exitCount: 3,
+      exitMode: "any",
+      eqFormCount: 1,
+      sbsAnswerFactor: true,
+      sbsAnswerProduct: false,
+    });
+    let state = quiz.beginRound();
+
+    state = quiz.runArenaAction("sendCurrentFactToSq2");
+
+    assert.equal(quiz.getSubquizStage(), "sq2EffSbs");
+    assert.deepEqual(state.options.map(Number), [2, 3, 4]);
+  });
+
+  it("starts SBS manually with product button values when product answers are selected", () => {
+    const quiz = setupQuiz();
+    quiz.setSq2Config?.({
+      intensiveMode: "sbs",
+      exitCount: 3,
+      exitMode: "any",
+      eqFormCount: 1,
+      sbsAnswerFactor: false,
+      sbsAnswerProduct: true,
+    });
+    let state = quiz.beginRound();
+
+    state = quiz.runArenaAction("sendCurrentFactToSq2");
+
+    assert.equal(quiz.getSubquizStage(), "sq2EffSbs");
+    assert.deepEqual(state.options.map(Number), [22, 33, 44]);
+    assert.equal(Number(state.options[state.correctIndex]), 11 * state.metadata.factB);
+    assert.equal(state.metadata.answerKind, "product");
+  });
+
+  it("enters SBS from base triggers when intensive mode is subq2", () => {
+    const quiz = setupQuiz();
+    quiz.setSq2Config?.({
+      intensiveMode: "sbs",
+      exitCount: 3,
+      exitMode: "any",
+      sbsAnswerFactor: true,
+      sbsAnswerProduct: false,
+    });
+    let state = quiz.beginRound();
+
+    [100, 500, 200, 900, 300].forEach((responseMs) => {
+      state = quiz.onAnswer(state.correctIndex, { responseMs });
+    });
+
+    assert.equal(quiz.getSubquizStage(), "sq2EffSbs");
+    assert.equal(quiz.getInfo11_20().mode, "Subquiz 2: Intensiv SBS");
+    assert.equal(state.options.length, 3);
+  });
+
+  it("alternates intensive mode between VBS and SBS", () => {
+    const quiz = setupQuiz();
+    quiz.setSq2Config?.({
+      intensiveMode: "alternate",
+      factCount: 1,
+      exitCount: 3,
+      exitMode: "any",
+      sbsAnswerFactor: true,
+      sbsAnswerProduct: false,
+    });
+    let state = quiz.beginRound();
+
+    for (let i = 0; i < 5; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    }
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
+
+    while (quiz.getSubquizStage() === "sq2EffVbs") {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    }
+    assert.equal(quiz.getSubquizStage(), "base");
+
+    for (let i = 0; i < 5; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    }
+    assert.equal(quiz.getSubquizStage(), "sq2EffSbs");
   });
 
   it("waits for the current correction before entering SQ2 after two wrong facts accumulate", () => {
