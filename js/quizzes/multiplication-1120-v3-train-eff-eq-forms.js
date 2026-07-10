@@ -7,12 +7,17 @@
   const MAX_LEVEL = 10;
   const QUESTIONS_PER_LEVEL = 12;
   const SQ2_TRIGGER_EVERY_BASE_ANSWERS = 5;
+  const FACT_B_MIN = 2;
+  const FACT_WINDOW_SIZE = 5;
   const LEVEL_FACTOR_ANSWER_WINDOW = 10;
   const LEVEL_FACTOR_ANSWER_MAX_IN_WINDOW = 1;
   const HINT = "Alege raspunsul corect.";
   const SQ2_FACT_COUNT_KEY = "yl:mul1120v3:sq2FactCount";
   const SQ2_EXIT_COUNT_KEY = "yl:mul1120v3:sq2ExitCount";
   const SQ2_EXIT_MODE_KEY = "yl:mul1120v3:sq2ExitMode";
+  const SQ2_EQ_FORM_COUNT_KEY = "yl:mul1120v3:sq2EqFormCount";
+  const SQ2_EQ_FORM_MIN = 1;
+  const SQ2_EQ_FORM_MAX = 24;
 
   const QF_PROFILE = {
     f1_initial: true,
@@ -40,6 +45,10 @@
     } catch (err) {
       return fallback;
     }
+  }
+
+  function rangeChoices(min, max) {
+    return Array.from({ length: max - min + 1 }, (_, index) => min + index);
   }
 
   function writeSetting(key, value) {
@@ -95,6 +104,7 @@
     const random = typeof config.random === "function" ? config.random : Math.random;
     const QFG = global.QFGenerator;
     const Catalog = global.FactCatalog;
+    const Sequencer = global.FactWindowSequencer;
     const qfTypes = QFG.getActiveQFTypes(QF_PROFILE).filter(
       (type) => type.answerType === "number"
     );
@@ -105,6 +115,11 @@
     let sq2FactCount = readNumberSetting(SQ2_FACT_COUNT_KEY, [1, 2, 3, 4], 2);
     let sq2ExitCount = readNumberSetting(SQ2_EXIT_COUNT_KEY, [3, 4, 5], 3);
     let sq2ExitMode = readExitMode();
+    let sq2EqFormCount = readNumberSetting(
+      SQ2_EQ_FORM_COUNT_KEY,
+      rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX),
+      SQ2_EQ_FORM_MAX
+    );
     const shared = {
       baseState: null,
       sq2State: null,
@@ -118,36 +133,49 @@
       });
     }
 
-    function weightedSmallFactPick(values) {
-      const candidates = uniqueFacts(values);
-      const totalWeight = candidates.reduce((sum, b) => sum + 1 / b, 0);
-      let cursor = random() * totalWeight;
-
-      for (const b of candidates) {
-        cursor -= 1 / b;
-        if (cursor <= 0) return b;
-      }
-
-      return candidates[candidates.length - 1];
+    function maxFactB() {
+      return factorForLevel(level);
     }
 
-    function buildBQueue(values = null) {
-      const factor = factorForLevel(level);
-      const remaining = values ? uniqueFacts(values) : Array.from({ length: factor }, (_, index) => index + 1);
-      const queue = [];
+    function getLevelFactBs() {
+      return Array.from(
+        { length: Math.max(0, maxFactB() - FACT_B_MIN + 1) },
+        (_, index) => FACT_B_MIN + index
+      );
+    }
 
-      while (remaining.length) {
-        const picked = weightedSmallFactPick(remaining);
-        queue.push(picked);
-        remaining.splice(remaining.indexOf(picked), 1);
-      }
+    function isLevelFactB(b) {
+      const factB = Number(b);
+      return Number.isFinite(factB) && factB >= FACT_B_MIN && factB <= maxFactB();
+    }
 
-      return queue;
+    function validLevelFacts(bs) {
+      return uniqueFacts(bs).filter(isLevelFactB);
+    }
+
+    function qfTypesForSubquiz(subquizId) {
+      if (subquizId !== "sq2EffVbs") return qfTypes;
+      return qfTypes.slice(0, sq2EqFormCount);
+    }
+
+    function createBaseFactSequencer() {
+      return Sequencer.createSlidingWindow({
+        min: FACT_B_MIN,
+        max: maxFactB(),
+        windowSize: FACT_WINDOW_SIZE,
+        random,
+      });
+    }
+
+    function buildBQueue(values = []) {
+      const facts = validLevelFacts(values);
+      const cycle = Sequencer.createCycle({ values: facts, random });
+      return facts.map(() => cycle.next()).filter(isLevelFactB);
     }
 
     function pickB(state) {
-      if (!state.bQueue?.length) state.bQueue = buildBQueue();
-      return state.bQueue.shift();
+      if (!state.factSequencer) state.factSequencer = createBaseFactSequencer();
+      return state.factSequencer.next() ?? FACT_B_MIN;
     }
 
     function canUseLevelFactorAnswer(state) {
@@ -212,7 +240,7 @@
       const fact = makeFact(b);
       const allowLevelFactorAnswer = canUseLevelFactorAnswer(state);
 
-      for (const type of shuffle(qfTypes)) {
+      for (const type of shuffle(qfTypesForSubquiz(subquizId))) {
         const rendered = QFG.renderQF(type, fact);
         if (!rendered || rendered.answerType !== "number") continue;
         const correct = Number(rendered.correctAnswer);
@@ -248,7 +276,7 @@
       function add(b, { allowRecent = false } = {}) {
         if (!Number.isFinite(Number(b))) return;
         const factB = Number(b);
-        if (factB < 1 || factB > factorForLevel(level) || picked.includes(factB)) return;
+        if (!isLevelFactB(factB) || picked.includes(factB)) return;
         if (!allowRecent && recent.includes(factB)) return;
         picked.push(factB);
       }
@@ -325,7 +353,7 @@
           const state = {
             questionCount: 0,
             correctCount: 0,
-            bQueue: [],
+            factSequencer: createBaseFactSequencer(),
             wrongFacts: [],
             responseTimesByB: {},
             currentFactB: null,
@@ -419,10 +447,10 @@
         title: "Intensiv cu eff VBS",
         hintMessage: HINT,
         initialState({ payload }) {
-          const facts = uniqueFacts(payload?.facts).slice(0, 4);
+          const facts = validLevelFacts(payload?.facts).slice(0, 4);
           noteSq2SelectedFacts(facts);
           const state = {
-            facts: facts.length ? facts : [1],
+            facts: facts.length ? facts : [FACT_B_MIN],
             countsByB: {},
             correctCountsByB: {},
             questionCount: 0,
@@ -574,7 +602,7 @@
           ? `Nivel ${level} - Subquiz 2 - Intensiv cu eff VBS`
           : `Nivel ${level} - Subquiz 1 - baza (${factorForLevel(level)}x)`,
       getLevelButtonTitle: (targetLevel) =>
-        `Nivel ${targetLevel}: ${factorForLevel(targetLevel)}*1-${factorForLevel(targetLevel)}`,
+        `Nivel ${targetLevel}: ${factorForLevel(targetLevel)}*${FACT_B_MIN}-${factorForLevel(targetLevel)}`,
       isCompleted: () => completed,
       getProgressDisplay: () => global.ProgressDisplay.hidden(),
 
@@ -634,8 +662,7 @@
               ? `${sq2State?.questionCount ?? 0} intrebari SQ2`
               : `${baseState?.questionCount ?? 0} / ${QUESTIONS_PER_LEVEL}`,
           intensivSessionsText: "-",
-          facts: Array.from({ length: A }, (_, index) => {
-            const b = index + 1;
+          facts: getLevelFactBs().map((b) => {
             return {
               label: `${A}*${b}`,
               timeText: "-",
@@ -714,6 +741,34 @@
           factRow.appendChild(label);
         });
 
+        const eqFormRow = document.createElement("div");
+        eqFormRow.className = "control-panel-lift-field sq2-eff-vbs-slider-field";
+        const eqFormHead = document.createElement("div");
+        eqFormHead.className = "sq2-eff-vbs-slider-head";
+        const eqFormLabel = document.createElement("label");
+        eqFormLabel.textContent = "Nr. eq forms in sq2:";
+        const eqFormOut = document.createElement("span");
+        eqFormOut.className = "control-panel-lift-slider-out";
+        eqFormOut.textContent = String(sq2EqFormCount);
+        const eqFormSlider = document.createElement("input");
+        eqFormSlider.type = "range";
+        eqFormSlider.min = String(SQ2_EQ_FORM_MIN);
+        eqFormSlider.max = String(SQ2_EQ_FORM_MAX);
+        eqFormSlider.step = "1";
+        eqFormSlider.value = String(sq2EqFormCount);
+        eqFormSlider.className = "sq2-eff-vbs-slider";
+        eqFormSlider.addEventListener("input", () => {
+          sq2EqFormCount = clampChoice(
+            eqFormSlider.value,
+            rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX),
+            SQ2_EQ_FORM_MAX
+          );
+          eqFormOut.textContent = String(sq2EqFormCount);
+          writeSetting(SQ2_EQ_FORM_COUNT_KEY, sq2EqFormCount);
+        });
+        eqFormHead.append(eqFormLabel, eqFormOut);
+        eqFormRow.append(eqFormHead, eqFormSlider);
+
         const exitRow = document.createElement("div");
         exitRow.className = "control-panel-lift-field sq2-eff-vbs-field";
         const exitText = document.createElement("span");
@@ -755,7 +810,7 @@
           modeRow.appendChild(label);
         });
 
-        mount.append(factRow, exitRow, modeRow);
+        mount.append(factRow, eqFormRow, exitRow, modeRow);
       },
 
       setSq2Config(config = {}) {
@@ -770,6 +825,10 @@
         if (config.exitMode === "correct" || config.exitMode === "any") {
           sq2ExitMode = config.exitMode;
           writeSetting(SQ2_EXIT_MODE_KEY, sq2ExitMode);
+        }
+        if (rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX).includes(Number(config.eqFormCount))) {
+          sq2EqFormCount = Number(config.eqFormCount);
+          writeSetting(SQ2_EQ_FORM_COUNT_KEY, sq2EqFormCount);
         }
         return true;
       },

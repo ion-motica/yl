@@ -32,6 +32,7 @@ function setupQuiz({ shuffle = (items) => [...items], random = () => 0 } = {}) {
     "js/progress-display.js",
     "js/quiz-registry.js",
     "js/fact-catalog.js",
+    "js/fact-window-sequencer.js",
     "js/eff/qf-generator.js",
     "js/subquiz/item-generator.js",
     "js/subquiz/subquiz-definition.js",
@@ -55,6 +56,7 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     delete globalThis.GameUtils;
     delete globalThis.ProgressDisplay;
     delete globalThis.FactCatalog;
+    delete globalThis.FactWindowSequencer;
     delete globalThis.QFGenerator;
     delete globalThis.ItemGenerator;
     delete globalThis.SubquizDefinition;
@@ -70,22 +72,24 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.equal(meta.order, 2.2);
   });
 
-  it("starts level 1 with factor 11 and b values from 1 to 11", () => {
+  it("starts level 1 with factor 11 and b values from 2 to 11", () => {
     const quiz = setupQuiz();
     const state = quiz.beginRound();
 
     assert.equal(quiz.getSubquizStage(), "base");
     assert.equal(quiz.getLevelLabel(), "Nivel 1 - Subquiz 1 - baza (11x)");
-    assert.equal(state.prompt, "?*1=11");
+    assert.equal(state.prompt, "?*2=22");
     assert.equal(state.options.length, 3);
-    assert.equal(quiz.getInfo11_20().facts.length, 11);
+    assert.equal(quiz.getInfo11_20().facts.length, 10);
+    assert.equal(quiz.getInfo11_20().facts[0].label, "11*2");
   });
 
-  it("picks facts randomly with a bias toward smaller values instead of fixed ascending order", () => {
+  it("introduces facts through the current five-fact window instead of jumping across the level", () => {
     const quiz = setupQuiz({ random: () => 0.99 });
     const state = quiz.beginRound();
 
-    assert.equal(state.prompt, "?*11=121");
+    assert.ok(state.metadata.factB >= 2);
+    assert.ok(state.metadata.factB <= 6);
   });
 
   it("advances to level 2 after 12 base answers while SQ2 interruptions return to base", () => {
@@ -100,18 +104,19 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.equal(state.levelAdvanced, true);
     assert.equal(quiz.getLevel(), 2);
     assert.equal(quiz.getSubquizStage(), "base");
-    assert.equal(state.nextRound.prompt, "?*1=12");
+    assert.equal(state.nextRound.prompt, "?*2=24");
     assert.equal(quiz.getInfo11_20().answeredText, "0 / 12");
   });
 
-  it("level 10 uses factor 20 and b values from 1 to 20", () => {
+  it("level 10 uses factor 20 and b values from 2 to 20", () => {
     const quiz = setupQuiz();
     quiz.switchLevel(10);
     const state = quiz.beginRound();
 
-    assert.equal(state.prompt, "?*1=20");
-    assert.equal(quiz.getInfo11_20().facts.length, 20);
-    assert.equal(quiz.getLevelButtonTitle(10), "Nivel 10: 20*1-20");
+    assert.equal(state.prompt, "?*2=40");
+    assert.equal(quiz.getInfo11_20().facts.length, 19);
+    assert.equal(quiz.getInfo11_20().facts[0].label, "20*2");
+    assert.equal(quiz.getLevelButtonTitle(10), "Nivel 10: 20*2-20");
   });
 
   it("uses close factor traps when equation forms ask for the missing factor", () => {
@@ -123,10 +128,10 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     });
     const state = quiz.beginRound();
 
-    assert.equal(state.prompt, "11*?=11");
+    assert.equal(state.prompt, "11*?=22");
     assert.deepEqual(
       state.options.map(Number).sort((a, b) => a - b),
-      [0, 1, 2]
+      [1, 2, 3]
     );
   });
 
@@ -144,8 +149,7 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
       firstTenCorrectAnswers.filter((answer) => answer === 11).length,
       1
     );
-    assert.equal(state.prompt, "?*11=121");
-    assert.equal(Number(state.options[state.correctIndex]), 11);
+    assert.notEqual(state.metadata.factB, 1);
   });
 
   it("enters SQ2 manually with the current fact and returns to base after the exit count", () => {
@@ -165,6 +169,34 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.match(state.prompt, /\?/);
   });
 
+  it("limits the SQ2 equation forms with the configurable count", () => {
+    const oneFormQuiz = setupQuiz();
+    oneFormQuiz.setSq2Config?.({
+      factCount: 1,
+      exitCount: 5,
+      exitMode: "any",
+      eqFormCount: 1,
+    });
+    let state = oneFormQuiz.beginRound();
+    state = oneFormQuiz.runArenaAction("sendCurrentFactToSq2");
+    assert.equal(state.prompt, "?*2=22");
+    state = oneFormQuiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    assert.equal(state.prompt, "11*2=?");
+
+    const twoFormQuiz = setupQuiz();
+    twoFormQuiz.setSq2Config?.({
+      factCount: 1,
+      exitCount: 5,
+      exitMode: "any",
+      eqFormCount: 2,
+    });
+    state = twoFormQuiz.beginRound();
+    state = twoFormQuiz.runArenaAction("sendCurrentFactToSq2");
+    assert.equal(state.prompt, "?*2=22");
+    state = twoFormQuiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    assert.equal(state.prompt, "11*?=22");
+  });
+
   it("waits for the current correction before entering SQ2 after two wrong facts accumulate", () => {
     const quiz = setupQuiz();
     let state = quiz.beginRound();
@@ -180,8 +212,8 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
 
     assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
-    assert.match(quiz.getInfo11_20().intensivText, /11\*1/);
-    assert.match(quiz.getInfo11_20().intensivText, /11\*3/);
+    assert.match(quiz.getInfo11_20().intensivText, /11\*2/);
+    assert.doesNotMatch(quiz.getInfo11_20().intensivText, /11\*1(?:\D|$)/);
   });
 
   it("enters SQ2 after five base answers using the slowest facts", () => {
@@ -193,8 +225,8 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     });
 
     assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
-    assert.match(quiz.getInfo11_20().intensivText, /11\*4/);
-    assert.match(quiz.getInfo11_20().intensivText, /11\*2/);
+    assert.match(quiz.getInfo11_20().intensivText, /11\*5/);
+    assert.match(quiz.getInfo11_20().intensivText, /11\*3/);
   });
 
   it("SQ2 counts wrong answers but exits only after the current question is corrected", () => {
@@ -253,8 +285,8 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
 
     assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
     const firstSq2Facts = quiz.getInfo11_20().intensivText;
-    assert.match(firstSq2Facts, /11\*1/);
-    assert.match(firstSq2Facts, /11\*3/);
+    assert.match(firstSq2Facts, /11\*2/);
+    assert.doesNotMatch(firstSq2Facts, /11\*1(?:\D|$)/);
 
     while (quiz.getSubquizStage() === "sq2EffVbs") {
       state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
@@ -268,7 +300,21 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
 
     assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
     const nextSq2Facts = quiz.getInfo11_20().intensivText;
-    assert.doesNotMatch(nextSq2Facts, /11\*1/);
-    assert.doesNotMatch(nextSq2Facts, /11\*3/);
+    assert.doesNotMatch(nextSq2Facts, /11\*2(?:\D|$)/);
+  });
+
+  it("slides the shared fact window upward when the lowest fact has been worked", () => {
+    setupQuiz();
+    const sequencer = globalThis.FactWindowSequencer.createSlidingWindow({
+      min: 2,
+      max: 20,
+      windowSize: 5,
+      random: () => 0,
+    });
+
+    const seen = Array.from({ length: 15 }, () => sequencer.next());
+
+    assert.deepEqual(seen, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+    assert.deepEqual(sequencer.currentWindow(), [16, 17, 18, 19, 20]);
   });
 });
