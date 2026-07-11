@@ -34,6 +34,7 @@
     let paused = false;
     let rafId = null;
     let roundStartedAt = null;
+    let roundDisplayedAt = null;
     let fallHeld = false;
     let liftBgOpacity = config.liftBgOpacity ?? LIFT_BG_OPACITY_DEFAULT;
     // Lățimea liftului ca procent din arenă (null = lățimea implicită din CSS).
@@ -134,9 +135,15 @@
       return Date.now();
     }
 
+    function startResponseTimer() {
+      roundStartedAt = nowMs();
+      roundDisplayedAt = new Date().toISOString();
+    }
+
     function attemptMeta(extra = {}) {
       return {
         at: new Date().toISOString(),
+        questionDisplayedAt: roundDisplayedAt,
         responseMs: roundStartedAt == null ? null : Math.max(0, Math.round(nowMs() - roundStartedAt)),
         ...extra,
       };
@@ -518,6 +525,8 @@
     // NOUĂ (nu o re-randare a aceleiași — ex. timeout pe aceeași întrebare).
     function roundSignature(s) {
       if (!s) return null;
+      const questionInstanceId = s.metadata?.questionInstanceId;
+      if (questionInstanceId != null) return `question:${questionInstanceId}`;
       const opts = Array.isArray(s.options) ? s.options.map(String).join("|") : "";
       const prompt =
         s.promptHtml ??
@@ -532,7 +541,7 @@
       // Resetăm doar când întrebarea e nouă; pe calea startRound, releaseRoundHold
       // suprascrie oricum (ca să nu numărăm „hold"-ul liftului).
       if (roundSignature(state) !== roundSignature(lastRoundState)) {
-        roundStartedAt = nowMs();
+        startResponseTimer();
       }
       lastRoundState = state;
       dom.fallingMainEl?.classList.remove("has-division-eq", "has-singapore-bond");
@@ -802,7 +811,7 @@
       const beforeState = lastRoundState;
       result = normalizeResult(result);
       const wrongPick = pickedIndex != null && result.outcome === "wrong-answer";
-      const timedOut = result.outcome === "timeout";
+      const timedOut = meta.timedOut === true || result.outcome === "timeout";
       const starCorrect = !wrongPick && !timedOut && result.correct !== false;
       const chosenAnswer =
         pickedIndex != null
@@ -814,14 +823,16 @@
         answered: pickedIndex != null && !timedOut,
       });
 
-      config.onAttemptLogged?.({
-        beforeState,
-        result,
-        pickedIndex,
-        meta,
-        correct: starCorrect,
-        timedOut,
-      });
+      if (!timedOut) {
+        config.onAttemptLogged?.({
+          beforeState,
+          result,
+          pickedIndex,
+          meta,
+          correct: starCorrect,
+          timedOut: false,
+        });
+      }
 
       applyImmediateAnswerFeedback(result, wrongPick);
 
@@ -955,7 +966,7 @@
     function releaseRoundHold() {
       fallHeld = false;
       if (!getQuiz().isCompleted()) setInputEnabled(true);
-      roundStartedAt = nowMs();
+      startResponseTimer();
     }
 
     function startRound(state) {

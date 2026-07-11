@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jurnal întrebări YouLearn</title>
+    <style>
+      :root { color-scheme: light; font-family: system-ui, sans-serif; }
+      html, body { height: 100%; }
+      body { display: grid; grid-template-rows: auto minmax(0, 1fr); margin: 0; overflow: hidden; background: #f5f7fb; color: #172033; }
+      header { z-index: 3; padding: 14px 18px; background: #172033; color: white; }
+      h1 { display: inline; margin: 0 16px 0 0; font-size: 18px; }
+      #jurnal-status { color: #cbd5e1; }
+      main { min-height: 0; padding: 0 14px 14px; overflow: auto; }
+      table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; background: white; font-size: 13px; }
+      thead { position: sticky; top: 0; z-index: 2; }
+      th, td { max-width: 360px; padding: 8px 10px; border: 1px solid #d8deea; text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+      th { background: #e8edf7; box-shadow: 0 2px 0 #c5cede; }
+      tbody tr:nth-child(even) { background: #f8fafc; }
+    </style>
+  </head>
+  <body>
+    <header><h1>Jurnal întrebări</h1><span id="jurnal-status">Se încarcă…</span></header>
+    <main id="jurnal-scroll">
+      <table>
+        <thead id="jurnal-head"></thead>
+        <tbody id="jurnal-body"></tbody>
+      </table>
+    </main>
+    <script src="js/jurnal-intrebari-viewer.js?v=2"></script>
+  </body>
+</html>

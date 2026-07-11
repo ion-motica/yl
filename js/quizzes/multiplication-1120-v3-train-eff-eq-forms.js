@@ -127,6 +127,8 @@
 
   function createQuiz(config = {}) {
     const quizId = config.quizId ?? QUIZ_ID;
+    const quizName = config.quizName ?? QUIZ_TITLE;
+    const jurnalIntrebariActiv = config.jurnalIntrebariActiv === true;
     const { shuffle } = global.GameUtils;
     const random = typeof config.random === "function" ? config.random : Math.random;
     const QFG = global.QFGenerator;
@@ -158,6 +160,76 @@
       sq2FactsText: [],
       levelFactorAnswerHistory: [],
     };
+    const apasariPeIntrebare = new WeakMap();
+    let questionInstanceSequence = 0;
+
+    function subquizName(subquizId) {
+      if (subquizId === SQ2_VBS_ID) return "Subquiz 2: Intensiv cu eff VBS";
+      if (subquizId === SQ2_SBS_ID) return "Subquiz 2: Intensiv SBS";
+      return subquizId === "base" ? "Subquiz 1: baza" : null;
+    }
+
+    function dataOraBucuresti(momentIso) {
+      const data = new Date(momentIso);
+      if (Number.isNaN(data.getTime())) return null;
+      const parti = new Intl.DateTimeFormat("ro-RO", {
+        timeZone: "Europe/Bucharest",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(data);
+      const valoare = (tip) => parti.find((parte) => parte.type === tip)?.value;
+      return `${valoare("year")}-${valoare("month")}-${valoare("day")} ${valoare("hour")}:${valoare("minute")}:${valoare("second")}`;
+    }
+
+    function inregistreazaIntrebare(event) {
+      if (!jurnalIntrebariActiv) return;
+      const jurnal = global.JurnalIntrebari;
+      if (typeof jurnal?.inregistreazaIntrebare !== "function") return;
+
+      const metadata = event.item?.metadata;
+      if (!metadata || !Number.isFinite(Number(event.meta?.responseMs))) return;
+      const aCataApasare = (apasariPeIntrebare.get(metadata) ?? 0) + 1;
+      apasariPeIntrebare.set(metadata, aCataApasare);
+
+      jurnal.inregistreazaIntrebare({
+        data_ora_ro: dataOraBucuresti(event.meta.questionDisplayedAt),
+        quiz_name: quizName,
+        subquiz_name: subquizName(metadata.subquiz),
+        intrebare: String(event.item.prompt),
+        raspuns: String(event.chosen),
+        raspuns_corect: event.isCorrect === true,
+        a_cata_apasare_pe_buton: aCataApasare,
+        durata_raspuns_secunde: Math.round(Number(event.meta.responseMs) / 100) / 10,
+        fact: metadata.fact,
+        quiz_id: quizId,
+        subquiz_id: metadata.subquiz ?? null,
+        fact_id: metadata.factId,
+        eq_form: metadata.eqForm,
+        extra: {},
+      });
+    }
+
+    function appendJurnalButton(mount) {
+      if (!jurnalIntrebariActiv) return;
+      const row = document.createElement("div");
+      row.className = "control-panel-lift-field";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Afisare log";
+      button.addEventListener("click", () => {
+        const url = global.location
+          ? new URL("jurnal-intrebari.html", global.location.href).href
+          : "jurnal-intrebari.html";
+        global.open?.(url, "_blank");
+      });
+      row.appendChild(button);
+      mount.appendChild(row);
+    }
 
     function makeFact(b) {
       return Catalog.createFact({
@@ -263,6 +335,7 @@
 
     function questionItem(prompt, correct, b, product, subquizId, extraMetadata = {}) {
       const A = factorForLevel(level);
+      const fact = makeFact(b);
       const opt = buildMulDivEqFormOptions(correct, product, shuffle);
       return {
         prompt,
@@ -270,10 +343,14 @@
         options: opt.options,
         correctIndex: opt.correctIndex,
         metadata: {
+          questionInstanceId: `${quizId}:${++questionInstanceSequence}`,
           subquiz: subquizId,
           factA: A,
           factB: b,
           product,
+          fact: `${A}*${b}=${product}`,
+          factId: fact.factId,
+          eqForm: prompt,
           ...extraMetadata,
         },
       };
@@ -357,16 +434,21 @@
       const correct = Number(entry.answerValue);
       const correctIndex = options.indexOf(String(correct));
       const qfTypeId = extraMetadata.qfTypeId;
+      const fact = makeFact(entry.b);
       return {
         prompt: rendered.prompt,
         correctAnswer: correct,
         options,
         correctIndex,
         metadata: {
+          questionInstanceId: `${quizId}:${++questionInstanceSequence}`,
           subquiz: SQ2_SBS_ID,
           factA: factorForLevel(level),
           factB: entry.b,
           product: entry.product,
+          fact: `${factorForLevel(level)}*${entry.b}=${entry.product}`,
+          factId: fact.factId,
+          eqForm: rendered.prompt,
           answerKind: entry.answerKind,
           sameButtonSet: true,
           ...(qfTypeId ? { qfTypeId } : {}),
@@ -531,6 +613,8 @@
       const isCorrect = Number(chosen) === Number(item.correctAnswer);
       const factB = item.metadata.factB;
 
+      inregistreazaIntrebare(event);
+
       state.questionCount += 1;
       state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
       if (isCorrect) state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
@@ -602,6 +686,8 @@
           const chosen = item.options[index];
           const isCorrect = Number(chosen) === Number(item.correctAnswer);
           const factB = item.metadata.factB;
+
+          inregistreazaIntrebare(event);
 
           state.questionCount += 1;
           if (isCorrect) state.correctCount += 1;
@@ -967,6 +1053,7 @@
 
       appendSq2ControlPanel(mount, hooks = {}) {
         if (!mount) return;
+        appendJurnalButton(mount);
         const intensiveModeRow = document.createElement("div");
         intensiveModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
         const intensiveModeText = document.createElement("span");
