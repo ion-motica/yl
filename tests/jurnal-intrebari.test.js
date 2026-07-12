@@ -232,6 +232,7 @@ describe("JurnalIntrebari", () => {
     delete globalThis.document;
     delete globalThis.open;
     delete globalThis.location;
+    delete globalThis.deschideVizualizareLogs;
     delete globalThis.BroadcastChannel;
     delete globalThis.scrollTo;
   });
@@ -347,6 +348,31 @@ describe("JurnalIntrebari", () => {
       url: "http://127.0.0.1:5173/jurnal-intrebari.html",
       target: "_blank",
     });
+  });
+
+  it("adauga separat butonul Tabulator si apeleaza API-ul public al vizualizarii", () => {
+    const entries = [];
+    const quiz = setupQuiz(entries);
+    const mount = new FakeElement();
+    let apeluri = 0;
+    globalThis.document = {
+      createElement: (tagName) => new FakeElement(tagName),
+      createTextNode: (text) => ({ textContent: text, children: [] }),
+    };
+    globalThis.deschideVizualizareLogs = () => {
+      apeluri += 1;
+    };
+
+    quiz.appendSq2ControlPanel(mount);
+    const button = findElement(
+      mount,
+      (element) =>
+        element.tagName === "BUTTON" && element.textContent === "View logs in Tabulator"
+    );
+
+    assert.ok(button);
+    button.click();
+    assert.equal(apeluri, 1);
   });
 
   it("raporteaza explicit numele si id-ul subquizurilor intensive", () => {

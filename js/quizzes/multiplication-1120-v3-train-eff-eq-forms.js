@@ -185,20 +185,28 @@
       };
     }
 
-    function appendJurnalButton(mount) {
+    function appendJurnalButtons(mount) {
       if (!jurnalIntrebariActiv) return;
       const row = document.createElement("div");
       row.className = "control-panel-lift-field";
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = "Afisare log";
-      button.addEventListener("click", () => {
+      const buttonAfisareExistenta = document.createElement("button");
+      buttonAfisareExistenta.type = "button";
+      buttonAfisareExistenta.textContent = "Afisare log";
+      buttonAfisareExistenta.addEventListener("click", () => {
         const url = global.location
           ? new URL("jurnal-intrebari.html", global.location.href).href
           : "jurnal-intrebari.html";
         global.open?.(url, "_blank");
       });
-      row.appendChild(button);
+
+      const buttonTabulator = document.createElement("button");
+      buttonTabulator.type = "button";
+      buttonTabulator.textContent = "View logs in Tabulator";
+      buttonTabulator.addEventListener("click", () => {
+        global.deschideVizualizareLogs?.();
+      });
+
+      row.append(buttonAfisareExistenta, buttonTabulator);
       mount.appendChild(row);
     }
 
@@ -1021,7 +1029,7 @@
 
       appendSq2ControlPanel(mount, hooks = {}) {
         if (!mount) return;
-        appendJurnalButton(mount);
+        appendJurnalButtons(mount);
         const intensiveModeRow = document.createElement("div");
         intensiveModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
         const intensiveModeText = document.createElement("span");
