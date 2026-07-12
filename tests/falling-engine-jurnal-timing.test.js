@@ -249,6 +249,16 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
     const firstPress = attempts.at(-1);
     assert.equal(firstPress.meta.questionDisplayedAt, firstDisplayedAt);
     assert.equal(firstPress.meta.responseMs, 3334);
+    assert.deepEqual(firstPress.dateMecaniceJurnal, {
+      moment_afisare_iso: firstDisplayedAt,
+      raspuns: "10",
+      a_raspuns_corect: false,
+      a_cata_apasare_pe_buton: 1,
+      durata_raspuns_secunde: 3.3,
+      pozitie_buton_apasat_pt_raspuns: 1,
+      valori_variante_de_raspuns: ["10", "11", "12"],
+      valoare_raspuns_corect: "11",
+    });
 
     performanceNow = 4667;
     wallClock = RealDate.parse("2026-07-12T09:15:34.567Z");
@@ -256,6 +266,9 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
     const correctPress = attempts.at(-1);
     assert.equal(correctPress.meta.questionDisplayedAt, firstDisplayedAt);
     assert.equal(correctPress.meta.responseMs, 4567);
+    assert.equal(correctPress.dateMecaniceJurnal.a_cata_apasare_pe_buton, 2);
+    assert.equal(correctPress.dateMecaniceJurnal.durata_raspuns_secunde, 4.6);
+    assert.equal(correctPress.dateMecaniceJurnal.a_raspuns_corect, true);
 
     performanceNow = 5901;
     wallClock = RealDate.parse("2026-07-12T09:15:35.801Z");
@@ -263,5 +276,7 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
     const nextQuestionPress = attempts.at(-1);
     assert.equal(nextQuestionPress.meta.questionDisplayedAt, "2026-07-12T09:15:34.567Z");
     assert.equal(nextQuestionPress.meta.responseMs, 1234);
+    assert.equal(nextQuestionPress.dateMecaniceJurnal.a_cata_apasare_pe_buton, 1);
+    assert.equal(nextQuestionPress.dateMecaniceJurnal.durata_raspuns_secunde, 1.2);
   });
 });

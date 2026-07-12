@@ -35,6 +35,8 @@
     let rafId = null;
     let roundStartedAt = null;
     let roundDisplayedAt = null;
+    let journalQuestionKey = null;
+    let journalButtonPressCount = 0;
     let fallHeld = false;
     let liftBgOpacity = config.liftBgOpacity ?? LIFT_BG_OPACITY_DEFAULT;
     // Lățimea liftului ca procent din arenă (null = lățimea implicită din CSS).
@@ -535,6 +537,36 @@
       return `${s.questionFormat || ""}#${prompt}#${opts}`;
     }
 
+    function journalAttemptData(state, pickedIndex, meta, correct) {
+      if (pickedIndex == null) return null;
+      const questionKey = roundSignature(state);
+      if (questionKey !== journalQuestionKey) {
+        journalQuestionKey = questionKey;
+        journalButtonPressCount = 0;
+      }
+      journalButtonPressCount += 1;
+
+      const options = Array.isArray(state?.options) ? state.options : null;
+      const correctIndex = Number.isInteger(state?.correctIndex) ? state.correctIndex : null;
+      const responseMs = Number(meta?.responseMs);
+      return {
+        moment_afisare_iso: meta?.questionDisplayedAt ?? null,
+        raspuns:
+          options?.[pickedIndex] == null ? null : String(options[pickedIndex]),
+        a_raspuns_corect: correct === true,
+        a_cata_apasare_pe_buton: journalButtonPressCount,
+        durata_raspuns_secunde:
+          Number.isFinite(responseMs) ? Math.round(responseMs / 100) / 10 : null,
+        pozitie_buton_apasat_pt_raspuns: pickedIndex + 1,
+        valori_variante_de_raspuns:
+          options == null ? null : options.map((value) => (value == null ? null : String(value))),
+        valoare_raspuns_corect:
+          correctIndex == null || options?.[correctIndex] == null
+            ? null
+            : String(options[correctIndex]),
+      };
+    }
+
     function renderRound(state) {
       state = normalizeRoundState(state);
       // Cronometrul măsoară: apariția întrebării → apăsarea răspunsului corect.
@@ -831,6 +863,12 @@
           meta,
           correct: starCorrect,
           timedOut: false,
+          dateMecaniceJurnal: journalAttemptData(
+            beforeState,
+            pickedIndex,
+            meta,
+            starCorrect
+          ),
         });
       }
 

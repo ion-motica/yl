@@ -169,6 +169,53 @@
     responseTimesByFact.set(label, existing);
   }
 
+  function dataOraBucuresti(momentIso) {
+    const data = new Date(momentIso);
+    if (Number.isNaN(data.getTime())) return null;
+    const parti = new Intl.DateTimeFormat("ro-RO", {
+      timeZone: "Europe/Bucharest",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(data);
+    const valoare = (tip) => parti.find((parte) => parte.type === tip)?.value;
+    return `${valoare("year")}-${valoare("month")}-${valoare("day")} ${valoare("hour")}:${valoare("minute")}:${valoare("second")}`;
+  }
+
+  function inregistreazaIntrebareDinMotor(entry) {
+    const dateMecanice = entry?.dateMecaniceJurnal;
+    const contextQuiz = quiz?.getContextJurnal?.(entry?.beforeState);
+    const jurnal = window.JurnalIntrebari;
+    if (!dateMecanice || !contextQuiz) return;
+    if (typeof jurnal?.inregistreazaIntrebare !== "function") return;
+
+    jurnal.inregistreazaIntrebare({
+      data_ora_ro: dataOraBucuresti(dateMecanice.moment_afisare_iso),
+      quiz_name: contextQuiz.quiz_name ?? null,
+      subquiz_name: contextQuiz.subquiz_name ?? null,
+      intrebare: contextQuiz.intrebare ?? null,
+      raspuns: dateMecanice.raspuns,
+      a_raspuns_corect: dateMecanice.a_raspuns_corect,
+      a_cata_apasare_pe_buton: dateMecanice.a_cata_apasare_pe_buton,
+      durata_raspuns_secunde: dateMecanice.durata_raspuns_secunde,
+      fact: contextQuiz.fact ?? null,
+      quiz_id: contextQuiz.quiz_id ?? null,
+      subquiz_id: contextQuiz.subquiz_id ?? null,
+      fact_id: contextQuiz.fact_id ?? null,
+      eq_form: contextQuiz.eq_form ?? null,
+      pozitie_buton_apasat_pt_raspuns:
+        dateMecanice.pozitie_buton_apasat_pt_raspuns,
+      valori_variante_de_raspuns: dateMecanice.valori_variante_de_raspuns,
+      valoare_raspuns_corect: dateMecanice.valoare_raspuns_corect,
+      hints_aratate_pt_raspuns: contextQuiz.hints_aratate_pt_raspuns ?? null,
+      extra: contextQuiz.extra ?? {},
+    });
+  }
+
   function getResponseTimeRows() {
     return [...responseTimesByFact.values()]
       .filter((row) => row.attempts.length > 0)
@@ -998,6 +1045,7 @@
     onProgressUpdate: renderProgress,
     onAttemptLogged: (entry) => {
       recordResponseTimeAttempt(entry);
+      inregistreazaIntrebareDinMotor(entry);
       if (entry?.result?.levelAdvanced === true) {
         resetResponseTimesSession();
       }

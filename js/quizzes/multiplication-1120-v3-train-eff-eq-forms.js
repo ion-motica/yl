@@ -160,7 +160,6 @@
       sq2FactsText: [],
       levelFactorAnswerHistory: [],
     };
-    const apasariPeIntrebare = new WeakMap();
     let questionInstanceSequence = 0;
 
     function subquizName(subquizId) {
@@ -169,54 +168,21 @@
       return subquizId === "base" ? "Subquiz 1: baza" : null;
     }
 
-    function dataOraBucuresti(momentIso) {
-      const data = new Date(momentIso);
-      if (Number.isNaN(data.getTime())) return null;
-      const parti = new Intl.DateTimeFormat("ro-RO", {
-        timeZone: "Europe/Bucharest",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hourCycle: "h23",
-      }).formatToParts(data);
-      const valoare = (tip) => parti.find((parte) => parte.type === tip)?.value;
-      return `${valoare("year")}-${valoare("month")}-${valoare("day")} ${valoare("hour")}:${valoare("minute")}:${valoare("second")}`;
-    }
-
-    function inregistreazaIntrebare(event) {
-      if (!jurnalIntrebariActiv) return;
-      const jurnal = global.JurnalIntrebari;
-      if (typeof jurnal?.inregistreazaIntrebare !== "function") return;
-
-      const metadata = event.item?.metadata;
-      if (!metadata || !Number.isFinite(Number(event.meta?.responseMs))) return;
-      const aCataApasare = (apasariPeIntrebare.get(metadata) ?? 0) + 1;
-      apasariPeIntrebare.set(metadata, aCataApasare);
-
-      jurnal.inregistreazaIntrebare({
-        data_ora_ro: dataOraBucuresti(event.meta.questionDisplayedAt),
+    function getContextJurnal(state) {
+      if (!jurnalIntrebariActiv) return null;
+      const metadata = state?.metadata ?? {};
+      return {
         quiz_name: quizName,
         subquiz_name: subquizName(metadata.subquiz),
-        intrebare: String(event.item.prompt),
-        raspuns: String(event.chosen),
-        a_raspuns_corect: event.isCorrect === true,
-        a_cata_apasare_pe_buton: aCataApasare,
-        durata_raspuns_secunde: Math.round(Number(event.meta.responseMs) / 100) / 10,
-        fact: metadata.fact,
+        intrebare: state?.prompt == null ? null : String(state.prompt),
+        fact: metadata.fact ?? null,
         quiz_id: quizId,
         subquiz_id: metadata.subquiz ?? null,
-        fact_id: metadata.factId,
-        eq_form: metadata.eqForm,
-        pozitie_buton_apasat_pt_raspuns: event.index + 1,
-        valori_variante_de_raspuns: event.item.options.map(String),
-        valoare_raspuns_corect:
-          event.item.correctAnswer == null ? null : String(event.item.correctAnswer),
+        fact_id: metadata.factId ?? null,
+        eq_form: metadata.eqForm ?? null,
         hints_aratate_pt_raspuns: null,
         extra: {},
-      });
+      };
     }
 
     function appendJurnalButton(mount) {
@@ -618,8 +584,6 @@
       const isCorrect = Number(chosen) === Number(item.correctAnswer);
       const factB = item.metadata.factB;
 
-      inregistreazaIntrebare(event);
-
       state.questionCount += 1;
       state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
       if (isCorrect) state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
@@ -691,8 +655,6 @@
           const chosen = item.options[index];
           const isCorrect = Number(chosen) === Number(item.correctAnswer);
           const factB = item.metadata.factB;
-
-          inregistreazaIntrebare(event);
 
           state.questionCount += 1;
           if (isCorrect) state.correctCount += 1;
@@ -931,6 +893,7 @@
 
     return {
       getQuizId: () => quizId,
+      getContextJurnal,
       getLevel: () => level,
       getMaxLevel: () => MAX_LEVEL,
       getMinLevel: () => MIN_LEVEL,

@@ -277,54 +277,30 @@ describe("JurnalIntrebari", () => {
     assert.equal("camp_neaprobat" in saved, false);
   });
 
-  it("raporteaza fiecare apasare, ignora timeout-ul si pastreaza timpul cumulat", () => {
+  it("quizul furnizeaza contextul semantic fara sa apeleze direct jurnalul", () => {
     const entries = [];
     const quiz = setupQuiz(entries);
-    let state = quiz.beginRound();
-    const originalQuestionId = state.metadata.questionInstanceId;
-    const wrongIndex = (state.correctIndex + 1) % state.options.length;
-    const originalOptions = state.options.map(String);
-    const wrongAnswer = state.options[wrongIndex];
-    const correctAnswer = state.options[state.correctIndex];
-    const questionDisplayedAt = "2026-07-12T09:15:30.456Z";
+    const state = quiz.beginRound();
+    const context = quiz.getContextJurnal(state);
 
-    state = quiz.onAnswer(wrongIndex, { responseMs: 1234, questionDisplayedAt });
-    assert.equal(state.metadata.questionInstanceId, originalQuestionId);
-    assert.equal(entries.length, 1);
+    assert.deepEqual(context, {
+      quiz_name: "T*/ 11-20 - v3 - train w eff si eq forms - jurnal",
+      subquiz_name: "Subquiz 1: baza",
+      intrebare: "?*2=22",
+      fact: "11*2=22",
+      quiz_id: QUIZ_ID,
+      subquiz_id: "base",
+      fact_id: "mul:11*2=?",
+      eq_form: "?*2=22",
+      hints_aratate_pt_raspuns: null,
+      extra: {},
+    });
 
-    state = quiz.onTimeout({ responseMs: 3000, questionDisplayedAt, timedOut: true });
-    assert.equal(state.metadata.questionInstanceId, originalQuestionId);
-    assert.equal(entries.length, 1);
-
-    state = quiz.onAnswer(state.correctIndex, { responseMs: 4567, questionDisplayedAt });
-    assert.equal(entries.length, 2);
-
-    assert.deepEqual(Object.keys(entries[0]), CAMPURI);
-    assert.equal(entries[0].data_ora_ro, "2026-07-12 12:15:30");
-    assert.equal(entries[0].quiz_name, "T*/ 11-20 - v3 - train w eff si eq forms - jurnal");
-    assert.equal(entries[0].subquiz_name, "Subquiz 1: baza");
-    assert.equal(entries[0].intrebare, "?*2=22");
-    assert.equal(entries[0].raspuns, String(wrongAnswer));
-    assert.equal(entries[0].a_raspuns_corect, false);
-    assert.equal(entries[0].a_cata_apasare_pe_buton, 1);
-    assert.equal(entries[0].durata_raspuns_secunde, 1.2);
-    assert.equal(entries[0].fact, "11*2=22");
-    assert.equal(entries[0].quiz_id, QUIZ_ID);
-    assert.equal(entries[0].subquiz_id, "base");
-    assert.equal(entries[0].fact_id, "mul:11*2=?");
-    assert.equal(entries[0].eq_form, "?*2=22");
-    assert.equal(entries[0].pozitie_buton_apasat_pt_raspuns, wrongIndex + 1);
-    assert.deepEqual(entries[0].valori_variante_de_raspuns, originalOptions);
-    assert.equal(entries[0].valoare_raspuns_corect, String(correctAnswer));
-    assert.equal(entries[0].hints_aratate_pt_raspuns, null);
-    assert.deepEqual(entries[0].extra, {});
-
-    assert.equal(entries[1].data_ora_ro, entries[0].data_ora_ro);
-    assert.equal(entries[1].raspuns, String(correctAnswer));
-    assert.equal(entries[1].a_raspuns_corect, true);
-    assert.equal(entries[1].a_cata_apasare_pe_buton, 2);
-    assert.equal(entries[1].durata_raspuns_secunde, 4.6);
-    assert.notEqual(entries[1].extra, entries[0].extra);
+    quiz.onAnswer(state.correctIndex, {
+      responseMs: 800,
+      questionDisplayedAt: "2026-07-12T09:15:30.456Z",
+    });
+    assert.equal(entries.length, 0);
   });
 
   it("nu activeaza jurnalul in quizul original", () => {
@@ -335,6 +311,8 @@ describe("JurnalIntrebari", () => {
     );
     const originalQuiz = originalMeta.create({ ...originalMeta, random: () => 0 });
     const state = originalQuiz.beginRound();
+
+    assert.equal(originalQuiz.getContextJurnal(state), null);
 
     originalQuiz.onAnswer(state.correctIndex, {
       responseMs: 800,
@@ -379,11 +357,12 @@ describe("JurnalIntrebari", () => {
     const state = quiz.runArenaAction("sendCurrentFactToSq2");
     const questionDisplayedAt = "2026-07-12T09:15:30.456Z";
 
-    quiz.onAnswer(state.correctIndex, { responseMs: 800, questionDisplayedAt });
+    const context = quiz.getContextJurnal(state);
 
-    assert.equal(entries.length, 1);
-    assert.equal(entries[0].subquiz_id, "sq2EffSbs");
-    assert.equal(entries[0].subquiz_name, "Subquiz 2: Intensiv SBS");
+    assert.equal(context.subquiz_id, "sq2EffSbs");
+    assert.equal(context.subquiz_name, "Subquiz 2: Intensiv SBS");
+    quiz.onAnswer(state.correctIndex, { responseMs: 800, questionDisplayedAt });
+    assert.equal(entries.length, 0);
   });
 
   it("tabelul afiseaza toate coloanele si se actualizeaza la mesajul live", async () => {
