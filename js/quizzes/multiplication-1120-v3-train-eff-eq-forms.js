@@ -202,7 +202,7 @@
         subquiz_name: subquizName(metadata.subquiz),
         intrebare: String(event.item.prompt),
         raspuns: String(event.chosen),
-        raspuns_corect: event.isCorrect === true,
+        a_raspuns_corect: event.isCorrect === true,
         a_cata_apasare_pe_buton: aCataApasare,
         durata_raspuns_secunde: Math.round(Number(event.meta.responseMs) / 100) / 10,
         fact: metadata.fact,
@@ -210,6 +210,11 @@
         subquiz_id: metadata.subquiz ?? null,
         fact_id: metadata.factId,
         eq_form: metadata.eqForm,
+        pozitie_buton_apasat_pt_raspuns: event.index + 1,
+        valori_variante_de_raspuns: event.item.options.map(String),
+        valoare_raspuns_corect:
+          event.item.correctAnswer == null ? null : String(event.item.correctAnswer),
+        hints_aratate_pt_raspuns: null,
         extra: {},
       });
     }

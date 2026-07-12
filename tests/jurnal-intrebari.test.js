@@ -11,7 +11,7 @@ const CAMPURI = [
   "subquiz_name",
   "intrebare",
   "raspuns",
-  "raspuns_corect",
+  "a_raspuns_corect",
   "a_cata_apasare_pe_buton",
   "durata_raspuns_secunde",
   "fact",
@@ -19,6 +19,10 @@ const CAMPURI = [
   "subquiz_id",
   "fact_id",
   "eq_form",
+  "pozitie_buton_apasat_pt_raspuns",
+  "valori_variante_de_raspuns",
+  "valoare_raspuns_corect",
+  "hints_aratate_pt_raspuns",
   "extra",
 ];
 
@@ -194,7 +198,7 @@ function completeEntry(overrides = {}) {
     subquiz_name: "Subquiz 1: baza",
     intrebare: "?*2=22",
     raspuns: "11",
-    raspuns_corect: true,
+    a_raspuns_corect: true,
     a_cata_apasare_pe_buton: 1,
     durata_raspuns_secunde: 1.2,
     fact: "11*2=22",
@@ -202,6 +206,10 @@ function completeEntry(overrides = {}) {
     subquiz_id: "base",
     fact_id: "mul:11*2=?",
     eq_form: "?*2=22",
+    pozitie_buton_apasat_pt_raspuns: 2,
+    valori_variante_de_raspuns: ["10", "11", "12"],
+    valoare_raspuns_corect: "11",
+    hints_aratate_pt_raspuns: null,
     extra: {},
     ...overrides,
   };
@@ -244,7 +252,7 @@ describe("JurnalIntrebari", () => {
       subquiz_name: "Subquiz 1: baza",
       intrebare: "?*2=22",
       raspuns: "11",
-      raspuns_corect: true,
+      a_raspuns_corect: true,
       a_cata_apasare_pe_buton: 2,
       durata_raspuns_secunde: 1.24,
       fact: "11*2=22",
@@ -252,6 +260,10 @@ describe("JurnalIntrebari", () => {
       subquiz_id: "base",
       fact_id: "mul:11*2=?",
       eq_form: "?*2=22",
+      pozitie_buton_apasat_pt_raspuns: 2,
+      valori_variante_de_raspuns: ["10", "11", "12"],
+      valoare_raspuns_corect: "11",
+      hints_aratate_pt_raspuns: null,
       extra,
       camp_neaprobat: "ignorat",
     });
@@ -271,6 +283,7 @@ describe("JurnalIntrebari", () => {
     let state = quiz.beginRound();
     const originalQuestionId = state.metadata.questionInstanceId;
     const wrongIndex = (state.correctIndex + 1) % state.options.length;
+    const originalOptions = state.options.map(String);
     const wrongAnswer = state.options[wrongIndex];
     const correctAnswer = state.options[state.correctIndex];
     const questionDisplayedAt = "2026-07-12T09:15:30.456Z";
@@ -292,7 +305,7 @@ describe("JurnalIntrebari", () => {
     assert.equal(entries[0].subquiz_name, "Subquiz 1: baza");
     assert.equal(entries[0].intrebare, "?*2=22");
     assert.equal(entries[0].raspuns, String(wrongAnswer));
-    assert.equal(entries[0].raspuns_corect, false);
+    assert.equal(entries[0].a_raspuns_corect, false);
     assert.equal(entries[0].a_cata_apasare_pe_buton, 1);
     assert.equal(entries[0].durata_raspuns_secunde, 1.2);
     assert.equal(entries[0].fact, "11*2=22");
@@ -300,11 +313,15 @@ describe("JurnalIntrebari", () => {
     assert.equal(entries[0].subquiz_id, "base");
     assert.equal(entries[0].fact_id, "mul:11*2=?");
     assert.equal(entries[0].eq_form, "?*2=22");
+    assert.equal(entries[0].pozitie_buton_apasat_pt_raspuns, wrongIndex + 1);
+    assert.deepEqual(entries[0].valori_variante_de_raspuns, originalOptions);
+    assert.equal(entries[0].valoare_raspuns_corect, String(correctAnswer));
+    assert.equal(entries[0].hints_aratate_pt_raspuns, null);
     assert.deepEqual(entries[0].extra, {});
 
     assert.equal(entries[1].data_ora_ro, entries[0].data_ora_ro);
     assert.equal(entries[1].raspuns, String(correctAnswer));
-    assert.equal(entries[1].raspuns_corect, true);
+    assert.equal(entries[1].a_raspuns_corect, true);
     assert.equal(entries[1].a_cata_apasare_pe_buton, 2);
     assert.equal(entries[1].durata_raspuns_secunde, 4.6);
     assert.notEqual(entries[1].extra, entries[0].extra);
@@ -410,7 +427,7 @@ describe("JurnalIntrebari", () => {
     assert.equal(body.children.length, 1);
     assert.equal(status.textContent, "1 inregistrari");
 
-    records.push(completeEntry({ raspuns: "10", raspuns_corect: false }));
+    records.push(completeEntry({ raspuns: "10", a_raspuns_corect: false }));
     liveListener();
     await new Promise((resolve) => setImmediate(resolve));
 

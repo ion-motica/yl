@@ -11,7 +11,7 @@
     "subquiz_name",
     "intrebare",
     "raspuns",
-    "raspuns_corect",
+    "a_raspuns_corect",
     "a_cata_apasare_pe_buton",
     "durata_raspuns_secunde",
     "fact",
@@ -19,6 +19,10 @@
     "subquiz_id",
     "fact_id",
     "eq_form",
+    "pozitie_buton_apasat_pt_raspuns",
+    "valori_variante_de_raspuns",
+    "valoare_raspuns_corect",
+    "hints_aratate_pt_raspuns",
     "extra",
   ];
 

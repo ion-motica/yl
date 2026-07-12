@@ -52,8 +52,29 @@
     if (!Number.isFinite(durata) || durata < 0) {
       throw new Error("durata_raspuns_secunde trebuie sa fie un numar pozitiv.");
     }
-    if (typeof intrebare.raspuns_corect !== "boolean") {
-      throw new Error("raspuns_corect trebuie sa fie true sau false.");
+    if (
+      intrebare.a_raspuns_corect != null &&
+      typeof intrebare.a_raspuns_corect !== "boolean"
+    ) {
+      throw new Error("a_raspuns_corect trebuie sa fie true, false sau null.");
+    }
+
+    const pozitieButon = intrebare.pozitie_buton_apasat_pt_raspuns;
+    if (
+      pozitieButon != null &&
+      (!Number.isInteger(Number(pozitieButon)) || Number(pozitieButon) < 1 || Number(pozitieButon) > 3)
+    ) {
+      throw new Error("pozitie_buton_apasat_pt_raspuns trebuie sa fie 1, 2, 3 sau null.");
+    }
+
+    const variante = intrebare.valori_variante_de_raspuns;
+    if (variante != null && !Array.isArray(variante)) {
+      throw new Error("valori_variante_de_raspuns trebuie sa fie o lista sau null.");
+    }
+
+    const hints = intrebare.hints_aratate_pt_raspuns;
+    if (hints != null && (typeof hints !== "object" || Array.isArray(hints))) {
+      throw new Error("hints_aratate_pt_raspuns trebuie sa fie un obiect sau null.");
     }
 
     const extra = intrebare.extra;
@@ -67,7 +88,8 @@
       subquiz_name: textSauNull(intrebare.subquiz_name),
       intrebare: textObligatoriu(intrebare.intrebare, "intrebare"),
       raspuns: textObligatoriu(intrebare.raspuns, "raspuns"),
-      raspuns_corect: intrebare.raspuns_corect === true,
+      a_raspuns_corect:
+        intrebare.a_raspuns_corect == null ? null : intrebare.a_raspuns_corect === true,
       a_cata_apasare_pe_buton: apasare,
       durata_raspuns_secunde: Math.round(durata * 10) / 10,
       fact: textObligatoriu(intrebare.fact, "fact"),
@@ -75,6 +97,12 @@
       subquiz_id: textSauNull(intrebare.subquiz_id),
       fact_id: textObligatoriu(intrebare.fact_id, "fact_id"),
       eq_form: textObligatoriu(intrebare.eq_form, "eq_form"),
+      pozitie_buton_apasat_pt_raspuns:
+        pozitieButon == null ? null : Number(pozitieButon),
+      valori_variante_de_raspuns:
+        variante == null ? null : variante.map((valoare) => textSauNull(valoare)),
+      valoare_raspuns_corect: textSauNull(intrebare.valoare_raspuns_corect),
+      hints_aratate_pt_raspuns: hints == null ? null : { ...hints },
       extra: { ...extra },
     };
   }
