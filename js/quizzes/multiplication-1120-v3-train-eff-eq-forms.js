@@ -206,7 +206,14 @@
         global.deschideVizualizareLogs?.();
       });
 
-      row.append(buttonAfisareExistenta, buttonTabulator);
+      const buttonTabulatorTranspus = document.createElement("button");
+      buttonTabulatorTranspus.type = "button";
+      buttonTabulatorTranspus.textContent = "View logs in Tabulator - Transposed";
+      buttonTabulatorTranspus.addEventListener("click", () => {
+        global.deschideVizualizareLogsTranspuse?.();
+      });
+
+      row.append(buttonAfisareExistenta, buttonTabulator, buttonTabulatorTranspus);
       mount.appendChild(row);
     }
 

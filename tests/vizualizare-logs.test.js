@@ -3,26 +3,14 @@ import { afterEach, it } from "node:test";
 import { readFileSync } from "node:fs";
 
 const rootDir = "C:/Users/I/Projects/Youlearn.com";
-const CAMPURI = [
+const CAMPURI_DETECTATE = [
   "indexeddb_key",
   "data_ora_ro",
-  "quiz_name",
-  "subquiz_name",
   "intrebare",
-  "raspuns",
-  "a_raspuns_corect",
-  "a_cata_apasare_pe_buton",
-  "durata_raspuns_secunde",
-  "fact",
-  "quiz_id",
-  "subquiz_id",
-  "fact_id",
-  "eq_form",
-  "pozitie_buton_apasat_pt_raspuns",
-  "valori_variante_de_raspuns",
-  "valoare_raspuns_corect",
-  "hints_aratate_pt_raspuns",
-  "extra",
+  "camp_numar_nou",
+  "camp_boolean_nou",
+  "camp_obiect_nou",
+  "camp_null_nou",
 ];
 
 class FakeElement {
@@ -158,8 +146,15 @@ class FakeTabulator {
     this.data = options.data;
     this.replaceDataCalls = 0;
     this.redrawCalls = 0;
+    this.setColumnsCalls = 0;
+    this.configureazaColoane(options.columns);
+    FakeTabulator.instances.push(this);
+  }
+
+  configureazaColoane(coloane) {
+    this.options.columns = coloane;
     this.coloane = new Map(
-      options.columns.map((definitie) => {
+      coloane.map((definitie) => {
         const element = new FakeElement();
         const componenta = {
           vizibila: true,
@@ -186,7 +181,11 @@ class FakeTabulator {
         return [definitie.field, componenta];
       })
     );
-    FakeTabulator.instances.push(this);
+  }
+
+  setColumns(coloane) {
+    this.setColumnsCalls += 1;
+    this.configureazaColoane(coloane);
   }
 
   getColumn(camp) {
@@ -240,8 +239,28 @@ it("citeste cursorul in ordinea cheilor si configureaza toate coloanele read-onl
   const root = new FakeElement();
   root.id = "vizualizare-logs-root";
   setupIndexedDb([
-    { cheie: 4, valoare: { intrebare: "2+2", extra: {} } },
-    { cheie: 9, valoare: { intrebare: "3+3", extra: { mod: "test" } } },
+    {
+      cheie: 4,
+      valoare: {
+        data_ora_ro: "2026-07-12 18:57:40",
+        intrebare: "2+2",
+        camp_numar_nou: 7,
+        camp_boolean_nou: true,
+        camp_obiect_nou: { mod: "test" },
+        camp_null_nou: null,
+      },
+    },
+    {
+      cheie: 9,
+      valoare: {
+        data_ora_ro: "2026-07-12 18:58:10",
+        intrebare: "3+3",
+        camp_numar_nou: 8,
+        camp_boolean_nou: false,
+        camp_obiect_nou: { mod: "normal" },
+        camp_null_nou: null,
+      },
+    },
   ]);
   incarcaVizualizarea(root);
   await asteaptaEvenimente();
@@ -250,21 +269,41 @@ it("citeste cursorul in ordinea cheilor si configureaza toate coloanele read-onl
   assert.equal(FakeTabulator.instances.length, 1);
   const tabel = FakeTabulator.instances[0];
   assert.deepEqual(tabel.data.map((rand) => rand.indexeddb_key), [4, 9]);
-  assert.deepEqual(tabel.options.columns.map((coloana) => coloana.field), CAMPURI);
+  assert.deepEqual(tabel.options.columns.map((coloana) => coloana.field), CAMPURI_DETECTATE);
   assert.equal(tabel.options.movableColumns, true);
   assert.equal(tabel.options.height, "100%");
   assert.equal(tabel.options.columns.every((coloana) => coloana.resizable === true), true);
   assert.equal(tabel.options.columns.some((coloana) => "editor" in coloana), false);
   assert.equal(
-    tabel.options.columns.find((coloana) => coloana.field === "durata_raspuns_secunde").sorter,
+    tabel.options.columns.find((coloana) => coloana.field === "camp_numar_nou").sorter,
     "number"
+  );
+  assert.equal(
+    tabel.options.columns.find((coloana) => coloana.field === "camp_boolean_nou").sorter,
+    "boolean"
+  );
+  assert.equal(
+    typeof tabel.options.columns.find((coloana) => coloana.field === "camp_obiect_nou").sorter,
+    "function"
+  );
+  assert.equal(
+    tabel.options.columns.find((coloana) => coloana.field === "camp_null_nou").sorter,
+    "string"
+  );
+  assert.ok(
+    findElement(
+      root,
+      (element) => element.tagName === "INPUT" && element.dataset.camp === "camp_numar_nou"
+    )
   );
 });
 
 it("pastreaza toate coloanele minimizate cand alta coloana este comutata", async () => {
   const root = new FakeElement();
   root.id = "vizualizare-logs-root";
-  setupIndexedDb([{ cheie: 1, valoare: { intrebare: "2+2", extra: {} } }]);
+  setupIndexedDb([
+    { cheie: 1, valoare: { intrebare: "2+2", raspuns: "4", extra: {} } },
+  ]);
   incarcaVizualizarea(root);
   await asteaptaEvenimente();
   await asteaptaEvenimente();
@@ -324,6 +363,32 @@ it("pastreaza toate coloanele minimizate cand alta coloana este comutata", async
   assert.equal(tabel.replaceDataCalls, 1);
 });
 
+it("reconstruieste automat coloanele cand schema curenta se schimba", async () => {
+  const root = new FakeElement();
+  root.id = "vizualizare-logs-root";
+  const inregistrari = [{ cheie: 1, valoare: { intrebare: "2+2" } }];
+  setupIndexedDb(inregistrari);
+  incarcaVizualizarea(root);
+  await asteaptaEvenimente();
+  await asteaptaEvenimente();
+
+  const tabel = FakeTabulator.instances[0];
+  assert.deepEqual(
+    tabel.options.columns.map((coloana) => coloana.field),
+    ["indexeddb_key", "intrebare"]
+  );
+
+  inregistrari[0].valoare.camp_nou = 42;
+  await globalThis.deschideVizualizareLogs({ container: root });
+
+  assert.equal(tabel.setColumnsCalls, 1);
+  assert.deepEqual(
+    tabel.options.columns.map((coloana) => coloana.field),
+    ["indexeddb_key", "intrebare", "camp_nou"]
+  );
+  assert.equal(tabel.options.columns.find((coloana) => coloana.field === "camp_nou").sorter, "number");
+});
+
 it("deschide pagina Tabulator separata cand API-ul este apelat din aplicatie", () => {
   const deschideri = [];
   globalThis.window = globalThis;
@@ -370,4 +435,15 @@ it("afiseaza mesaj clar si nu creeaza tabel cand baza nu exista", async () => {
     root.querySelector("#vizualizare-logs-mesaj").textContent,
     "Nu exista inca jurnalul de intrebari."
   );
+});
+
+it("afiseaza jurnal gol fara sa inventeze coloane", async () => {
+  const root = new FakeElement();
+  root.id = "vizualizare-logs-root";
+  setupIndexedDb([]);
+  incarcaVizualizarea(root);
+  await asteaptaEvenimente();
+
+  assert.equal(FakeTabulator.instances.length, 0);
+  assert.equal(root.querySelector("#vizualizare-logs-mesaj").textContent, "Jurnalul este gol.");
 });

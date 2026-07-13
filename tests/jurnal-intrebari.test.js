@@ -233,6 +233,7 @@ describe("JurnalIntrebari", () => {
     delete globalThis.open;
     delete globalThis.location;
     delete globalThis.deschideVizualizareLogs;
+    delete globalThis.deschideVizualizareLogsTranspuse;
     delete globalThis.BroadcastChannel;
     delete globalThis.scrollTo;
   });
@@ -368,6 +369,32 @@ describe("JurnalIntrebari", () => {
       mount,
       (element) =>
         element.tagName === "BUTTON" && element.textContent === "View logs in Tabulator"
+    );
+
+    assert.ok(button);
+    button.click();
+    assert.equal(apeluri, 1);
+  });
+
+  it("adauga butonul Tabulator Transposed si apeleaza API-ul lui public", () => {
+    const entries = [];
+    const quiz = setupQuiz(entries);
+    const mount = new FakeElement();
+    let apeluri = 0;
+    globalThis.document = {
+      createElement: (tagName) => new FakeElement(tagName),
+      createTextNode: (text) => ({ textContent: text, children: [] }),
+    };
+    globalThis.deschideVizualizareLogsTranspuse = () => {
+      apeluri += 1;
+    };
+
+    quiz.appendSq2ControlPanel(mount);
+    const button = findElement(
+      mount,
+      (element) =>
+        element.tagName === "BUTTON" &&
+        element.textContent === "View logs in Tabulator - Transposed"
     );
 
     assert.ok(button);

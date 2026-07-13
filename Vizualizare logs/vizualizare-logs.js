@@ -9,7 +9,9 @@
   const LATIME_COLOANA_MINIMIZATA = 36;
   let tabelLogs = null;
   let containerCurent = null;
+  let semnaturaColoaneCurente = "";
   const latimiColoaneMinimizate = new Map();
+  const vizibilitateColoane = new Map();
 
   function deschidePaginaInTabNou() {
     const url = global.location
@@ -153,6 +155,24 @@
     return String(valoare);
   }
 
+  function detecteazaCampuri(inregistrari) {
+    if (!inregistrari.length) return [];
+    const campuriSalvate = Object.keys(inregistrari[0]).filter((camp) => camp !== CAMP_CHEIE);
+    return [CAMP_CHEIE, ...campuriSalvate];
+  }
+
+  function detecteazaTipCamp(inregistrari, camp) {
+    const inregistrareCuValoare = inregistrari.find(
+      (inregistrare) => inregistrare[camp] != null
+    );
+    if (!inregistrareCuValoare) return "text";
+    const valoare = inregistrareCuValoare[camp];
+    if (typeof valoare === "boolean") return "boolean";
+    if (typeof valoare === "number") return "numar";
+    if (typeof valoare === "object") return "obiect";
+    return "text";
+  }
+
   function actualizeazaAntetMinimizat({ camp, antet, text, buton }) {
     const minimizata = latimiColoaneMinimizate.has(camp);
     antet.classList.toggle("is-minimizata", minimizata);
@@ -163,9 +183,17 @@
     buton.setAttribute("aria-label", `${actiune} coloana ${camp}`);
   }
 
+  function obtineColoanaDacaExista(tabel, camp) {
+    const definitii = tabel?.getColumnDefinitions?.();
+    if (Array.isArray(definitii) && !definitii.some((definitie) => definitie.field === camp)) {
+      return null;
+    }
+    return tabel?.getColumn?.(camp) || null;
+  }
+
   function reaplicaLatimileColoanelorMinimizate() {
     latimiColoaneMinimizate.forEach((_latimeInitiala, camp) => {
-      const coloana = tabelLogs?.getColumn(camp);
+      const coloana = obtineColoanaDacaExista(tabelLogs, camp);
       coloana
         ?.getElement()
         ?.classList.toggle("vizualizare-logs-coloana-minimizata", true);
@@ -174,7 +202,7 @@
   }
 
   function comutaMinimizareColoana({ camp, antet, text, buton }) {
-    const coloana = tabelLogs?.getColumn(camp);
+    const coloana = obtineColoanaDacaExista(tabelLogs, camp);
     if (!coloana) return;
     let latimeDorita;
 
@@ -191,7 +219,7 @@
       .getElement()
       ?.classList.toggle("vizualizare-logs-coloana-minimizata", latimiColoaneMinimizate.has(camp));
     tabelLogs.redraw?.(true);
-    const coloanaActuala = tabelLogs.getColumn(camp);
+    const coloanaActuala = obtineColoanaDacaExista(tabelLogs, camp);
     coloanaActuala
       ?.getElement()
       ?.classList.toggle("vizualizare-logs-coloana-minimizata", latimiColoaneMinimizate.has(camp));
@@ -266,45 +294,41 @@
     };
   }
 
-  function construiesteColoaneLogs() {
-    const coloane = [
-      definitieNumar(CAMP_CHEIE),
-      definitieText("data_ora_ro"),
-      definitieText("quiz_name"),
-      definitieText("subquiz_name"),
-      definitieText("intrebare"),
-      definitieText("raspuns"),
-      {
-        title: "a_raspuns_corect",
-        field: "a_raspuns_corect",
-        sorter: "boolean",
-        headerFilter: "list",
-        headerFilterParams: {
-          values: { "": "Toate", true: "true", false: "false" },
-          clearable: true,
-        },
-        headerFilterFunc: (valoareFiltru, valoareRand) =>
-          valoareFiltru === "" || String(valoareRand) === String(valoareFiltru),
-        formatter: (celula) => {
-          const valoare = celula.getValue();
-          if (valoare == null) return "";
-          return valoare === true ? "✓ true" : "✕ false";
-        },
-        tooltip: (celula) => textCelula(celula.getValue()),
+  function definitieBoolean(camp) {
+    return {
+      title: camp,
+      field: camp,
+      sorter: "boolean",
+      headerFilter: "list",
+      headerFilterParams: {
+        values: { "": "Toate", true: "true", false: "false" },
+        clearable: true,
       },
-      definitieNumar("a_cata_apasare_pe_buton"),
-      definitieNumar("durata_raspuns_secunde", true),
-      definitieText("fact"),
-      definitieText("quiz_id"),
-      definitieText("subquiz_id"),
-      definitieText("fact_id"),
-      definitieText("eq_form"),
-      definitieNumar("pozitie_buton_apasat_pt_raspuns"),
-      definitieObiect("valori_variante_de_raspuns"),
-      definitieText("valoare_raspuns_corect"),
-      definitieObiect("hints_aratate_pt_raspuns"),
-      definitieObiect("extra", "{}"),
-    ];
+      headerFilterFunc: (valoareFiltru, valoareRand) =>
+        valoareFiltru === "" || String(valoareRand) === String(valoareFiltru),
+      formatter: (celula) => {
+        const valoare = celula.getValue();
+        if (valoare == null) return "";
+        return valoare === true ? "✓ true" : "✕ false";
+      },
+      tooltip: (celula) => textCelula(celula.getValue()),
+    };
+  }
+
+  function definitieCampDetectat(camp, inregistrari) {
+    const tip = detecteazaTipCamp(inregistrari, camp);
+    if (tip === "boolean") return definitieBoolean(camp);
+    if (tip === "numar") {
+      return definitieNumar(camp, camp === "durata_raspuns_secunde");
+    }
+    if (tip === "obiect") return definitieObiect(camp);
+    return definitieText(camp);
+  }
+
+  function construiesteColoaneLogs(inregistrari) {
+    const coloane = detecteazaCampuri(inregistrari).map((camp) =>
+      definitieCampDetectat(camp, inregistrari)
+    );
 
     return coloane.map((coloana) => ({
       ...coloana,
@@ -315,9 +339,34 @@
     }));
   }
 
+  function asteaptaConstruireaTabelului(tabel) {
+    if (tabel.initialized === true || typeof tabel.on !== "function") {
+      return Promise.resolve(tabel);
+    }
+    return new Promise((resolve) => {
+      const tabelConstruit = () => {
+        tabel.off?.("tableBuilt", tabelConstruit);
+        resolve(tabel);
+      };
+      tabel.on("tableBuilt", tabelConstruit);
+    });
+  }
+
   function initializeazaTabelLogs({ elementTabel, inregistrari, coloane }) {
+    const semnaturaColoane = JSON.stringify(coloane.map((coloana) => coloana.field));
     if (tabelLogs && elementTabel === tabelLogs.element) {
-      return Promise.resolve(tabelLogs.replaceData(inregistrari)).then(() => tabelLogs);
+      const schemaSchimbata = semnaturaColoane !== semnaturaColoaneCurente;
+      const actualizareColoane = schemaSchimbata
+        ? Promise.resolve(tabelLogs.setColumns?.(coloane))
+        : Promise.resolve();
+      if (schemaSchimbata) {
+        latimiColoaneMinimizate.clear();
+        vizibilitateColoane.clear();
+      }
+      semnaturaColoaneCurente = semnaturaColoane;
+      return actualizareColoane
+        .then(() => tabelLogs.replaceData(inregistrari))
+        .then(() => tabelLogs);
     }
 
     tabelLogs?.destroy?.();
@@ -332,7 +381,8 @@
       renderVertical: "virtual",
     });
     tabelLogs.element = elementTabel;
-    return Promise.resolve(tabelLogs);
+    semnaturaColoaneCurente = semnaturaColoane;
+    return asteaptaConstruireaTabelului(tabelLogs);
   }
 
   function initializeazaSelectorColoane({ elementSelector, tabel, coloane }) {
@@ -344,11 +394,11 @@
       eticheta.className = "vizualizare-logs-coloana-optiune";
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
-      const componentaColoana = tabel.getColumn(coloana.field);
-      checkbox.checked = componentaColoana?.isVisible?.() !== false;
+      checkbox.checked = vizibilitateColoane.get(coloana.field) !== false;
       checkbox.dataset.camp = coloana.field;
       checkbox.addEventListener("change", () => {
-        const coloanaCurenta = tabel.getColumn(coloana.field);
+        vizibilitateColoane.set(coloana.field, checkbox.checked);
+        const coloanaCurenta = obtineColoanaDacaExista(tabel, coloana.field);
         if (checkbox.checked) coloanaCurenta?.show();
         else coloanaCurenta?.hide();
       });
@@ -381,7 +431,12 @@
         return null;
       }
 
-      const coloane = construiesteColoaneLogs();
+      if (!rezultat.inregistrari.length) {
+        afiseazaMesaj(interfata, "Jurnalul este gol.");
+        return null;
+      }
+
+      const coloane = construiesteColoaneLogs(rezultat.inregistrari);
       const tabel = await initializeazaTabelLogs({
         elementTabel: interfata.elementTabel,
         inregistrari: rezultat.inregistrari,
