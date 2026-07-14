@@ -4,10 +4,14 @@ import { describe, it } from "node:test";
 
 import {
   citesteLoguriDinIndexedDB,
+  construiesteConfiguratieDinSelectii,
   determinaPornireDinURL,
   initializeazaAplicatiaMABP,
 } from "../Vizualizare si interpretare logs/mabp-app.js";
-import { creeazaMotorMABP } from "../Vizualizare si interpretare logs/mabp-analiza.js";
+import {
+  construiesteConfiguratieAnaliza,
+  creeazaMotorMABP,
+} from "../Vizualizare si interpretare logs/mabp-analiza.js";
 import { creeazaVizualizatorMABP } from "../Vizualizare si interpretare logs/mabp-vizualizare.js";
 
 const fixtureDir = new URL("../Vizualizare si interpretare logs/", import.meta.url);
@@ -28,6 +32,9 @@ class ElementMinimal {
     this.className = "";
     this.textContent = "";
     this.value = "";
+    this.type = "";
+    this.name = "";
+    this.checked = false;
     this.files = [];
     this.hidden = false;
     this.disabled = false;
@@ -49,6 +56,10 @@ class ElementMinimal {
 
   setAttribute(nume, valoare) {
     this.attributes[nume] = String(valoare);
+  }
+
+  removeAttribute(nume) {
+    delete this.attributes[nume];
   }
 
   getAttribute(nume) {
@@ -98,10 +109,11 @@ function creeazaContainer() {
 function creeazaDocumentAplicatie() {
   const documentRef = new DocumentMinimal();
   documentRef.adaugaElement("mabp-app", "main");
-  documentRef.adaugaElement("mabp-preset", "select");
+  documentRef.adaugaElement("mabp-preset", "div");
   documentRef.adaugaElement("mabp-ajutor-preset", "p");
-  const selectorMod = documentRef.adaugaElement("mabp-mod-afisare", "select");
-  selectorMod.value = "simplu";
+  documentRef.adaugaElement("mabp-reaplica-preset", "button");
+  documentRef.adaugaElement("mabp-axe", "div");
+  documentRef.adaugaElement("mabp-mod-afisare", "div");
   documentRef.adaugaElement("mabp-incarca-fixture", "button");
   documentRef.adaugaElement("mabp-importa-json", "input");
   documentRef.adaugaElement("mabp-incarca-indexeddb", "button");
@@ -406,6 +418,71 @@ describe("vizualizatorul MABP", () => {
     assert.doesNotMatch(textComplet(container), /afișează textual direcția/);
   });
 
+  it("grila_adaptiva foloseste starea sau directia configurata fara etichete contradictorii", () => {
+    const grupStare = {
+      id: "mul:7*8=?",
+      eticheta: "7×8",
+      stare: "in_consolidare",
+      suficienta: "estimare_utila",
+      metrici: {},
+    };
+    const containerStare = creeazaContainer();
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat: rezultatCuGrup(grupStare, { rezultat: "stare_curenta" }),
+      container: containerStare,
+      tip: "grila_adaptiva",
+    });
+    assert.match(textComplet(containerStare), /afișează textual starea/);
+    assert.doesNotMatch(textComplet(containerStare), /afișează textual direcția/);
+
+    const containerDirectie = creeazaContainer();
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat: rezultatCuGrup(
+        {
+          ...grupStare,
+          comparatie: { directie: "progres" },
+        },
+        { rezultat: "directie" },
+      ),
+      container: containerDirectie,
+      tip: "grila_adaptiva",
+    });
+    assert.match(textComplet(containerDirectie), /afișează textual direcția/);
+    assert.doesNotMatch(textComplet(containerDirectie), /afișează textual starea/);
+  });
+
+  it("randeaza din date toate cele 200 de celule ale unei grile 11–20 × 1–20", () => {
+    const container = creeazaContainer();
+    const rezultat = rezultatCuGrup({});
+    rezultat.grupuri = Array.from({ length: 10 }, (_, indexStanga) =>
+      Array.from({ length: 20 }, (_, indexDreapta) => {
+        const stanga = indexStanga + 11;
+        const dreapta = indexDreapta + 1;
+        return {
+          id: `mul:${stanga}*${dreapta}=?`,
+          eticheta: `${stanga}×${dreapta}`,
+          stare: "date_insuficiente",
+          suficienta: "date_insuficiente",
+          metrici: {},
+        };
+      }),
+    ).flat();
+
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat,
+      container,
+      tip: "grila_stare",
+    });
+
+    const celule = cautaElemente(
+      container,
+      (element) => element.className.split(" ").includes("mabp-celula"),
+    );
+    assert.equal(celule.length, 200);
+    assert.match(textComplet(container), /11×1/);
+    assert.match(textComplet(container), /20×20/);
+  });
+
   it("grafic_linie foloseste valoarea explicita din serie, nu prima metrica numerica", () => {
     const container = creeazaContainer();
     const rezultat = rezultatCuGrup({
@@ -523,6 +600,119 @@ describe("vizualizatorul MABP", () => {
   });
 });
 
+describe("configuratorul declarativ MABP", () => {
+  it("reproduce exact fiecare preset cand axele nu sunt ajustate", () => {
+    const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
+
+    Object.entries(preseturi.interface.preset_selectii).forEach(([analizaId, selectii]) => {
+      if (preseturi.interface.preseturi?.[analizaId]?.dezactivata) return;
+      assert.deepEqual(
+        construiesteConfiguratieDinSelectii({ preseturi, analizaId, selectii }),
+        construiesteConfiguratieAnaliza({ preseturi, analizaId }),
+      );
+    });
+
+    assert.throws(
+      () => construiesteConfiguratieDinSelectii({
+        preseturi,
+        analizaId: "explorator_eff_rol_necunoscuta_v1",
+        selectii: preseturi.interface.preset_selectii.explorator_eff_rol_necunoscuta_v1,
+      }),
+      /nu sunt încă implementate distinct/,
+    );
+  });
+
+  it("copiaza un domeniu 11–20 × 1–20 din date fara ipoteze despre dimensiunea grilei", () => {
+    const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
+    const domeniu = preseturi.interface.axe.find((axa) => axa.id === "domeniu");
+    domeniu.optiuni.push({
+      id: "tabla_11_20_x_1_20",
+      eticheta: "11–20 × 1–20",
+      valoare: {
+        tip: "camp_in",
+        camp: "fact_id",
+        valori: ["mul:11*1=?", "mul:20*20=?"],
+      },
+    });
+    const selectii = structuredClone(
+      preseturi.interface.preset_selectii.stare_generala_demo_v1,
+    );
+    selectii.domeniu = ["tabla_11_20_x_1_20"];
+
+    const configuratie = construiesteConfiguratieDinSelectii({
+      preseturi,
+      analizaId: "stare_generala_demo_v1",
+      selectii,
+    });
+
+    assert.deepEqual(configuratie.domeniu, domeniu.optiuni.at(-1).valoare);
+    assert.equal(configuratie.preset_baza_id, "stare_generala_demo_v1");
+    assert.equal(configuratie.preset_id, "stare_generala_demo_v1+ajustat");
+  });
+
+  it("combina mai multe bife structurale prin intersectia declarata", () => {
+    const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
+    const structura = preseturi.interface.axe.find((axa) => axa.id === "structura");
+    structura.optiuni.push({
+      id: "forma_a_x_b",
+      eticheta: "Forma a×b",
+      valoare: { tip: "camp_egal", camp: "eq_form", valoare: "a*b=c" },
+    });
+    const selectii = structuredClone(
+      preseturi.interface.preset_selectii.stare_generala_demo_v1,
+    );
+    selectii.structura = ["rol_necunoscuta_a", "forma_a_x_b"];
+
+    const configuratie = construiesteConfiguratieDinSelectii({
+      preseturi,
+      analizaId: "stare_generala_demo_v1",
+      selectii,
+    });
+
+    assert.equal(configuratie.structura.tip, "intersectie");
+    assert.deepEqual(configuratie.structura.axe, structura.optiuni.map((optiune) => optiune.valoare));
+  });
+
+  it("respinge selectii duplicate, combinatii incompatibile si axe necunoscute", () => {
+    const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
+    const selectii = structuredClone(
+      preseturi.interface.preset_selectii.stare_generala_demo_v1,
+    );
+
+    selectii.structura = ["rol_necunoscuta_a", "rol_necunoscuta_a"];
+    assert.throws(
+      () => construiesteConfiguratieDinSelectii({
+        preseturi,
+        analizaId: "stare_generala_demo_v1",
+        selectii,
+      }),
+      /selecții duplicate/,
+    );
+
+    selectii.structura = [];
+    selectii.mod_analiza = ["directie_perioada"];
+    assert.throws(
+      () => construiesteConfiguratieDinSelectii({
+        preseturi,
+        analizaId: "stare_generala_demo_v1",
+        selectii,
+      }),
+      /fereastră limitată/,
+    );
+
+    selectii.mod_analiza = ["stare_curenta"];
+    selectii.axa_inexistenta = ["orice"];
+    assert.throws(
+      () => construiesteConfiguratieDinSelectii({
+        preseturi,
+        analizaId: "stare_generala_demo_v1",
+        selectii,
+      }),
+      /axe necunoscute/,
+    );
+  });
+});
+
 describe("integrarea aplicatiei MABP", () => {
   it("citeste explicit sursa si presetul initial din URL", () => {
     assert.deepEqual(
@@ -578,10 +768,16 @@ describe("integrarea aplicatiei MABP", () => {
 
     assert.deepEqual([...caiCerute].sort(), ["/catalog.json", "/loguri.json", "/preseturi.json"]);
     assert.equal(aplicatie.stare.loguri.length, 209);
-    assert.equal(documentRef.getElementById("mabp-preset").children.length, 5);
-    assert.equal(
-      documentRef.getElementById("mabp-preset").children[0].textContent,
-      "Privire generală asupra exercițiilor demo",
+    const intrariPreset = cautaElemente(
+      documentRef.getElementById("mabp-preset"),
+      (element) => element.tagName === "INPUT",
+    );
+    assert.equal(intrariPreset.length, 5);
+    assert.ok(intrariPreset.every((intrare) => intrare.type === "radio"));
+    assert.equal(new Set(intrariPreset.map((intrare) => intrare.name)).size, 1);
+    assert.match(
+      textComplet(documentRef.getElementById("mabp-preset")),
+      /Privire generală asupra exercițiilor demo/,
     );
     assert.match(
       documentRef.getElementById("mabp-ajutor-preset").textContent,
@@ -615,8 +811,10 @@ describe("integrarea aplicatiei MABP", () => {
     )[0];
     assert.match(textComplet(detaliuDateInsuficiente), /prea puține întrebări/i);
 
-    documentRef.getElementById("mabp-mod-afisare").value = "tehnic";
-    await documentRef.getElementById("mabp-mod-afisare").dispatch("change");
+    aplicatie.stare.controlere.modAfisare.seteaza(["tehnic"]);
+    await aplicatie.stare.controlere.modAfisare.intrari
+      .find((intrare) => intrare.value === "tehnic")
+      .dispatch("change");
     const textTehnic = textComplet(documentRef.getElementById("mabp-rezultat"));
     assert.match(textTehnic, /Metadatele raportului/);
     assert.match(textTehnic, /afișează textual starea/);
@@ -625,6 +823,133 @@ describe("integrarea aplicatiei MABP", () => {
       documentRef.getElementById("mabp-status-sursa").textContent,
       /afișare tehnică/,
     );
+  });
+
+  it("ruleaza motorul o singura data pentru o schimbare de axa si transmite configuratia explicita", async () => {
+    const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
+    const catalog = citesteJson("youlearn_catalog_MABP_dummy_v1.json");
+    const loguri = citesteJson("youlearn_loguri_dummy_v1.json");
+    const documentRef = creeazaDocumentAplicatie();
+    const configuratiiPrimite = [];
+    const dateDupaCale = {
+      "/preseturi.json": preseturi,
+      "/catalog.json": catalog,
+      "/loguri.json": loguri,
+    };
+
+    const aplicatie = await initializeazaAplicatiaMABP({
+      documentRef,
+      fetchFn: async (cale) => ({
+        ok: true,
+        async json() {
+          return structuredClone(dateDupaCale[cale]);
+        },
+      }),
+      motor: {
+        async ruleazaAnaliza({ configuratie }) {
+          configuratiiPrimite.push(structuredClone(configuratie));
+          return { configuratie };
+        },
+      },
+      vizualizator: { afiseaza() {} },
+      cai: {
+        preseturi: "/preseturi.json",
+        catalog: "/catalog.json",
+        fixture: "/loguri.json",
+      },
+    });
+
+    assert.equal(configuratiiPrimite.length, 1);
+    const controlDomeniu = aplicatie.stare.controlere.axe.get("domeniu");
+    controlDomeniu.seteaza(["fact_7x8"]);
+    await controlDomeniu.intrari
+      .find((intrare) => intrare.value === "fact_7x8")
+      .dispatch("change");
+
+    assert.equal(configuratiiPrimite.length, 2);
+    assert.deepEqual(configuratiiPrimite[1].domeniu, {
+      tip: "fact",
+      fact_id: "mul:7*8=?",
+    });
+    assert.equal(configuratiiPrimite[1].preset_baza_id, "stare_generala_demo_v1");
+    assert.deepEqual(configuratiiPrimite[1].selectii_interfata.domeniu, ["fact_7x8"]);
+  });
+
+  it("dezactiveaza combinatiile incompatibile si poate reaplica direct presetul curent", async () => {
+    const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
+    const catalog = citesteJson("youlearn_catalog_MABP_dummy_v1.json");
+    const loguri = citesteJson("youlearn_loguri_dummy_v1.json");
+    const documentRef = creeazaDocumentAplicatie();
+    const dateDupaCale = {
+      "/preseturi.json": preseturi,
+      "/catalog.json": catalog,
+      "/loguri.json": loguri,
+    };
+
+    const aplicatie = await initializeazaAplicatiaMABP({
+      documentRef,
+      fetchFn: async (cale) => ({
+        ok: true,
+        async json() {
+          return structuredClone(dateDupaCale[cale]);
+        },
+      }),
+      motor: {
+        async ruleazaAnaliza({ configuratie }) {
+          return { configuratie };
+        },
+      },
+      vizualizator: { afiseaza() {} },
+      cai: {
+        preseturi: "/preseturi.json",
+        catalog: "/catalog.json",
+        fixture: "/loguri.json",
+      },
+    });
+
+    const controlFereastra = aplicatie.stare.controlere.axe.get("fereastra");
+    const controlMod = aplicatie.stare.controlere.axe.get("mod_analiza");
+    const directiePerioada = controlMod.intrari.find(
+      (intrare) => intrare.value === "directie_perioada",
+    );
+    const deLaInceput = controlFereastra.intrari.find(
+      (intrare) => intrare.value === "toate",
+    );
+    assert.equal(directiePerioada.disabled, true);
+    assert.match(
+      textComplet(controlMod.element),
+      /fereastră limitată, nu «De la început»/,
+    );
+
+    controlFereastra.seteaza(["zile_7"]);
+    await controlFereastra.intrari
+      .find((intrare) => intrare.value === "zile_7")
+      .dispatch("change");
+    assert.equal(directiePerioada.disabled, false);
+
+    controlMod.seteaza(["directie_perioada"]);
+    await directiePerioada.dispatch("change");
+    assert.equal(deLaInceput.disabled, true);
+
+    await documentRef.getElementById("mabp-reaplica-preset").dispatch("click");
+    assert.deepEqual(controlFereastra.citeste(), ["toate"]);
+    assert.deepEqual(controlMod.citeste(), ["stare_curenta"]);
+    assert.equal(directiePerioada.disabled, true);
+    assert.doesNotMatch(
+      documentRef.getElementById("mabp-status-sursa").textContent,
+      /configurație ajustată/,
+    );
+
+    const presetExploratoriu = aplicatie.stare.controlere.preset.intrari.find(
+      (intrare) => intrare.value === "explorator_eff_rol_necunoscuta_v1",
+    );
+    const graficLinie = aplicatie.stare.controlere.axe
+      .get("vizualizare")
+      .intrari.find((intrare) => intrare.value === "grafic_linie");
+    assert.equal(presetExploratoriu.disabled, true);
+    assert.equal(graficLinie.disabled, true);
+    assert.match(textComplet(aplicatie.stare.controlere.preset.element), /nu sunt încă implementate distinct/);
+    assert.match(textComplet(aplicatie.stare.controlere.axe.get("vizualizare").element), /nu produc încă serii temporale/);
   });
 
   it("poate porni direct cu toate facts observate din IndexedDB", async () => {
@@ -679,7 +1004,10 @@ describe("integrarea aplicatiei MABP", () => {
     });
 
     assert.equal(aplicatie.stare.loguri.length, 1);
-    assert.equal(documentRef.getElementById("mabp-preset").value, "stare_generala_observata_v1");
+    assert.deepEqual(
+      aplicatie.stare.controlere.preset.citeste(),
+      ["stare_generala_observata_v1"],
+    );
     assert.match(documentRef.getElementById("mabp-ajutor-preset").textContent, /toate valorile fact_id/);
     assert.match(documentRef.getElementById("mabp-status-sursa").textContent, /1 înregistrări.*jurnalul IndexedDB/);
     const text = textComplet(documentRef.getElementById("mabp-rezultat"));
@@ -714,8 +1042,10 @@ describe("integrarea aplicatiei MABP", () => {
         fixture: "/loguri.json",
       },
     });
-    documentRef.getElementById("mabp-preset").value =
-      "progres_7_zile_subtabla_v1";
+    aplicatie.stare.controlere.preset.seteaza(["progres_7_zile_subtabla_v1"]);
+    await aplicatie.stare.controlere.preset.intrari
+      .find((intrare) => intrare.value === "progres_7_zile_subtabla_v1")
+      .dispatch("change");
 
     const rezultat = await aplicatie.folosesteLoguri(loguri, "fișier extern.json");
 
@@ -744,13 +1074,7 @@ describe("integrarea aplicatiei MABP", () => {
       },
     });
 
-    for (const id of [
-      "mabp-preset",
-      "mabp-mod-afisare",
-      "mabp-incarca-fixture",
-      "mabp-importa-json",
-      "mabp-incarca-indexeddb",
-    ]) {
+    for (const id of ["mabp-reaplica-preset", "mabp-incarca-fixture", "mabp-importa-json", "mabp-incarca-indexeddb"]) {
       assert.equal(documentRef.getElementById(id).disabled, true);
     }
     assert.match(

@@ -608,6 +608,16 @@ function randeazaGrilaProgres({ rezultat, container, tip }) {
   container.append(explicatie, grila);
 }
 
+function randeazaGrilaAdaptiva({ rezultat, container }) {
+  const esteDirectie = rezultat.configuratie?.rezultat === "directie" ||
+    rezultat.grupuri?.some((grup) => esteObiectSimplu(grup.comparatie));
+  randeazaGrilaProgres({
+    rezultat,
+    container,
+    tip: esteDirectie ? "grila_progres" : "grila_stare",
+  });
+}
+
 function extragePunctSerie(punct, index) {
   if (typeof punct === "number" && Number.isFinite(punct)) {
     return { eticheta: String(index + 1), valoare: punct };
@@ -898,6 +908,7 @@ function randeazaTabel({ rezultat, container }) {
 const VIZUALIZARI_IMPLICITE = Object.freeze({
   rezumat_simplu: randeazaRezumatSimplu,
   detaliu_fact: randeazaDetaliuFact,
+  grila_adaptiva: randeazaGrilaAdaptiva,
   grila_stare: randeazaGrilaProgres,
   grila_progres: randeazaGrilaProgres,
   grafic_linie: randeazaGraficLinie,

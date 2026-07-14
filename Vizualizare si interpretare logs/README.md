@@ -103,6 +103,26 @@ Regulile declarative de filtrare sunt validate înainte de calcul. Un tip, opera
 
 Pagina `mabp.html` pornește în modul **Pe scurt**. Acesta afișează concluzia descriptivă, cele trei valori principale și, când analiza produce mai multe grupuri, o grilă de selecție. Modul **Detalii tehnice** păstrează vizualizările declarate în preset și metadatele raportului.
 
+### Contractul Motor · Axe · Bife · Preseturi
+
+Toate opțiunile de configurare sunt vizibile simultan ca radio-uri sau checkboxuri native. Rendererul comun `creeazaGrupOptiuni(...)` primește explicit containerul, tipul selecției, opțiunile și selecția curentă; el nu cunoaște motorul, preseturile sau semnificația axelor.
+
+Fișierul de preseturi declară interfața în `interface.axe`. Fiecare axă descrie numai:
+
+- ID-ul, eticheta și tipul selecției (`unica` sau `multipla`);
+- opțiunile vizibile și valorile lor declarative;
+- câmpul configurației și una dintre strategiile fixe `inlocuieste`, `patch`, `lista` sau `intersectie`.
+
+`interface.preset_selectii` leagă fiecare preset de selecțiile axelor. Alegerea unui preset completează toate axele, iar o modificare ulterioară produce o configurație nouă marcată explicit cu `preset_baza_id` și `selectii_interfata`. Adăugarea unei opțiuni compatibile înseamnă în primul rând adăugarea ei în JSON; rendererul și fluxul principal nu se schimbă.
+
+Butonul **Reaplică presetul** reface direct selecțiile presetului curent după ajustări; nu este necesară alegerea temporară a altui preset.
+
+O opțiune indisponibilă poate rămâne vizibilă cu `dezactivata: true`, dar trebuie să declare și `motiv_dezactivare`. O opțiune poate declara și dependențe simple prin `necesita_selectii`; interfața verifică aceleași reguli atât când dezactivează vizibil combinațiile imposibile, cât și când construiește configurația. Selecțiile incompatibile, ID-urile duplicate și strategiile necunoscute opresc raportul cu o eroare explicită.
+
+Vizualizarea `grila_adaptiva` afișează starea pentru analiza curentă și direcția pentru comparații, fără două controale care s-ar putea contrazice. Presetul exploratoriu și graficul linie rămân vizibile, dar dezactivate cu motiv, până când motorul va produce un calcul exploratoriu și serii temporale distincte.
+
+Interfața nu presupune o grilă 1–10 × 1–10. Domeniul și ordinea celulelor vin din catalog/configurație, astfel încât viitoarea grilă 11–20 × 1–20 folosește același contract. Catalogul și facts complete pentru acea grilă nu sunt încă incluse în fixture-ul demonstrativ și nu sunt inventate de interfață.
+
 Presetul implicit `stare_generala_demo_v1` acoperă explicit șase facts prezente în fixture. El demonstrează interacțiunea și nu reprezintă încă tabla completă 1–10 × 1–10. Celulele fără observații nu sunt inventate: o grilă completă va necesita un catalog complet și materializarea explicită a grupurilor fără date.
 
 Pentru a citi direct jurnalul browserului în care este deschisă pagina, se poate folosi pornirea explicită `mabp.html?sursa=indexeddb&analiza=stare_generala_observata_v1`. Presetul `stare_generala_observata_v1` analizează toate valorile `fact_id` existente în sursa curentă și nu cere catalog structural. IndexedDB rămâne izolat per browser și origine; aceeași adresă deschisă în Firefox citește jurnalul Firefox, iar în alt browser citește jurnalul acelui browser.

@@ -57,6 +57,220 @@
       "exclude_din_precizie": []
     }
   },
+  "interface": {
+    "axe": [
+      {
+        "id": "domeniu",
+        "eticheta": "Domeniu matematic",
+        "ajutor": "Alege mulțimea de exerciții analizată. Intervalele tablelor vin din catalog sau din configurație, nu din interfață.",
+        "tip_selectie": "unica",
+        "strategie": "inlocuieste",
+        "camp": "domeniu",
+        "optiuni": [
+          {
+            "id": "toate_observate",
+            "eticheta": "Toate observate",
+            "valoare": { "tip": "toate" }
+          },
+          {
+            "id": "demo_sase",
+            "eticheta": "Cele 6 din demo",
+            "valoare": {
+              "tip": "camp_in",
+              "camp": "fact_id",
+              "valori": [
+                "mul:7*8=?",
+                "mul:6*7=?",
+                "mul:5*5=?",
+                "mul:9*9=?",
+                "mul:4*8=?",
+                "mul:2*3=?"
+              ]
+            }
+          },
+          {
+            "id": "fact_7x8",
+            "eticheta": "Fact 7 × 8",
+            "valoare": { "tip": "fact", "fact_id": "mul:7*8=?" }
+          },
+          {
+            "id": "subtabla_7",
+            "eticheta": "Tabla lui 7",
+            "valoare": { "tip": "subtabla", "id": "mul:7:*" }
+          },
+          {
+            "id": "eff_3_7_21",
+            "eticheta": "EFF 3–7–21",
+            "valoare": { "tip": "eff", "eff_id": "eff:3:7:21" }
+          }
+        ]
+      },
+      {
+        "id": "structura",
+        "eticheta": "Structură selectată",
+        "ajutor": "Bifele structurale se pot combina prin intersecție. Fără bifă înseamnă toate formele din domeniul ales.",
+        "tip_selectie": "multipla",
+        "strategie": "intersectie",
+        "camp": "structura",
+        "optiuni": [
+          {
+            "id": "rol_necunoscuta_a",
+            "eticheta": "Necunoscuta pe rolul a",
+            "valoare": { "tip": "acelasi_rol_al_necunoscutei", "rol": "a" }
+          }
+        ]
+      },
+      {
+        "id": "fereastra",
+        "eticheta": "Fereastră",
+        "tip_selectie": "unica",
+        "strategie": "inlocuieste",
+        "camp": "fereastra",
+        "optiuni": [
+          { "id": "toate", "eticheta": "De la început", "valoare": { "tip": "toate" } },
+          {
+            "id": "ultimele_20",
+            "eticheta": "Ultimele 20 răspunsuri",
+            "valoare": { "tip": "ultimele_raspunsuri", "valoare": 20 }
+          },
+          { "id": "zile_7", "eticheta": "Ultimele 7 zile", "valoare": { "tip": "zile", "valoare": 7 } },
+          {
+            "id": "sesiuni_10",
+            "eticheta": "Ultimele 10 sesiuni",
+            "valoare": { "tip": "sesiuni", "valoare": 10 }
+          }
+        ]
+      },
+      {
+        "id": "filtru",
+        "eticheta": "Filtru",
+        "tip_selectie": "unica",
+        "strategie": "inlocuieste",
+        "camp": "filtru_preset",
+        "optiuni": [
+          { "id": "fara", "eticheta": "Fără filtrare", "valoare": "fara_filtrare_v1" },
+          { "id": "standard", "eticheta": "Fluență standard", "valoare": "fluenta_standard_v1" },
+          { "id": "iqr", "eticheta": "IQR conservator", "valoare": "robust_iqr_conservator_v1" }
+        ]
+      },
+      {
+        "id": "mod_analiza",
+        "eticheta": "Mod de analiză",
+        "ajutor": "Modul include comparația compatibilă, astfel încât o singură alegere produce o configurație coerentă.",
+        "tip_selectie": "unica",
+        "strategie": "patch",
+        "optiuni": [
+          {
+            "id": "stare_curenta",
+            "eticheta": "Stare actuală",
+            "valoare": { "rezultat": "stare_curenta", "comparatie": null, "mod": null }
+          },
+          {
+            "id": "directie_perioada",
+            "eticheta": "Progres față de perioada anterioară",
+            "necesita_selectii": {
+              "fereastra": ["ultimele_20", "zile_7", "sesiuni_10"]
+            },
+            "motiv_indisponibilitate": "Comparația cu perioada anterioară cere o fereastră limitată, nu «De la început».",
+            "valoare": {
+              "rezultat": "directie",
+              "comparatie": { "tip": "perioada_anterioara_egala", "numai_facts_comparabile": true },
+              "mod": null
+            }
+          },
+          {
+            "id": "directie_jumatati",
+            "eticheta": "Progres între două jumătăți",
+            "valoare": { "rezultat": "directie", "comparatie": { "tip": "jumatati_egale" }, "mod": null }
+          },
+          {
+            "id": "exploratoriu",
+            "eticheta": "Exploratoriu",
+            "dezactivata": true,
+            "motiv_dezactivare": "Motorul actual nu implementează încă un calcul exploratoriu distinct.",
+            "valoare": { "rezultat": null, "comparatie": null, "mod": "exploratoriu" }
+          }
+        ]
+      },
+      {
+        "id": "vizualizare",
+        "eticheta": "Structura vizualizării",
+        "tip_selectie": "unica",
+        "strategie": "inlocuieste",
+        "camp": "vizualizare",
+        "optiuni": [
+          { "id": "grila_adaptiva", "eticheta": "Grilă", "descriere": "Arată starea sau progresul, în funcție de modul de analiză.", "valoare": "grila_adaptiva" },
+          { "id": "detaliu_fact", "eticheta": "Detaliu fact", "valoare": "detaliu_fact" },
+          {
+            "id": "grafic_linie",
+            "eticheta": "Grafic linie",
+            "dezactivata": true,
+            "motiv_dezactivare": "Analizele actuale nu produc încă serii temporale distincte pentru acest grafic.",
+            "valoare": "grafic_linie"
+          },
+          { "id": "tabel", "eticheta": "Tabel", "valoare": "tabel" }
+        ]
+      }
+    ],
+    "preseturi": {
+      "explorator_eff_rol_necunoscuta_v1": {
+        "dezactivata": true,
+        "motiv_dezactivare": "Preset păstrat ca exemplu de extensie; modul exploratoriu și seria temporală nu sunt încă implementate distinct."
+      }
+    },
+    "preset_selectii": {
+      "stare_generala_demo_v1": {
+        "domeniu": ["demo_sase"],
+        "structura": [],
+        "fereastra": ["toate"],
+        "filtru": ["standard"],
+        "mod_analiza": ["stare_curenta"],
+        "vizualizare": ["grila_adaptiva"]
+      },
+      "stare_generala_observata_v1": {
+        "domeniu": ["toate_observate"],
+        "structura": [],
+        "fereastra": ["toate"],
+        "filtru": ["standard"],
+        "mod_analiza": ["stare_curenta"],
+        "vizualizare": ["grila_adaptiva"]
+      },
+      "stare_curenta_fact_v1": {
+        "domeniu": ["fact_7x8"],
+        "structura": [],
+        "fereastra": ["ultimele_20"],
+        "filtru": ["standard"],
+        "mod_analiza": ["stare_curenta"],
+        "vizualizare": ["detaliu_fact"]
+      },
+      "progres_7_zile_subtabla_v1": {
+        "domeniu": ["subtabla_7"],
+        "structura": [],
+        "fereastra": ["zile_7"],
+        "filtru": ["standard"],
+        "mod_analiza": ["directie_perioada"],
+        "vizualizare": ["grila_adaptiva"]
+      },
+      "explorator_eff_rol_necunoscuta_v1": {
+        "domeniu": ["eff_3_7_21"],
+        "structura": ["rol_necunoscuta_a"],
+        "fereastra": ["sesiuni_10"],
+        "filtru": ["standard"],
+        "mod_analiza": ["exploratoriu"],
+        "vizualizare": ["grafic_linie"]
+      }
+    },
+    "mod_afisare": {
+      "id": "mod_afisare",
+      "eticheta": "Nivelul detaliului",
+      "ajutor": "Toate opțiunile rămân vizibile. «Pe scurt» folosește rezumatul, iar «Tehnic» folosește structura aleasă mai sus.",
+      "tip_selectie": "unica",
+      "optiuni": [
+        { "id": "simplu", "eticheta": "Pe scurt" },
+        { "id": "tehnic", "eticheta": "Detalii tehnice" }
+      ]
+    }
+  },
   "analysis_presets": {
     "stare_generala_demo_v1": {
       "nume": "Privire generală asupra exercițiilor demo",
@@ -86,7 +300,7 @@
         "statistica_timp": "mediana"
       },
       "rezultat": "stare_curenta",
-      "vizualizare": "grila_stare"
+      "vizualizare": "grila_adaptiva"
     },
     "stare_generala_observata_v1": {
       "nume": "Toate exercițiile observate",
@@ -107,7 +321,7 @@
         "statistica_timp": "mediana"
       },
       "rezultat": "stare_curenta",
-      "vizualizare": "grila_stare"
+      "vizualizare": "grila_adaptiva"
     },
     "stare_curenta_fact_v1": {
       "nume": "Detaliu pentru 7 × 8",
@@ -156,7 +370,7 @@
       ],
       "ponderare": "greutate_egala_per_fact",
       "rezultat": "directie",
-      "vizualizare": "grila_progres"
+      "vizualizare": "grila_adaptiva"
     },
     "explorator_eff_rol_necunoscuta_v1": {
       "nume": "Explorare EFF — necunoscuta pe rolul a",
