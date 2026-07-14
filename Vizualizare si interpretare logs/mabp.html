@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Analiză declarativă MABP pentru starea și progresul observat în logurile YouLearn."
+    />
+    <title>MABP — analiză și vizualizare YouLearn</title>
+    <link rel="stylesheet" href="mabp.css" />
+  </head>
+  <body>
+    <a class="mabp-sari" href="#mabp-rezultat">Sari la rezultat</a>
+
+    <header class="mabp-antet-pagina">
+      <div>
+        <p class="mabp-supratitlu">YouLearn · MABP</p>
+        <h1>Vizualizare și interpretare logs</h1>
+        <p class="mabp-introducere">
+          Compară starea și direcția performanței fără să modifice jurnalul brut. Pragurile din
+          versiunea 0.1 sunt provizorii și trebuie interpretate împreună cu suficiența datelor.
+        </p>
+      </div>
+      <a class="mabp-legatura-inapoi" href="../index.html">Înapoi la YouLearn</a>
+    </header>
+
+    <main id="mabp-app" class="mabp-layout" aria-busy="true">
+      <aside class="mabp-controale" aria-labelledby="mabp-titlu-controale">
+        <h2 id="mabp-titlu-controale">Configurează raportul</h2>
+
+        <div class="mabp-camp">
+          <label for="mabp-preset">Preset de analiză</label>
+          <select id="mabp-preset" name="mabp-preset" aria-describedby="mabp-ajutor-preset" disabled>
+            <option>Se încarcă…</option>
+          </select>
+          <p id="mabp-ajutor-preset" class="mabp-ajutor">
+            Presetul construiește configurația transmisă explicit motorului.
+          </p>
+        </div>
+
+        <fieldset class="mabp-surse">
+          <legend>Sursa logurilor</legend>
+          <button id="mabp-incarca-fixture" type="button" disabled>Folosește fixture-ul inclus</button>
+
+          <div class="mabp-camp mabp-camp--fisier">
+            <label for="mabp-importa-json">Importă un fișier JSON</label>
+            <input id="mabp-importa-json" type="file" accept="application/json,.json" disabled />
+          </div>
+
+          <button id="mabp-incarca-indexeddb" type="button" disabled>Citește jurnalul IndexedDB</button>
+        </fieldset>
+
+        <p id="mabp-status-sursa" class="mabp-status-sursa" role="status" aria-live="polite">
+          Se încarcă datele inițiale…
+        </p>
+
+        <details class="mabp-nota-metoda">
+          <summary>Cum sunt tratate datele</summary>
+          <p>
+            Logurile sunt transmise motorului în ordinea în care apar în array sau în cursorul
+            IndexedDB. Interfața nu sortează, nu reclasifică și nu deduce structura matematică.
+          </p>
+        </details>
+      </aside>
+
+      <section class="mabp-zona-rezultat" aria-labelledby="mabp-titlu-rezultat">
+        <div class="mabp-titlu-rezultat">
+          <div>
+            <p class="mabp-supratitlu">Raport reproductibil</p>
+            <h2 id="mabp-titlu-rezultat">Stare și progres observat</h2>
+          </div>
+        </div>
+
+        <div id="mabp-mesaj" class="mabp-mesaj" role="alert" hidden></div>
+        <div id="mabp-rezultat" class="mabp-rezultat" tabindex="-1">
+          <p class="mabp-stare-goala">Rezultatul va apărea după încărcarea datelor.</p>
+        </div>
+      </section>
+    </main>
+
+    <noscript>
+      <p class="mabp-fara-script">Această pagină are nevoie de JavaScript pentru a rula analiza.</p>
+    </noscript>
+    <script type="module" src="mabp-app.js"></script>
+  </body>
+</html>

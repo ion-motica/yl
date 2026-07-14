@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "catalog_id": "youlearn_catalog_MABP_dummy_v1",
+  "catalog_scope": "fixture_only",
+  "facts": {
+    "mul:7*8=?": {
+      "fact_id": "mul:7*8=?",
+      "fact": "7*8=56",
+      "intrebare": "7*8=?",
+      "eq_form": "7*8=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:7:*", "mul:*:8"],
+      "eff_id": null,
+      "eff_member_id": null,
+      "unknown_member_role": null,
+      "eq_form_id": null
+    },
+    "mul:6*7=?": {
+      "fact_id": "mul:6*7=?",
+      "fact": "6*7=42",
+      "intrebare": "6*7=?",
+      "eq_form": "6*7=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:6:*", "mul:*:7"],
+      "eff_id": null,
+      "eff_member_id": null,
+      "unknown_member_role": null,
+      "eq_form_id": null
+    },
+    "mul:5*5=?": {
+      "fact_id": "mul:5*5=?",
+      "fact": "5*5=25",
+      "intrebare": "5*5=?",
+      "eq_form": "5*5=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:5:*", "mul:*:5"],
+      "eff_id": null,
+      "eff_member_id": null,
+      "unknown_member_role": null,
+      "eq_form_id": null
+    },
+    "mul:9*9=?": {
+      "fact_id": "mul:9*9=?",
+      "fact": "9*9=81",
+      "intrebare": "9*9=?",
+      "eq_form": "9*9=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:9:*", "mul:*:9"],
+      "eff_id": null,
+      "eff_member_id": null,
+      "unknown_member_role": null,
+      "eq_form_id": null
+    },
+    "mul:4*8=?": {
+      "fact_id": "mul:4*8=?",
+      "fact": "4*8=32",
+      "intrebare": "4*8=?",
+      "eq_form": "4*8=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:4:*", "mul:*:8"],
+      "eff_id": null,
+      "eff_member_id": null,
+      "unknown_member_role": null,
+      "eq_form_id": null
+    },
+    "mul:2*3=?": {
+      "fact_id": "mul:2*3=?",
+      "fact": "2*3=6",
+      "intrebare": "2*3=?",
+      "eq_form": "2*3=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:2:*", "mul:*:3"],
+      "eff_id": null,
+      "eff_member_id": null,
+      "unknown_member_role": null,
+      "eq_form_id": null
+    },
+    "mul:3*7=?": {
+      "fact_id": "mul:3*7=?",
+      "fact": "3*7=21",
+      "intrebare": "3*7=?",
+      "eq_form": "3*7=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:3:*", "mul:*:7"],
+      "eff_id": "eff:3:7:21",
+      "eff_member_id": "mul:3*7=?",
+      "unknown_member_role": "c",
+      "eq_form_id": "3*7=?"
+    },
+    "mul:7*3=?": {
+      "fact_id": "mul:7*3=?",
+      "fact": "7*3=21",
+      "intrebare": "7*3=?",
+      "eq_form": "7*3=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:7:*", "mul:*:3"],
+      "eff_id": "eff:3:7:21",
+      "eff_member_id": "mul:7*3=?",
+      "unknown_member_role": "c",
+      "eq_form_id": "7*3=?"
+    },
+    "mul:?*7=21": {
+      "fact_id": "mul:?*7=21",
+      "fact": "3*7=21",
+      "intrebare": "?*7=21",
+      "eq_form": "?*7=21",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:3:*", "mul:*:7"],
+      "eff_id": "eff:3:7:21",
+      "eff_member_id": "mul:?*7=21",
+      "unknown_member_role": "a",
+      "eq_form_id": "?*7=21"
+    },
+    "mul:21=?*7": {
+      "fact_id": "mul:21=?*7",
+      "fact": "3*7=21",
+      "intrebare": "21=?*7",
+      "eq_form": "21=?*7",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:3:*", "mul:*:7"],
+      "eff_id": "eff:3:7:21",
+      "eff_member_id": "mul:21=?*7",
+      "unknown_member_role": "a",
+      "eq_form_id": "21=?*7"
+    },
+    "mul:3*?=21": {
+      "fact_id": "mul:3*?=21",
+      "fact": "3*7=21",
+      "intrebare": "3*?=21",
+      "eq_form": "3*?=21",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:3:*", "mul:*:7"],
+      "eff_id": "eff:3:7:21",
+      "eff_member_id": "mul:3*?=21",
+      "unknown_member_role": "b",
+      "eq_form_id": "3*?=21"
+    },
+    "mul:21=3*?": {
+      "fact_id": "mul:21=3*?",
+      "fact": "3*7=21",
+      "intrebare": "21=3*?",
+      "eq_form": "21=3*?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:3:*", "mul:*:7"],
+      "eff_id": "eff:3:7:21",
+      "eff_member_id": "mul:21=3*?",
+      "unknown_member_role": "b",
+      "eq_form_id": "21=3*?"
+    },
+    "mul:8*9=?": {
+      "fact_id": "mul:8*9=?",
+      "fact": "8*9=72",
+      "intrebare": "8*9=?",
+      "eq_form": "8*9=?",
+      "operatie": "mul",
+      "table_id": "mul:1-10x1-10",
+      "subtable_ids": ["mul:8:*", "mul:*:9"],
+      "eff_id": null,
+      "eff_member_id": null,
+      "unknown_member_role": null,
+      "eq_form_id": null
+    }
+  },
+  "subtables": {
+    "mul:2:*": {
+      "subtable_id": "mul:2:*",
+      "member_fact_ids": ["mul:2*3=?"]
+    },
+    "mul:*:3": {
+      "subtable_id": "mul:*:3",
+      "member_fact_ids": ["mul:2*3=?", "mul:7*3=?"]
+    },
+    "mul:3:*": {
+      "subtable_id": "mul:3:*",
+      "member_fact_ids": [
+        "mul:3*7=?",
+        "mul:?*7=21",
+        "mul:21=?*7",
+        "mul:3*?=21",
+        "mul:21=3*?"
+      ]
+    },
+    "mul:*:7": {
+      "subtable_id": "mul:*:7",
+      "member_fact_ids": [
+        "mul:6*7=?",
+        "mul:3*7=?",
+        "mul:?*7=21",
+        "mul:21=?*7",
+        "mul:3*?=21",
+        "mul:21=3*?"
+      ]
+    },
+    "mul:4:*": {
+      "subtable_id": "mul:4:*",
+      "member_fact_ids": ["mul:4*8=?"]
+    },
+    "mul:*:8": {
+      "subtable_id": "mul:*:8",
+      "member_fact_ids": ["mul:7*8=?", "mul:4*8=?"]
+    },
+    "mul:5:*": {
+      "subtable_id": "mul:5:*",
+      "member_fact_ids": ["mul:5*5=?"]
+    },
+    "mul:*:5": {
+      "subtable_id": "mul:*:5",
+      "member_fact_ids": ["mul:5*5=?"]
+    },
+    "mul:6:*": {
+      "subtable_id": "mul:6:*",
+      "member_fact_ids": ["mul:6*7=?"]
+    },
+    "mul:7:*": {
+      "subtable_id": "mul:7:*",
+      "member_fact_ids": ["mul:7*8=?", "mul:7*3=?"]
+    },
+    "mul:8:*": {
+      "subtable_id": "mul:8:*",
+      "member_fact_ids": ["mul:8*9=?"]
+    },
+    "mul:*:9": {
+      "subtable_id": "mul:*:9",
+      "member_fact_ids": ["mul:9*9=?", "mul:8*9=?"]
+    },
+    "mul:9:*": {
+      "subtable_id": "mul:9:*",
+      "member_fact_ids": ["mul:9*9=?"]
+    }
+  },
+  "effs": {
+    "eff:3:7:21": {
+      "eff_id": "eff:3:7:21",
+      "member_fact_ids": [
+        "mul:3*7=?",
+        "mul:7*3=?",
+        "mul:?*7=21",
+        "mul:21=?*7",
+        "mul:3*?=21",
+        "mul:21=3*?"
+      ],
+      "roles": {
+        "a": ["mul:?*7=21", "mul:21=?*7"],
+        "b": ["mul:3*?=21", "mul:21=3*?"],
+        "c": ["mul:3*7=?", "mul:7*3=?"]
+      }
+    }
+  }
+}

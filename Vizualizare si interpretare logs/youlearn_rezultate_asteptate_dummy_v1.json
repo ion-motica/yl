@@ -1,0 +1,48 @@
+{
+  "fixture_version": 1,
+  "notes": [
+    "Ordinea elementelor din array este ordinea de salvare; timestampul nu se foloseste pentru delimitarea intrebarilor.",
+    "a_cata_apasare_pe_buton=1 incepe intrebarea; 2/3 continua aceeasi intrebare.",
+    "Presetul standard de viteza exclude din calcul timpii <0.5 s si >=15 s, dar pastreaza datele brute."
+  ],
+  "expected_classifications": {
+    "mul:7*8=?": "progres",
+    "mul:6*7=?": "viteza_mai_mare_dar_precizie_in_scadere",
+    "mul:5*5=?": "stabil_la_nivel_bun",
+    "mul:9*9=?": "stabil_inca_nefluent",
+    "mul:4*8=?": "regres_probabil",
+    "mul:2*3=?": "date_insuficiente"
+  },
+  "grouping_checks": {
+    "three_presses_question_count": 1,
+    "three_presses_press_count": 3,
+    "three_presses_correct_first_press": false,
+    "three_presses_eventually_correct": true
+  },
+  "data_quality_checks": {
+    "mul:7*8=?_suspect_fast_count": 1,
+    "mul:7*8=?_probable_pause_count": 1
+  },
+  "qualitative_expected_changes": {
+    "mul:7*8=?": {
+      "speed": "improves materially",
+      "accuracy": "does not decrease"
+    },
+    "mul:6*7=?": {
+      "speed": "improves",
+      "accuracy": "decreases materially"
+    },
+    "mul:5*5=?": {
+      "speed": "approximately stable and fast",
+      "accuracy": "stable high"
+    },
+    "mul:9*9=?": {
+      "speed": "approximately stable and slow",
+      "accuracy": "stable below fluent target"
+    },
+    "mul:4*8=?": {
+      "speed": "worsens materially",
+      "accuracy": "decreases"
+    }
+  }
+}

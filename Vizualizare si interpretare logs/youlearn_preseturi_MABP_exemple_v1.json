@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "filter_presets": {
+    "fara_filtrare_v1": {
+      "doar_prima_apasare": true,
+      "exclude_din_timp": [],
+      "exclude_din_precizie": []
+    },
+    "fluenta_standard_v1": {
+      "doar_prima_apasare": true,
+      "exclude_din_timp": [
+        {
+          "tip": "prag_fix",
+          "camp": "durata_raspuns_secunde",
+          "operator": "<",
+          "valoare": 0.5,
+          "motiv": "anticipativ_suspect"
+        },
+        {
+          "tip": "prag_fix",
+          "camp": "durata_raspuns_secunde",
+          "operator": ">=",
+          "valoare": 15,
+          "motiv": "pauza_probabila"
+        }
+      ],
+      "exclude_din_precizie": [],
+      "marcheaza_fara_excludere": [
+        {
+          "tip": "interval",
+          "min": 4,
+          "max": 15,
+          "motiv": "raspuns_foarte_lent"
+        }
+      ]
+    },
+    "robust_iqr_conservator_v1": {
+      "doar_prima_apasare": true,
+      "exclude_din_timp": [
+        {
+          "tip": "prag_fix",
+          "operator": "<",
+          "valoare": 0.5,
+          "motiv": "anticipativ_suspect"
+        },
+        {
+          "tip": "iqr",
+          "factor": 3.0,
+          "directie": "superior",
+          "grupare_calcul": [
+            "fact_id",
+            "eq_form"
+          ],
+          "motiv": "outlier_extrem"
+        }
+      ],
+      "exclude_din_precizie": []
+    }
+  },
+  "analysis_presets": {
+    "stare_curenta_fact_v1": {
+      "domeniu": {
+        "tip": "fact",
+        "fact_id": "mul:7*8=?"
+      },
+      "fereastra": {
+        "tip": "ultimele_raspunsuri",
+        "valoare": 20
+      },
+      "filtru_preset": "fluenta_standard_v1",
+      "metrici": [
+        "precizie_prima_apasare",
+        "mediana_timp_corect_prima_apasare",
+        "procent_rapid_si_corect",
+        "distributie_grupe_timp"
+      ],
+      "agregare": {
+        "unitate": "raspuns",
+        "statistica_timp": "mediana"
+      },
+      "rezultat": "stare_curenta",
+      "vizualizare": "detaliu_fact"
+    },
+    "progres_7_zile_subtabla_v1": {
+      "domeniu": {
+        "tip": "subtabla",
+        "id": "mul:7:*"
+      },
+      "fereastra": {
+        "tip": "zile",
+        "valoare": 7
+      },
+      "comparatie": {
+        "tip": "perioada_anterioara_egala",
+        "numai_facts_comparabile": true
+      },
+      "filtru_preset": "fluenta_standard_v1",
+      "metrici": [
+        "delta_mediana_timp",
+        "delta_precizie"
+      ],
+      "ponderare": "greutate_egala_per_fact",
+      "rezultat": "directie",
+      "vizualizare": "grila_progres"
+    },
+    "explorator_eff_rol_necunoscuta_v1": {
+      "domeniu": {
+        "tip": "eff",
+        "eff_id": "eff:3:7:21"
+      },
+      "structura": {
+        "tip": "acelasi_rol_al_necunoscutei",
+        "rol": "a"
+      },
+      "fereastra": {
+        "tip": "sesiuni",
+        "valoare": 10
+      },
+      "filtru_preset": "fluenta_standard_v1",
+      "metrici": [
+        "precizie_prima_apasare",
+        "mediana_timp_corect_prima_apasare"
+      ],
+      "vizualizare": "grafic_linie",
+      "mod": "exploratoriu"
+    }
+  }
+}
