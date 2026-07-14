@@ -23,7 +23,33 @@ const STARI_ATENTIE = new Set([
   "viteza_mai_mare_dar_precizie_in_scadere",
 ]);
 
+const EXPLICATII_STARI = Object.freeze({
+  fluent:
+    "Viteza și precizia ating împreună pragurile provizorii de fluență.",
+  in_consolidare:
+    "Rezultatele sunt în mare parte corecte, dar viteza și precizia nu ating încă împreună pragul provizoriu de fluență.",
+  în_consolidare:
+    "Rezultatele sunt în mare parte corecte, dar viteza și precizia nu ating încă împreună pragul provizoriu de fluență.",
+  in_lucru:
+    "Datele observate indică precizie redusă, timp ridicat sau o combinație nefavorabilă.",
+  în_lucru:
+    "Datele observate indică precizie redusă, timp ridicat sau o combinație nefavorabilă.",
+  netestat: "Nu există răspunsuri înregistrate pentru acest element.",
+  progres: "Perioada curentă arată o îmbunătățire relevantă față de perioada anterioară.",
+  stabil_la_nivel_bun:
+    "Schimbarea este mică, iar starea curentă rămâne la un nivel bun.",
+  stabil_inca_nefluent:
+    "Schimbarea este mică, iar starea curentă nu este încă fluentă.",
+  regres_probabil:
+    "Perioada curentă arată o scădere relevantă față de perioada anterioară.",
+  viteza_mai_mare_dar_precizie_in_scadere:
+    "Răspunsurile sunt mai rapide, dar precizia a scăzut relevant.",
+  date_insuficiente:
+    "Sunt prea puține date pentru o concluzie stabilă.",
+});
+
 let urmatorulIdGrafic = 1;
+let urmatorulIdRezumat = 1;
 
 function valideazaContainer(container) {
   if (!container || typeof container.replaceChildren !== "function") {
@@ -212,6 +238,252 @@ function randeazaContextRezultat(documentRef, container, rezultat) {
   container.append(antet);
 }
 
+function randeazaContextSimplu(documentRef, container, rezultat) {
+  const antet = creeazaElement(documentRef, "header", {
+    clasa: "mabp-rezumat mabp-rezumat--simplu",
+  });
+  antet.append(
+    creeazaElement(documentRef, "p", {
+      clasa: "mabp-supratitlu",
+      text: "Rezultat pe scurt",
+    }),
+    creeazaElement(documentRef, "h3", { text: "Ce arată răspunsurile înregistrate" }),
+  );
+  const descriere = rezultat?.configuratie?.descriere;
+  if (typeof descriere === "string" && descriere.trim()) {
+    antet.append(creeazaElement(documentRef, "p", { text: descriere.trim() }));
+  }
+  antet.append(
+    creeazaElement(documentRef, "p", {
+      clasa: "mabp-nota-orientativa",
+      text: "Interpretarea este orientativă: pragurile versiunii 0.1 sunt provizorii.",
+    }),
+  );
+  const avertismente = extrageAvertismente(rezultat);
+  if (avertismente.length) {
+    const limite = creeazaElement(documentRef, "details", {
+      clasa: "mabp-limite-simplu",
+    });
+    limite.append(
+      creeazaElement(documentRef, "summary", {
+        text: `${avertismente.length} ${avertismente.length === 1 ? "limită tehnică a datelor" : "limite tehnice ale datelor"}`,
+      }),
+    );
+    const lista = creeazaElement(documentRef, "ul");
+    avertismente.forEach((mesaj) =>
+      lista.append(creeazaElement(documentRef, "li", { text: String(mesaj) })),
+    );
+    limite.append(lista);
+    antet.append(limite);
+  }
+  container.append(antet);
+}
+
+function stareGrup(grup) {
+  const suficienta = normalizeazaStare(grup?.suficienta);
+  if (["netestat", "date_insuficiente"].includes(suficienta)) {
+    return suficienta;
+  }
+  return grup?.comparatie?.directie || grup?.stare || "necunoscut";
+}
+
+function explicaStare(stare) {
+  return EXPLICATII_STARI[normalizeazaStare(stare)] ||
+    "Rezultatul este afișat descriptiv; detaliile tehnice explică exact configurația folosită.";
+}
+
+function descrieSuficienta(suficienta) {
+  const normalizata = normalizeazaStare(suficienta);
+  if (normalizata === "netestat") return "Nu există date pentru interpretare.";
+  if (normalizata === "date_insuficiente") {
+    return "Sunt prea puține întrebări pentru o concluzie stabilă.";
+  }
+  return `Volum de date: ${eticheteazaStare(suficienta)}.`;
+}
+
+function adaugaValoareCheie(documentRef, lista, eticheta, valoare, detaliu = null) {
+  const grup = creeazaElement(documentRef, "div", { clasa: "mabp-valoare-cheie" });
+  grup.append(
+    creeazaElement(documentRef, "dt", { text: eticheta }),
+    creeazaElement(documentRef, "dd", { text: valoare }),
+  );
+  if (detaliu) {
+    grup.append(
+      creeazaElement(documentRef, "dd", {
+        clasa: "mabp-valoare-detaliu",
+        text: detaliu,
+      }),
+    );
+  }
+  lista.append(grup);
+}
+
+function randeazaDetaliuSimplu(documentRef, container, grup) {
+  const metrici = grup?.metrici || {};
+  const stare = stareGrup(grup);
+  const nPrecizie = Number.isFinite(metrici.n_precizie)
+    ? metrici.n_precizie
+    : metrici.n_intrebari;
+  const corecte = metrici.n_corecte_prima_apasare;
+  const precizie = metrici.precizie_prima_apasare;
+  const textCorecte =
+    Number.isFinite(corecte) && Number.isFinite(nPrecizie)
+      ? `${formateazaNumar(corecte, 0)} din ${formateazaNumar(nPrecizie, 0)}`
+      : "—";
+  const detaliuCorecte = Number.isFinite(precizie)
+    ? `${formateazaValoare(precizie, "precizie")}`
+    : "Precizia nu este disponibilă.";
+  const mediana = metrici.mediana_timp_corect_prima_apasare;
+  const textTimp = Number.isFinite(mediana)
+    ? formateazaValoare(mediana, "timp")
+    : "—";
+  const detaliuTimp = Number.isFinite(metrici.n_timp)
+    ? metrici.n_timp === 1
+      ? "1 timp corect și valid"
+      : `${formateazaNumar(metrici.n_timp, 0)} timpi corecți și valizi`
+    : "Nu există timpi valizi.";
+
+  container.replaceChildren();
+  container.append(
+    creeazaElement(documentRef, "h4", {
+      text: grup?.eticheta || grup?.id || "Element analizat",
+    }),
+    creeazaElement(documentRef, "p", {
+      clasa: `mabp-concluzie mabp-concluzie--${stabilesteTon(stare)}`,
+      text: `${simbolStare(stare)} ${eticheteazaStare(stare)}`,
+    }),
+    creeazaElement(documentRef, "p", {
+      clasa: "mabp-explicatie-stare",
+      text: explicaStare(stare),
+    }),
+  );
+
+  const valori = creeazaElement(documentRef, "dl", {
+    clasa: "mabp-valori-cheie",
+  });
+  adaugaValoareCheie(
+    documentRef,
+    valori,
+    "Corecte din prima",
+    textCorecte,
+    detaliuCorecte,
+  );
+  adaugaValoareCheie(
+    documentRef,
+    valori,
+    "Timp median",
+    textTimp,
+    detaliuTimp,
+  );
+  adaugaValoareCheie(
+    documentRef,
+    valori,
+    "Întrebări analizate",
+    Number.isFinite(metrici.n_intrebari)
+      ? formateazaNumar(metrici.n_intrebari, 0)
+      : "—",
+  );
+  container.append(
+    valori,
+    creeazaElement(documentRef, "p", {
+      clasa: "mabp-suficienta-simpla",
+      text: descrieSuficienta(grup?.suficienta),
+    }),
+  );
+}
+
+function randeazaLegendaSimpla(documentRef, container, grupuri) {
+  const stari = [...new Set(grupuri.map(stareGrup))];
+  const lista = creeazaElement(documentRef, "ul", {
+    clasa: "mabp-legenda-simpla",
+    atribute: { "aria-label": "Legenda stărilor afișate" },
+  });
+  stari.forEach((stare) => {
+    lista.append(
+      creeazaElement(documentRef, "li", {
+        text: `${simbolStare(stare)} ${eticheteazaStare(stare)}`,
+        atribute: { "data-ton": stabilesteTon(stare) },
+      }),
+    );
+  });
+  container.append(lista);
+}
+
+function randeazaRezumatSimplu({ rezultat, container }) {
+  const documentRef = obtineDocument(container);
+  const grupuri = Array.isArray(rezultat.grupuri) ? rezultat.grupuri : [];
+  if (!grupuri.length) {
+    randeazaGol(documentRef, container, "Nu există rezultate pentru selecția curentă.");
+    return;
+  }
+
+  if (grupuri.length === 1) {
+    const detaliu = creeazaElement(documentRef, "section", {
+      clasa: "mabp-rezumat-selectat",
+      atribute: { "aria-label": "Rezumatul elementului analizat" },
+    });
+    randeazaDetaliuSimplu(documentRef, detaliu, grupuri[0]);
+    container.append(detaliu);
+    return;
+  }
+
+  const numarari = new Map();
+  grupuri.forEach((grup) => {
+    const stare = stareGrup(grup);
+    numarari.set(stare, (numarari.get(stare) || 0) + 1);
+  });
+  const rezumatNumarari = [...numarari.entries()]
+    .map(([stare, numar]) => `${numar} ${eticheteazaStare(stare).toLocaleLowerCase("ro-RO")}`)
+    .join(" · ");
+  container.append(
+    creeazaElement(documentRef, "p", {
+      clasa: "mabp-rezumat-grupuri",
+      text: `${grupuri.length} elemente analizate · ${rezumatNumarari}`,
+    }),
+  );
+
+  const idDetaliu = `mabp-rezumat-selectat-${urmatorulIdRezumat++}`;
+  const detaliu = creeazaElement(documentRef, "section", {
+    clasa: "mabp-rezumat-selectat",
+    atribute: {
+      id: idDetaliu,
+      "aria-label": "Detaliul elementului selectat",
+      "aria-live": "polite",
+    },
+  });
+  const grila = creeazaElement(documentRef, "div", {
+    clasa: "mabp-grila-simpla",
+    atribute: {
+      role: "group",
+      "aria-label": "Alege un element pentru detalii",
+    },
+  });
+  const butoane = grupuri.map((grup, index) => {
+    const stare = stareGrup(grup);
+    const buton = creeazaElement(documentRef, "button", {
+      clasa: `mabp-fact-buton mabp-fact-buton--${stabilesteTon(stare)}`,
+      text: `${grup.eticheta || grup.id || `Element ${index + 1}`} · ${eticheteazaStare(stare)}`,
+      atribute: {
+        type: "button",
+        "aria-controls": idDetaliu,
+        "aria-pressed": index === 0 ? "true" : "false",
+        "aria-label": `${grup.eticheta || grup.id || `Element ${index + 1}`}: ${eticheteazaStare(stare)}`,
+      },
+    });
+    buton.addEventListener("click", () => {
+      butoane.forEach((element) => element.setAttribute("aria-pressed", "false"));
+      buton.setAttribute("aria-pressed", "true");
+      randeazaDetaliuSimplu(documentRef, detaliu, grup);
+    });
+    grila.append(buton);
+    return buton;
+  });
+
+  randeazaDetaliuSimplu(documentRef, detaliu, grupuri[0]);
+  container.append(detaliu, grila);
+  randeazaLegendaSimpla(documentRef, container, grupuri);
+}
+
 function adaugaInsigneGrup(documentRef, container, grup) {
   const rand = creeazaElement(documentRef, "div", { clasa: "mabp-insigne" });
   const stare = grup.comparatie?.directie || grup.stare;
@@ -279,7 +551,7 @@ function randeazaDetaliuFact({ rezultat, container }) {
   container.append(lista);
 }
 
-function randeazaGrilaProgres({ rezultat, container }) {
+function randeazaGrilaProgres({ rezultat, container, tip }) {
   const documentRef = obtineDocument(container);
   const grupuri = Array.isArray(rezultat.grupuri) ? rezultat.grupuri : [];
   if (!grupuri.length) {
@@ -287,13 +559,20 @@ function randeazaGrilaProgres({ rezultat, container }) {
     return;
   }
 
+  const esteGrilaStare = tip === "grila_stare";
   const explicatie = creeazaElement(documentRef, "p", {
     clasa: "mabp-explicatie-grila",
-    text: "Fiecare celulă afișează textual direcția și suficiența datelor; culoarea este doar un indiciu suplimentar.",
+    text: esteGrilaStare
+      ? "Fiecare celulă afișează textual starea și suficiența datelor; culoarea este doar un indiciu suplimentar."
+      : "Fiecare celulă afișează textual direcția și suficiența datelor; culoarea este doar un indiciu suplimentar.",
   });
   const grila = creeazaElement(documentRef, "ul", {
     clasa: "mabp-grila",
-    atribute: { "aria-label": "Grila progresului" },
+    atribute: {
+      "aria-label": esteGrilaStare
+        ? "Grila stării actuale"
+        : "Grila progresului",
+    },
   });
 
   grupuri.forEach((grup) => {
@@ -617,7 +896,9 @@ function randeazaTabel({ rezultat, container }) {
 }
 
 const VIZUALIZARI_IMPLICITE = Object.freeze({
+  rezumat_simplu: randeazaRezumatSimplu,
   detaliu_fact: randeazaDetaliuFact,
+  grila_stare: randeazaGrilaProgres,
   grila_progres: randeazaGrilaProgres,
   grafic_linie: randeazaGraficLinie,
 });
@@ -649,7 +930,11 @@ export function creeazaVizualizatorMABP({ vizualizari = {} } = {}) {
     const folosesteFallback = !esteInregistrata && tipCerut !== "tabel";
     const randeaza = esteInregistrata ? registru[tipCerut] : randeazaTabel;
     container.replaceChildren();
-    randeazaContextRezultat(documentRef, container, rezultat);
+    if (tipCerut === "rezumat_simplu") {
+      randeazaContextSimplu(documentRef, container, rezultat);
+    } else {
+      randeazaContextRezultat(documentRef, container, rezultat);
+    }
 
     const continut = creeazaElement(documentRef, "section", {
       clasa: "mabp-vizualizare-continut",

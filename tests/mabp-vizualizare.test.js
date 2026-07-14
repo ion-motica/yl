@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 
 import {
   citesteLoguriDinIndexedDB,
+  determinaPornireDinURL,
   initializeazaAplicatiaMABP,
 } from "../Vizualizare si interpretare logs/mabp-app.js";
 import { creeazaMotorMABP } from "../Vizualizare si interpretare logs/mabp-analiza.js";
@@ -98,6 +99,9 @@ function creeazaDocumentAplicatie() {
   const documentRef = new DocumentMinimal();
   documentRef.adaugaElement("mabp-app", "main");
   documentRef.adaugaElement("mabp-preset", "select");
+  documentRef.adaugaElement("mabp-ajutor-preset", "p");
+  const selectorMod = documentRef.adaugaElement("mabp-mod-afisare", "select");
+  selectorMod.value = "simplu";
   documentRef.adaugaElement("mabp-incarca-fixture", "button");
   documentRef.adaugaElement("mabp-importa-json", "input");
   documentRef.adaugaElement("mabp-incarca-indexeddb", "button");
@@ -126,6 +130,60 @@ function cautaElemente(element, predicat) {
   return rezultate;
 }
 
+function creeazaIndexedDBMock(
+  valoriCursor,
+  { laDirectieCursor = () => {}, laInchidere = () => {} } = {},
+) {
+  const bazaDate = {
+    objectStoreNames: { contains: (nume) => nume === "intrebari" },
+    close: laInchidere,
+    transaction(numeColectie, mod) {
+      assert.equal(numeColectie, "intrebari");
+      assert.equal(mod, "readonly");
+      return {
+        objectStore() {
+          return {
+            openCursor(_interval, directie) {
+              laDirectieCursor(directie);
+              const cerere = {};
+              let index = 0;
+              const publica = () => {
+                queueMicrotask(() => {
+                  if (index >= valoriCursor.length) {
+                    cerere.result = null;
+                  } else {
+                    cerere.result = {
+                      value: valoriCursor[index],
+                      continue() {
+                        index += 1;
+                        publica();
+                      },
+                    };
+                  }
+                  cerere.onsuccess?.();
+                });
+              };
+              publica();
+              return cerere;
+            },
+          };
+        },
+      };
+    },
+  };
+  return {
+    open(numeBazaDate) {
+      assert.equal(numeBazaDate, "youlearn_jurnal_intrebari");
+      const cerere = {};
+      queueMicrotask(() => {
+        cerere.result = bazaDate;
+        cerere.onsuccess?.();
+      });
+      return cerere;
+    },
+  };
+}
+
 function rezultatCuGrup(grup, configuratie = {}) {
   return {
     metadata: { preset_id: "test_v1", preset_version: 1 },
@@ -137,6 +195,135 @@ function rezultatCuGrup(grup, configuratie = {}) {
 }
 
 describe("vizualizatorul MABP", () => {
+  it("rezumat_simplu explica factual un singur fact fara panourile tehnice", () => {
+    const container = creeazaContainer();
+    const rezultat = rezultatCuGrup(
+      {
+        id: "mul:7*8=?",
+        eticheta: "7×8",
+        stare: "in_consolidare",
+        suficienta: "estimare_utila",
+        metrici: {
+          n_intrebari: 20,
+          n_precizie: 20,
+          n_corecte_prima_apasare: 19,
+          precizie_prima_apasare: 0.95,
+          n_timp: 17,
+          mediana_timp_corect_prima_apasare: 1.8,
+        },
+      },
+      { descriere: "Analizează ultimele 20 de întrebări." },
+    );
+
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat,
+      container,
+      tip: "rezumat_simplu",
+    });
+
+    const text = textComplet(container);
+    assert.match(text, /Rezultat pe scurt/);
+    assert.match(text, /19 din 20/);
+    assert.match(text, /95%/);
+    assert.match(text, /1,8 s/);
+    assert.match(text, /17 timpi corecți și valizi/);
+    assert.doesNotMatch(text, /Metadatele raportului|Configurația folosită/);
+  });
+
+  it("rezumat_simplu nu prezinta o stare stabila cand datele sunt insuficiente", () => {
+    const container = creeazaContainer();
+    const rezultat = rezultatCuGrup({
+      id: "mul:2*3=?",
+      eticheta: "2×3",
+      stare: "in_consolidare",
+      suficienta: "date_insuficiente",
+      metrici: {
+        n_intrebari: 4,
+        n_precizie: 4,
+        n_corecte_prima_apasare: 4,
+        precizie_prima_apasare: 1,
+        n_timp: 4,
+        mediana_timp_corect_prima_apasare: 1.45,
+      },
+    });
+
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat,
+      container,
+      tip: "rezumat_simplu",
+    });
+
+    const text = textComplet(container);
+    assert.match(text, /Date insuficiente/);
+    assert.match(text, /prea puține întrebări/i);
+    assert.doesNotMatch(text, /viteza și precizia nu ating/i);
+  });
+
+  it("rezumat_simplu permite selectarea unui fact din grila demonstrativa", async () => {
+    const container = creeazaContainer();
+    const rezultat = {
+      metadata: {},
+      configuratie: {},
+      grupuri: [
+        {
+          id: "mul:7*8=?",
+          eticheta: "7×8",
+          stare: "in_consolidare",
+          suficienta: "estimare_utila",
+          metrici: {
+            n_intrebari: 20,
+            n_precizie: 20,
+            n_corecte_prima_apasare: 19,
+            precizie_prima_apasare: 0.95,
+            n_timp: 17,
+            mediana_timp_corect_prima_apasare: 1.8,
+          },
+        },
+        {
+          id: "mul:6*7=?",
+          eticheta: "6×7",
+          stare: "in_lucru",
+          suficienta: "estimare_utila",
+          metrici: {
+            n_intrebari: 20,
+            n_precizie: 20,
+            n_corecte_prima_apasare: 15,
+            precizie_prima_apasare: 0.75,
+            n_timp: 15,
+            mediana_timp_corect_prima_apasare: 2.1,
+          },
+        },
+      ],
+    };
+
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat,
+      container,
+      tip: "rezumat_simplu",
+    });
+    const butoane = cautaElemente(
+      container,
+      (element) => element.className.includes("mabp-fact-buton"),
+    );
+    assert.equal(butoane.length, 2);
+    assert.equal(butoane[0].getAttribute("aria-pressed"), "true");
+    assert.equal(butoane[1].getAttribute("aria-label"), "6×7: In lucru");
+    assert.match(butoane[1].textContent, /6×7 · In lucru/);
+
+    await butoane[1].dispatch("click");
+
+    const detaliu = cautaElemente(
+      container,
+      (element) => element.className.includes("mabp-rezumat-selectat"),
+    )[0];
+    const text = textComplet(detaliu);
+    assert.equal(butoane[0].getAttribute("aria-pressed"), "false");
+    assert.equal(butoane[1].getAttribute("aria-pressed"), "true");
+    assert.match(text, /6×7/);
+    assert.match(text, /15 din 20/);
+    assert.match(text, /75%/);
+  });
+
   it("detaliu_fact afiseaza starea si metricile publice", () => {
     const container = creeazaContainer();
     const rezultat = rezultatCuGrup({
@@ -192,6 +379,31 @@ describe("vizualizatorul MABP", () => {
     assert.match(text, /Progres/);
     assert.match(text, /Date: Estimare utila/);
     assert.match(text, /culoarea este doar un indiciu suplimentar/i);
+  });
+
+  it("grila_stare se eticheteaza distinct de grila progresului", () => {
+    const container = creeazaContainer();
+    const rezultat = rezultatCuGrup({
+      id: "mul:7*8=?",
+      eticheta: "7×8",
+      stare: "in_consolidare",
+      suficienta: "estimare_utila",
+      metrici: { precizie_prima_apasare: 0.95 },
+    });
+
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat,
+      container,
+      tip: "grila_stare",
+    });
+
+    const grila = cautaElemente(
+      container,
+      (element) => element.className === "mabp-grila",
+    )[0];
+    assert.equal(grila.getAttribute("aria-label"), "Grila stării actuale");
+    assert.match(textComplet(container), /afișează textual starea/);
+    assert.doesNotMatch(textComplet(container), /afișează textual direcția/);
   });
 
   it("grafic_linie foloseste valoarea explicita din serie, nu prima metrica numerica", () => {
@@ -312,6 +524,22 @@ describe("vizualizatorul MABP", () => {
 });
 
 describe("integrarea aplicatiei MABP", () => {
+  it("citeste explicit sursa si presetul initial din URL", () => {
+    assert.deepEqual(
+      determinaPornireDinURL(
+        "?sursa=indexeddb&analiza=stare_generala_observata_v1",
+      ),
+      {
+        sursaInitiala: "indexeddb",
+        analizaInitiala: "stare_generala_observata_v1",
+      },
+    );
+    assert.deepEqual(determinaPornireDinURL("?sursa=necunoscuta"), {
+      sursaInitiala: "fixture",
+      analizaInitiala: null,
+    });
+  });
+
   it("incarca prin fetch mock preseturile, catalogul si fixture-ul, apoi afiseaza rezultatul motorului real", async () => {
     const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
     const catalog = citesteJson("youlearn_catalog_MABP_dummy_v1.json");
@@ -350,16 +578,114 @@ describe("integrarea aplicatiei MABP", () => {
 
     assert.deepEqual([...caiCerute].sort(), ["/catalog.json", "/loguri.json", "/preseturi.json"]);
     assert.equal(aplicatie.stare.loguri.length, 209);
-    assert.equal(documentRef.getElementById("mabp-preset").children.length, 3);
+    assert.equal(documentRef.getElementById("mabp-preset").children.length, 5);
+    assert.equal(
+      documentRef.getElementById("mabp-preset").children[0].textContent,
+      "Privire generală asupra exercițiilor demo",
+    );
+    assert.match(
+      documentRef.getElementById("mabp-ajutor-preset").textContent,
+      /șase exerciții de înmulțire/,
+    );
     assert.match(documentRef.getElementById("mabp-status-sursa").textContent, /209 înregistrări/);
     assert.match(
       documentRef.getElementById("mabp-status-sursa").textContent,
-      /preset stare_curenta_fact_v1/,
+      /Privire generală asupra exercițiilor demo/,
     );
     const rezultatText = textComplet(documentRef.getElementById("mabp-rezultat"));
+    assert.match(rezultatText, /Rezultat pe scurt/);
+    assert.match(rezultatText, /6 elemente analizate/);
     assert.match(rezultatText, /7\*8=56/);
     assert.match(rezultatText, /In consolidare/);
     assert.match(rezultatText, /95%/);
+    assert.match(rezultatText, /2 limite tehnice ale datelor/);
+
+    const butonDateInsuficiente = cautaElemente(
+      documentRef.getElementById("mabp-rezultat"),
+      (element) =>
+        element.className.includes("mabp-fact-buton") &&
+        element.getAttribute("aria-label") === "2*3=6: Date insuficiente",
+    )[0];
+    assert.ok(butonDateInsuficiente);
+    assert.match(butonDateInsuficiente.textContent, /Date insuficiente/);
+    await butonDateInsuficiente.dispatch("click");
+    const detaliuDateInsuficiente = cautaElemente(
+      documentRef.getElementById("mabp-rezultat"),
+      (element) => element.className.includes("mabp-rezumat-selectat"),
+    )[0];
+    assert.match(textComplet(detaliuDateInsuficiente), /prea puține întrebări/i);
+
+    documentRef.getElementById("mabp-mod-afisare").value = "tehnic";
+    await documentRef.getElementById("mabp-mod-afisare").dispatch("change");
+    const textTehnic = textComplet(documentRef.getElementById("mabp-rezultat"));
+    assert.match(textTehnic, /Metadatele raportului/);
+    assert.match(textTehnic, /afișează textual starea/);
+    assert.doesNotMatch(textTehnic, /Rezultat pe scurt/);
+    assert.match(
+      documentRef.getElementById("mabp-status-sursa").textContent,
+      /afișare tehnică/,
+    );
+  });
+
+  it("poate porni direct cu toate facts observate din IndexedDB", async () => {
+    const preseturi = citesteJson("youlearn_preseturi_MABP_exemple_v1.json");
+    const catalog = citesteJson("youlearn_catalog_MABP_dummy_v1.json");
+    const fixture = citesteJson("youlearn_loguri_dummy_v1.json");
+    const documentRef = creeazaDocumentAplicatie();
+    const logFirefox = {
+      data_ora_ro: "2026-07-15 00:10:00",
+      quiz_name: "Quiz Firefox",
+      subquiz_name: null,
+      intrebare: "12*7=?",
+      raspuns: "84",
+      a_raspuns_corect: true,
+      a_cata_apasare_pe_buton: 1,
+      durata_raspuns_secunde: 1.8,
+      fact: "12*7=84",
+      quiz_id: "quiz-firefox",
+      subquiz_id: null,
+      fact_id: "mul:12*7=?",
+      eq_form: "12*7=?",
+      pozitie_buton_apasat_pt_raspuns: 1,
+      valori_variante_de_raspuns: ["77", "84", "91"],
+      valoare_raspuns_corect: "84",
+      hints_aratate_pt_raspuns: null,
+      extra: {},
+    };
+    const dateDupaCale = {
+      "/preseturi.json": preseturi,
+      "/catalog.json": catalog,
+      "/loguri.json": fixture,
+    };
+
+    const aplicatie = await initializeazaAplicatiaMABP({
+      documentRef,
+      fetchFn: async (cale) => ({
+        ok: true,
+        async json() {
+          return structuredClone(dateDupaCale[cale]);
+        },
+      }),
+      indexedDBRef: creeazaIndexedDBMock([logFirefox]),
+      motor: creeazaMotorMABP(),
+      vizualizator: creeazaVizualizatorMABP(),
+      cai: {
+        preseturi: "/preseturi.json",
+        catalog: "/catalog.json",
+        fixture: "/loguri.json",
+      },
+      sursaInitiala: "indexeddb",
+      analizaInitiala: "stare_generala_observata_v1",
+    });
+
+    assert.equal(aplicatie.stare.loguri.length, 1);
+    assert.equal(documentRef.getElementById("mabp-preset").value, "stare_generala_observata_v1");
+    assert.match(documentRef.getElementById("mabp-ajutor-preset").textContent, /toate valorile fact_id/);
+    assert.match(documentRef.getElementById("mabp-status-sursa").textContent, /1 înregistrări.*jurnalul IndexedDB/);
+    const text = textComplet(documentRef.getElementById("mabp-rezultat"));
+    assert.match(text, /12\*7=84/);
+    assert.match(text, /Date insuficiente/);
+    assert.match(text, /1 timp corect și valid/);
   });
 
   it("blocheaza catalogul dummy pentru o analiza structurala pe loguri externe", async () => {
@@ -400,7 +726,7 @@ describe("integrarea aplicatiei MABP", () => {
     );
     assert.match(
       documentRef.getElementById("mabp-status-sursa").textContent,
-      /preset progres_7_zile_subtabla_v1/,
+      /Progres în ultimele 7 zile — tabla lui 7/,
     );
   });
 
@@ -420,6 +746,7 @@ describe("integrarea aplicatiei MABP", () => {
 
     for (const id of [
       "mabp-preset",
+      "mabp-mod-afisare",
       "mabp-incarca-fixture",
       "mabp-importa-json",
       "mabp-incarca-indexeddb",
@@ -439,56 +766,14 @@ describe("integrarea aplicatiei MABP", () => {
     ];
     let directieCursor = null;
     let bazaInchisa = false;
-    const bazaDate = {
-      objectStoreNames: { contains: (nume) => nume === "intrebari" },
-      close() {
+    const indexedDBRef = creeazaIndexedDBMock(valoriCursor, {
+      laDirectieCursor(directie) {
+        directieCursor = directie;
+      },
+      laInchidere() {
         bazaInchisa = true;
       },
-      transaction(numeColectie, mod) {
-        assert.equal(numeColectie, "intrebari");
-        assert.equal(mod, "readonly");
-        return {
-          objectStore() {
-            return {
-              openCursor(_interval, directie) {
-                directieCursor = directie;
-                const cerere = {};
-                let index = 0;
-                const publica = () => {
-                  queueMicrotask(() => {
-                    if (index >= valoriCursor.length) {
-                      cerere.result = null;
-                    } else {
-                      cerere.result = {
-                        value: valoriCursor[index],
-                        continue() {
-                          index += 1;
-                          publica();
-                        },
-                      };
-                    }
-                    cerere.onsuccess?.();
-                  });
-                };
-                publica();
-                return cerere;
-              },
-            };
-          },
-        };
-      },
-    };
-    const indexedDBRef = {
-      open(numeBazaDate) {
-        assert.equal(numeBazaDate, "youlearn_jurnal_intrebari");
-        const cerere = {};
-        queueMicrotask(() => {
-          cerere.result = bazaDate;
-          cerere.onsuccess?.();
-        });
-        return cerere;
-      },
-    };
+    });
 
     const loguri = await citesteLoguriDinIndexedDB({ indexedDBRef });
 

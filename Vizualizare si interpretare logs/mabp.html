@@ -30,12 +30,23 @@
         <h2 id="mabp-titlu-controale">Configurează raportul</h2>
 
         <div class="mabp-camp">
-          <label for="mabp-preset">Preset de analiză</label>
+          <label for="mabp-preset">Ce vrei să analizezi?</label>
           <select id="mabp-preset" name="mabp-preset" aria-describedby="mabp-ajutor-preset" disabled>
             <option>Se încarcă…</option>
           </select>
           <p id="mabp-ajutor-preset" class="mabp-ajutor">
-            Presetul construiește configurația transmisă explicit motorului.
+            Alege raportul pe care vrei să îl vezi.
+          </p>
+        </div>
+
+        <div class="mabp-camp">
+          <label for="mabp-mod-afisare">Cum vrei să vezi rezultatul?</label>
+          <select id="mabp-mod-afisare" name="mabp-mod-afisare" disabled>
+            <option value="simplu" selected>Pe scurt</option>
+            <option value="tehnic">Detalii tehnice</option>
+          </select>
+          <p class="mabp-ajutor">
+            Modul „Pe scurt” păstrează numai concluzia și valorile necesare.
           </p>
         </div>
 

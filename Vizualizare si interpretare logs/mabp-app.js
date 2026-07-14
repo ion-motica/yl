@@ -131,10 +131,21 @@ export async function citesteLoguriDinIndexedDB({
   }
 }
 
+export function determinaPornireDinURL(cautare = "") {
+  const parametri = new URLSearchParams(String(cautare || ""));
+  return Object.freeze({
+    sursaInitiala:
+      parametri.get("sursa") === "indexeddb" ? "indexeddb" : "fixture",
+    analizaInitiala: parametri.get("analiza")?.trim() || null,
+  });
+}
+
 function obtineElemente(documentRef) {
   const iduri = [
     "mabp-app",
     "mabp-preset",
+    "mabp-ajutor-preset",
+    "mabp-mod-afisare",
     "mabp-incarca-fixture",
     "mabp-importa-json",
     "mabp-incarca-indexeddb",
@@ -150,6 +161,8 @@ function obtineElemente(documentRef) {
   return {
     radacina: elemente["mabp-app"],
     selectorPreset: elemente["mabp-preset"],
+    ajutorPreset: elemente["mabp-ajutor-preset"],
+    selectorModAfisare: elemente["mabp-mod-afisare"],
     butonFixture: elemente["mabp-incarca-fixture"],
     inputImport: elemente["mabp-importa-json"],
     butonIndexedDB: elemente["mabp-incarca-indexeddb"],
@@ -160,6 +173,9 @@ function obtineElemente(documentRef) {
 }
 
 function eticheteazaAnaliza(analizaId, preset) {
+  if (typeof preset?.nume === "string" && preset.nume.trim()) {
+    return preset.nume.trim();
+  }
   const nume = analizaId.replaceAll("_", " ");
   const domeniu = preset?.domeniu?.tip ? ` · ${preset.domeniu.tip}` : "";
   return `${nume}${domeniu}`;
@@ -183,7 +199,16 @@ function populeazaPreseturi(documentRef, selector, preseturi) {
   selector.value = intrari[0][0];
 }
 
-function extrageTipVizualizare(rezultat, configuratie) {
+function actualizeazaAjutorPreset(element, preset) {
+  const descriere = preset?.descriere;
+  element.textContent =
+    typeof descriere === "string" && descriere.trim()
+      ? descriere.trim()
+      : "Configurația aleasă este transmisă explicit motorului de analiză.";
+}
+
+function extrageTipVizualizare(rezultat, configuratie, modAfisare) {
+  if (modAfisare === "simplu") return "rezumat_simplu";
   const vizualizare = rezultat?.configuratie?.vizualizare ?? configuratie?.vizualizare;
   if (typeof vizualizare === "string" && vizualizare) return vizualizare;
   if (vizualizare && typeof vizualizare.tip === "string" && vizualizare.tip) return vizualizare.tip;
@@ -227,7 +252,7 @@ function seteazaMesaj(element, text = "", tip = "informare") {
 
 function seteazaOcupat(elemente, ocupat) {
   elemente.radacina.setAttribute("aria-busy", String(ocupat));
-  [elemente.selectorPreset, elemente.butonFixture, elemente.inputImport, elemente.butonIndexedDB].forEach(
+  [elemente.selectorPreset, elemente.selectorModAfisare, elemente.butonFixture, elemente.inputImport, elemente.butonIndexedDB].forEach(
     (element) => {
       element.disabled = ocupat;
     },
@@ -236,17 +261,25 @@ function seteazaOcupat(elemente, ocupat) {
 
 function dezactiveazaControale(elemente) {
   elemente.radacina.setAttribute("aria-busy", "false");
-  [elemente.selectorPreset, elemente.butonFixture, elemente.inputImport, elemente.butonIndexedDB].forEach(
+  [elemente.selectorPreset, elemente.selectorModAfisare, elemente.butonFixture, elemente.inputImport, elemente.butonIndexedDB].forEach(
     (element) => {
       element.disabled = true;
     },
   );
 }
 
-function descrieSursa(stare, prefix = "Analiză actualizată", analizaId = null) {
+function descrieSursa(
+  stare,
+  prefix = "Analiză actualizată",
+  numeAnaliza = null,
+  modAfisare = null,
+) {
   const avertisment = stare.avertismentCatalog ? ` ${stare.avertismentCatalog}` : "";
-  const preset = analizaId ? ` · preset ${analizaId}` : "";
-  return `${prefix}${preset}: ${stare.loguri.length} înregistrări · ${stare.sursa}.${avertisment}`;
+  const analiza = numeAnaliza ? ` · ${numeAnaliza}` : "";
+  const afisare = modAfisare
+    ? ` · afișare ${modAfisare === "tehnic" ? "tehnică" : "pe scurt"}`
+    : "";
+  return `${prefix}${analiza}${afisare}: ${stare.loguri.length} înregistrări · ${stare.sursa}.${avertisment}`;
 }
 
 export async function initializeazaAplicatiaMABP({
@@ -256,6 +289,8 @@ export async function initializeazaAplicatiaMABP({
   motor = creeazaMotorMABP(),
   vizualizator = creeazaVizualizatorMABP(),
   cai = CAI_IMPLICITE,
+  sursaInitiala = "fixture",
+  analizaInitiala = null,
 } = {}) {
   if (!documentRef || typeof documentRef.getElementById !== "function") {
     throw new Error("Documentul paginii MABP nu este disponibil.");
@@ -265,6 +300,9 @@ export async function initializeazaAplicatiaMABP({
   }
   if (!vizualizator || typeof vizualizator.afiseaza !== "function") {
     throw new TypeError("Vizualizatorul MABP trebuie să ofere metoda `afiseaza`.");
+  }
+  if (!["fixture", "indexeddb"].includes(sursaInitiala)) {
+    throw new TypeError("Sursa inițială MABP trebuie să fie `fixture` sau `indexeddb`.");
   }
 
   const elemente = obtineElemente(documentRef);
@@ -282,8 +320,11 @@ export async function initializeazaAplicatiaMABP({
     seteazaOcupat(elemente, true);
     seteazaMesaj(elemente.mesaj);
     const analizaId = elemente.selectorPreset.value;
+    let numeAnaliza = analizaId;
     try {
       const configuratie = construiesteConfiguratieAnaliza({ preseturi: stare.preseturi, analizaId });
+      const preset = stare.preseturi.analysis_presets[analizaId];
+      numeAnaliza = eticheteazaAnaliza(analizaId, preset);
       valideazaCatalogPentruSursa(stare, configuratie);
       const rezultat = await motor.ruleazaAnaliza({
         loguri: stare.loguri,
@@ -293,12 +334,17 @@ export async function initializeazaAplicatiaMABP({
       vizualizator.afiseaza({
         rezultat,
         container: elemente.rezultat,
-        tip: extrageTipVizualizare(rezultat, configuratie),
+        tip: extrageTipVizualizare(
+          rezultat,
+          configuratie,
+          elemente.selectorModAfisare.value,
+        ),
       });
       elemente.statusSursa.textContent = descrieSursa(
         stare,
         "Analiză actualizată",
-        analizaId,
+        numeAnaliza,
+        elemente.selectorModAfisare.value,
       );
       return rezultat;
     } catch (eroare) {
@@ -307,7 +353,8 @@ export async function initializeazaAplicatiaMABP({
       elemente.statusSursa.textContent = descrieSursa(
         stare,
         "Analiză eșuată pentru sursa",
-        analizaId,
+        numeAnaliza,
+        elemente.selectorModAfisare.value,
       );
       return null;
     } finally {
@@ -327,7 +374,22 @@ export async function initializeazaAplicatiaMABP({
     return ruleazaAnalizaCurenta();
   }
 
-  elemente.selectorPreset.addEventListener("change", () => void ruleazaAnalizaCurenta());
+  async function folosesteLoguriIndexedDB() {
+    const loguri = await citesteLoguriDinIndexedDB({ indexedDBRef });
+    return folosesteLoguri(loguri, "jurnalul IndexedDB, în ordinea cursorului");
+  }
+
+  elemente.selectorPreset.addEventListener("change", () => {
+    actualizeazaAjutorPreset(
+      elemente.ajutorPreset,
+      stare.preseturi?.analysis_presets?.[elemente.selectorPreset.value],
+    );
+    void ruleazaAnalizaCurenta();
+  });
+  elemente.selectorModAfisare.addEventListener(
+    "change",
+    ruleazaAnalizaCurenta,
+  );
   elemente.butonFixture.addEventListener("click", () => {
     void folosesteLoguri(stare.fixture, "fixture-ul inclus", {
       sursaEsteFixture: true,
@@ -360,8 +422,7 @@ export async function initializeazaAplicatiaMABP({
       seteazaOcupat(elemente, true);
       seteazaMesaj(elemente.mesaj);
       try {
-        const loguri = await citesteLoguriDinIndexedDB({ indexedDBRef });
-        await folosesteLoguri(loguri, "jurnalul IndexedDB, în ordinea cursorului");
+        await folosesteLoguriIndexedDB();
       } catch (eroare) {
         seteazaMesaj(
           elemente.mesaj,
@@ -395,6 +456,16 @@ export async function initializeazaAplicatiaMABP({
     stare.catalog = catalogIncarcat.catalog;
     stare.avertismentCatalog = catalogIncarcat.avertisment;
     populeazaPreseturi(documentRef, elemente.selectorPreset, stare.preseturi);
+    if (analizaInitiala !== null) {
+      if (!Object.hasOwn(stare.preseturi.analysis_presets, analizaInitiala)) {
+        throw new Error(`Presetul inițial nu există: ${analizaInitiala}.`);
+      }
+      elemente.selectorPreset.value = analizaInitiala;
+    }
+    actualizeazaAjutorPreset(
+      elemente.ajutorPreset,
+      stare.preseturi.analysis_presets[elemente.selectorPreset.value],
+    );
   } catch (eroare) {
     seteazaMesaj(elemente.mesaj, `Aplicația nu a putut porni: ${mesajEroare(eroare)}`, "eroare");
     elemente.statusSursa.textContent = "Datele inițiale nu au fost încărcate.";
@@ -402,7 +473,20 @@ export async function initializeazaAplicatiaMABP({
     return Object.freeze({ ruleaza: ruleazaAnalizaCurenta, folosesteLoguri, stare });
   }
   seteazaOcupat(elemente, false);
-  await ruleazaAnalizaCurenta();
+  if (sursaInitiala === "indexeddb") {
+    try {
+      await folosesteLoguriIndexedDB();
+    } catch (eroare) {
+      await ruleazaAnalizaCurenta();
+      seteazaMesaj(
+        elemente.mesaj,
+        `Jurnalul IndexedDB nu a putut fi încărcat automat: ${mesajEroare(eroare)} A fost păstrat fixture-ul inclus.`,
+        "eroare",
+      );
+    }
+  } else {
+    await ruleazaAnalizaCurenta();
+  }
 
   return Object.freeze({ ruleaza: ruleazaAnalizaCurenta, folosesteLoguri, stare });
 }
@@ -417,7 +501,8 @@ function pornesteAutomat() {
   const radacina = globalThis.document?.getElementById?.("mabp-app");
   if (!radacina || radacina.dataset.mabpPornit === "da") return;
   radacina.dataset.mabpPornit = "da";
-  void initializeazaAplicatiaMABP().catch(raporteazaEroarePornire);
+  const pornire = determinaPornireDinURL(globalThis.location?.search);
+  void initializeazaAplicatiaMABP(pornire).catch(raporteazaEroarePornire);
 }
 
 if (typeof document !== "undefined") {

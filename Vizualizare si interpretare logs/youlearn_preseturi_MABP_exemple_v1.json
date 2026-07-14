@@ -58,7 +58,60 @@
     }
   },
   "analysis_presets": {
+    "stare_generala_demo_v1": {
+      "nume": "Privire generală asupra exercițiilor demo",
+      "descriere": "Arată starea actuală pentru șase exerciții de înmulțire din fixture.",
+      "domeniu": {
+        "tip": "camp_in",
+        "camp": "fact_id",
+        "valori": [
+          "mul:7*8=?",
+          "mul:6*7=?",
+          "mul:5*5=?",
+          "mul:9*9=?",
+          "mul:4*8=?",
+          "mul:2*3=?"
+        ]
+      },
+      "fereastra": {
+        "tip": "toate"
+      },
+      "filtru_preset": "fluenta_standard_v1",
+      "metrici": [
+        "precizie_prima_apasare",
+        "mediana_timp_corect_prima_apasare"
+      ],
+      "agregare": {
+        "unitate": "fact",
+        "statistica_timp": "mediana"
+      },
+      "rezultat": "stare_curenta",
+      "vizualizare": "grila_stare"
+    },
+    "stare_generala_observata_v1": {
+      "nume": "Toate exercițiile observate",
+      "descriere": "Analizează toate valorile fact_id prezente în sursa curentă, fără să ceară un catalog structural.",
+      "domeniu": {
+        "tip": "toate"
+      },
+      "fereastra": {
+        "tip": "toate"
+      },
+      "filtru_preset": "fluenta_standard_v1",
+      "metrici": [
+        "precizie_prima_apasare",
+        "mediana_timp_corect_prima_apasare"
+      ],
+      "agregare": {
+        "unitate": "fact",
+        "statistica_timp": "mediana"
+      },
+      "rezultat": "stare_curenta",
+      "vizualizare": "grila_stare"
+    },
     "stare_curenta_fact_v1": {
+      "nume": "Detaliu pentru 7 × 8",
+      "descriere": "Analizează ultimele 20 de întrebări pentru 7 × 8.",
       "domeniu": {
         "tip": "fact",
         "fact_id": "mul:7*8=?"
@@ -82,6 +135,8 @@
       "vizualizare": "detaliu_fact"
     },
     "progres_7_zile_subtabla_v1": {
+      "nume": "Progres în ultimele 7 zile — tabla lui 7",
+      "descriere": "Compară două perioade egale pentru facts din subtabla catalogată.",
       "domeniu": {
         "tip": "subtabla",
         "id": "mul:7:*"
@@ -104,6 +159,8 @@
       "vizualizare": "grila_progres"
     },
     "explorator_eff_rol_necunoscuta_v1": {
+      "nume": "Explorare EFF — necunoscuta pe rolul a",
+      "descriere": "Compară formele EFF în care necunoscuta are același rol catalogat.",
       "domeniu": {
         "tip": "eff",
         "eff_id": "eff:3:7:21"

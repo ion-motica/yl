@@ -264,6 +264,41 @@ describe("motorul MABP", () => {
     assert.deepEqual(loguri, loguriInitiale);
   });
 
+  it("produce privirea generala demonstrativa pentru exact cele sase facts configurate", () => {
+    const motor = creeazaMotorMABP();
+    const configuratie = construiesteConfiguratie("stare_generala_demo_v1");
+
+    const rezultat = motor.ruleazaAnaliza({ loguri, catalog, configuratie });
+
+    assert.deepEqual(
+      rezultat.grupuri.map((grup) => grup.id),
+      [
+        "mul:7*8=?",
+        "mul:6*7=?",
+        "mul:5*5=?",
+        "mul:9*9=?",
+        "mul:4*8=?",
+        "mul:2*3=?",
+      ],
+    );
+    assert.deepEqual(
+      Object.fromEntries(
+        rezultat.grupuri.map((grup) => [
+          grup.id,
+          { stare: grup.stare, suficienta: grup.suficienta },
+        ]),
+      ),
+      {
+        "mul:7*8=?": { stare: "in_consolidare", suficienta: "estimare_utila" },
+        "mul:6*7=?": { stare: "in_lucru", suficienta: "estimare_utila" },
+        "mul:5*5=?": { stare: "fluent", suficienta: "estimare_utila" },
+        "mul:9*9=?": { stare: "in_lucru", suficienta: "estimare_utila" },
+        "mul:4*8=?": { stare: "in_consolidare", suficienta: "estimare_utila" },
+        "mul:2*3=?": { stare: "in_consolidare", suficienta: "date_insuficiente" },
+      },
+    );
+  });
+
   it("nu confunda viteza mare cu consolidarea cand precizia este mica", () => {
     const motor = creeazaMotorMABP();
     const loguriRapideDarNesigure = Array.from({ length: 10 }, (_, index) =>

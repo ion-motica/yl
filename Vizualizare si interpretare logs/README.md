@@ -98,3 +98,11 @@ Motorul are patru familii de primitive JS: axe, metrici, interpretări și vizua
 Aceeași primitivă este reutilizată prin configurații diferite. Nu se creează funcții separate pentru fiecare fact, subtablă, EFF, clasificare sau grafic. Vizualizarea consumă modelul rezultat și nu recalculează metrici; interpretarea consumă metricile și nu citește logurile brute.
 
 Regulile declarative de filtrare sunt validate înainte de calcul. Un tip, operator sau interval necunoscut produce o eroare explicită; nu este ignorat și nu generează un raport aparent valid, dar nefiltrat.
+
+## Interfața demonstrativă
+
+Pagina `mabp.html` pornește în modul **Pe scurt**. Acesta afișează concluzia descriptivă, cele trei valori principale și, când analiza produce mai multe grupuri, o grilă de selecție. Modul **Detalii tehnice** păstrează vizualizările declarate în preset și metadatele raportului.
+
+Presetul implicit `stare_generala_demo_v1` acoperă explicit șase facts prezente în fixture. El demonstrează interacțiunea și nu reprezintă încă tabla completă 1–10 × 1–10. Celulele fără observații nu sunt inventate: o grilă completă va necesita un catalog complet și materializarea explicită a grupurilor fără date.
+
+Pentru a citi direct jurnalul browserului în care este deschisă pagina, se poate folosi pornirea explicită `mabp.html?sursa=indexeddb&analiza=stare_generala_observata_v1`. Presetul `stare_generala_observata_v1` analizează toate valorile `fact_id` existente în sursa curentă și nu cere catalog structural. IndexedDB rămâne izolat per browser și origine; aceeași adresă deschisă în Firefox citește jurnalul Firefox, iar în alt browser citește jurnalul acelui browser.
