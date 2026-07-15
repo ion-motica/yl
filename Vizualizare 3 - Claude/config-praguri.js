@@ -24,15 +24,16 @@
     },
 
     // Clasificarea stării curente: precizie ȘI viteză împreună.
+    // Progresia etichetelor: netestat -> abia_inceput -> nu_il_stie -> in_lucru -> fluent
     stare: {
       // Sub acest volum, sau sub numărul minim de zile distincte, verdictul e
-      // „date insuficiente", nu o stare fermă (protecție la eșantion mic).
+      // „abia început", nu o stare fermă (protecție la eșantion mic).
       n_minim: 5,
       zile_distincte_minim: 2,
-      // Ordinea contează: se verifică întâi „fluent", apoi „în consolidare".
+      // Ordinea contează: se verifică întâi „fluent", apoi „în lucru".
       fluent: { precizie_minima: 0.9, mediana_maxima_secunde: 2.0 },
-      in_consolidare: { precizie_minima: 0.8, mediana_maxima_secunde: 4.0 },
-      // Orice e testat destul dar sub „în consolidare" = „în lucru".
+      in_lucru: { precizie_minima: 0.8, mediana_maxima_secunde: 4.0 },
+      // Orice e testat destul dar sub „în lucru" = „nu îl știe".
     },
   };
 

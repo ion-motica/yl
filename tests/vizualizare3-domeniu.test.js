@@ -73,7 +73,7 @@ it("materializeaza toate cele 100 de celule, netestat implicit", () => {
   assert.ok(model.celule.every((c) => c.stare === "netestat" && c.n === 0 && c.traseu === 0));
 });
 
-it("clasifica fluent, in_consolidare, in_lucru si date_insuficiente", () => {
+it("clasifica fluent, in_lucru, nu_il_stie si abia_inceput", () => {
   const { motor, catalog, praguri } = incarcaTot();
 
   const inregistrari = [
@@ -81,18 +81,18 @@ it("clasifica fluent, in_consolidare, in_lucru si date_insuficiente", () => {
     ...corecteDinPrima(5, 5, [1.2, 1.3, 1.4, 1.5, 1.4, 1.6]),
 
     // 7×3: 5 corecte din prima (~2.5s) + 1 greșită din prima apoi corectată
-    //      precizie 5/6 ≈ 0.83, mediană ~2.5 -> in_consolidare
+    //      precizie 5/6 ≈ 0.83, mediană ~2.5 -> in_lucru
     ...corecteDinPrima(7, 3, [2.4, 2.5, 2.6, 2.3, 2.5]),
     apasare({ a: 7, b: 3, zi: "11", corect: false, apasare: 1, timp: 3.0 }),
     apasare({ a: 7, b: 3, zi: "11", corect: true, apasare: 2, timp: 4.5 }),
 
-    // 6×7: 3 corecte din prima + 3 greșite din prima -> precizie 0.5 -> in_lucru
+    // 6×7: 3 corecte din prima + 3 greșite din prima -> precizie 0.5 -> nu_il_stie
     ...corecteDinPrima(6, 7, [2.0, 2.1, 2.0]),
     apasare({ a: 6, b: 7, zi: "10", corect: false, timp: 2.5 }),
     apasare({ a: 6, b: 7, zi: "11", corect: false, timp: 2.5 }),
     apasare({ a: 6, b: 7, zi: "11", corect: false, timp: 2.5 }),
 
-    // 2×3: doar 2 întrebări -> date_insuficiente (n < 5)
+    // 2×3: doar 2 întrebări -> abia_inceput (n < 5)
     ...corecteDinPrima(2, 3, [1.0, 1.1]),
   ];
 
@@ -107,14 +107,14 @@ it("clasifica fluent, in_consolidare, in_lucru si date_insuficiente", () => {
   assert.equal(celula(model, "mul:5x5").traseu, 4);
   assert.equal(celula(model, "mul:5x5").n, 6);
 
-  assert.equal(celula(model, "mul:7x3").stare, "in_consolidare");
+  assert.equal(celula(model, "mul:7x3").stare, "in_lucru");
   assert.equal(celula(model, "mul:7x3").traseu, 3);
   assert.equal(celula(model, "mul:7x3").n, 6);
 
-  assert.equal(celula(model, "mul:6x7").stare, "in_lucru");
+  assert.equal(celula(model, "mul:6x7").stare, "nu_il_stie");
   assert.equal(celula(model, "mul:6x7").traseu, 2);
 
-  assert.equal(celula(model, "mul:2x3").stare, "date_insuficiente");
+  assert.equal(celula(model, "mul:2x3").stare, "abia_inceput");
   assert.equal(celula(model, "mul:2x3").traseu, 1);
 
   // 3×7 rămâne netestat: grila e poziționala, nu se confunda cu 7×3.

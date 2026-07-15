@@ -5,6 +5,18 @@
   --viz3-text: #1f2733;
   --viz3-text-slab: #6b7480;
   --viz3-albastru: #2f5fbf;
+
+  /* Dimensiuni fixe: din ele se calculeaza aranjamentele foliilor. */
+  --viz3-celula-w: 84px;
+  --viz3-celula-h: 78px;
+  --viz3-grila-gap: 6px;
+  --viz3-grila-w: calc(10 * var(--viz3-celula-w) + 9 * var(--viz3-grila-gap));
+  --viz3-grila-h: calc(10 * var(--viz3-celula-h) + 9 * var(--viz3-grila-gap));
+  /* Desfacute, foliile stau la 50%: patru 2x2 ocupa cat tabla intreaga. */
+  --viz3-folie-w: calc(var(--viz3-grila-w) / 2);
+  --viz3-folie-h: calc(var(--viz3-grila-h) / 2);
+  --viz3-folie-gap: 16px;
+  --viz3-durata: 300ms;
 }
 
 * {
@@ -124,22 +136,157 @@ body {
 /* --- Grila 10x10 --- */
 .viz3-grila {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 6px;
-  max-width: 900px;
+  grid-template-columns: repeat(10, var(--viz3-celula-w));
+  grid-auto-rows: var(--viz3-celula-h);
+  gap: var(--viz3-grila-gap);
 }
 
+/* --- Folii transparente --- */
+/* Tabla = 4 folii suprapuse. Suprapuse (100%) arata ca tabla intreaga;
+   desfacute gliseaza la 50% in aranjamentul ales. */
+.viz3-folii {
+  position: relative;
+  width: var(--viz3-grila-w);
+  height: var(--viz3-grila-h);
+  transition: width var(--viz3-durata), height var(--viz3-durata);
+}
+
+.viz3-folie {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  transform: translate(0, 0) scale(1);
+  transition: transform var(--viz3-durata);
+}
+
+.viz3-folie:nth-child(1) { --i: 0; }
+.viz3-folie:nth-child(2) { --i: 1; }
+.viz3-folie:nth-child(3) { --i: 2; }
+.viz3-folie:nth-child(4) { --i: 3; }
+
+/* Titlul foliei: 22px la scara 1, deci 11px cand folia e la 50%. */
+.viz3-folie-titlu {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--viz3-text-slab);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--viz3-durata);
+}
+
+/* Pozitiile altor stari: contur-fantoma, vizibil doar cand foliile sunt desfacute.
+   Contur SOLID, nu intrerupt: la scara 50% un contur intrerupt dispare. */
+.viz3-fantoma {
+  border: 2px solid #dcdfe5;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity var(--viz3-durata);
+}
+
+.viz3-folii:not([data-aranjament="suprapus"]) .viz3-fantoma,
+.viz3-folii:not([data-aranjament="suprapus"]) .viz3-folie-titlu {
+  opacity: 1;
+}
+
+/* Aranjamentul: pe orizontala */
+.viz3-folii[data-aranjament="orizontal"] {
+  width: calc(4 * var(--viz3-folie-w) + 3 * var(--viz3-folie-gap));
+  height: var(--viz3-folie-h);
+}
+.viz3-folii[data-aranjament="orizontal"] .viz3-folie {
+  transform: translate(calc(var(--i) * (var(--viz3-folie-w) + var(--viz3-folie-gap))), 0)
+    scale(0.5);
+}
+
+/* Aranjamentul: pe verticala */
+.viz3-folii[data-aranjament="vertical"] {
+  width: var(--viz3-folie-w);
+  height: calc(4 * var(--viz3-folie-h) + 3 * var(--viz3-folie-gap));
+}
+.viz3-folii[data-aranjament="vertical"] .viz3-folie {
+  transform: translate(0, calc(var(--i) * (var(--viz3-folie-h) + var(--viz3-folie-gap))))
+    scale(0.5);
+}
+
+/* Aranjamentul: patrat 2x2 */
+.viz3-folii[data-aranjament="patrat"] {
+  width: calc(2 * var(--viz3-folie-w) + var(--viz3-folie-gap));
+  height: calc(2 * var(--viz3-folie-h) + var(--viz3-folie-gap));
+}
+.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(1) {
+  transform: translate(0, 0) scale(0.5);
+}
+.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(2) {
+  transform: translate(calc(var(--viz3-folie-w) + var(--viz3-folie-gap)), 0) scale(0.5);
+}
+.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(3) {
+  transform: translate(0, calc(var(--viz3-folie-h) + var(--viz3-folie-gap))) scale(0.5);
+}
+.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(4) {
+  transform: translate(
+      calc(var(--viz3-folie-w) + var(--viz3-folie-gap)),
+      calc(var(--viz3-folie-h) + var(--viz3-folie-gap))
+    )
+    scale(0.5);
+}
+
+/* Butoanele de aranjament din CP */
+.viz3-folii-butoane {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.viz3-buton-aranjament {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viz3-buton-aranjament:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.viz3-buton-aranjament--activ:not(:disabled) {
+  border-color: var(--viz3-albastru);
+  background: #e8effb;
+  color: var(--viz3-albastru);
+  font-weight: 700;
+}
+
+/* Rânduri fixe: eticheta, stare, patratele, detaliu. Fiecare celula are
+   aceleasi patru randuri, deci toate randurile se aliniaza intre celule. */
 .viz3-celula {
   border: 1px solid var(--viz3-bordura);
   border-radius: 8px;
   background: var(--viz3-panou);
-  padding: 6px 4px;
+  padding: 6px 3px;
   text-align: center;
-  min-height: 76px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 16px 13px 12px 11px;
+  gap: 4px;
+  justify-items: center;
   align-items: center;
-  justify-content: space-between;
+}
+
+/* Textele stau pe un singur rand si se micsoreaza ca sa incapa. */
+.viz3-celula-eticheta,
+.viz3-celula-stare,
+.viz3-celula-detaliu {
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .viz3-celula-eticheta {
@@ -166,36 +313,37 @@ body {
   background: transparent;
 }
 
-/* Stari — culori apropiate de vizualizarea aprobata. */
+/* Stari, in ordinea progresiei:
+   netestat -> abia_inceput -> nu_il_stie -> in_lucru -> fluent */
 .viz3-celula[data-stare="netestat"] {
   background: #f7f8fa;
 }
 
-.viz3-celula[data-stare="date_insuficiente"] .viz3-patratel--plin {
+.viz3-celula[data-stare="abia_inceput"] .viz3-patratel--plin {
   background: #6b7480;
   border-color: #6b7480;
 }
 
-.viz3-celula[data-stare="in_lucru"] {
+.viz3-celula[data-stare="nu_il_stie"] {
   background: #fbf1dd;
   border-color: #e0b877;
 }
-.viz3-celula[data-stare="in_lucru"] .viz3-celula-stare {
+.viz3-celula[data-stare="nu_il_stie"] .viz3-celula-stare {
   color: #a2701c;
 }
-.viz3-celula[data-stare="in_lucru"] .viz3-patratel--plin {
+.viz3-celula[data-stare="nu_il_stie"] .viz3-patratel--plin {
   background: #b5791f;
   border-color: #b5791f;
 }
 
-.viz3-celula[data-stare="in_consolidare"] {
+.viz3-celula[data-stare="in_lucru"] {
   background: #fdf6e3;
   border-color: #e8c85a;
 }
-.viz3-celula[data-stare="in_consolidare"] .viz3-celula-stare {
+.viz3-celula[data-stare="in_lucru"] .viz3-celula-stare {
   color: #9a7d16;
 }
-.viz3-celula[data-stare="in_consolidare"] .viz3-patratel--plin {
+.viz3-celula[data-stare="in_lucru"] .viz3-patratel--plin {
   background: #c69a1e;
   border-color: #c69a1e;
 }
@@ -214,6 +362,7 @@ body {
 }
 
 .viz3-celula-detaliu {
-  font-size: 9px;
+  font-size: 8px;
+  letter-spacing: -0.1px;
   color: var(--viz3-text-slab);
 }

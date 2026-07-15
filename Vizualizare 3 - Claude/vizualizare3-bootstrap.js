@@ -10,12 +10,13 @@
   const PAGINA = "Vizualizare 3 - Claude/vizualizare3.html";
   const NUME_TAB = "youlearn-vizualizare3-claude";
 
+  // Etichetele vizibile, în ordinea progresiei.
   const ETICHETE_STARE = {
-    netestat: "· Netestat",
-    date_insuficiente: "· Date insuficiente",
-    in_lucru: "! În lucru",
-    in_consolidare: "! În consolidare",
-    fluent: "✓ Fluent",
+    netestat: "Netestat",
+    abia_inceput: "Abia început",
+    nu_il_stie: "Nu îl știe",
+    in_lucru: "În lucru",
+    fluent: "Fluent",
   };
 
   // ---- deschidere din alt context (butonul din CP) ---------------------
@@ -88,6 +89,57 @@
     return rand;
   }
 
+  // ---- starea de prezentare a foliilor ---------------------------------
+  // Nu atinge configurația motorului; doar cum sunt așezate foliile.
+  let foliiActive = false;
+  let aranjamentCurent = "suprapus";
+
+  function aplicaAranjament() {
+    const stiva = document.querySelector(".viz3-folii");
+    if (!stiva) return;
+    stiva.dataset.aranjament = foliiActive ? aranjamentCurent : "suprapus";
+  }
+
+  function randeazaControlFolii(grup, axa) {
+    const comutator = document.createElement("label");
+    comutator.className = "viz3-optiune";
+    const bifa = document.createElement("input");
+    bifa.type = "checkbox";
+    const textBifa = document.createElement("span");
+    textBifa.textContent = "Activează foliile";
+    comutator.append(bifa, textBifa);
+
+    const randButoane = document.createElement("div");
+    randButoane.className = "viz3-folii-butoane";
+    const butoane = axa.optiuni.map((opt) => {
+      const buton = document.createElement("button");
+      buton.type = "button";
+      buton.className = "viz3-buton-aranjament";
+      buton.textContent = opt.eticheta;
+      buton.title = opt.titlu;
+      buton.disabled = true;
+      buton.dataset.aranjament = opt.id;
+      if (opt.activa) buton.classList.add("viz3-buton-aranjament--activ");
+      buton.addEventListener("click", () => {
+        aranjamentCurent = opt.id;
+        butoane.forEach((b) =>
+          b.classList.toggle("viz3-buton-aranjament--activ", b === buton)
+        );
+        aplicaAranjament();
+      });
+      randButoane.appendChild(buton);
+      return buton;
+    });
+
+    bifa.addEventListener("change", () => {
+      foliiActive = bifa.checked;
+      butoane.forEach((b) => (b.disabled = !foliiActive));
+      aplicaAranjament();
+    });
+
+    grup.append(comutator, randButoane);
+  }
+
   function randeazaControlPanel(container, definitii) {
     const titlu = document.createElement("h1");
     titlu.textContent = "Vizualizare 3 - Claude";
@@ -110,6 +162,12 @@
         eticheta.className = "viz3-axa-eticheta";
         eticheta.textContent = axa.eticheta;
         grup.appendChild(eticheta);
+
+        if (axa.tip_control === "folii") {
+          randeazaControlFolii(grup, axa);
+          sectiune.appendChild(grup);
+          return;
+        }
 
         axa.optiuni.forEach((opt) => {
           const input = document.createElement("input");
@@ -165,18 +223,48 @@
       patratele.appendChild(p);
     }
 
-    el.append(eticheta, stare, patratele);
-
+    // Detaliul se randează mereu (gol la netestat), ca toate celulele să aibă
+    // aceleași rânduri și aceeași înălțime.
+    const detaliu = document.createElement("div");
+    detaliu.className = "viz3-celula-detaliu";
     if (celula.n > 0) {
-      const detaliu = document.createElement("div");
-      detaliu.className = "viz3-celula-detaliu";
-      const timp = celula.mediana_timp === null ? "-" : `${celula.mediana_timp}s`;
+      const timp = celula.mediana_timp === null ? "-" : `${celula.mediana_timp.toFixed(1)}s`;
       const precizie =
         celula.precizie_prima === null ? "-" : `${Math.round(celula.precizie_prima * 100)}%`;
       detaliu.textContent = `n=${celula.n} · ${precizie} · ${timp}`;
-      el.appendChild(detaliu);
     }
 
+    el.append(eticheta, stare, patratele, detaliu);
+    return el;
+  }
+
+  // O poziție fără celula stării foliei rămâne un contur-fantomă: păstrează
+  // reperul poziției în tablă, fără să adauge informație.
+  function randeazaFantoma(celula) {
+    const el = document.createElement("div");
+    el.className = "viz3-fantoma";
+    el.style.gridColumn = String(celula.coloana);
+    el.style.gridRow = String(celula.rand);
+    return el;
+  }
+
+  function randeazaFolie(model, folie) {
+    const el = document.createElement("div");
+    el.className = "viz3-folie";
+    el.dataset.folie = folie.id;
+
+    const titlu = document.createElement("span");
+    titlu.className = "viz3-folie-titlu";
+    titlu.textContent = folie.eticheta;
+
+    const grila = document.createElement("div");
+    grila.className = "viz3-grila";
+    model.celule.forEach((celula) => {
+      const areStarea = folie.stari.includes(celula.stare);
+      grila.appendChild(areStarea ? randeazaCelula(celula) : randeazaFantoma(celula));
+    });
+
+    el.append(titlu, grila);
     return el;
   }
 
@@ -193,10 +281,13 @@
     antet.append(titlu, sursa);
     container.appendChild(antet);
 
-    const grila = document.createElement("div");
-    grila.className = "viz3-grila";
-    model.celule.forEach((celula) => grila.appendChild(randeazaCelula(celula)));
-    container.appendChild(grila);
+    // Tabla = 4 folii transparente suprapuse. Suprapuse arată exact ca tabla
+    // întreagă, fiindcă un fact are exact o stare.
+    const stiva = document.createElement("div");
+    stiva.className = "viz3-folii";
+    folii.forEach((folie) => stiva.appendChild(randeazaFolie(model, folie)));
+    container.appendChild(stiva);
+    aplicaAranjament();
   }
 
   // ---- flux principal ---------------------------------------------------
@@ -205,6 +296,7 @@
   const catalog = global.CatalogTablaInmultirii;
   const praguri = global.ConfigPraguriVizualizare3;
   const axe = global.DefinitiiAxeVizualizare3;
+  const folii = global.DefinitiiFoliiVizualizare3;
   const fixture = global.FixtureLoguriDummyVizualizare3;
 
   const cpEl = document.getElementById("viz3-cp");

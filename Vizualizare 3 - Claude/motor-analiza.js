@@ -237,11 +237,12 @@
 
   // ---- interpretarea (clasificarea stării) -----------------------------
 
+  // Progresia stărilor și câte pătrățele afișează fiecare.
   const TRASEU_STARE = Object.freeze({
     netestat: 0,
-    date_insuficiente: 1,
-    in_lucru: 2,
-    in_consolidare: 3,
+    abia_inceput: 1,
+    nu_il_stie: 2,
+    in_lucru: 3,
     fluent: 4,
   });
 
@@ -251,7 +252,7 @@
       statistici.n < pragStare.n_minim ||
       statistici.zile_distincte < pragStare.zile_distincte_minim
     ) {
-      return "date_insuficiente";
+      return "abia_inceput";
     }
     const { precizie_prima: precizie, mediana_timp: timp } = statistici;
     if (
@@ -263,12 +264,12 @@
     }
     if (
       timp !== null &&
-      precizie >= pragStare.in_consolidare.precizie_minima &&
-      timp <= pragStare.in_consolidare.mediana_maxima_secunde
+      precizie >= pragStare.in_lucru.precizie_minima &&
+      timp <= pragStare.in_lucru.mediana_maxima_secunde
     ) {
-      return "in_consolidare";
+      return "in_lucru";
     }
-    return "in_lucru";
+    return "nu_il_stie";
   }
 
   // ---- modelul de vizualizare ------------------------------------------

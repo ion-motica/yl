@@ -119,15 +119,38 @@
           tip_selectie: "unica",
           optiuni: [
             { id: "grila_10x10", eticheta: "Grila 10×10 stare", activa: true },
-            { id: "folii", eticheta: "Folii separabile/suprapozabile", dezactivata: true, motiv: VOR_URMA },
             { id: "grafic_linie", eticheta: "Grafic linie (progres)", dezactivata: true, motiv: VOR_URMA },
             { id: "matrice", eticheta: "Matrice fact × eq_form", dezactivata: true, motiv: VOR_URMA },
             { id: "lista", eticheta: "Listă facts problematice", dezactivata: true, motiv: VOR_URMA },
+          ],
+        },
+        {
+          id: "folii",
+          eticheta: "Folii transparente",
+          // Control special: comutator on/off + butoane de aranjament.
+          // Nu schimbă configurația motorului; e strict prezentare.
+          tip_control: "folii",
+          optiuni: [
+            { id: "suprapus", eticheta: "4", titlu: "Toate 4 suprapuse (100%)", activa: true },
+            { id: "orizontal", eticheta: "↔", titlu: "Desfăcute pe orizontală (50%)" },
+            { id: "vertical", eticheta: "↕", titlu: "Desfăcute pe verticală (50%)" },
+            { id: "patrat", eticheta: "⊞", titlu: "Desfăcute în pătrat 2×2 (50%)" },
           ],
         },
       ],
     },
   ];
 
+  // Compoziția foliilor: fiecare folie arată DOAR stările ei, în pozițiile lor.
+  // Suprapuse, cele 4 folii reconstituie exact tabla întreagă, fiindcă un fact
+  // are exact o stare. A muta o stare pe altă folie = a o muta aici.
+  const FOLII = [
+    { id: "f1", eticheta: "Netestat + Abia început", stari: ["netestat", "abia_inceput"] },
+    { id: "f2", eticheta: "Nu îl știe", stari: ["nu_il_stie"] },
+    { id: "f3", eticheta: "În lucru", stari: ["in_lucru"] },
+    { id: "f4", eticheta: "Fluent", stari: ["fluent"] },
+  ];
+
   global.DefinitiiAxeVizualizare3 = Object.freeze(DEFINITII_AXE);
+  global.DefinitiiFoliiVizualizare3 = Object.freeze(FOLII);
 })(typeof globalThis !== "undefined" ? globalThis : this);
