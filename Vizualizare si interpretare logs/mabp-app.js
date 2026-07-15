@@ -435,7 +435,11 @@ function axaNecesitaCatalogStructural(definitie) {
     return definitie.some(axaNecesitaCatalogStructural);
   }
   if (!definitie || typeof definitie !== "object") return false;
-  if (["subtabla", "eff", "acelasi_rol_al_necunoscutei"].includes(definitie.tip)) {
+  if (
+    ["tabla", "subtabla", "eff", "acelasi_rol_al_necunoscutei"].includes(
+      definitie.tip,
+    )
+  ) {
     return true;
   }
   if (["intersectie", "uniune"].includes(definitie.tip)) {

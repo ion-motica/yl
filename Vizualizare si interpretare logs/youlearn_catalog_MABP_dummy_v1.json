@@ -5,6 +5,7 @@
   "facts": {
     "mul:7*8=?": {
       "fact_id": "mul:7*8=?",
+      "cell_id": "mul:7*8=?",
       "fact": "7*8=56",
       "intrebare": "7*8=?",
       "eq_form": "7*8=?",
@@ -18,6 +19,7 @@
     },
     "mul:6*7=?": {
       "fact_id": "mul:6*7=?",
+      "cell_id": "mul:6*7=?",
       "fact": "6*7=42",
       "intrebare": "6*7=?",
       "eq_form": "6*7=?",
@@ -31,6 +33,7 @@
     },
     "mul:5*5=?": {
       "fact_id": "mul:5*5=?",
+      "cell_id": "mul:5*5=?",
       "fact": "5*5=25",
       "intrebare": "5*5=?",
       "eq_form": "5*5=?",
@@ -44,6 +47,7 @@
     },
     "mul:9*9=?": {
       "fact_id": "mul:9*9=?",
+      "cell_id": "mul:9*9=?",
       "fact": "9*9=81",
       "intrebare": "9*9=?",
       "eq_form": "9*9=?",
@@ -57,6 +61,7 @@
     },
     "mul:4*8=?": {
       "fact_id": "mul:4*8=?",
+      "cell_id": "mul:4*8=?",
       "fact": "4*8=32",
       "intrebare": "4*8=?",
       "eq_form": "4*8=?",
@@ -70,6 +75,7 @@
     },
     "mul:2*3=?": {
       "fact_id": "mul:2*3=?",
+      "cell_id": "mul:2*3=?",
       "fact": "2*3=6",
       "intrebare": "2*3=?",
       "eq_form": "2*3=?",
@@ -83,6 +89,7 @@
     },
     "mul:3*7=?": {
       "fact_id": "mul:3*7=?",
+      "cell_id": "mul:3*7=?",
       "fact": "3*7=21",
       "intrebare": "3*7=?",
       "eq_form": "3*7=?",
@@ -96,6 +103,7 @@
     },
     "mul:7*3=?": {
       "fact_id": "mul:7*3=?",
+      "cell_id": "mul:7*3=?",
       "fact": "7*3=21",
       "intrebare": "7*3=?",
       "eq_form": "7*3=?",
@@ -109,6 +117,7 @@
     },
     "mul:?*7=21": {
       "fact_id": "mul:?*7=21",
+      "cell_id": "mul:3*7=?",
       "fact": "3*7=21",
       "intrebare": "?*7=21",
       "eq_form": "?*7=21",
@@ -122,6 +131,7 @@
     },
     "mul:21=?*7": {
       "fact_id": "mul:21=?*7",
+      "cell_id": "mul:3*7=?",
       "fact": "3*7=21",
       "intrebare": "21=?*7",
       "eq_form": "21=?*7",
@@ -135,6 +145,7 @@
     },
     "mul:3*?=21": {
       "fact_id": "mul:3*?=21",
+      "cell_id": "mul:3*7=?",
       "fact": "3*7=21",
       "intrebare": "3*?=21",
       "eq_form": "3*?=21",
@@ -148,6 +159,7 @@
     },
     "mul:21=3*?": {
       "fact_id": "mul:21=3*?",
+      "cell_id": "mul:3*7=?",
       "fact": "3*7=21",
       "intrebare": "21=3*?",
       "eq_form": "21=3*?",
@@ -161,6 +173,7 @@
     },
     "mul:8*9=?": {
       "fact_id": "mul:8*9=?",
+      "cell_id": "mul:8*9=?",
       "fact": "8*9=72",
       "intrebare": "8*9=?",
       "eq_form": "8*9=?",
@@ -171,6 +184,639 @@
       "eff_member_id": null,
       "unknown_member_role": null,
       "eq_form_id": null
+    }
+  },
+  "tables": {
+    "mul:1-10x1-10": {
+      "table_id": "mul:1-10x1-10",
+      "eticheta": "Tabla înmulțirii 1–10 × 1–10",
+      "operatie": "mul",
+      "randuri": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "coloane": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "celule": [
+        {
+          "fact_id": "mul:1*1=?",
+          "rand": 1,
+          "coloana": 1,
+          "eticheta": "1 × 1"
+        },
+        {
+          "fact_id": "mul:1*2=?",
+          "rand": 1,
+          "coloana": 2,
+          "eticheta": "1 × 2"
+        },
+        {
+          "fact_id": "mul:1*3=?",
+          "rand": 1,
+          "coloana": 3,
+          "eticheta": "1 × 3"
+        },
+        {
+          "fact_id": "mul:1*4=?",
+          "rand": 1,
+          "coloana": 4,
+          "eticheta": "1 × 4"
+        },
+        {
+          "fact_id": "mul:1*5=?",
+          "rand": 1,
+          "coloana": 5,
+          "eticheta": "1 × 5"
+        },
+        {
+          "fact_id": "mul:1*6=?",
+          "rand": 1,
+          "coloana": 6,
+          "eticheta": "1 × 6"
+        },
+        {
+          "fact_id": "mul:1*7=?",
+          "rand": 1,
+          "coloana": 7,
+          "eticheta": "1 × 7"
+        },
+        {
+          "fact_id": "mul:1*8=?",
+          "rand": 1,
+          "coloana": 8,
+          "eticheta": "1 × 8"
+        },
+        {
+          "fact_id": "mul:1*9=?",
+          "rand": 1,
+          "coloana": 9,
+          "eticheta": "1 × 9"
+        },
+        {
+          "fact_id": "mul:1*10=?",
+          "rand": 1,
+          "coloana": 10,
+          "eticheta": "1 × 10"
+        },
+        {
+          "fact_id": "mul:2*1=?",
+          "rand": 2,
+          "coloana": 1,
+          "eticheta": "2 × 1"
+        },
+        {
+          "fact_id": "mul:2*2=?",
+          "rand": 2,
+          "coloana": 2,
+          "eticheta": "2 × 2"
+        },
+        {
+          "fact_id": "mul:2*3=?",
+          "rand": 2,
+          "coloana": 3,
+          "eticheta": "2 × 3"
+        },
+        {
+          "fact_id": "mul:2*4=?",
+          "rand": 2,
+          "coloana": 4,
+          "eticheta": "2 × 4"
+        },
+        {
+          "fact_id": "mul:2*5=?",
+          "rand": 2,
+          "coloana": 5,
+          "eticheta": "2 × 5"
+        },
+        {
+          "fact_id": "mul:2*6=?",
+          "rand": 2,
+          "coloana": 6,
+          "eticheta": "2 × 6"
+        },
+        {
+          "fact_id": "mul:2*7=?",
+          "rand": 2,
+          "coloana": 7,
+          "eticheta": "2 × 7"
+        },
+        {
+          "fact_id": "mul:2*8=?",
+          "rand": 2,
+          "coloana": 8,
+          "eticheta": "2 × 8"
+        },
+        {
+          "fact_id": "mul:2*9=?",
+          "rand": 2,
+          "coloana": 9,
+          "eticheta": "2 × 9"
+        },
+        {
+          "fact_id": "mul:2*10=?",
+          "rand": 2,
+          "coloana": 10,
+          "eticheta": "2 × 10"
+        },
+        {
+          "fact_id": "mul:3*1=?",
+          "rand": 3,
+          "coloana": 1,
+          "eticheta": "3 × 1"
+        },
+        {
+          "fact_id": "mul:3*2=?",
+          "rand": 3,
+          "coloana": 2,
+          "eticheta": "3 × 2"
+        },
+        {
+          "fact_id": "mul:3*3=?",
+          "rand": 3,
+          "coloana": 3,
+          "eticheta": "3 × 3"
+        },
+        {
+          "fact_id": "mul:3*4=?",
+          "rand": 3,
+          "coloana": 4,
+          "eticheta": "3 × 4"
+        },
+        {
+          "fact_id": "mul:3*5=?",
+          "rand": 3,
+          "coloana": 5,
+          "eticheta": "3 × 5"
+        },
+        {
+          "fact_id": "mul:3*6=?",
+          "rand": 3,
+          "coloana": 6,
+          "eticheta": "3 × 6"
+        },
+        {
+          "fact_id": "mul:3*7=?",
+          "rand": 3,
+          "coloana": 7,
+          "eticheta": "3 × 7"
+        },
+        {
+          "fact_id": "mul:3*8=?",
+          "rand": 3,
+          "coloana": 8,
+          "eticheta": "3 × 8"
+        },
+        {
+          "fact_id": "mul:3*9=?",
+          "rand": 3,
+          "coloana": 9,
+          "eticheta": "3 × 9"
+        },
+        {
+          "fact_id": "mul:3*10=?",
+          "rand": 3,
+          "coloana": 10,
+          "eticheta": "3 × 10"
+        },
+        {
+          "fact_id": "mul:4*1=?",
+          "rand": 4,
+          "coloana": 1,
+          "eticheta": "4 × 1"
+        },
+        {
+          "fact_id": "mul:4*2=?",
+          "rand": 4,
+          "coloana": 2,
+          "eticheta": "4 × 2"
+        },
+        {
+          "fact_id": "mul:4*3=?",
+          "rand": 4,
+          "coloana": 3,
+          "eticheta": "4 × 3"
+        },
+        {
+          "fact_id": "mul:4*4=?",
+          "rand": 4,
+          "coloana": 4,
+          "eticheta": "4 × 4"
+        },
+        {
+          "fact_id": "mul:4*5=?",
+          "rand": 4,
+          "coloana": 5,
+          "eticheta": "4 × 5"
+        },
+        {
+          "fact_id": "mul:4*6=?",
+          "rand": 4,
+          "coloana": 6,
+          "eticheta": "4 × 6"
+        },
+        {
+          "fact_id": "mul:4*7=?",
+          "rand": 4,
+          "coloana": 7,
+          "eticheta": "4 × 7"
+        },
+        {
+          "fact_id": "mul:4*8=?",
+          "rand": 4,
+          "coloana": 8,
+          "eticheta": "4 × 8"
+        },
+        {
+          "fact_id": "mul:4*9=?",
+          "rand": 4,
+          "coloana": 9,
+          "eticheta": "4 × 9"
+        },
+        {
+          "fact_id": "mul:4*10=?",
+          "rand": 4,
+          "coloana": 10,
+          "eticheta": "4 × 10"
+        },
+        {
+          "fact_id": "mul:5*1=?",
+          "rand": 5,
+          "coloana": 1,
+          "eticheta": "5 × 1"
+        },
+        {
+          "fact_id": "mul:5*2=?",
+          "rand": 5,
+          "coloana": 2,
+          "eticheta": "5 × 2"
+        },
+        {
+          "fact_id": "mul:5*3=?",
+          "rand": 5,
+          "coloana": 3,
+          "eticheta": "5 × 3"
+        },
+        {
+          "fact_id": "mul:5*4=?",
+          "rand": 5,
+          "coloana": 4,
+          "eticheta": "5 × 4"
+        },
+        {
+          "fact_id": "mul:5*5=?",
+          "rand": 5,
+          "coloana": 5,
+          "eticheta": "5 × 5"
+        },
+        {
+          "fact_id": "mul:5*6=?",
+          "rand": 5,
+          "coloana": 6,
+          "eticheta": "5 × 6"
+        },
+        {
+          "fact_id": "mul:5*7=?",
+          "rand": 5,
+          "coloana": 7,
+          "eticheta": "5 × 7"
+        },
+        {
+          "fact_id": "mul:5*8=?",
+          "rand": 5,
+          "coloana": 8,
+          "eticheta": "5 × 8"
+        },
+        {
+          "fact_id": "mul:5*9=?",
+          "rand": 5,
+          "coloana": 9,
+          "eticheta": "5 × 9"
+        },
+        {
+          "fact_id": "mul:5*10=?",
+          "rand": 5,
+          "coloana": 10,
+          "eticheta": "5 × 10"
+        },
+        {
+          "fact_id": "mul:6*1=?",
+          "rand": 6,
+          "coloana": 1,
+          "eticheta": "6 × 1"
+        },
+        {
+          "fact_id": "mul:6*2=?",
+          "rand": 6,
+          "coloana": 2,
+          "eticheta": "6 × 2"
+        },
+        {
+          "fact_id": "mul:6*3=?",
+          "rand": 6,
+          "coloana": 3,
+          "eticheta": "6 × 3"
+        },
+        {
+          "fact_id": "mul:6*4=?",
+          "rand": 6,
+          "coloana": 4,
+          "eticheta": "6 × 4"
+        },
+        {
+          "fact_id": "mul:6*5=?",
+          "rand": 6,
+          "coloana": 5,
+          "eticheta": "6 × 5"
+        },
+        {
+          "fact_id": "mul:6*6=?",
+          "rand": 6,
+          "coloana": 6,
+          "eticheta": "6 × 6"
+        },
+        {
+          "fact_id": "mul:6*7=?",
+          "rand": 6,
+          "coloana": 7,
+          "eticheta": "6 × 7"
+        },
+        {
+          "fact_id": "mul:6*8=?",
+          "rand": 6,
+          "coloana": 8,
+          "eticheta": "6 × 8"
+        },
+        {
+          "fact_id": "mul:6*9=?",
+          "rand": 6,
+          "coloana": 9,
+          "eticheta": "6 × 9"
+        },
+        {
+          "fact_id": "mul:6*10=?",
+          "rand": 6,
+          "coloana": 10,
+          "eticheta": "6 × 10"
+        },
+        {
+          "fact_id": "mul:7*1=?",
+          "rand": 7,
+          "coloana": 1,
+          "eticheta": "7 × 1"
+        },
+        {
+          "fact_id": "mul:7*2=?",
+          "rand": 7,
+          "coloana": 2,
+          "eticheta": "7 × 2"
+        },
+        {
+          "fact_id": "mul:7*3=?",
+          "rand": 7,
+          "coloana": 3,
+          "eticheta": "7 × 3"
+        },
+        {
+          "fact_id": "mul:7*4=?",
+          "rand": 7,
+          "coloana": 4,
+          "eticheta": "7 × 4"
+        },
+        {
+          "fact_id": "mul:7*5=?",
+          "rand": 7,
+          "coloana": 5,
+          "eticheta": "7 × 5"
+        },
+        {
+          "fact_id": "mul:7*6=?",
+          "rand": 7,
+          "coloana": 6,
+          "eticheta": "7 × 6"
+        },
+        {
+          "fact_id": "mul:7*7=?",
+          "rand": 7,
+          "coloana": 7,
+          "eticheta": "7 × 7"
+        },
+        {
+          "fact_id": "mul:7*8=?",
+          "rand": 7,
+          "coloana": 8,
+          "eticheta": "7 × 8"
+        },
+        {
+          "fact_id": "mul:7*9=?",
+          "rand": 7,
+          "coloana": 9,
+          "eticheta": "7 × 9"
+        },
+        {
+          "fact_id": "mul:7*10=?",
+          "rand": 7,
+          "coloana": 10,
+          "eticheta": "7 × 10"
+        },
+        {
+          "fact_id": "mul:8*1=?",
+          "rand": 8,
+          "coloana": 1,
+          "eticheta": "8 × 1"
+        },
+        {
+          "fact_id": "mul:8*2=?",
+          "rand": 8,
+          "coloana": 2,
+          "eticheta": "8 × 2"
+        },
+        {
+          "fact_id": "mul:8*3=?",
+          "rand": 8,
+          "coloana": 3,
+          "eticheta": "8 × 3"
+        },
+        {
+          "fact_id": "mul:8*4=?",
+          "rand": 8,
+          "coloana": 4,
+          "eticheta": "8 × 4"
+        },
+        {
+          "fact_id": "mul:8*5=?",
+          "rand": 8,
+          "coloana": 5,
+          "eticheta": "8 × 5"
+        },
+        {
+          "fact_id": "mul:8*6=?",
+          "rand": 8,
+          "coloana": 6,
+          "eticheta": "8 × 6"
+        },
+        {
+          "fact_id": "mul:8*7=?",
+          "rand": 8,
+          "coloana": 7,
+          "eticheta": "8 × 7"
+        },
+        {
+          "fact_id": "mul:8*8=?",
+          "rand": 8,
+          "coloana": 8,
+          "eticheta": "8 × 8"
+        },
+        {
+          "fact_id": "mul:8*9=?",
+          "rand": 8,
+          "coloana": 9,
+          "eticheta": "8 × 9"
+        },
+        {
+          "fact_id": "mul:8*10=?",
+          "rand": 8,
+          "coloana": 10,
+          "eticheta": "8 × 10"
+        },
+        {
+          "fact_id": "mul:9*1=?",
+          "rand": 9,
+          "coloana": 1,
+          "eticheta": "9 × 1"
+        },
+        {
+          "fact_id": "mul:9*2=?",
+          "rand": 9,
+          "coloana": 2,
+          "eticheta": "9 × 2"
+        },
+        {
+          "fact_id": "mul:9*3=?",
+          "rand": 9,
+          "coloana": 3,
+          "eticheta": "9 × 3"
+        },
+        {
+          "fact_id": "mul:9*4=?",
+          "rand": 9,
+          "coloana": 4,
+          "eticheta": "9 × 4"
+        },
+        {
+          "fact_id": "mul:9*5=?",
+          "rand": 9,
+          "coloana": 5,
+          "eticheta": "9 × 5"
+        },
+        {
+          "fact_id": "mul:9*6=?",
+          "rand": 9,
+          "coloana": 6,
+          "eticheta": "9 × 6"
+        },
+        {
+          "fact_id": "mul:9*7=?",
+          "rand": 9,
+          "coloana": 7,
+          "eticheta": "9 × 7"
+        },
+        {
+          "fact_id": "mul:9*8=?",
+          "rand": 9,
+          "coloana": 8,
+          "eticheta": "9 × 8"
+        },
+        {
+          "fact_id": "mul:9*9=?",
+          "rand": 9,
+          "coloana": 9,
+          "eticheta": "9 × 9"
+        },
+        {
+          "fact_id": "mul:9*10=?",
+          "rand": 9,
+          "coloana": 10,
+          "eticheta": "9 × 10"
+        },
+        {
+          "fact_id": "mul:10*1=?",
+          "rand": 10,
+          "coloana": 1,
+          "eticheta": "10 × 1"
+        },
+        {
+          "fact_id": "mul:10*2=?",
+          "rand": 10,
+          "coloana": 2,
+          "eticheta": "10 × 2"
+        },
+        {
+          "fact_id": "mul:10*3=?",
+          "rand": 10,
+          "coloana": 3,
+          "eticheta": "10 × 3"
+        },
+        {
+          "fact_id": "mul:10*4=?",
+          "rand": 10,
+          "coloana": 4,
+          "eticheta": "10 × 4"
+        },
+        {
+          "fact_id": "mul:10*5=?",
+          "rand": 10,
+          "coloana": 5,
+          "eticheta": "10 × 5"
+        },
+        {
+          "fact_id": "mul:10*6=?",
+          "rand": 10,
+          "coloana": 6,
+          "eticheta": "10 × 6"
+        },
+        {
+          "fact_id": "mul:10*7=?",
+          "rand": 10,
+          "coloana": 7,
+          "eticheta": "10 × 7"
+        },
+        {
+          "fact_id": "mul:10*8=?",
+          "rand": 10,
+          "coloana": 8,
+          "eticheta": "10 × 8"
+        },
+        {
+          "fact_id": "mul:10*9=?",
+          "rand": 10,
+          "coloana": 9,
+          "eticheta": "10 × 9"
+        },
+        {
+          "fact_id": "mul:10*10=?",
+          "rand": 10,
+          "coloana": 10,
+          "eticheta": "10 × 10"
+        }
+      ]
     }
   },
   "subtables": {

@@ -30,6 +30,7 @@ class ElementMinimal {
     this.dataset = {};
     this.listeners = {};
     this.className = "";
+    this.style = {};
     this.textContent = "";
     this.value = "";
     this.type = "";
@@ -315,12 +316,12 @@ describe("vizualizatorul MABP", () => {
     });
     const butoane = cautaElemente(
       container,
-      (element) => element.className.includes("mabp-fact-buton"),
+      (element) => element.className.split(" ").includes("mabp-fact-buton"),
     );
     assert.equal(butoane.length, 2);
     assert.equal(butoane[0].getAttribute("aria-pressed"), "true");
     assert.equal(butoane[1].getAttribute("aria-label"), "6×7: In lucru");
-    assert.match(butoane[1].textContent, /6×7 · In lucru/);
+    assert.match(textComplet(butoane[1]), /6×7.*In lucru/);
 
     await butoane[1].dispatch("click");
 
@@ -334,6 +335,119 @@ describe("vizualizatorul MABP", () => {
     assert.match(text, /6×7/);
     assert.match(text, /15 din 20/);
     assert.match(text, /75%/);
+  });
+
+  it("rezumat_simplu păstrează matricea declarată și ordinea coordonatelor", async () => {
+    const container = creeazaContainer();
+    const grup = (id, eticheta, rand, coloana) => ({
+      id,
+      eticheta,
+      pozitie: { rand, coloana },
+      stare: "netestat",
+      suficienta: "netestat",
+      metrici: { n_intrebari: 0, n_precizie: 0, n_corecte_prima_apasare: 0 },
+    });
+    const rezultat = {
+      metadata: {},
+      configuratie: {},
+      aranjare: {
+        tip: "matrice",
+        table_id: "test:2x2",
+        eticheta: "Matrice 2 × 2",
+        randuri: [1, 2],
+        coloane: [1, 2],
+      },
+      grupuri: [
+        grup("d", "D", 2, 2),
+        grup("c", "C", 2, 1),
+        grup("b", "B", 1, 2),
+        grup("a", "A", 1, 1),
+      ],
+    };
+
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat,
+      container,
+      tip: "rezumat_simplu",
+    });
+
+    const matrice = cautaElemente(
+      container,
+      (element) => element.getAttribute("data-aranjare") === "matrice",
+    );
+    assert.equal(matrice.length, 1);
+    assert.equal(matrice[0].getAttribute("role"), "table");
+    assert.equal(
+      cautaElemente(
+        matrice[0],
+        (element) => element.getAttribute("role") === "cell",
+      ).length,
+      4,
+    );
+    const butoane = cautaElemente(
+      matrice[0],
+      (element) => element.className.split(" ").includes("mabp-fact-buton"),
+    );
+    assert.deepEqual(
+      butoane.map((buton) =>
+        cautaElemente(
+          buton,
+          (element) => element.className === "mabp-fact-buton__fact",
+        )[0].textContent
+      ),
+      ["A", "B", "C", "D"],
+    );
+    assert.equal(butoane[0].getAttribute("aria-pressed"), "true");
+
+    await butoane[3].dispatch("click");
+    const detaliu = cautaElemente(
+      container,
+      (element) => element.className.includes("mabp-rezumat-selectat"),
+    )[0];
+    assert.match(textComplet(detaliu), /D/);
+    assert.equal(butoane[3].getAttribute("aria-pressed"), "true");
+  });
+
+  it("rezumat_simplu arată traseul complet de la netestat la fluent", () => {
+    const container = creeazaContainer();
+    const niveluri = [
+      ["netestat", "netestat"],
+      ["in_lucru", "date_insuficiente"],
+      ["in_lucru", "estimare_utila"],
+      ["in_consolidare", "estimare_utila"],
+      ["fluent", "estimare_utila"],
+      ["progres", "estimare_utila"],
+    ];
+    creeazaVizualizatorMABP().afiseaza({
+      container,
+      tip: "rezumat_simplu",
+      rezultat: {
+        grupuri: niveluri.map(([stare, suficienta], index) => ({
+          id: `fact-${index}`,
+          stare,
+          suficienta,
+          metrici: {},
+        })),
+      },
+    });
+    const trasee = cautaElemente(
+      container,
+      (element) => element.className === "mabp-traseu-stare",
+    );
+    assert.deepEqual(
+      trasee.map((traseu) => [
+        cautaElemente(
+          traseu,
+          (pas) => pas.className.split(" ").includes("mabp-traseu-stare__pas"),
+        ).length,
+        cautaElemente(
+          traseu,
+          (pas) => pas.className.includes("mabp-traseu-stare__pas--plin"),
+        ).length,
+      ]),
+      [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4]],
+    );
+    assert.ok(trasee.every((traseu) => traseu.getAttribute("aria-hidden") === "true"));
   });
 
   it("detaliu_fact afiseaza starea si metricile publice", () => {
@@ -451,22 +565,30 @@ describe("vizualizatorul MABP", () => {
     assert.doesNotMatch(textComplet(containerDirectie), /afișează textual starea/);
   });
 
-  it("randeaza din date toate cele 200 de celule ale unei grile 11–20 × 1–20", () => {
+  it("randeaza pozițional 200 de celule în 20 rânduri × 10 coloane", () => {
     const container = creeazaContainer();
     const rezultat = rezultatCuGrup({});
-    rezultat.grupuri = Array.from({ length: 10 }, (_, indexStanga) =>
-      Array.from({ length: 20 }, (_, indexDreapta) => {
-        const stanga = indexStanga + 11;
-        const dreapta = indexDreapta + 1;
+    rezultat.aranjare = {
+      tip: "matrice",
+      table_id: "mul:11-20x1-20",
+      eticheta: "Tabla înmulțirii 11–20 × 1–20",
+      randuri: Array.from({ length: 20 }, (_, index) => index + 1),
+      coloane: Array.from({ length: 10 }, (_, index) => index + 11),
+    };
+    rezultat.grupuri = Array.from({ length: 20 }, (_, indexStanga) =>
+      Array.from({ length: 10 }, (_, indexDreapta) => {
+        const stanga = indexStanga + 1;
+        const dreapta = indexDreapta + 11;
         return {
           id: `mul:${stanga}*${dreapta}=?`,
           eticheta: `${stanga}×${dreapta}`,
+          pozitie: { rand: stanga, coloana: dreapta },
           stare: "date_insuficiente",
           suficienta: "date_insuficiente",
           metrici: {},
         };
       }),
-    ).flat();
+    ).flat().reverse();
 
     creeazaVizualizatorMABP().afiseaza({
       rezultat,
@@ -479,8 +601,90 @@ describe("vizualizatorul MABP", () => {
       (element) => element.className.split(" ").includes("mabp-celula"),
     );
     assert.equal(celule.length, 200);
-    assert.match(textComplet(container), /11×1/);
+    const matrice = cautaElemente(
+      container,
+      (element) => element.getAttribute("data-aranjare") === "matrice",
+    );
+    assert.equal(matrice.length, 1);
+    assert.equal(matrice[0].getAttribute("role"), "table");
+    assert.match(matrice[0].getAttribute("aria-label"), /11–20 × 1–20/);
+    assert.equal(matrice[0].getAttribute("aria-rowcount"), "21");
+    assert.equal(matrice[0].getAttribute("aria-colcount"), "11");
+
+    const randuriAria = cautaElemente(
+      matrice[0],
+      (element) => element.getAttribute("role") === "row",
+    );
+    assert.equal(randuriAria.length, 21);
+
+    const anteteRand = cautaElemente(
+      matrice[0],
+      (element) => element.getAttribute("data-antet-rand") != null,
+    );
+    const anteteColoana = cautaElemente(
+      matrice[0],
+      (element) => element.getAttribute("data-antet-coloana") != null,
+    );
+    assert.equal(anteteRand.length, 20);
+    assert.equal(anteteColoana.length, 10);
+    assert.ok(anteteRand.every((element) => element.getAttribute("role") === "rowheader"));
+    assert.ok(
+      anteteColoana.every((element) => element.getAttribute("role") === "columnheader"),
+    );
+    assert.deepEqual(
+      anteteRand.map((element) => Number(element.getAttribute("data-antet-rand"))),
+      rezultat.aranjare.randuri,
+    );
+    assert.deepEqual(
+      anteteColoana.map((element) => Number(element.getAttribute("data-antet-coloana"))),
+      rezultat.aranjare.coloane,
+    );
+
+    assert.ok(celule.every((element) => element.getAttribute("role") === "cell"));
+    assert.equal(celule[0].getAttribute("aria-rowindex"), "2");
+    assert.equal(celule[0].getAttribute("aria-colindex"), "2");
+    assert.deepEqual(
+      [
+        Number(celule[0].getAttribute("data-rand")),
+        Number(celule[0].getAttribute("data-coloana")),
+      ],
+      [1, 11],
+      "Ordinea DOM trebuie să urmeze matricea, nu ordinea inversată a grupurilor.",
+    );
+    assert.deepEqual(
+      [
+        Number(celule.at(-1).getAttribute("data-rand")),
+        Number(celule.at(-1).getAttribute("data-coloana")),
+      ],
+      [20, 20],
+    );
+    assert.match(textComplet(container), /1×11/);
     assert.match(textComplet(container), /20×20/);
+  });
+
+  it("păstrează grila fluidă existentă când rezultatul nu declară o matrice", () => {
+    const container = creeazaContainer();
+    const rezultat = rezultatCuGrup({
+      id: "mul:7*8=?",
+      eticheta: "7×8",
+      stare: "in_consolidare",
+      suficienta: "tendinta",
+      metrici: { n_intrebari: 12 },
+    });
+
+    creeazaVizualizatorMABP().afiseaza({
+      rezultat,
+      container,
+      tip: "grila_stare",
+    });
+
+    const grilaFluida = cautaElemente(
+      container,
+      (element) => element.className.split(" ").includes("mabp-grila"),
+    );
+    assert.equal(grilaFluida.length, 1);
+    assert.equal(grilaFluida[0].getAttribute("data-aranjare"), null);
+    assert.match(textComplet(grilaFluida[0]), /7×8/);
   });
 
   it("grafic_linie foloseste valoarea explicita din serie, nu prima metrica numerica", () => {
@@ -772,7 +976,7 @@ describe("integrarea aplicatiei MABP", () => {
       documentRef.getElementById("mabp-preset"),
       (element) => element.tagName === "INPUT",
     );
-    assert.equal(intrariPreset.length, 5);
+    assert.equal(intrariPreset.length, 6);
     assert.ok(intrariPreset.every((intrare) => intrare.type === "radio"));
     assert.equal(new Set(intrariPreset.map((intrare) => intrare.name)).size, 1);
     assert.match(
@@ -799,11 +1003,11 @@ describe("integrarea aplicatiei MABP", () => {
     const butonDateInsuficiente = cautaElemente(
       documentRef.getElementById("mabp-rezultat"),
       (element) =>
-        element.className.includes("mabp-fact-buton") &&
+        element.className.split(" ").includes("mabp-fact-buton") &&
         element.getAttribute("aria-label") === "2*3=6: Date insuficiente",
     )[0];
     assert.ok(butonDateInsuficiente);
-    assert.match(butonDateInsuficiente.textContent, /Date insuficiente/);
+    assert.match(textComplet(butonDateInsuficiente), /Date insuficiente/);
     await butonDateInsuficiente.dispatch("click");
     const detaliuDateInsuficiente = cautaElemente(
       documentRef.getElementById("mabp-rezultat"),

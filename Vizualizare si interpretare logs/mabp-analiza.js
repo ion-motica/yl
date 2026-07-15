@@ -1,4 +1,4 @@
-const VERSIUNE_MOTOR = "1.0.0";
+const VERSIUNE_MOTOR = "1.1.0";
 
 const MAPARE_CAMPURI_IMPLICITA = Object.freeze({
   data_ora_ro: ["data_ora_ro"],
@@ -360,9 +360,94 @@ function valoareStructurala(intrebare, camp, catalog) {
   return factCatalog?.[camp] ?? null;
 }
 
+function obtineTablaCatalog(catalog, tableId) {
+  const tabla = catalog?.tables?.[tableId];
+  if (!esteObiect(tabla)) {
+    throw new EroareMABP(
+      `Catalogul nu defineste tabla ${tableId}.`,
+      "TABLA_LIPSA"
+    );
+  }
+  if (tabla.table_id !== tableId) {
+    throw new EroareMABP(
+      `Tabla ${tableId} trebuie sa declare acelasi table_id.`,
+      "TABLA_INVALIDA"
+    );
+  }
+
+  const randuri = tabla.randuri;
+  const coloane = tabla.coloane;
+  const celule = tabla.celule;
+  if (
+    !Array.isArray(randuri) ||
+    randuri.length === 0 ||
+    !Array.isArray(coloane) ||
+    coloane.length === 0 ||
+    !Array.isArray(celule)
+  ) {
+    throw new EroareMABP(
+      `Tabla ${tableId} trebuie sa declare randuri, coloane si celule.`,
+      "TABLA_INVALIDA"
+    );
+  }
+  if (celule.length !== randuri.length * coloane.length) {
+    throw new EroareMABP(
+      `Tabla ${tableId} trebuie sa declare exact cate o celula pentru fiecare pozitie.`,
+      "TABLA_INCOMPLETA"
+    );
+  }
+
+  const iduri = new Set();
+  const pozitii = new Set();
+  for (const celula of celule) {
+    const idValid = typeof celula?.fact_id === "string" && celula.fact_id.length > 0;
+    const etichetaValida =
+      typeof celula?.eticheta === "string" && celula.eticheta.length > 0;
+    const randValid = randuri.some((rand) => Object.is(rand, celula?.rand));
+    const coloanaValida = coloane.some((coloana) =>
+      Object.is(coloana, celula?.coloana)
+    );
+    if (!idValid || !etichetaValida || !randValid || !coloanaValida) {
+      throw new EroareMABP(
+        `Tabla ${tableId} contine o celula invalida.`,
+        "CELULA_TABLA_INVALIDA"
+      );
+    }
+    const pozitie = JSON.stringify([celula.rand, celula.coloana]);
+    if (iduri.has(celula.fact_id) || pozitii.has(pozitie)) {
+      throw new EroareMABP(
+        `Tabla ${tableId} contine un fact_id sau o pozitie duplicata.`,
+        "CELULA_TABLA_DUPLICATA"
+      );
+    }
+    iduri.add(celula.fact_id);
+    pozitii.add(pozitie);
+  }
+
+  for (const [factId, fact] of Object.entries(catalog?.facts || {})) {
+    if (fact?.table_id !== tableId) continue;
+    if (typeof fact.cell_id !== "string" || !iduri.has(fact.cell_id)) {
+      throw new EroareMABP(
+        `Factul ${factId} nu declara un cell_id valid in tabla ${tableId}.`,
+        "MAPARE_CELULA_INVALIDA"
+      );
+    }
+  }
+  return tabla;
+}
+
+function idCelulaCanonica(intrebare, catalog) {
+  return valoareStructurala(intrebare, "cell_id", catalog) ?? intrebare?.fact_id;
+}
+
 const AXE_STANDARD = Object.freeze({
   toate: () => true,
   fact: ({ intrebare, definitie }) => intrebare.fact_id === definitie.fact_id,
+  tabla: ({ intrebare, definitie, catalog }) => {
+    const tabla = obtineTablaCatalog(catalog, definitie.id);
+    const cellId = idCelulaCanonica(intrebare, catalog);
+    return tabla.celule.some((celula) => celula.fact_id === cellId);
+  },
   subtabla: ({ intrebare, definitie, catalog }) => {
     const subtabla = catalog?.subtables?.[definitie.id];
     if (!subtabla) {
@@ -943,6 +1028,9 @@ function grupeazaDupa(items, citesteCheie) {
 }
 
 function idGrup(intrebare, configuratie, catalog) {
+  if (configuratie.domeniu?.tip === "tabla") {
+    return idCelulaCanonica(intrebare, catalog);
+  }
   if (configuratie.domeniu?.tip === "eff") {
     return (
       valoareStructurala(intrebare, "eq_form_id", catalog) ??
@@ -954,6 +1042,11 @@ function idGrup(intrebare, configuratie, catalog) {
 }
 
 function etichetaGrup(intrebare, configuratie, catalog) {
+  if (configuratie.domeniu?.tip === "tabla") {
+    const tabla = obtineTablaCatalog(catalog, configuratie.domeniu.id);
+    const cellId = idCelulaCanonica(intrebare, catalog);
+    return tabla.celule.find((celula) => celula.fact_id === cellId)?.eticheta ?? cellId;
+  }
   if (configuratie.domeniu?.tip === "eff") {
     return valoareStructurala(intrebare, "eq_form_id", catalog) ?? intrebare.eq_form;
   }
@@ -1012,6 +1105,87 @@ function calculeazaMetriciCuExtensii(
     });
   }
   return metrici;
+}
+
+function materializeazaTabla({
+  catalog,
+  configuratie,
+  grupuri,
+  clasificari,
+  metriciExtensie,
+  avertismente,
+}) {
+  if (configuratie.domeniu?.tip !== "tabla") {
+    return { grupuri, clasificari, aranjare: null };
+  }
+
+  const tabla = obtineTablaCatalog(catalog, configuratie.domeniu.id);
+  const grupuriPeId = new Map(grupuri.map((grup) => [grup.id, grup]));
+  const iduriCatalog = new Set(tabla.celule.map((celula) => celula.fact_id));
+  const grupNecatalogat = grupuri.find((grup) => !iduriCatalog.has(grup.id));
+  if (grupNecatalogat) {
+    throw new EroareMABP(
+      `Grupul ${grupNecatalogat.id} nu are celula declarata in tabla ${tabla.table_id}.`,
+      "GRUP_TABLA_NECATALOGAT"
+    );
+  }
+
+  const clasificariComplete = {};
+  const grupuriComplete = tabla.celule.map((celula) => {
+    const pozitie = { rand: celula.rand, coloana: celula.coloana };
+    const existent = grupuriPeId.get(celula.fact_id);
+    if (existent) {
+      const completat = {
+        ...existent,
+        eticheta: celula.eticheta,
+        pozitie,
+      };
+      clasificariComplete[celula.fact_id] = configuratie.comparatie
+        ? completat.comparatie?.directie ?? "date_insuficiente"
+        : completat.stare;
+      return completat;
+    }
+
+    const metriciGoale = calculeazaMetriciCuExtensii(
+      [],
+      configuratie,
+      metriciExtensie,
+      avertismente
+    );
+    const grupNetestat = {
+      id: celula.fact_id,
+      eticheta: celula.eticheta,
+      pozitie,
+      metrici: metriciGoale,
+      stare: "netestat",
+      suficienta: "netestat",
+      serie: [],
+    };
+    if (configuratie.comparatie) {
+      grupNetestat.comparatie = {
+        vechi: copieDate(metriciGoale),
+        nou: copieDate(metriciGoale),
+        delta: { timp: null, precizie: null },
+        directie: "date_insuficiente",
+      };
+      clasificariComplete[celula.fact_id] = "date_insuficiente";
+    } else {
+      clasificariComplete[celula.fact_id] = "netestat";
+    }
+    return grupNetestat;
+  });
+
+  return {
+    grupuri: grupuriComplete,
+    clasificari: clasificariComplete,
+    aranjare: {
+      tip: "matrice",
+      table_id: tabla.table_id,
+      eticheta: tabla.eticheta ?? tabla.table_id,
+      randuri: [...tabla.randuri],
+      coloane: [...tabla.coloane],
+    },
+  };
 }
 
 function construiesteSerie(observatii, configuratie, metriciExtensie, avertismente) {
@@ -1349,6 +1523,17 @@ export function creeazaMotorMABP({
       }
     }
 
+    const tablaMaterializata = materializeazaTabla({
+      catalog,
+      configuratie,
+      grupuri,
+      clasificari,
+      metriciExtensie: metrici,
+      avertismente,
+    });
+    const grupuriRezultat = tablaMaterializata.grupuri;
+    const clasificariRezultat = tablaMaterializata.clasificari;
+
     const filtruAgregat = aplicaFiltru(
       intrebariCurenteRezultat,
       configuratie.filtru,
@@ -1361,7 +1546,7 @@ export function creeazaMotorMABP({
       avertismente
     );
     const agregat = configuratie.comparatie
-      ? { metrici: metriciAgregate, comparatie: agregaComparatii(grupuri) }
+      ? { metrici: metriciAgregate, comparatie: agregaComparatii(grupuriRezultat) }
       : { metrici: metriciAgregate };
     const indisponibile = campuriIndisponibile(inregistrari);
     if (indisponibile.length > 0) {
@@ -1395,6 +1580,9 @@ export function creeazaMotorMABP({
         numar_facts: new Set(
           intrebariCurenteRezultat.map((item) => item.fact_id).filter(Boolean)
         ).size,
+        numar_celule: tablaMaterializata.aranjare
+          ? grupuriRezultat.length
+          : null,
         numar_sesiuni: new Set(
           intrebariCurenteRezultat.map((item) => item.session_id).filter(Boolean)
         ).size,
@@ -1411,9 +1599,10 @@ export function creeazaMotorMABP({
         inconsistente_optiuni: inconsistenteOptiuni.total,
         inconsistente_optiuni_dummy: inconsistenteOptiuni.dummy,
       },
-      grupuri,
+      aranjare: tablaMaterializata.aranjare,
+      grupuri: grupuriRezultat,
       agregat,
-      clasificari,
+      clasificari: clasificariRezultat,
       configuratie: copieDate(configuratie),
     };
   }

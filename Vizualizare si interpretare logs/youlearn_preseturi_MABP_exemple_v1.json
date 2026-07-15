@@ -72,9 +72,9 @@
             "eticheta": "Toate observate",
             "valoare": { "tip": "toate" }
           },
-          {
-            "id": "demo_sase",
-            "eticheta": "Cele 6 din demo",
+        {
+          "id": "demo_sase",
+          "eticheta": "Cele 6 din demo",
             "valoare": {
               "tip": "camp_in",
               "camp": "fact_id",
@@ -85,11 +85,20 @@
                 "mul:9*9=?",
                 "mul:4*8=?",
                 "mul:2*3=?"
-              ]
-            }
-          },
-          {
-            "id": "fact_7x8",
+            ]
+          }
+        },
+        {
+          "id": "tabla_completa_1_10",
+          "eticheta": "Tabla completă 1–10 × 1–10",
+          "descriere": "Arată toate cele 100 de poziții; exercițiile fără loguri rămân «netestat».",
+          "valoare": {
+            "tip": "tabla",
+            "id": "mul:1-10x1-10"
+          }
+        },
+        {
+          "id": "fact_7x8",
             "eticheta": "Fact 7 × 8",
             "valoare": { "tip": "fact", "fact_id": "mul:7*8=?" }
           },
@@ -227,6 +236,14 @@
         "mod_analiza": ["stare_curenta"],
         "vizualizare": ["grila_adaptiva"]
       },
+      "stare_tabla_inmultirii_1_10_v1": {
+        "domeniu": ["tabla_completa_1_10"],
+        "structura": [],
+        "fereastra": ["toate"],
+        "filtru": ["standard"],
+        "mod_analiza": ["stare_curenta"],
+        "vizualizare": ["grila_adaptiva"]
+      },
       "stare_generala_observata_v1": {
         "domeniu": ["toate_observate"],
         "structura": [],
@@ -286,6 +303,28 @@
           "mul:4*8=?",
           "mul:2*3=?"
         ]
+      },
+      "fereastra": {
+        "tip": "toate"
+      },
+      "filtru_preset": "fluenta_standard_v1",
+      "metrici": [
+        "precizie_prima_apasare",
+        "mediana_timp_corect_prima_apasare"
+      ],
+      "agregare": {
+        "unitate": "fact",
+        "statistica_timp": "mediana"
+      },
+      "rezultat": "stare_curenta",
+      "vizualizare": "grila_adaptiva"
+    },
+    "stare_tabla_inmultirii_1_10_v1": {
+      "nume": "Tabla completă 1–10 × 1–10",
+      "descriere": "Așază toate cele 100 de exerciții la coordonatele declarate în catalog și marchează explicit pozițiile fără răspunsuri ca netestate.",
+      "domeniu": {
+        "tip": "tabla",
+        "id": "mul:1-10x1-10"
       },
       "fereastra": {
         "tip": "toate"

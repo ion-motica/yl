@@ -48,6 +48,16 @@ const EXPLICATII_STARI = Object.freeze({
     "Sunt prea puține date pentru o concluzie stabilă.",
 });
 
+const NIVELURI_TRASEU_STARE = Object.freeze({
+  netestat: 0,
+  date_insuficiente: 1,
+  in_lucru: 2,
+  în_lucru: 2,
+  in_consolidare: 3,
+  în_consolidare: 3,
+  fluent: 4,
+});
+
 let urmatorulIdGrafic = 1;
 let urmatorulIdRezumat = 1;
 
@@ -111,6 +121,35 @@ function simbolStare(stare) {
   if (ton === "negativ") return "↓";
   if (ton === "atentie") return "!";
   return "•";
+}
+
+function nivelTraseuStare(stare) {
+  const nivel = NIVELURI_TRASEU_STARE[normalizeazaStare(stare)];
+  return Number.isInteger(nivel) ? nivel : null;
+}
+
+function creeazaTraseuStare(documentRef, stare) {
+  const nivel = nivelTraseuStare(stare);
+  if (nivel === null) return null;
+
+  const traseu = creeazaElement(documentRef, "span", {
+    clasa: "mabp-traseu-stare",
+    atribute: {
+      "aria-hidden": "true",
+      "data-nivel": nivel,
+    },
+  });
+  for (let pas = 1; pas <= 4; pas += 1) {
+    traseu.append(
+      creeazaElement(documentRef, "span", {
+        clasa: `mabp-traseu-stare__pas ${
+          pas <= nivel ? "mabp-traseu-stare__pas--plin" : "mabp-traseu-stare__pas--gol"
+        }`,
+        atribute: { "aria-hidden": "true" },
+      }),
+    );
+  }
+  return traseu;
 }
 
 function formateazaNumar(numar, maximumFractionDigits = 2) {
@@ -451,36 +490,79 @@ function randeazaRezumatSimplu({ rezultat, container }) {
       "aria-live": "polite",
     },
   });
-  const grila = creeazaElement(documentRef, "div", {
-    clasa: "mabp-grila-simpla",
-    atribute: {
-      role: "group",
-      "aria-label": "Alege un element pentru detalii",
-    },
-  });
-  const butoane = grupuri.map((grup, index) => {
+  const butoane = [];
+  let primulGrupRandat = grupuri[0];
+  const creeazaButon = (grup, index) => {
     const stare = stareGrup(grup);
+    const nivelTraseu = nivelTraseuStare(stare);
+    const eticheta = grup.eticheta || grup.id || `Element ${index + 1}`;
     const buton = creeazaElement(documentRef, "button", {
       clasa: `mabp-fact-buton mabp-fact-buton--${stabilesteTon(stare)}`,
-      text: `${grup.eticheta || grup.id || `Element ${index + 1}`} · ${eticheteazaStare(stare)}`,
       atribute: {
         type: "button",
         "aria-controls": idDetaliu,
-        "aria-pressed": index === 0 ? "true" : "false",
-        "aria-label": `${grup.eticheta || grup.id || `Element ${index + 1}`}: ${eticheteazaStare(stare)}`,
+        "aria-pressed": butoane.length === 0 ? "true" : "false",
+        "aria-label": `${eticheta}: ${eticheteazaStare(stare)}`,
+        ...(nivelTraseu === null ? {} : { "data-nivel-traseu": nivelTraseu }),
       },
     });
+    buton.append(
+      creeazaElement(documentRef, "span", {
+        clasa: "mabp-fact-buton__fact",
+        text: eticheta,
+      }),
+      creeazaElement(documentRef, "span", {
+        clasa: "mabp-fact-buton__stare",
+        text: `${simbolStare(stare)} ${eticheteazaStare(stare)}`,
+      }),
+    );
+    const traseuStare = creeazaTraseuStare(documentRef, stare);
+    if (traseuStare) buton.append(traseuStare);
     buton.addEventListener("click", () => {
       butoane.forEach((element) => element.setAttribute("aria-pressed", "false"));
       buton.setAttribute("aria-pressed", "true");
       randeazaDetaliuSimplu(documentRef, detaliu, grup);
     });
-    grila.append(buton);
+    if (butoane.length === 0) primulGrupRandat = grup;
+    butoane.push(buton);
     return buton;
-  });
+  };
 
-  randeazaDetaliuSimplu(documentRef, detaliu, grupuri[0]);
-  container.append(detaliu, grila);
+  container.append(detaliu);
+  const matriceRandata = randeazaMatricePozitionala({
+    documentRef,
+    rezultat,
+    container,
+    ariaLabel: "Alege un element pentru detalii",
+    clasaGrila: "mabp-grila--selectie",
+    rolMatrice: "table",
+    creeazaContinutCelula: ({ grup, atribute, indexRand, indexColoana }) => {
+      const celula = creeazaElement(documentRef, "div", {
+        clasa: "mabp-celula-selectie",
+        atribute,
+      });
+      celula.append(
+        creeazaButon(
+          grup,
+          indexRand * rezultat.aranjare.coloane.length + indexColoana,
+        ),
+      );
+      return celula;
+    },
+  });
+  if (!matriceRandata) {
+    const grila = creeazaElement(documentRef, "div", {
+      clasa: "mabp-grila-simpla",
+      atribute: {
+        role: "group",
+        "aria-label": "Alege un element pentru detalii",
+      },
+    });
+    grupuri.forEach((grup, index) => grila.append(creeazaButon(grup, index)));
+    container.append(grila);
+  }
+
+  randeazaDetaliuSimplu(documentRef, detaliu, primulGrupRandat);
   randeazaLegendaSimpla(documentRef, container, grupuri);
 }
 
@@ -522,6 +604,174 @@ function randeazaGol(documentRef, container, mesaj = "Nu există grupuri pentru 
       atribute: { role: "status" },
     }),
   );
+}
+
+function creeazaCelulaGrila(documentRef, grup, { atribute = {}, cuMetrici = true } = {}) {
+  const stare = grup.comparatie?.directie || grup.stare || "necunoscut";
+  const celula = creeazaElement(documentRef, "article", {
+    clasa: `mabp-celula mabp-celula--${stabilesteTon(stare)}`,
+    atribute: {
+      ...atribute,
+      "data-stare": normalizeazaStare(stare),
+    },
+  });
+  celula.append(
+    creeazaElement(documentRef, "h4", { text: grup.eticheta || grup.id || "Grup" }),
+    creeazaElement(documentRef, "p", {
+      clasa: "mabp-celula-stare",
+      text: `${simbolStare(stare)} ${eticheteazaStare(stare)}`,
+    }),
+  );
+  if (grup.suficienta) {
+    celula.append(
+      creeazaElement(documentRef, "p", {
+        clasa: "mabp-celula-suficienta",
+        text: `Date: ${eticheteazaStare(grup.suficienta)}`,
+      }),
+    );
+  }
+  if (cuMetrici) {
+    adaugaListaDefinitii(documentRef, celula, grup.metrici || {}, {
+      clasa: "mabp-definitii mabp-definitii--compact",
+      limita: 3,
+    });
+  }
+  return celula;
+}
+
+function cheiePozitie(rand, coloana) {
+  return JSON.stringify([rand, coloana]);
+}
+
+function randeazaMatricePozitionala({
+  documentRef,
+  rezultat,
+  container,
+  ariaLabel,
+  clasaGrila = "",
+  rolMatrice = "table",
+  creeazaContinutCelula,
+}) {
+  const aranjare = rezultat.aranjare;
+  if (
+    aranjare?.tip !== "matrice" ||
+    !Array.isArray(aranjare.randuri) ||
+    !Array.isArray(aranjare.coloane) ||
+    typeof creeazaContinutCelula !== "function"
+  ) {
+    return false;
+  }
+
+  const grupuriPePozitie = new Map(
+    (rezultat.grupuri || [])
+      .filter((grup) => grup?.pozitie)
+      .map((grup) => [
+        cheiePozitie(grup.pozitie.rand, grup.pozitie.coloana),
+        grup,
+      ]),
+  );
+  const invelis = creeazaElement(documentRef, "div", {
+    clasa: "mabp-grila-scroll",
+  });
+  const grila = creeazaElement(documentRef, "div", {
+    clasa: `mabp-grila mabp-grila--matrice ${clasaGrila}`.trim(),
+    atribute: {
+      role: rolMatrice,
+      "data-aranjare": "matrice",
+      "aria-label": ariaLabel || aranjare.eticheta || "Grilă pozițională",
+      "aria-rowcount": aranjare.randuri.length + 1,
+      "aria-colcount": aranjare.coloane.length + 1,
+      style: `--mabp-numar-coloane: ${aranjare.coloane.length}`,
+    },
+  });
+
+  const randAntet = creeazaElement(documentRef, "div", {
+    clasa: "mabp-grila-rand",
+    atribute: { role: "row", "aria-rowindex": 1 },
+  });
+  randAntet.append(
+    creeazaElement(documentRef, "span", {
+      clasa: "mabp-grila-colt",
+      atribute: {
+        role: "columnheader",
+        "aria-colindex": 1,
+        "aria-label": "Rând și coloană",
+      },
+    }),
+  );
+  aranjare.coloane.forEach((coloana, indexColoana) => {
+    randAntet.append(
+      creeazaElement(documentRef, "span", {
+        clasa: "mabp-grila-antet mabp-grila-antet--coloana",
+        text: coloana,
+        atribute: {
+          role: "columnheader",
+          "data-antet-coloana": coloana,
+          "aria-colindex": indexColoana + 2,
+          style: `grid-row: 1; grid-column: ${indexColoana + 2}`,
+        },
+      }),
+    );
+  });
+  grila.append(randAntet);
+
+  aranjare.randuri.forEach((rand, indexRand) => {
+    const randMatrice = creeazaElement(documentRef, "div", {
+      clasa: "mabp-grila-rand",
+      atribute: { role: "row", "aria-rowindex": indexRand + 2 },
+    });
+    randMatrice.append(
+      creeazaElement(documentRef, "span", {
+        clasa: "mabp-grila-antet mabp-grila-antet--rand",
+        text: rand,
+        atribute: {
+          role: "rowheader",
+          "data-antet-rand": rand,
+          "aria-colindex": 1,
+          style: `grid-row: ${indexRand + 2}; grid-column: 1`,
+        },
+      }),
+    );
+    aranjare.coloane.forEach((coloana, indexColoana) => {
+      const grup = grupuriPePozitie.get(cheiePozitie(rand, coloana));
+      if (!grup) return;
+      randMatrice.append(
+        creeazaContinutCelula({
+          grup,
+          indexRand,
+          indexColoana,
+          atribute: {
+            role: rolMatrice === "table" ? "cell" : "gridcell",
+            "data-rand": rand,
+            "data-coloana": coloana,
+            "aria-rowindex": indexRand + 2,
+            "aria-colindex": indexColoana + 2,
+            style: `grid-row: ${indexRand + 2}; grid-column: ${indexColoana + 2}`,
+          },
+        }),
+      );
+    });
+    grila.append(randMatrice);
+  });
+
+  invelis.append(grila);
+  container.append(invelis);
+  return true;
+}
+
+function randeazaMatrice({ documentRef, rezultat, container, esteGrilaStare }) {
+  return randeazaMatricePozitionala({
+    documentRef,
+    rezultat,
+    container,
+    ariaLabel: rezultat.aranjare?.eticheta ||
+      (esteGrilaStare ? "Grila stării actuale" : "Grila progresului"),
+    creeazaContinutCelula: ({ grup, atribute }) =>
+      creeazaCelulaGrila(documentRef, grup, {
+        cuMetrici: false,
+        atribute,
+      }),
+  });
 }
 
 function randeazaDetaliuFact({ rezultat, container }) {
@@ -566,6 +816,10 @@ function randeazaGrilaProgres({ rezultat, container, tip }) {
       ? "Fiecare celulă afișează textual starea și suficiența datelor; culoarea este doar un indiciu suplimentar."
       : "Fiecare celulă afișează textual direcția și suficiența datelor; culoarea este doar un indiciu suplimentar.",
   });
+  container.append(explicatie);
+  if (randeazaMatrice({ documentRef, rezultat, container, esteGrilaStare })) {
+    return;
+  }
   const grila = creeazaElement(documentRef, "ul", {
     clasa: "mabp-grila",
     atribute: {
@@ -576,36 +830,12 @@ function randeazaGrilaProgres({ rezultat, container, tip }) {
   });
 
   grupuri.forEach((grup) => {
-    const stare = grup.comparatie?.directie || grup.stare || "necunoscut";
     const elementLista = creeazaElement(documentRef, "li");
-    const celula = creeazaElement(documentRef, "article", {
-      clasa: `mabp-celula mabp-celula--${stabilesteTon(stare)}`,
-      atribute: { "data-stare": normalizeazaStare(stare) },
-    });
-    celula.append(
-      creeazaElement(documentRef, "h4", { text: grup.eticheta || grup.id || "Grup" }),
-      creeazaElement(documentRef, "p", {
-        clasa: "mabp-celula-stare",
-        text: `${simbolStare(stare)} ${eticheteazaStare(stare)}`,
-      }),
-    );
-    if (grup.suficienta) {
-      celula.append(
-        creeazaElement(documentRef, "p", {
-          clasa: "mabp-celula-suficienta",
-          text: `Date: ${eticheteazaStare(grup.suficienta)}`,
-        }),
-      );
-    }
-    adaugaListaDefinitii(documentRef, celula, grup.metrici || {}, {
-      clasa: "mabp-definitii mabp-definitii--compact",
-      limita: 3,
-    });
-    elementLista.append(celula);
+    elementLista.append(creeazaCelulaGrila(documentRef, grup));
     grila.append(elementLista);
   });
 
-  container.append(explicatie, grila);
+  container.append(grila);
 }
 
 function randeazaGrilaAdaptiva({ rezultat, container }) {
