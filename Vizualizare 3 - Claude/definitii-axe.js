@@ -125,6 +125,25 @@
           ],
         },
         {
+          id: "compozitie",
+          eticheta: "Compoziție pătrățele tablă desfăcută",
+          // Ce componente are o celula cand tabla e DESFACUTA. Suprapusa (100%)
+          // arata mereu tot. Nu schimba configuratia motorului; e prezentare.
+          tip_control: "compozitie",
+          optiuni: [
+            { id: "fact", eticheta: "9 × 1 (fact)", activa: true },
+            { id: "eticheta", eticheta: "În lucru (etichetă)", activa: true },
+            { id: "patratele", eticheta: "Pătrățele", activa: true },
+            { id: "numere", eticheta: "Numere (n · % · s)", activa: true },
+            {
+              id: "umple",
+              eticheta: "Mărește să ocupe tot spațiul lateral",
+              activa: false,
+              modificator: true,
+            },
+          ],
+        },
+        {
           id: "folii",
           eticheta: "Folii transparente",
           // Control special: comutator on/off + butoane de aranjament.
@@ -151,6 +170,22 @@
     { id: "f4", eticheta: "Fluent", stari: ["fluent"] },
   ];
 
+  // Reglajele măririi componentelor pe tabla desfăcută. Se ajustează de aici.
+  const COMPOZITIE = {
+    spatiu_lateral: 3, // px între scris și marginea celulei
+    gap_vertical: 4, // px între componente
+    // Înălțimile naturale (la scara 1) din care se calculează cât pot crește.
+    inaltimi: { eticheta: 16, stare: 13, patratele: 12, detaliu: 11 },
+    // Cum se împarte înălțimea celulei între componentele bifate: ponderi, nu
+    // felii egale. Faptul primește mai mult, fiindcă are nevoie de mai mult.
+    // Aici jonglezi cu spațiul: schimbi cifrele, se schimbă mărimile.
+    felii: { eticheta: 3, stare: 1.5, patratele: 1, detaliu: 1 },
+    // Cu toate cele 4 bifate spațiul e strâns: pătrățelele se mai micșorează,
+    // iar scrisul și pătrățelele coboară spre rândul cu numere.
+    toate_bifate: { factor_patratele: 0.7, deplasare_verticala: 3 },
+  };
+
   global.DefinitiiAxeVizualizare3 = Object.freeze(DEFINITII_AXE);
   global.DefinitiiFoliiVizualizare3 = Object.freeze(FOLII);
+  global.DefinitiiCompozitieVizualizare3 = Object.freeze(COMPOZITIE);
 })(typeof globalThis !== "undefined" ? globalThis : this);

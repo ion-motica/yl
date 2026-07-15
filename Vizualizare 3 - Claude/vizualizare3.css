@@ -234,6 +234,28 @@ body {
     scale(0.5);
 }
 
+/* --- Compozitia celulei: se aplica DOAR pe tabla desfacuta --- */
+.viz3-folii:not([data-aranjament="suprapus"])[data-comp-fact="0"] .viz3-celula-eticheta,
+.viz3-folii:not([data-aranjament="suprapus"])[data-comp-eticheta="0"] .viz3-celula-stare,
+.viz3-folii:not([data-aranjament="suprapus"])[data-comp-patratele="0"] .viz3-celula-patratele,
+.viz3-folii:not([data-aranjament="suprapus"])[data-comp-numere="0"] .viz3-celula-detaliu {
+  display: none;
+}
+
+/* Cand componentele se maresc, textul trebuie masurat intreg, nu taiat. */
+.viz3-folii[data-comp-umple="1"]:not([data-aranjament="suprapus"]) .viz3-celula-eticheta,
+.viz3-folii[data-comp-umple="1"]:not([data-aranjament="suprapus"]) .viz3-celula-stare,
+.viz3-folii[data-comp-umple="1"]:not([data-aranjament="suprapus"]) .viz3-celula-detaliu {
+  max-width: none;
+  overflow: visible;
+}
+
+.viz3-optiune--modificator {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--viz3-bordura);
+}
+
 /* Butoanele de aranjament din CP */
 .viz3-folii-butoane {
   display: flex;
@@ -264,20 +286,26 @@ body {
   font-weight: 700;
 }
 
-/* Rânduri fixe: eticheta, stare, patratele, detaliu. Fiecare celula are
-   aceleasi patru randuri, deci toate randurile se aliniaza intre celule. */
+/* Inaltime fixa; componentele au inaltimi proprii si stau centrate. Cand o
+   componenta e ascunsa, randul ei dispare si restul se recentreaza, dar
+   inaltimea celulei (deci geometria tablei) ramane aceeasi. */
 .viz3-celula {
   border: 1px solid var(--viz3-bordura);
   border-radius: 8px;
   background: var(--viz3-panou);
-  padding: 6px 3px;
+  height: var(--viz3-celula-h);
+  padding: 0 3px;
   text-align: center;
   display: grid;
-  grid-template-rows: 16px 13px 12px 11px;
-  gap: 4px;
+  align-content: center;
   justify-items: center;
-  align-items: center;
+  gap: 4px;
 }
+
+.viz3-celula-eticheta { height: 16px; }
+.viz3-celula-stare { height: 13px; }
+.viz3-celula-patratele { height: 12px; }
+.viz3-celula-detaliu { height: 11px; }
 
 /* Textele stau pe un singur rand si se micsoreaza ca sa incapa. */
 .viz3-celula-eticheta,
@@ -302,15 +330,27 @@ body {
 
 .viz3-celula-patratele {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--viz3-patratel-gap, 2px);
 }
 
+/* Marimea patratelelor vine din variabile, nu din `transform`: asa cutia lor
+   ramane inalta cat felia si nu poate iesi peste randurile vecine. */
 .viz3-patratel {
-  width: 10px;
-  height: 10px;
+  width: var(--viz3-patratel-dim, 10px);
+  height: var(--viz3-patratel-dim, 10px);
   border: 1px solid var(--viz3-bordura);
   border-radius: 2px;
   background: transparent;
+  flex: none;
+}
+
+/* Deplasarea de 3px se face vizual, fara sa imbranceasca randul cu numere. */
+.viz3-celula-eticheta,
+.viz3-celula-stare,
+.viz3-celula-patratele {
+  position: relative;
 }
 
 /* Stari, in ordinea progresiei:

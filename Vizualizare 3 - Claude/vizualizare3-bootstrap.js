@@ -94,10 +94,134 @@
   let foliiActive = false;
   let aranjamentCurent = "suprapus";
 
+  // Compoziția celulei pe tabla desfăcută. Suprapusă arată mereu tot.
+  const compozitie = {
+    fact: true,
+    eticheta: true,
+    patratele: true,
+    numere: true,
+    umple: false,
+  };
+
   function aplicaAranjament() {
     const stiva = document.querySelector(".viz3-folii");
     if (!stiva) return;
     stiva.dataset.aranjament = foliiActive ? aranjamentCurent : "suprapus";
+    aplicaCompozitie();
+  }
+
+  function aplicaCompozitie() {
+    const stiva = document.querySelector(".viz3-folii");
+    if (!stiva) return;
+    stiva.dataset.compFact = compozitie.fact ? "1" : "0";
+    stiva.dataset.compEticheta = compozitie.eticheta ? "1" : "0";
+    stiva.dataset.compPatratele = compozitie.patratele ? "1" : "0";
+    stiva.dataset.compNumere = compozitie.numere ? "1" : "0";
+    stiva.dataset.compUmple = compozitie.umple ? "1" : "0";
+    aplicaUmplere(stiva);
+  }
+
+  // Marimile de baza ale unui patratel (vezi .viz3-patratel din CSS).
+  const DIM_PATRATEL = 10;
+  const GAP_PATRATEL = 2;
+
+  const CLASE_COMPONENTE = {
+    eticheta: ".viz3-celula-eticheta",
+    stare: ".viz3-celula-stare",
+    patratele: ".viz3-celula-patratele",
+    detaliu: ".viz3-celula-detaliu",
+  };
+
+  function aplicaUmplere(stiva) {
+    const activ = compozitie.umple && stiva.dataset.aranjament !== "suprapus";
+    stiva
+      .querySelectorAll(".viz3-celula")
+      .forEach((celula) => aplicaUmplereCelula(celula, activ));
+  }
+
+  // Înălțimea celulei se împarte în felii egale între componentele vizibile.
+  // Fiecare crește până atinge marginea laterală SAU limita feliei ei — care
+  // vine prima. Astfel nimic nu se suprapune, iar la 3/2/1 componente feliile
+  // sunt mai mari, deci scrisul crește mai mult.
+  function aplicaUmplereCelula(celula, activ) {
+    const toate = Object.entries(CLASE_COMPONENTE)
+      .map(([id, sel]) => ({ id, el: celula.querySelector(sel) }))
+      .filter(({ el }) => el);
+
+    toate.forEach(({ el }) => {
+      el.style.height = "";
+      el.style.lineHeight = "";
+      el.style.fontSize = "";
+      el.style.top = "";
+      el.style.removeProperty("--viz3-patratel-dim");
+      el.style.removeProperty("--viz3-patratel-gap");
+    });
+    if (!activ) return;
+
+    // Un rand bifat ocupa loc chiar daca e gol (ex. numerele unei celule
+    // netestate). Altfel randul gol ar ramane pe langa felii si ar impinge
+    // continutul afara din celula.
+    const randuri = toate.filter(({ el }) => getComputedStyle(el).display !== "none");
+    if (!randuri.length) return;
+
+    const disponibil = celula.clientWidth - 2 * cfgCompozitie.spatiu_lateral;
+    const gapuri = (randuri.length - 1) * cfgCompozitie.gap_vertical;
+    const spatiu = celula.clientHeight - gapuri;
+    const pondere = (id) => cfgCompozitie.felii[id] ?? 1;
+    const totalPonderi = randuri.reduce((sum, { id }) => sum + pondere(id), 0);
+    const toateBifate = randuri.length === Object.keys(CLASE_COMPONENTE).length;
+    const { factor_patratele: factorPatratele, deplasare_verticala: deplasare } =
+      cfgCompozitie.toate_bifate;
+
+    randuri.forEach(({ id, el }) => {
+      // Inaltimea se imparte dupa ponderi, nu egal: faptul primeste mai mult.
+      // Ponderile sunt globale, deci randurile raman aliniate intre celule.
+      const felie = (spatiu * pondere(id)) / totalPonderi;
+      el.style.height = `${felie}px`;
+
+      const latimeNaturala = el.scrollWidth;
+      const inaltimeNaturala = cfgCompozitie.inaltimi[id];
+      // Randul gol isi tine locul, dar nu are ce scala.
+      if (!latimeNaturala || !disponibil) return;
+
+      // Creste cat permite lateralul, dar fara sa iasa din felia lui.
+      let factor = Math.min(disponibil / latimeNaturala, felie / inaltimeNaturala);
+      if (toateBifate && id === "patratele") factor *= factorPatratele;
+
+      if (id === "patratele") {
+        // Cresc patratelele in sine, nu cutia lor.
+        el.style.setProperty("--viz3-patratel-dim", `${DIM_PATRATEL * factor}px`);
+        el.style.setProperty("--viz3-patratel-gap", `${GAP_PATRATEL * factor}px`);
+      } else {
+        // Textul creste prin font, deci cutia ramane inalta cat felia si
+        // randurile nu se pot suprapune.
+        const fontBaza = parseFloat(getComputedStyle(el).fontSize);
+        el.style.fontSize = `${fontBaza * factor}px`;
+        el.style.lineHeight = `${felie}px`;
+      }
+      // Cu toate bifate, scrisul si patratelele coboara spre randul cu numere.
+      if (toateBifate && id !== "detaliu") el.style.top = `${deplasare}px`;
+    });
+  }
+
+  function randeazaControlCompozitie(grup, axa) {
+    axa.optiuni.forEach((opt) => {
+      compozitie[opt.id] = opt.activa === true;
+      const rand = document.createElement("label");
+      rand.className = "viz3-optiune";
+      if (opt.modificator) rand.classList.add("viz3-optiune--modificator");
+      const bifa = document.createElement("input");
+      bifa.type = "checkbox";
+      bifa.checked = opt.activa === true;
+      const text = document.createElement("span");
+      text.textContent = opt.eticheta;
+      bifa.addEventListener("change", () => {
+        compozitie[opt.id] = bifa.checked;
+        aplicaCompozitie();
+      });
+      rand.append(bifa, text);
+      grup.appendChild(rand);
+    });
   }
 
   function randeazaControlFolii(grup, axa) {
@@ -165,6 +289,12 @@
 
         if (axa.tip_control === "folii") {
           randeazaControlFolii(grup, axa);
+          sectiune.appendChild(grup);
+          return;
+        }
+
+        if (axa.tip_control === "compozitie") {
+          randeazaControlCompozitie(grup, axa);
           sectiune.appendChild(grup);
           return;
         }
@@ -297,6 +427,7 @@
   const praguri = global.ConfigPraguriVizualizare3;
   const axe = global.DefinitiiAxeVizualizare3;
   const folii = global.DefinitiiFoliiVizualizare3;
+  const cfgCompozitie = global.DefinitiiCompozitieVizualizare3;
   const fixture = global.FixtureLoguriDummyVizualizare3;
 
   const cpEl = document.getElementById("viz3-cp");
