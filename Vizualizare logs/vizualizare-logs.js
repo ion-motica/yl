@@ -34,6 +34,7 @@
       return {
         elementTabel: container.querySelector("#vizualizare-logs-tabel"),
         elementMesaj: container.querySelector("#vizualizare-logs-mesaj"),
+        elementPreseturi: container.querySelector("#vizualizare-logs-preseturi"),
         elementSelector: container.querySelector("#vizualizare-logs-selector-coloane"),
         elementStatus: container.querySelector("#vizualizare-logs-status"),
       };
@@ -60,7 +61,6 @@
     status.textContent = "Se incarca...";
     const preseturi = document.createElement("div");
     preseturi.id = "vizualizare-logs-preseturi";
-    preseturi.textContent = "Preseturi - ulterior";
     const selector = document.createElement("div");
     selector.id = "vizualizare-logs-selector-coloane";
     sidebar.append(titluSidebar, status, preseturi, selector);
@@ -83,6 +83,7 @@
     return {
       elementTabel,
       elementMesaj: mesaj,
+      elementPreseturi: preseturi,
       elementSelector: selector,
       elementStatus: status,
     };
@@ -317,6 +318,7 @@
 
   function definitieCampDetectat(camp, inregistrari) {
     const tip = detecteazaTipCamp(inregistrari, camp);
+    if (camp === "fact") return { ...definitieText(camp), sorter: "alphanum" };
     if (tip === "boolean") return definitieBoolean(camp);
     if (tip === "numar") {
       return definitieNumar(camp, camp === "durata_raspuns_secunde");
@@ -389,12 +391,17 @@
     const titlu = document.createElement("p");
     titlu.className = "vizualizare-logs-selector-titlu";
     titlu.textContent = "Coloane afisate";
-    const optiuni = coloane.map((coloana) => {
+    const componente = tabel.getColumns?.() || [];
+    const coloaneCurente = componente.length
+      ? componente.map((componenta) => ({ field: componenta.getField(), componenta }))
+      : coloane.map((coloana) => ({ field: coloana.field, componenta: null }));
+    const optiuni = coloaneCurente.map((coloana) => {
       const eticheta = document.createElement("label");
       eticheta.className = "vizualizare-logs-coloana-optiune";
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
-      checkbox.checked = vizibilitateColoane.get(coloana.field) !== false;
+      checkbox.checked = coloana.componenta?.isVisible?.() !== false;
+      vizibilitateColoane.set(coloana.field, checkbox.checked);
       checkbox.dataset.camp = coloana.field;
       checkbox.addEventListener("change", () => {
         vizibilitateColoane.set(coloana.field, checkbox.checked);
@@ -408,6 +415,36 @@
       return eticheta;
     });
     elementSelector.replaceChildren(titlu, ...optiuni);
+  }
+
+  function initializeazaPreseturi({ elementPreseturi, elementSelector, tabel, coloane }) {
+    const apiPreseturi = global.VizualizareLogsPreseturi;
+    if (!apiPreseturi) {
+      elementPreseturi.textContent = "Modulul de preseturi nu este incarcat.";
+      return;
+    }
+
+    apiPreseturi.randeazaPreseturi({
+      element: elementPreseturi,
+      grupe: apiPreseturi.grupe,
+      laAplicarePreset: (preset) =>
+        apiPreseturi.aplicaPreset({
+          tabel,
+          preset,
+          latimiColoaneMinimizate,
+          latimeColoanaMinimizata: LATIME_COLOANA_MINIMIZATA,
+          dupaAplicareColoane: () => {
+            reaplicaLatimileColoanelorMinimizate();
+            initializeazaSelectorColoane({ elementSelector, tabel, coloane });
+          },
+        }),
+      laCitirePreset: (nume) =>
+        apiPreseturi.citestePresetCurent({
+          tabel,
+          nume,
+          latimiColoaneMinimizate,
+        }),
+    });
   }
 
   function afiseazaMesaj({ elementTabel, elementMesaj, elementStatus }, mesaj) {
@@ -443,6 +480,12 @@
         coloane,
       });
       initializeazaSelectorColoane({
+        elementSelector: interfata.elementSelector,
+        tabel,
+        coloane,
+      });
+      initializeazaPreseturi({
+        elementPreseturi: interfata.elementPreseturi,
         elementSelector: interfata.elementSelector,
         tabel,
         coloane,

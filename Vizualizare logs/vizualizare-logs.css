@@ -64,8 +64,99 @@ body {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid #cbd5e1;
-  color: #64748b;
+  color: #334155;
   font-size: 13px;
+}
+
+.vizualizare-logs-preseturi-titlu {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.vizualizare-logs-sortare-ajutor {
+  margin: 0 0 9px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.vizualizare-logs-preseturi-grupe,
+.vizualizare-logs-preseturi-grupa {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vizualizare-logs-preseturi-grupa {
+  margin-bottom: 8px;
+}
+
+.vizualizare-logs-preseturi-grupa h3,
+.vizualizare-logs-preseturi-gol,
+.vizualizare-logs-preseturi-mesaj {
+  margin: 0;
+  font-size: 12px;
+}
+
+.vizualizare-logs-preseturi-gol,
+.vizualizare-logs-preseturi-mesaj {
+  color: #64748b;
+}
+
+.vizualizare-logs-preseturi-nume {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vizualizare-logs-preseturi-nume input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-weight: 400;
+}
+
+#vizualizare-logs-preseturi button {
+  padding: 5px 7px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vizualizare-logs-salveaza-preset {
+  width: 100%;
+  margin-top: 6px;
+  font-weight: 700 !important;
+}
+
+.vizualizare-logs-preseturi-mesaj {
+  margin-top: 6px;
+}
+
+.vizualizare-logs-preseturi-copiere-manuala {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 110px;
+  margin-top: 6px;
+  resize: vertical;
+  font: 11px/1.35 Consolas, monospace;
+}
+
+.vizualizare-logs-preseturi-copiere-manuala[hidden] {
+  display: none;
 }
 
 #vizualizare-logs-selector-coloane {

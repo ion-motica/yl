@@ -6,6 +6,7 @@ const rootDir = "C:/Users/I/Projects/Youlearn.com";
 const CAMPURI_DETECTATE = [
   "indexeddb_key",
   "data_ora_ro",
+  "fact",
   "intrebare",
   "camp_numar_nou",
   "camp_boolean_nou",
@@ -23,6 +24,7 @@ class FakeElement {
     this.id = "";
     this.className = "";
     this.textContent = "";
+    this.value = "";
     const clase = new Set();
     this.classList = {
       toggle: (nume, activa) => {
@@ -54,12 +56,16 @@ class FakeElement {
 
   dispatch(type) {
     const event = { stopPropagation() {} };
-    (this.listeners[type] || []).forEach((listener) => listener(event));
+    return Promise.all((this.listeners[type] || []).map((listener) => listener(event)));
   }
 
   click() {
-    this.dispatch("click");
+    return this.dispatch("click");
   }
+
+  focus() {}
+
+  select() {}
 
   setAttribute(name, value) {
     this[name] = String(value);
@@ -147,6 +153,9 @@ class FakeTabulator {
     this.replaceDataCalls = 0;
     this.redrawCalls = 0;
     this.setColumnsCalls = 0;
+    this.filtreAntet = [];
+    this.filtre = [];
+    this.sortari = [];
     this.configureazaColoane(options.columns);
     FakeTabulator.instances.push(this);
   }
@@ -157,8 +166,12 @@ class FakeTabulator {
       coloane.map((definitie) => {
         const element = new FakeElement();
         const componenta = {
+          camp: definitie.field,
           vizibila: true,
           latime: 180,
+          getField() {
+            return this.camp;
+          },
           hide() {
             this.vizibila = false;
           },
@@ -192,6 +205,53 @@ class FakeTabulator {
     return this.coloane.get(camp);
   }
 
+  getColumns() {
+    return [...this.coloane.values()];
+  }
+
+  getHeaderFilters() {
+    return this.filtreAntet;
+  }
+
+  getFilters() {
+    return this.filtre;
+  }
+
+  getSorters() {
+    return this.sortari;
+  }
+
+  setColumnLayout(layout) {
+    const definitii = new Map(this.options.columns.map((coloana) => [coloana.field, coloana]));
+    this.configureazaColoane(layout.map((stare) => definitii.get(stare.field)));
+    layout.forEach((stare) => {
+      const coloana = this.getColumn(stare.field);
+      coloana.vizibila = stare.visible;
+      coloana.latime = stare.width;
+    });
+  }
+
+  clearFilter(includeAntet) {
+    this.filtre = [];
+    if (includeAntet) this.filtreAntet = [];
+  }
+
+  setHeaderFilterValue(field, value) {
+    this.filtreAntet.push({ field, value });
+  }
+
+  setFilter(filtre) {
+    this.filtre = filtre;
+  }
+
+  setSort(sortari) {
+    this.sortari = sortari;
+  }
+
+  clearSort() {
+    this.sortari = [];
+  }
+
   replaceData(inregistrari) {
     this.replaceDataCalls += 1;
     this.data = inregistrari;
@@ -217,8 +277,16 @@ function incarcaVizualizarea(root) {
     createElement: (tagName) => new FakeElement(tagName),
     getElementById: (id) => (id === "vizualizare-logs-root" ? root : root.querySelector(`#${id}`)),
   };
-  const code = readFileSync(`${rootDir}/Vizualizare logs/vizualizare-logs.js`, "utf8");
-  new Function("window", code)(globalThis);
+  const codePreseturi = readFileSync(
+    `${rootDir}/Vizualizare logs/vizualizare-logs-preseturi.js`,
+    "utf8"
+  );
+  const codeVizualizare = readFileSync(
+    `${rootDir}/Vizualizare logs/vizualizare-logs.js`,
+    "utf8"
+  );
+  new Function("window", codePreseturi)(globalThis);
+  new Function("window", codeVizualizare)(globalThis);
 }
 
 function asteaptaEvenimente() {
@@ -233,6 +301,8 @@ afterEach(() => {
   delete globalThis.location;
   delete globalThis.open;
   delete globalThis.deschideVizualizareLogs;
+  delete globalThis.VizualizareLogsPreseturi;
+  delete globalThis.navigator;
 });
 
 it("citeste cursorul in ordinea cheilor si configureaza toate coloanele read-only", async () => {
@@ -243,6 +313,7 @@ it("citeste cursorul in ordinea cheilor si configureaza toate coloanele read-onl
       cheie: 4,
       valoare: {
         data_ora_ro: "2026-07-12 18:57:40",
+        fact: "2*2=4",
         intrebare: "2+2",
         camp_numar_nou: 7,
         camp_boolean_nou: true,
@@ -254,6 +325,7 @@ it("citeste cursorul in ordinea cheilor si configureaza toate coloanele read-onl
       cheie: 9,
       valoare: {
         data_ora_ro: "2026-07-12 18:58:10",
+        fact: "3*2=6",
         intrebare: "3+3",
         camp_numar_nou: 8,
         camp_boolean_nou: false,
@@ -277,6 +349,10 @@ it("citeste cursorul in ordinea cheilor si configureaza toate coloanele read-onl
   assert.equal(
     tabel.options.columns.find((coloana) => coloana.field === "camp_numar_nou").sorter,
     "number"
+  );
+  assert.equal(
+    tabel.options.columns.find((coloana) => coloana.field === "fact").sorter,
+    "alphanum"
   );
   assert.equal(
     tabel.options.columns.find((coloana) => coloana.field === "camp_boolean_nou").sorter,
@@ -387,6 +463,39 @@ it("reconstruieste automat coloanele cand schema curenta se schimba", async () =
     ["indexeddb_key", "intrebare", "camp_nou"]
   );
   assert.equal(tabel.options.columns.find((coloana) => coloana.field === "camp_nou").sorter, "number");
+});
+
+it("copiaza starea curenta din CP in format de preset", async () => {
+  const root = new FakeElement();
+  root.id = "vizualizare-logs-root";
+  setupIndexedDb([{ cheie: 1, valoare: { intrebare: "2+2", raspuns: "4" } }]);
+  const texteCopiate = [];
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { clipboard: { writeText: async (text) => texteCopiate.push(text) } },
+  });
+  incarcaVizualizarea(root);
+  await asteaptaEvenimente();
+  await asteaptaEvenimente();
+
+  const buton = findElement(
+    root,
+    (element) => element.textContent === "Save current view as preset"
+  );
+  assert.ok(buton);
+  findElement(root, (element) => element.placeholder === "Numele presetului").value =
+    "Vizualizare manuala";
+  await buton.click();
+
+  assert.equal(texteCopiate.length, 1);
+  const preset = JSON.parse(texteCopiate[0]);
+  assert.equal(preset.nume, "Vizualizare manuala");
+  assert.deepEqual(
+    preset.coloane.map((coloana) => coloana.camp),
+    ["indexeddb_key", "intrebare", "raspuns"]
+  );
+  assert.deepEqual(preset.filtre, []);
+  assert.deepEqual(preset.sortari, []);
 });
 
 it("deschide pagina Tabulator separata cand API-ul este apelat din aplicatie", () => {
