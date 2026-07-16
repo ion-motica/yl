@@ -97,6 +97,7 @@
   let deplasareCurenta = { col: 0, rnd: 0 };
   let proportieRamanePeLoc = 0;
   let grupareIntermediara = true;
+  let titluriPe2Randuri = true;
   let cfgGrupare = {};
   let ceasGrup = null;
   // Cat a durat ultima trecere: dubla, daca a avut act intermediar. Ceasul
@@ -251,12 +252,66 @@
     return Number.isFinite(v) ? v : implicit;
   }
 
+  // Cel mai mare font (sub `fontMax`) la care textul incape in `randuri`.
+  // Numaram randurile, nu comparam pixeli: inaltimea reala iese cu ~7% peste
+  // `line-height`, fiindca fontul adauga peste cutia randului.
+  function fontCareIncape(el, randuri, fontMax) {
+    let font = fontMax;
+    for (let i = 0; i < MAX_PASI_POTRIVIRE; i += 1) {
+      el.style.fontSize = `${font}px`;
+      if (Math.round(el.scrollHeight / (INALTIME_RAND * font)) <= randuri) break;
+      font *= PAS_POTRIVIRE;
+    }
+    return font;
+  }
+
+  // Alege asezarea titlurilor: cat mai putine randuri, dar fontul sa nu scada
+  // sub prag. Toate titlurile primesc acelasi font, deci casutele arata la fel.
+  // Se calculeaza o data, la randare: latimea casutei nu se schimba niciodata,
+  // deci nici rezultatul. De-asta fontul nu mai zvacneste cand foliile se muta.
+  function calculeazaFontulTitlurilor(foliiEl) {
+    const titluri = foliiEl.map((el) => el.querySelector(".viz3-folie-titlu"));
+    if (!titluri.length) return;
+    const fontMax = valoareCss("--viz3-titlu-font-max", 40);
+    const prag = valoareCss("--viz3-titlu-prag", 30);
+    const randuriMax = Math.max(1, valoareCss("--viz3-titlu-randuri-max", 3));
+
+    // Punem noi conditiile de masurare, in loc sa ne bazam ca le-a pus altcineva
+    // inainte: altfel textul nu s-ar rupe si ar iesi mereu "incape pe un rand".
+    // `transition: none` e obligatoriu: fontul e animat, iar fara asta fiecare
+    // masuratoare ar citi marimea de DINAINTE de schimbare, nu pe cea pusa.
+    titluri.forEach((t) => {
+      t.style.transition = "none";
+      t.style.width = `${LATIME_SFERT_PROCENT}%`;
+      t.style.whiteSpace = "normal";
+    });
+
+    let ales = fontMax;
+    for (let randuri = 1; randuri <= randuriMax; randuri += 1) {
+      ales = Math.min(...titluri.map((t) => fontCareIncape(t, randuri, fontMax)));
+      if (ales >= prag) break;
+    }
+
+    titluri.forEach((t) => {
+      t.style.fontSize = "";
+      t.style.width = "";
+      t.style.whiteSpace = "";
+      t.style.transition = "";
+    });
+    document.documentElement.style.setProperty("--viz3-titlu-font-calculat", `${ales}px`);
+  }
+
   // Fiecare titlu porneste de la offsetul lui fix (un sfert de latime, in
   // ordinea progresiei) si ramane la fontul maxim daca in dreapta lui e loc
   // gol. Daca ar calca peste titlul vecin, se micsoreaza cat sa incapa in
   // sfertul lui. De aici iese singur si cazul suprapus (vecinul e la +25%,
   // deci toate se micsoreaza) si cel desfacut (vecinul e departe, font mare).
   function potrivesteTitlurile(foliiEl, coord) {
+    // Cu casute fixe nu se potriveste nimic: fiecare titlu sta in sfertul lui,
+    // la marimea din CSS, oricum s-ar plimba foliile. Stergem ce a pus
+    // eventual potrivirea dinamica inainte.
+    if (titluriPe2Randuri) return;
+
     const W = dimensiuneFolie;
     const latimeTablei = latimeTabla();
     if (!W || !latimeTablei) return;
@@ -268,6 +323,8 @@
 
     const titluri = foliiEl.map((el, i) => {
       const t = el.querySelector(".viz3-folie-titlu");
+      // Masuram latimea naturala pe UN rand, deci fara latime impusa.
+      t.style.width = "";
       t.style.fontSize = `${fontMax}px`;
       return {
         el: t,
@@ -287,12 +344,22 @@
         .slice(k + 1)
         .find((alt) => Math.abs(alt.rnd - t.rnd) < TOLERANTA_RAND);
       const panaLaVecin = vecin ? vecin.x - t.x : Infinity;
-      // Casuta din dreapta e goala? Titlul o poate ocupa, deci ramane mare.
-      // E plina? Se strange in sfertul lui.
+      // Casuta din dreapta e goala? Titlul o poate ocupa pe un rand, la
+      // marime plina.
       const incape = t.latNaturala + spatiu <= panaLaVecin;
-      const latimeTinta = incape ? t.latNaturala : sfert - spatiu;
-      const factor = Math.min(1, Math.max(0.05, latimeTinta / t.latNaturala));
-      t.el.style.fontSize = `${fontMax * factor}px`;
+      if (incape) {
+        t.el.style.width = "";
+        t.el.style.fontSize = `${fontMax}px`;
+        return;
+      }
+      // E plina. Pe doua randuri incape mai mult text la acelasi font decat
+      // pe unul singur, deci incercam intai asa.
+      if (titluriPe2Randuri) {
+        potrivestePeDouaRanduri(t.el, fontMax);
+        return;
+      }
+      t.el.style.width = "";
+      t.el.style.fontSize = `${fontMax * Math.max(0.05, (sfert - spatiu) / t.latNaturala)}px`;
     });
   }
 
@@ -435,6 +502,9 @@
     stiva.dataset.compPatratele = compozitie.patratele ? "1" : "0";
     stiva.dataset.compNumere = compozitie.numere ? "1" : "0";
     stiva.dataset.compUmple = compozitie.umple ? "1" : "0";
+    // setAttribute, nu dataset: `dataset.titluri2Randuri` ar da atributul
+    // `data-titluri2-randuri`, care nu se potriveste cu selectorul din CSS.
+    stiva.setAttribute("data-titluri-2-randuri", titluriPe2Randuri ? "1" : "0");
     aplicaUmplere(stiva);
   }
 
@@ -445,6 +515,12 @@
   // se poata calca. Randurile sunt la sute de px distanta, iar intalnirile
   // intermediare pot da si randuri fractionare.
   const TOLERANTA_RAND = 0.1;
+  // Casuta unui titlu din latimea foliei, inaltimea unui rand (vezi
+  // line-height din CSS) si cat de fin coboram cand cautam fontul.
+  const LATIME_SFERT_PROCENT = 25;
+  const INALTIME_RAND = 1.15;
+  const PAS_POTRIVIRE = 0.96;
+  const MAX_PASI_POTRIVIRE = 30;
 
   const CLASE_COMPONENTE = {
     eticheta: ".viz3-celula-eticheta",
@@ -682,6 +758,24 @@
     });
     randGrup.append(bifaGrup, textGrup);
 
+    const randTitluri = document.createElement("label");
+    randTitluri.className = "viz3-optiune";
+    const bifaTitluri = document.createElement("input");
+    bifaTitluri.type = "checkbox";
+    bifaTitluri.checked = axa.titluri_2_randuri_implicit === true;
+    titluriPe2Randuri = bifaTitluri.checked;
+    const textTitluri = document.createElement("span");
+    textTitluri.textContent = "Titluri folii pe 2 rânduri și word-wrap frumos";
+    bifaTitluri.addEventListener("change", () => {
+      titluriPe2Randuri = bifaTitluri.checked;
+      const stiva = document.querySelector(".viz3-folii");
+      if (stiva && titluriPe2Randuri) {
+        calculeazaFontulTitlurilor([...stiva.querySelectorAll(".viz3-folie")]);
+      }
+      aplicaAranjament();
+    });
+    randTitluri.append(bifaTitluri, textTitluri);
+
     const randButoane = document.createElement("div");
     randButoane.className = "viz3-folii-butoane";
     const butoane = axa.optiuni.map((opt) => {
@@ -723,6 +817,7 @@
       bifaAleator,
       bifaReasezare,
       bifaGrup,
+      bifaTitluri,
       dimensiune.slider,
       viteza.slider,
       ...auto.controale,
@@ -741,6 +836,7 @@
       randAleator,
       randReasezare,
       randGrup,
+      randTitluri,
       randButoane,
       dimensiune.rand,
       viteza.rand,
@@ -908,6 +1004,14 @@
     sincronizeazaDimensiune();
     aplicaViteza();
     aplicaAranjament();
+    // Masuram abia dupa ce browserul a asezat pagina: in timpul randarii,
+    // masuratorile ies gresite. `setTimeout`, nu `requestAnimationFrame`:
+    // rAF nu se executa deloc cat timp pagina sta intr-un tab nefocalizat.
+    setTimeout(() => {
+      if (titluriPe2Randuri) {
+        calculeazaFontulTitlurilor([...stiva.querySelectorAll(".viz3-folie")]);
+      }
+    }, 0);
   }
 
   // ---- flux principal ---------------------------------------------------

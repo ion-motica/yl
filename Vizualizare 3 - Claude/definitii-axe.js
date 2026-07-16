@@ -154,6 +154,10 @@
           // Cand e activ, la fiecare trecere foliile primesc sloturi
           // amestecate: o folie nu ajunge mereu in acelasi loc din grila.
           glisare_aleatoare_implicit: true,
+          // Cand un titlu n-ar incapea pe un rand, se rupe in doua in loc sa
+          // se micsoreze. Ruperea se face la cuvinte, iar randurile se
+          // echilibreaza. Titlurile cresc in sus de la aceeasi linie de baza.
+          titluri_2_randuri_implicit: true,
           // Cand e activ, aranjamentul intreg se aseaza in alt loc pe panza:
           // randul pe alta linie, coloana pe alta coloana, patratul in alt colt.
           reasezare_aleatoare_implicit: true,

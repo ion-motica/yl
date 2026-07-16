@@ -26,6 +26,12 @@
      micsoreaza cat sa incapa in sfertul lui. */
   --viz3-titlu-font-max: 40px;
   --viz3-titlu-spatiu: 4px;
+  /* Cu casute fixe: se incearca un rand, apoi doua, apoi trei, pana fontul
+     trece pragul. Fontul e apoi acelasi pentru toate titlurile si nu se mai
+     schimba, fiindca latimea casutei (un sfert de folie) nu se schimba nici ea.
+     Pragul e in px de asezare, ca `--viz3-titlu-font-max`. */
+  --viz3-titlu-prag: 30px;
+  --viz3-titlu-randuri-max: 3;
 }
 
 * {
@@ -168,7 +174,8 @@ body {
   );
   /* Loc pentru titluri: ele stau deasupra foliei si se scaleaza odata cu ea,
      deci spatiul necesar scade cu folia. Minimul tine titlul mic lizibil. */
-  margin-top: max(18px, calc(1.5 * var(--viz3-titlu-font-max) * var(--viz3-folie-scara)));
+  /* Loc pentru titluri de pana la doua randuri. */
+  margin-top: max(20px, calc(2.9 * var(--viz3-titlu-font-max) * var(--viz3-folie-scara)));
   transition: width var(--viz3-durata), height var(--viz3-durata);
 }
 
@@ -197,15 +204,31 @@ body {
 /* Offsetul e permanent: doua folii pot ajunge in acelasi loc (grupare), iar
    la left:0 titlurile lor s-ar calca exact. Asa devine si reper: recunosti
    folia dupa pozitia titlului. */
+/* Ancorat de JOS: titlurile cresc in sus, deci unul de un rand si unul de
+   doua se termina pe aceeasi linie de baza, chiar deasupra foliei. */
 .viz3-folie-titlu {
   position: absolute;
-  top: -1.4em;
+  bottom: 100%;
+  margin-bottom: 6px;
   left: calc(var(--i) * 25%);
   font-size: var(--viz3-titlu-font-max);
   font-weight: 600;
+  line-height: 1.15;
   color: var(--viz3-text-slab);
   white-space: nowrap;
   transition: left var(--viz3-durata), font-size var(--viz3-durata);
+}
+
+/* Casute fixe: fiecare titlu sta in sfertul lui, se rupe la cuvinte si are
+   MEREU aceeasi marime. Nu se mai adapteaza dupa cine e langa cine, deci nu
+   mai zvacneste cand foliile se plimba sau se suprapun. `balance` egaleaza
+   randurile, ca sa nu ramana un cuvant singur pe al doilea. */
+.viz3-folii[data-titluri-2-randuri="1"] .viz3-folie-titlu {
+  white-space: normal;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  width: 25%;
+  font-size: var(--viz3-titlu-font-calculat, var(--viz3-titlu-font-max));
 }
 
 /* Fontul titlului nu mai depinde de aranjament: il pune JS-ul, dupa cat loc
