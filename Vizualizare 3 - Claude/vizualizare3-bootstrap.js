@@ -94,6 +94,8 @@
   let foliiActive = false;
   let glisareAleatoare = true;
   let reasezareAleatoare = true;
+  let deplasareCurenta = { col: 0, rnd: 0 };
+  let proportieRamanePeLoc = 0;
   let aranjamentCurent = "suprapus";
 
   // Compoziția celulei pe tabla desfăcută. Suprapusă arată mereu tot.
@@ -156,7 +158,9 @@
   // Împarte sloturile grilei între folii și traduce fiecare slot în coloană și
   // rând. Cu glisare aleatoare, sloturile se amestecă la fiecare trecere, deci
   // o folie nu ajunge mereu în același loc.
-  function aseazaFoliile(stiva) {
+  // `pastreazaLocul` = rămâne în exact același loc pe pânză, deci se vede doar
+  // reordonarea foliilor în interiorul formei.
+  function aseazaFoliile(stiva, pastreazaLocul = false) {
     const foliiEl = [...stiva.querySelectorAll(".viz3-folie")];
     if (!foliiEl.length) return;
     const grila = aranjamente[stiva.dataset.aranjament] ?? aranjamente.suprapus;
@@ -168,12 +172,18 @@
     // ramane dupa ce incape forma lui: un rand de 4 se poate misca doar pe
     // verticala, un patrat 2x2 in ambele directii, o singura folie oriunde.
     const panza = panzaMax();
-    const deplasare = reasezareAleatoare
-      ? {
-          col: intregAleator(0, panza.coloane - grila.coloane),
-          rnd: intregAleator(0, panza.randuri - grila.randuri),
-        }
-      : { col: 0, rnd: 0 };
+    const maxCol = panza.coloane - grila.coloane;
+    const maxRnd = panza.randuri - grila.randuri;
+    if (!pastreazaLocul) {
+      deplasareCurenta = reasezareAleatoare
+        ? { col: intregAleator(0, maxCol), rnd: intregAleator(0, maxRnd) }
+        : { col: 0, rnd: 0 };
+    }
+    // Locul pastrat se strange in forma curenta, daca ea e mai lata.
+    const deplasare = {
+      col: Math.min(deplasareCurenta.col, maxCol),
+      rnd: Math.min(deplasareCurenta.rnd, maxRnd),
+    };
 
     foliiEl.forEach((el, i) => {
       const slot = Math.min(sloturi[i], ultimSlot);
@@ -220,13 +230,33 @@
     aplicaAranjament();
   }
 
-  // Alege o poziție la întâmplare, mereu diferită de cea curentă.
+  // Repetarea aceleiași forme are voie doar dacă se vede ceva: adică dacă
+  // foliile se pot reamesteca între sloturi. La suprapus stau toate în aceeași
+  // celulă, deci acolo repetarea n-ar schimba nimic — se schimbă mereu forma.
+  function repetareaSeVede() {
+    const grila = aranjamente[aranjamentCurent] ?? aranjamente.suprapus;
+    return glisareAleatoare && grila.coloane * grila.randuri > 1;
+  }
+
+  function reamestecaPeLoc() {
+    const stiva = document.querySelector(".viz3-folii");
+    if (!stiva) return;
+    aseazaFoliile(stiva, true);
+  }
+
   function pozitieAleatoare() {
-    const altele = butoaneAranjament
-      .map((b) => b.dataset.aranjament)
-      .filter((id) => id !== aranjamentCurent);
-    if (!altele.length) return;
-    schimbaAranjament(altele[Math.floor(Math.random() * altele.length)]);
+    // Uneori rămâne în exact aceeași formă și același loc, doar reordonează
+    // foliile: contrastul dintre „s-a mutat" și „doar s-a rearanjat".
+    if (repetareaSeVede() && Math.random() < proportieRamanePeLoc) {
+      reamestecaPeLoc();
+      return;
+    }
+    const toate = butoaneAranjament.map((b) => b.dataset.aranjament);
+    const candidati = repetareaSeVede()
+      ? toate
+      : toate.filter((id) => id !== aranjamentCurent);
+    if (!candidati.length) return;
+    schimbaAranjament(candidati[Math.floor(Math.random() * candidati.length)]);
   }
 
   // Pauza se numără DE LA AȘEZARE, nu de la pornirea mișcării. Deci ciclul e
@@ -473,6 +503,7 @@
     bifaReasezare.type = "checkbox";
     bifaReasezare.checked = axa.reasezare_aleatoare_implicit === true;
     reasezareAleatoare = bifaReasezare.checked;
+    proportieRamanePeLoc = axa.proportie_ramane_pe_loc ?? 0;
     const textReasezare = document.createElement("span");
     textReasezare.textContent = "Reașezare pe linie/coloană random";
     bifaReasezare.addEventListener("change", () => {

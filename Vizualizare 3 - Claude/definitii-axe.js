@@ -157,6 +157,11 @@
           // Cand e activ, aranjamentul intreg se aseaza in alt loc pe panza:
           // randul pe alta linie, coloana pe alta coloana, patratul in alt colt.
           reasezare_aleatoare_implicit: true,
+          // La ciclarea automata: cat de des ramane in exact aceeasi forma si
+          // acelasi loc, doar reamestecand ordinea foliilor. 0 = se muta mereu,
+          // 1 = ramane mereu. Nu se aplica la suprapus: acolo foliile stau
+          // toate in aceeasi celula, deci reamestecarea lor nu se vede.
+          proportie_ramane_pe_loc: 0.5,
           optiuni: [
             { id: "suprapus", eticheta: "4", titlu: "Toate 4 suprapuse", activa: true },
             { id: "orizontal", eticheta: "↔", titlu: "Desfăcute pe orizontală" },
