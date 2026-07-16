@@ -92,6 +92,7 @@
   // ---- starea de prezentare a foliilor ---------------------------------
   // Nu atinge configurația motorului; doar cum sunt așezate foliile.
   let foliiActive = false;
+  let glisareAleatoare = true;
   let aranjamentCurent = "suprapus";
 
   // Compoziția celulei pe tabla desfăcută. Suprapusă arată mereu tot.
@@ -127,10 +128,38 @@
     aplicaDimensiune();
   }
 
+  function amesteca(lista) {
+    const copie = [...lista];
+    for (let i = copie.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copie[i], copie[j]] = [copie[j], copie[i]];
+    }
+    return copie;
+  }
+
+  // Împarte sloturile grilei între folii și traduce fiecare slot în coloană și
+  // rând. Cu glisare aleatoare, sloturile se amestecă la fiecare trecere, deci
+  // o folie nu ajunge mereu în același loc.
+  function aseazaFoliile(stiva) {
+    const foliiEl = [...stiva.querySelectorAll(".viz3-folie")];
+    if (!foliiEl.length) return;
+    const grila = aranjamente[stiva.dataset.aranjament] ?? aranjamente.suprapus;
+    const indici = foliiEl.map((_, i) => i);
+    const sloturi = glisareAleatoare ? amesteca(indici) : indici;
+    const ultimSlot = grila.coloane * grila.randuri - 1;
+
+    foliiEl.forEach((el, i) => {
+      const slot = Math.min(sloturi[i], ultimSlot);
+      el.style.setProperty("--col", String(slot % grila.coloane));
+      el.style.setProperty("--rnd", String(Math.floor(slot / grila.coloane)));
+    });
+  }
+
   function aplicaAranjament() {
     const stiva = document.querySelector(".viz3-folii");
     if (!stiva) return;
     stiva.dataset.aranjament = foliiActive ? aranjamentCurent : "suprapus";
+    aseazaFoliile(stiva);
     aplicaCompozitie();
   }
 
@@ -394,6 +423,20 @@
     textBifa.textContent = "Activează foliile";
     comutator.append(bifa, textBifa);
 
+    const randAleator = document.createElement("label");
+    randAleator.className = "viz3-optiune";
+    const bifaAleator = document.createElement("input");
+    bifaAleator.type = "checkbox";
+    bifaAleator.checked = axa.glisare_aleatoare_implicit === true;
+    glisareAleatoare = bifaAleator.checked;
+    const textAleator = document.createElement("span");
+    textAleator.textContent = "Glisează la poziție aleatoare";
+    bifaAleator.addEventListener("change", () => {
+      glisareAleatoare = bifaAleator.checked;
+      aplicaAranjament();
+    });
+    randAleator.append(bifaAleator, textAleator);
+
     const randButoane = document.createElement("div");
     randButoane.className = "viz3-folii-butoane";
     const butoane = axa.optiuni.map((opt) => {
@@ -431,7 +474,7 @@
       aplicaAuto();
     });
 
-    const deActivat = [dimensiune.slider, viteza.slider, ...auto.controale];
+    const deActivat = [bifaAleator, dimensiune.slider, viteza.slider, ...auto.controale];
     deActivat.forEach((el) => (el.disabled = !foliiActive));
     bifa.addEventListener("change", () => {
       foliiActive = bifa.checked;
@@ -441,7 +484,14 @@
       aplicaAuto();
     });
 
-    grup.append(comutator, randButoane, dimensiune.rand, viteza.rand, auto.rand);
+    grup.append(
+      comutator,
+      randAleator,
+      randButoane,
+      dimensiune.rand,
+      viteza.rand,
+      auto.rand
+    );
   }
 
   function randeazaControlPanel(container, definitii) {
@@ -610,6 +660,7 @@
   const axe = global.DefinitiiAxeVizualizare3;
   const folii = global.DefinitiiFoliiVizualizare3;
   const cfgCompozitie = global.DefinitiiCompozitieVizualizare3;
+  const aranjamente = global.DefinitiiAranjamenteVizualizare3;
   const fixture = global.FixtureLoguriDummyVizualizare3;
 
   const cpEl = document.getElementById("viz3-cp");

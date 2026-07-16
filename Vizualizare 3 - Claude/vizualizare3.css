@@ -163,12 +163,19 @@ body {
   transition: width var(--viz3-durata), height var(--viz3-durata);
 }
 
+/* Pozitia vine dintr-o singura formula: coloana si randul slotului primit.
+   Sloturile le imparte JS-ul (in ordine sau amestecate), asa ca orice folie
+   poate ajunge in orice slot, fara reguli separate per aranjament. */
 .viz3-folie {
   position: absolute;
   top: 0;
   left: 0;
   transform-origin: top left;
-  transform: translate(0, 0) scale(var(--viz3-folie-scara));
+  transform: translate(
+      calc(var(--col, 0) * (var(--viz3-folie-w) + var(--viz3-folie-gap))),
+      calc(var(--rnd, 0) * (var(--viz3-folie-h) + var(--viz3-folie-gap)))
+    )
+    scale(var(--viz3-folie-scara));
   transition: transform var(--viz3-durata);
 }
 
@@ -215,43 +222,16 @@ body {
   width: calc(4 * var(--viz3-folie-w) + 3 * var(--viz3-folie-gap));
   height: var(--viz3-folie-h);
 }
-.viz3-folii[data-aranjament="orizontal"] .viz3-folie {
-  transform: translate(calc(var(--i) * (var(--viz3-folie-w) + var(--viz3-folie-gap))), 0)
-    scale(var(--viz3-folie-scara));
-}
-
 /* Aranjamentul: pe verticala */
 .viz3-folii[data-aranjament="vertical"] {
   width: var(--viz3-folie-w);
   height: calc(4 * var(--viz3-folie-h) + 3 * var(--viz3-folie-gap));
-}
-.viz3-folii[data-aranjament="vertical"] .viz3-folie {
-  transform: translate(0, calc(var(--i) * (var(--viz3-folie-h) + var(--viz3-folie-gap))))
-    scale(var(--viz3-folie-scara));
 }
 
 /* Aranjamentul: patrat 2x2 */
 .viz3-folii[data-aranjament="patrat"] {
   width: calc(2 * var(--viz3-folie-w) + var(--viz3-folie-gap));
   height: calc(2 * var(--viz3-folie-h) + var(--viz3-folie-gap));
-}
-.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(1) {
-  transform: translate(0, 0) scale(var(--viz3-folie-scara));
-}
-.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(2) {
-  transform: translate(calc(var(--viz3-folie-w) + var(--viz3-folie-gap)), 0)
-    scale(var(--viz3-folie-scara));
-}
-.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(3) {
-  transform: translate(0, calc(var(--viz3-folie-h) + var(--viz3-folie-gap)))
-    scale(var(--viz3-folie-scara));
-}
-.viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(4) {
-  transform: translate(
-      calc(var(--viz3-folie-w) + var(--viz3-folie-gap)),
-      calc(var(--viz3-folie-h) + var(--viz3-folie-gap))
-    )
-    scale(var(--viz3-folie-scara));
 }
 
 /* --- Compozitia celulei: se aplica in TOATE aranjamentele ---

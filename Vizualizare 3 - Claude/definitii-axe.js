@@ -151,6 +151,9 @@
           // Nu schimbă configurația motorului; e strict prezentare.
           tip_control: "folii",
           activ_implicit: true,
+          // Cand e activ, la fiecare trecere foliile primesc sloturi
+          // amestecate: o folie nu ajunge mereu in acelasi loc din grila.
+          glisare_aleatoare_implicit: true,
           optiuni: [
             { id: "suprapus", eticheta: "4", titlu: "Toate 4 suprapuse", activa: true },
             { id: "orizontal", eticheta: "↔", titlu: "Desfăcute pe orizontală" },
@@ -197,6 +200,16 @@
     },
   ];
 
+  // Forma grilei fiecărui aranjament. Din ea se calculează, cu o singură
+  // formulă, slotul fiecărei folii: coloana = slot % coloane, rândul =
+  // slot / coloane. Suprapus are o singură celulă, deci toate cad în ea.
+  const ARANJAMENTE = {
+    suprapus: { coloane: 1, randuri: 1 },
+    orizontal: { coloane: 4, randuri: 1 },
+    vertical: { coloane: 1, randuri: 4 },
+    patrat: { coloane: 2, randuri: 2 },
+  };
+
   // Compoziția foliilor: fiecare folie arată DOAR stările ei, în pozițiile lor.
   // Suprapuse, cele 4 folii reconstituie exact tabla întreagă, fiindcă un fact
   // are exact o stare. A muta o stare pe altă folie = a o muta aici.
@@ -224,5 +237,6 @@
 
   global.DefinitiiAxeVizualizare3 = Object.freeze(DEFINITII_AXE);
   global.DefinitiiFoliiVizualizare3 = Object.freeze(FOLII);
+  global.DefinitiiAranjamenteVizualizare3 = Object.freeze(ARANJAMENTE);
   global.DefinitiiCompozitieVizualizare3 = Object.freeze(COMPOZITIE);
 })(typeof globalThis !== "undefined" ? globalThis : this);
