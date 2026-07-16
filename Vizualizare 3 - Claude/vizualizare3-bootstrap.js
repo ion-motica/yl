@@ -93,6 +93,7 @@
   // Nu atinge configurația motorului; doar cum sunt așezate foliile.
   let foliiActive = false;
   let glisareAleatoare = true;
+  let reasezareAleatoare = true;
   let aranjamentCurent = "suprapus";
 
   // Compoziția celulei pe tabla desfăcută. Suprapusă arată mereu tot.
@@ -128,6 +129,21 @@
     aplicaDimensiune();
   }
 
+  // Panza pe care plutesc aranjamentele: cat cere cel mai mare dintre ele.
+  // Un aranjament nou, mai lat, o creste automat. Functie, nu constanta: asa
+  // nu depinde de ordinea in care se initializeaza modulele.
+  function panzaMax() {
+    const forme = Object.values(aranjamente);
+    return {
+      coloane: Math.max(...forme.map((a) => a.coloane)),
+      randuri: Math.max(...forme.map((a) => a.randuri)),
+    };
+  }
+
+  function intregAleator(min, max) {
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
   function amesteca(lista) {
     const copie = [...lista];
     for (let i = copie.length - 1; i > 0; i -= 1) {
@@ -148,10 +164,24 @@
     const sloturi = glisareAleatoare ? amesteca(indici) : indici;
     const ultimSlot = grila.coloane * grila.randuri - 1;
 
+    // Aranjamentul intreg se aseaza undeva pe panza. Libertatea e exact cat
+    // ramane dupa ce incape forma lui: un rand de 4 se poate misca doar pe
+    // verticala, un patrat 2x2 in ambele directii, o singura folie oriunde.
+    const panza = panzaMax();
+    const deplasare = reasezareAleatoare
+      ? {
+          col: intregAleator(0, panza.coloane - grila.coloane),
+          rnd: intregAleator(0, panza.randuri - grila.randuri),
+        }
+      : { col: 0, rnd: 0 };
+
     foliiEl.forEach((el, i) => {
       const slot = Math.min(sloturi[i], ultimSlot);
-      el.style.setProperty("--col", String(slot % grila.coloane));
-      el.style.setProperty("--rnd", String(Math.floor(slot / grila.coloane)));
+      el.style.setProperty("--col", String((slot % grila.coloane) + deplasare.col));
+      el.style.setProperty(
+        "--rnd",
+        String(Math.floor(slot / grila.coloane) + deplasare.rnd)
+      );
     });
   }
 
@@ -437,6 +467,20 @@
     });
     randAleator.append(bifaAleator, textAleator);
 
+    const randReasezare = document.createElement("label");
+    randReasezare.className = "viz3-optiune";
+    const bifaReasezare = document.createElement("input");
+    bifaReasezare.type = "checkbox";
+    bifaReasezare.checked = axa.reasezare_aleatoare_implicit === true;
+    reasezareAleatoare = bifaReasezare.checked;
+    const textReasezare = document.createElement("span");
+    textReasezare.textContent = "Reașezare pe linie/coloană random";
+    bifaReasezare.addEventListener("change", () => {
+      reasezareAleatoare = bifaReasezare.checked;
+      aplicaAranjament();
+    });
+    randReasezare.append(bifaReasezare, textReasezare);
+
     const randButoane = document.createElement("div");
     randButoane.className = "viz3-folii-butoane";
     const butoane = axa.optiuni.map((opt) => {
@@ -474,7 +518,13 @@
       aplicaAuto();
     });
 
-    const deActivat = [bifaAleator, dimensiune.slider, viteza.slider, ...auto.controale];
+    const deActivat = [
+      bifaAleator,
+      bifaReasezare,
+      dimensiune.slider,
+      viteza.slider,
+      ...auto.controale,
+    ];
     deActivat.forEach((el) => (el.disabled = !foliiActive));
     bifa.addEventListener("change", () => {
       foliiActive = bifa.checked;
@@ -487,6 +537,7 @@
     grup.append(
       comutator,
       randAleator,
+      randReasezare,
       randButoane,
       dimensiune.rand,
       viteza.rand,
@@ -647,6 +698,10 @@
     stiva.className = "viz3-folii";
     folii.forEach((folie) => stiva.appendChild(randeazaFolie(model, folie)));
     container.appendChild(stiva);
+    // Panza isi ia marimea din datele aranjamentelor, nu din CSS.
+    const panza = panzaMax();
+    document.documentElement.style.setProperty("--viz3-panza-coloane", String(panza.coloane));
+    document.documentElement.style.setProperty("--viz3-panza-randuri", String(panza.randuri));
     sincronizeazaDimensiune();
     aplicaViteza();
     aplicaAranjament();

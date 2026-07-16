@@ -153,10 +153,19 @@ body {
 /* --- Folii transparente --- */
 /* Tabla = 4 folii suprapuse. Suprapuse (100%) arata ca tabla intreaga;
    desfacute gliseaza la 50% in aranjamentul ales. */
+/* Panza pe care plutesc aranjamentele. Are mereu aceeasi marime, altfel n-ar
+   fi loc sa mutam un rand pe pozitia 3. Numarul de sloturi vine din JS, din
+   cel mai mare aranjament declarat. */
 .viz3-folii {
   position: relative;
-  width: var(--viz3-folie-w);
-  height: var(--viz3-folie-h);
+  width: calc(
+    var(--viz3-panza-coloane, 1) * var(--viz3-folie-w) +
+      (var(--viz3-panza-coloane, 1) - 1) * var(--viz3-folie-gap)
+  );
+  height: calc(
+    var(--viz3-panza-randuri, 1) * var(--viz3-folie-h) +
+      (var(--viz3-panza-randuri, 1) - 1) * var(--viz3-folie-gap)
+  );
   /* Loc pentru titluri: ele stau deasupra foliei si se scaleaza odata cu ea,
      deci spatiul necesar scade cu folia. Minimul tine titlul mic lizibil. */
   margin-top: max(18px, calc(1.5 * var(--viz3-titlu-font-separat) * var(--viz3-folie-scara)));
@@ -217,22 +226,7 @@ body {
   opacity: 1;
 }
 
-/* Aranjamentul: pe orizontala */
-.viz3-folii[data-aranjament="orizontal"] {
-  width: calc(4 * var(--viz3-folie-w) + 3 * var(--viz3-folie-gap));
-  height: var(--viz3-folie-h);
-}
-/* Aranjamentul: pe verticala */
-.viz3-folii[data-aranjament="vertical"] {
-  width: var(--viz3-folie-w);
-  height: calc(4 * var(--viz3-folie-h) + 3 * var(--viz3-folie-gap));
-}
-
-/* Aranjamentul: patrat 2x2 */
-.viz3-folii[data-aranjament="patrat"] {
-  width: calc(2 * var(--viz3-folie-w) + var(--viz3-folie-gap));
-  height: calc(2 * var(--viz3-folie-h) + var(--viz3-folie-gap));
-}
+/* Aranjamentele nu-si mai declara marimea: toate plutesc pe aceeasi panza. */
 
 /* --- Compozitia celulei: se aplica in TOATE aranjamentele ---
    Altfel celulele si-ar schimba continutul la fiecare trecere prin suprapus. */
