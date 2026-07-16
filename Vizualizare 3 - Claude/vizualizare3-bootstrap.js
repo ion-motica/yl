@@ -244,11 +244,64 @@
     }));
   }
 
+  function valoareCss(nume, implicit) {
+    const v = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue(nume)
+    );
+    return Number.isFinite(v) ? v : implicit;
+  }
+
+  // Fiecare titlu porneste de la offsetul lui fix (un sfert de latime, in
+  // ordinea progresiei) si ramane la fontul maxim daca in dreapta lui e loc
+  // gol. Daca ar calca peste titlul vecin, se micsoreaza cat sa incapa in
+  // sfertul lui. De aici iese singur si cazul suprapus (vecinul e la +25%,
+  // deci toate se micsoreaza) si cel desfacut (vecinul e departe, font mare).
+  function potrivesteTitlurile(foliiEl, coord) {
+    const W = dimensiuneFolie;
+    const latimeTablei = latimeTabla();
+    if (!W || !latimeTablei) return;
+    const scara = W / latimeTablei;
+    const gap = valoareCss("--viz3-folie-gap", 16);
+    const fontMax = valoareCss("--viz3-titlu-font-max", 40);
+    const spatiu = valoareCss("--viz3-titlu-spatiu", 4);
+    const sfert = W / 4;
+
+    const titluri = foliiEl.map((el, i) => {
+      const t = el.querySelector(".viz3-folie-titlu");
+      t.style.fontSize = `${fontMax}px`;
+      return {
+        el: t,
+        x: coord[i].col * (W + gap) + (i * W) / 4,
+        rnd: coord[i].rnd,
+        latNaturala: t.scrollWidth * scara,
+      };
+    });
+
+    const dupaX = [...titluri].sort((a, b) => a.x - b.x);
+    dupaX.forEach((t, k) => {
+      if (!t.latNaturala) return;
+      // Doar titlurile de pe ACELASI rand se pot calca. Cele de pe randuri
+      // diferite sunt la sute de pixeli pe verticala, oricat de aproape ar
+      // parea pe orizontala.
+      const vecin = dupaX
+        .slice(k + 1)
+        .find((alt) => Math.abs(alt.rnd - t.rnd) < TOLERANTA_RAND);
+      const panaLaVecin = vecin ? vecin.x - t.x : Infinity;
+      // Casuta din dreapta e goala? Titlul o poate ocupa, deci ramane mare.
+      // E plina? Se strange in sfertul lui.
+      const incape = t.latNaturala + spatiu <= panaLaVecin;
+      const latimeTinta = incape ? t.latNaturala : sfert - spatiu;
+      const factor = Math.min(1, Math.max(0.05, latimeTinta / t.latNaturala));
+      t.el.style.fontSize = `${fontMax * factor}px`;
+    });
+  }
+
   function aplicaCoordonate(foliiEl, coord) {
     foliiEl.forEach((el, i) => {
       el.style.setProperty("--col", String(coord[i].col));
       el.style.setProperty("--rnd", String(coord[i].rnd));
     });
+    potrivesteTitlurile(foliiEl, coord);
   }
 
   function aseazaFoliile(stiva, pastreazaLocul = false) {
@@ -388,6 +441,10 @@
   // Marimile de baza ale unui patratel (vezi .viz3-patratel din CSS).
   const DIM_PATRATEL = 10;
   const GAP_PATRATEL = 2;
+  // Cat de aproape trebuie sa fie doua folii pe verticala ca titlurile lor sa
+  // se poata calca. Randurile sunt la sute de px distanta, iar intalnirile
+  // intermediare pot da si randuri fractionare.
+  const TOLERANTA_RAND = 0.1;
 
   const CLASE_COMPONENTE = {
     eticheta: ".viz3-celula-eticheta",
