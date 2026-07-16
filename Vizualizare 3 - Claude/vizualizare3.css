@@ -12,11 +12,20 @@
   --viz3-grila-gap: 6px;
   --viz3-grila-w: calc(10 * var(--viz3-celula-w) + 9 * var(--viz3-grila-gap));
   --viz3-grila-h: calc(10 * var(--viz3-celula-h) + 9 * var(--viz3-grila-gap));
-  /* Desfacute, foliile stau la 50%: patru 2x2 ocupa cat tabla intreaga. */
-  --viz3-folie-w: calc(var(--viz3-grila-w) / 2);
-  --viz3-folie-h: calc(var(--viz3-grila-h) / 2);
+  /* Marimea foliilor, reglata din CP. 1 = tabla intreaga. Se aplica si
+     suprapus, si desfacut: exista o singura dimensiune. */
+  --viz3-folie-scara: 1;
+  --viz3-folie-w: calc(var(--viz3-grila-w) * var(--viz3-folie-scara));
+  --viz3-folie-h: calc(var(--viz3-grila-h) * var(--viz3-folie-scara));
   --viz3-folie-gap: 16px;
   --viz3-durata: 300ms;
+
+  /* Titlurile foliilor. Suprapuse, patru titluri impart latimea (25% fiecare),
+     deci fontul trebuie sa incapa in sfertul lui. Desfacute, fiecare titlu are
+     o folie intreaga, deci poate creste. Marimile sunt in px de asezare: se
+     scaleaza odata cu folia, deci offsetul ramane proportional. */
+  --viz3-titlu-font-suprapus: 18px;
+  --viz3-titlu-font-separat: 40px;
 }
 
 * {
@@ -146,8 +155,11 @@ body {
    desfacute gliseaza la 50% in aranjamentul ales. */
 .viz3-folii {
   position: relative;
-  width: var(--viz3-grila-w);
-  height: var(--viz3-grila-h);
+  width: var(--viz3-folie-w);
+  height: var(--viz3-folie-h);
+  /* Loc pentru titluri: ele stau deasupra foliei si se scaleaza odata cu ea,
+     deci spatiul necesar scade cu folia. Minimul tine titlul mic lizibil. */
+  margin-top: max(18px, calc(1.5 * var(--viz3-titlu-font-separat) * var(--viz3-folie-scara)));
   transition: width var(--viz3-durata), height var(--viz3-durata);
 }
 
@@ -156,7 +168,7 @@ body {
   top: 0;
   left: 0;
   transform-origin: top left;
-  transform: translate(0, 0) scale(1);
+  transform: translate(0, 0) scale(var(--viz3-folie-scara));
   transition: transform var(--viz3-durata);
 }
 
@@ -165,17 +177,24 @@ body {
 .viz3-folie:nth-child(3) { --i: 2; }
 .viz3-folie:nth-child(4) { --i: 3; }
 
-/* Titlul foliei: 22px la scara 1, deci 11px cand folia e la 50%. */
+/* Titlul foliei. Sta in interiorul foliei, deci se scaleaza odata cu ea. */
 .viz3-folie-titlu {
   position: absolute;
-  top: -30px;
+  top: -1.4em;
   left: 0;
-  font-size: 22px;
+  font-size: var(--viz3-titlu-font-separat);
   font-weight: 600;
   color: var(--viz3-text-slab);
   white-space: nowrap;
-  opacity: 0;
-  transition: opacity var(--viz3-durata);
+  transition: left var(--viz3-durata), font-size var(--viz3-durata);
+}
+
+/* Suprapuse, foliile stau una peste alta, deci si titlurile s-ar calca.
+   Fiecare primeste un sfert de latime, in ordinea progresiei: asa formeaza
+   o linie, care e chiar legenda foliilor. Fontul scade cat sa incapa in sfert. */
+.viz3-folii[data-aranjament="suprapus"] .viz3-folie-titlu {
+  font-size: var(--viz3-titlu-font-suprapus);
+  left: calc(var(--i) * 25%);
 }
 
 /* Pozitiile altor stari: contur-fantoma, vizibil doar cand foliile sunt desfacute.
@@ -187,8 +206,7 @@ body {
   transition: opacity var(--viz3-durata);
 }
 
-.viz3-folii:not([data-aranjament="suprapus"]) .viz3-fantoma,
-.viz3-folii:not([data-aranjament="suprapus"]) .viz3-folie-titlu {
+.viz3-folii:not([data-aranjament="suprapus"]) .viz3-fantoma {
   opacity: 1;
 }
 
@@ -199,7 +217,7 @@ body {
 }
 .viz3-folii[data-aranjament="orizontal"] .viz3-folie {
   transform: translate(calc(var(--i) * (var(--viz3-folie-w) + var(--viz3-folie-gap))), 0)
-    scale(0.5);
+    scale(var(--viz3-folie-scara));
 }
 
 /* Aranjamentul: pe verticala */
@@ -209,7 +227,7 @@ body {
 }
 .viz3-folii[data-aranjament="vertical"] .viz3-folie {
   transform: translate(0, calc(var(--i) * (var(--viz3-folie-h) + var(--viz3-folie-gap))))
-    scale(0.5);
+    scale(var(--viz3-folie-scara));
 }
 
 /* Aranjamentul: patrat 2x2 */
@@ -218,34 +236,37 @@ body {
   height: calc(2 * var(--viz3-folie-h) + var(--viz3-folie-gap));
 }
 .viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(1) {
-  transform: translate(0, 0) scale(0.5);
+  transform: translate(0, 0) scale(var(--viz3-folie-scara));
 }
 .viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(2) {
-  transform: translate(calc(var(--viz3-folie-w) + var(--viz3-folie-gap)), 0) scale(0.5);
+  transform: translate(calc(var(--viz3-folie-w) + var(--viz3-folie-gap)), 0)
+    scale(var(--viz3-folie-scara));
 }
 .viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(3) {
-  transform: translate(0, calc(var(--viz3-folie-h) + var(--viz3-folie-gap))) scale(0.5);
+  transform: translate(0, calc(var(--viz3-folie-h) + var(--viz3-folie-gap)))
+    scale(var(--viz3-folie-scara));
 }
 .viz3-folii[data-aranjament="patrat"] .viz3-folie:nth-child(4) {
   transform: translate(
       calc(var(--viz3-folie-w) + var(--viz3-folie-gap)),
       calc(var(--viz3-folie-h) + var(--viz3-folie-gap))
     )
-    scale(0.5);
+    scale(var(--viz3-folie-scara));
 }
 
-/* --- Compozitia celulei: se aplica DOAR pe tabla desfacuta --- */
-.viz3-folii:not([data-aranjament="suprapus"])[data-comp-fact="0"] .viz3-celula-eticheta,
-.viz3-folii:not([data-aranjament="suprapus"])[data-comp-eticheta="0"] .viz3-celula-stare,
-.viz3-folii:not([data-aranjament="suprapus"])[data-comp-patratele="0"] .viz3-celula-patratele,
-.viz3-folii:not([data-aranjament="suprapus"])[data-comp-numere="0"] .viz3-celula-detaliu {
+/* --- Compozitia celulei: se aplica in TOATE aranjamentele ---
+   Altfel celulele si-ar schimba continutul la fiecare trecere prin suprapus. */
+.viz3-folii[data-comp-fact="0"] .viz3-celula-eticheta,
+.viz3-folii[data-comp-eticheta="0"] .viz3-celula-stare,
+.viz3-folii[data-comp-patratele="0"] .viz3-celula-patratele,
+.viz3-folii[data-comp-numere="0"] .viz3-celula-detaliu {
   display: none;
 }
 
 /* Cand componentele se maresc, textul trebuie masurat intreg, nu taiat. */
-.viz3-folii[data-comp-umple="1"]:not([data-aranjament="suprapus"]) .viz3-celula-eticheta,
-.viz3-folii[data-comp-umple="1"]:not([data-aranjament="suprapus"]) .viz3-celula-stare,
-.viz3-folii[data-comp-umple="1"]:not([data-aranjament="suprapus"]) .viz3-celula-detaliu {
+.viz3-folii[data-comp-umple="1"] .viz3-celula-eticheta,
+.viz3-folii[data-comp-umple="1"] .viz3-celula-stare,
+.viz3-folii[data-comp-umple="1"] .viz3-celula-detaliu {
   max-width: none;
   overflow: visible;
 }
@@ -254,6 +275,75 @@ body {
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--viz3-bordura);
+}
+
+/* Reglajele continue din CP (slidere, camp cu +/-) */
+.viz3-reglaj {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.viz3-reglaj-cap {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.viz3-reglaj-valoare {
+  color: var(--viz3-albastru);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz3-reglaj input[type="range"] {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.viz3-reglaj input[type="range"]:disabled {
+  opacity: 0.4;
+}
+
+.viz3-reglaj-eticheta {
+  display: block;
+  line-height: 1.3;
+}
+
+.viz3-reglaj-numar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.viz3-reglaj-numar button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viz3-reglaj-numar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.viz3-reglaj-numar input[type="number"] {
+  width: 48px;
+  padding: 3px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.viz3-reglaj-unitate {
+  color: var(--viz3-text-slab);
+  font-size: 11px;
 }
 
 /* Butoanele de aranjament din CP */

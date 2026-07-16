@@ -103,11 +103,91 @@
     umple: false,
   };
 
+  // Reglajele foliilor. `dimensiuneFolie` rămâne null până măsurăm tabla.
+  let dimensiuneFolie = null;
+  let vitezaReasezare = 300;
+  let autoSecunde = 0;
+  let ceasAuto = null;
+  let butoaneAranjament = [];
+  let sliderDimensiune = null;
+  let reglajDimensiune = null;
+
+  // Maximul slider-ului = latimea reala a tablei, masurata dupa randare, ca sa
+  // nu duplicam aici dimensiunile din CSS. Maximul se pune INAINTE de valoare:
+  // altfel implicitul ar fi taiat de maximul HTML implicit (100).
+  function sincronizeazaDimensiune() {
+    const latime = latimeTabla();
+    if (!latime || !sliderDimensiune) return;
+    sliderDimensiune.slider.max = String(latime);
+    if (dimensiuneFolie === null) {
+      dimensiuneFolie = Math.min(reglajDimensiune?.implicit ?? latime, latime);
+      sliderDimensiune.slider.value = String(dimensiuneFolie);
+    }
+    sliderDimensiune.arata();
+    aplicaDimensiune();
+  }
+
   function aplicaAranjament() {
     const stiva = document.querySelector(".viz3-folii");
     if (!stiva) return;
     stiva.dataset.aranjament = foliiActive ? aranjamentCurent : "suprapus";
     aplicaCompozitie();
+  }
+
+  function latimeTabla() {
+    const grila = document.querySelector(".viz3-grila");
+    return grila ? grila.offsetWidth : 0;
+  }
+
+  // O singură dimensiune, folosită și suprapus, și desfăcut.
+  function aplicaDimensiune() {
+    const latime = latimeTabla();
+    if (!latime || dimensiuneFolie === null) return;
+    document.documentElement.style.setProperty(
+      "--viz3-folie-scara",
+      String(dimensiuneFolie / latime)
+    );
+  }
+
+  function aplicaViteza() {
+    document.documentElement.style.setProperty("--viz3-durata", `${vitezaReasezare}ms`);
+  }
+
+  function schimbaAranjament(id) {
+    aranjamentCurent = id;
+    butoaneAranjament.forEach((b) =>
+      b.classList.toggle("viz3-buton-aranjament--activ", b.dataset.aranjament === id)
+    );
+    aplicaAranjament();
+  }
+
+  // Alege o poziție la întâmplare, mereu diferită de cea curentă.
+  function pozitieAleatoare() {
+    const altele = butoaneAranjament
+      .map((b) => b.dataset.aranjament)
+      .filter((id) => id !== aranjamentCurent);
+    if (!altele.length) return;
+    schimbaAranjament(altele[Math.floor(Math.random() * altele.length)]);
+  }
+
+  // Pauza se numără DE LA AȘEZARE, nu de la pornirea mișcării. Deci ciclul e
+  // `tranziție + pauză`, iar foliile ajung mereu la destinație înainte să
+  // primească alt ordin — oricât de lentă ar fi reașezarea.
+  function programeazaAuto(intarziere) {
+    if (ceasAuto) {
+      clearTimeout(ceasAuto);
+      ceasAuto = null;
+    }
+    if (autoSecunde <= 0 || !foliiActive) return;
+    ceasAuto = setTimeout(() => {
+      pozitieAleatoare();
+      programeazaAuto(vitezaReasezare + autoSecunde * 1000);
+    }, intarziere);
+  }
+
+  function aplicaAuto() {
+    // Prima mutare: doar pauza, foliile sunt deja așezate.
+    programeazaAuto(autoSecunde * 1000);
   }
 
   function aplicaCompozitie() {
@@ -133,10 +213,10 @@
   };
 
   function aplicaUmplere(stiva) {
-    const activ = compozitie.umple && stiva.dataset.aranjament !== "suprapus";
+    // Se aplica in toate aranjamentele, ca celulele sa arate la fel peste tot.
     stiva
       .querySelectorAll(".viz3-celula")
-      .forEach((celula) => aplicaUmplereCelula(celula, activ));
+      .forEach((celula) => aplicaUmplereCelula(celula, compozitie.umple));
   }
 
   // Înălțimea celulei se împarte în felii egale între componentele vizibile.
@@ -224,11 +304,89 @@
     });
   }
 
+  function randeazaSlider(reglaj, laSchimbare) {
+    const rand = document.createElement("div");
+    rand.className = "viz3-reglaj";
+    const cap = document.createElement("div");
+    cap.className = "viz3-reglaj-cap";
+    const eticheta = document.createElement("span");
+    eticheta.textContent = reglaj.eticheta;
+    const valoare = document.createElement("span");
+    valoare.className = "viz3-reglaj-valoare";
+    cap.append(eticheta, valoare);
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = String(reglaj.min);
+    if (reglaj.max !== null) slider.max = String(reglaj.max);
+    slider.step = String(reglaj.pas);
+    slider.disabled = true;
+
+    const arata = () => {
+      valoare.textContent = `${slider.value} ${reglaj.unitate}`;
+    };
+    slider.addEventListener("input", () => {
+      arata();
+      laSchimbare(Number(slider.value));
+    });
+
+    // Cand maximul se afla abia la randare, valoarea se pune acolo (vezi
+    // sincronizeazaDimensiune), nu aici.
+    if (reglaj.implicit !== undefined && reglaj.max !== null) {
+      slider.value = String(reglaj.implicit);
+      arata();
+    }
+    rand.append(cap, slider);
+    return { rand, slider, arata };
+  }
+
+  function randeazaNumar(reglaj, laSchimbare) {
+    const rand = document.createElement("div");
+    rand.className = "viz3-reglaj";
+    const eticheta = document.createElement("span");
+    eticheta.className = "viz3-reglaj-eticheta";
+    eticheta.textContent = reglaj.eticheta;
+
+    const linie = document.createElement("div");
+    linie.className = "viz3-reglaj-numar";
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.textContent = "−";
+    const camp = document.createElement("input");
+    camp.type = "number";
+    camp.min = String(reglaj.min);
+    camp.max = String(reglaj.max);
+    camp.step = String(reglaj.pas);
+    camp.value = String(reglaj.implicit ?? reglaj.min);
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.textContent = "+";
+    const unitate = document.createElement("span");
+    unitate.className = "viz3-reglaj-unitate";
+    unitate.textContent = reglaj.nota ? `${reglaj.unitate} (${reglaj.nota})` : reglaj.unitate;
+
+    const pune = (v) => {
+      const limitat = Math.min(reglaj.max, Math.max(reglaj.min, v));
+      camp.value = String(limitat);
+      laSchimbare(limitat);
+    };
+    minus.addEventListener("click", () => pune(Number(camp.value) - reglaj.pas));
+    plus.addEventListener("click", () => pune(Number(camp.value) + reglaj.pas));
+    camp.addEventListener("change", () => pune(Number(camp.value)));
+
+    [minus, camp, plus].forEach((el) => (el.disabled = true));
+    linie.append(minus, camp, plus, unitate);
+    rand.append(eticheta, linie);
+    return { rand, controale: [minus, camp, plus] };
+  }
+
   function randeazaControlFolii(grup, axa) {
     const comutator = document.createElement("label");
     comutator.className = "viz3-optiune";
     const bifa = document.createElement("input");
     bifa.type = "checkbox";
+    bifa.checked = axa.activ_implicit === true;
+    foliiActive = bifa.checked;
     const textBifa = document.createElement("span");
     textBifa.textContent = "Activează foliile";
     comutator.append(bifa, textBifa);
@@ -241,27 +399,46 @@
       buton.className = "viz3-buton-aranjament";
       buton.textContent = opt.eticheta;
       buton.title = opt.titlu;
-      buton.disabled = true;
+      buton.disabled = !foliiActive;
       buton.dataset.aranjament = opt.id;
       if (opt.activa) buton.classList.add("viz3-buton-aranjament--activ");
-      buton.addEventListener("click", () => {
-        aranjamentCurent = opt.id;
-        butoane.forEach((b) =>
-          b.classList.toggle("viz3-buton-aranjament--activ", b === buton)
-        );
-        aplicaAranjament();
-      });
+      buton.addEventListener("click", () => schimbaAranjament(opt.id));
       randButoane.appendChild(buton);
       return buton;
     });
+    butoaneAranjament = butoane;
 
+    const reglaje = axa.reglaje ?? [];
+    const gasesteReglaj = (id) => reglaje.find((r) => r.id === id);
+
+    reglajDimensiune = gasesteReglaj("dimensiune");
+    const dimensiune = randeazaSlider(reglajDimensiune, (v) => {
+      dimensiuneFolie = v;
+      aplicaDimensiune();
+    });
+    sliderDimensiune = dimensiune;
+
+    const viteza = randeazaSlider(gasesteReglaj("viteza"), (v) => {
+      vitezaReasezare = v;
+      aplicaViteza();
+    });
+
+    const auto = randeazaNumar(gasesteReglaj("auto"), (v) => {
+      autoSecunde = v;
+      aplicaAuto();
+    });
+
+    const deActivat = [dimensiune.slider, viteza.slider, ...auto.controale];
+    deActivat.forEach((el) => (el.disabled = !foliiActive));
     bifa.addEventListener("change", () => {
       foliiActive = bifa.checked;
       butoane.forEach((b) => (b.disabled = !foliiActive));
+      deActivat.forEach((el) => (el.disabled = !foliiActive));
       aplicaAranjament();
+      aplicaAuto();
     });
 
-    grup.append(comutator, randButoane);
+    grup.append(comutator, randButoane, dimensiune.rand, viteza.rand, auto.rand);
   }
 
   function randeazaControlPanel(container, definitii) {
@@ -417,6 +594,8 @@
     stiva.className = "viz3-folii";
     folii.forEach((folie) => stiva.appendChild(randeazaFolie(model, folie)));
     container.appendChild(stiva);
+    sincronizeazaDimensiune();
+    aplicaViteza();
     aplicaAranjament();
   }
 
@@ -443,14 +622,14 @@
     randeazaVizualizarea(vizEl, model, info);
   }
 
-  function comutaSursa(container, laFixture) {
+  // Butonul oferă mereu sursa PE CARE NU o vezi acum.
+  function comutaSursa(container, aratamFixture) {
     const buton = document.createElement("button");
     buton.type = "button";
-    buton.textContent = laFixture ? "Folosește jurnalul real" : "Folosește fixture demonstrativ";
-    buton.addEventListener("click", () => {
-      if (laFixture) porneste({ forteazaFixture: false });
-      else porneste({ forteazaFixture: true });
-    });
+    buton.textContent = aratamFixture
+      ? "Folosește jurnalul real"
+      : "Folosește fixture demonstrativ";
+    buton.addEventListener("click", () => porneste({ forteazaFixture: !aratamFixture }));
     container.querySelector(".viz3-sursa")?.appendChild(buton);
   }
 
@@ -458,12 +637,12 @@
     const reale = forteazaFixture ? [] : await citesteJurnalul();
     if (!forteazaFixture && reale.length > 0) {
       analizeazaSiRandeaza(reale, `Sursă: jurnal real (${reale.length} apăsări).`);
-      comutaSursa(vizEl, true);
+      comutaSursa(vizEl, false);
     } else {
       const dummy = fixture.construiesteFixture();
       const motiv = forteazaFixture ? "" : " (jurnal real gol)";
       analizeazaSiRandeaza(dummy, `Sursă: fixture demonstrativ${motiv}.`);
-      comutaSursa(vizEl, false);
+      comutaSursa(vizEl, true);
     }
   }
 

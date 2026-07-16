@@ -126,15 +126,16 @@
         },
         {
           id: "compozitie",
-          eticheta: "Compoziție pătrățele tablă desfăcută",
-          // Ce componente are o celula cand tabla e DESFACUTA. Suprapusa (100%)
-          // arata mereu tot. Nu schimba configuratia motorului; e prezentare.
+          eticheta: "Compoziție pătrățele",
+          // Ce componente are o celula. Se aplica in TOATE aranjamentele, ca
+          // celulele sa nu-si schimbe continutul cand foliile trec prin
+          // suprapus. Nu schimba configuratia motorului; e prezentare.
           tip_control: "compozitie",
           optiuni: [
             { id: "fact", eticheta: "9 × 1 (fact)", activa: true },
             { id: "eticheta", eticheta: "În lucru (etichetă)", activa: true },
             { id: "patratele", eticheta: "Pătrățele", activa: true },
-            { id: "numere", eticheta: "Numere (n · % · s)", activa: true },
+            { id: "numere", eticheta: "Numere (n · % · s)", activa: false },
             {
               id: "umple",
               eticheta: "Mărește să ocupe tot spațiul lateral",
@@ -149,11 +150,47 @@
           // Control special: comutator on/off + butoane de aranjament.
           // Nu schimbă configurația motorului; e strict prezentare.
           tip_control: "folii",
+          activ_implicit: true,
           optiuni: [
-            { id: "suprapus", eticheta: "4", titlu: "Toate 4 suprapuse (100%)", activa: true },
-            { id: "orizontal", eticheta: "↔", titlu: "Desfăcute pe orizontală (50%)" },
-            { id: "vertical", eticheta: "↕", titlu: "Desfăcute pe verticală (50%)" },
-            { id: "patrat", eticheta: "⊞", titlu: "Desfăcute în pătrat 2×2 (50%)" },
+            { id: "suprapus", eticheta: "4", titlu: "Toate 4 suprapuse", activa: true },
+            { id: "orizontal", eticheta: "↔", titlu: "Desfăcute pe orizontală" },
+            { id: "vertical", eticheta: "↕", titlu: "Desfăcute pe verticală" },
+            { id: "patrat", eticheta: "⊞", titlu: "Desfăcute în pătrat 2×2" },
+          ],
+          // Reglaje continue. `max: null` la dimensiune = lățimea reală a tablei,
+          // măsurată la randare (nu o duplicăm aici).
+          reglaje: [
+            {
+              id: "dimensiune",
+              eticheta: "Dimensiune folie",
+              tip: "slider",
+              min: 10,
+              max: null,
+              pas: 1,
+              implicit: 256,
+              unitate: "px",
+            },
+            {
+              id: "viteza",
+              eticheta: "Viteză reașezare",
+              tip: "slider",
+              min: 0,
+              max: 5000,
+              pas: 50,
+              implicit: 300,
+              unitate: "ms",
+            },
+            {
+              id: "auto",
+              eticheta: "Schimbă automat poziția foliilor după",
+              tip: "numar",
+              min: 0,
+              max: 60,
+              pas: 1,
+              implicit: 0,
+              unitate: "secunde",
+              nota: "de la așezare; 0 = oprit",
+            },
           ],
         },
       ],
