@@ -96,6 +96,12 @@
   let reasezareAleatoare = true;
   let deplasareCurenta = { col: 0, rnd: 0 };
   let proportieRamanePeLoc = 0;
+  let grupareIntermediara = true;
+  let cfgGrupare = {};
+  let ceasGrup = null;
+  // Cat a durat ultima trecere: dubla, daca a avut act intermediar. Ceasul
+  // automat asteapta atat, ca pauza sa se numere tot de la asezare.
+  let durataTranzitiei = 0;
   let aranjamentCurent = "suprapus";
 
   // Compoziția celulei pe tabla desfăcută. Suprapusă arată mereu tot.
@@ -155,14 +161,51 @@
     return copie;
   }
 
-  // Împarte sloturile grilei între folii și traduce fiecare slot în coloană și
-  // rând. Cu glisare aleatoare, sloturile se amestecă la fiecare trecere, deci
-  // o folie nu ajunge mereu în același loc.
+  // Alege ce folii se strang si in ce grupuri. Lista goala = trecere directa,
+  // fara act intermediar.
+  function alegeGrupuri(nrFolii) {
+    if (!grupareIntermediara) return [];
+    if (Math.random() >= cfgGrupare.proportie_cu_grup) return [];
+    const tipare = cfgGrupare.tipare_grup;
+    const tipar = tipare[Math.floor(Math.random() * tipare.length)];
+    const indici = amesteca([...Array(nrFolii).keys()]);
+    const grupuri = [];
+    let luate = 0;
+    tipar.forEach((marime) => {
+      if (luate + marime <= indici.length) {
+        grupuri.push(indici.slice(luate, luate + marime));
+        luate += marime;
+      }
+    });
+    return grupuri;
+  }
+
+  // Unde se intalnesc: un slot tras la sorti, slotul unuia dintre ei, sau la
+  // mijlocul drumului. Mijlocul poate cadea intre sloturi, ceea ce e in regula:
+  // formula pozitiei accepta si coordonate fractionare.
+  function loculIntalnirii(membri, acum) {
+    const mod = Math.floor(Math.random() * 3);
+    if (mod === 0) {
+      const panza = panzaMax();
+      return {
+        col: intregAleator(0, panza.coloane - 1),
+        rnd: intregAleator(0, panza.randuri - 1),
+      };
+    }
+    if (mod === 1) {
+      return acum[membri[Math.floor(Math.random() * membri.length)]];
+    }
+    const medie = (cheie) =>
+      membri.reduce((suma, i) => suma + acum[i][cheie], 0) / membri.length;
+    return { col: medie("col"), rnd: medie("rnd") };
+  }
+
+  // Unde ajunge fiecare folie. Cu glisare aleatoare, sloturile se amestecă,
+  // deci o folie nu ajunge mereu în același loc.
   // `pastreazaLocul` = rămâne în exact același loc pe pânză, deci se vede doar
   // reordonarea foliilor în interiorul formei.
-  function aseazaFoliile(stiva, pastreazaLocul = false) {
+  function coordonateDestinatie(stiva, pastreazaLocul) {
     const foliiEl = [...stiva.querySelectorAll(".viz3-folie")];
-    if (!foliiEl.length) return;
     const grila = aranjamente[stiva.dataset.aranjament] ?? aranjamente.suprapus;
     const indici = foliiEl.map((_, i) => i);
     const sloturi = glisareAleatoare ? amesteca(indici) : indici;
@@ -185,14 +228,65 @@
       rnd: Math.min(deplasareCurenta.rnd, maxRnd),
     };
 
-    foliiEl.forEach((el, i) => {
+    return foliiEl.map((_, i) => {
       const slot = Math.min(sloturi[i], ultimSlot);
-      el.style.setProperty("--col", String((slot % grila.coloane) + deplasare.col));
-      el.style.setProperty(
-        "--rnd",
-        String(Math.floor(slot / grila.coloane) + deplasare.rnd)
-      );
+      return {
+        col: (slot % grila.coloane) + deplasare.col,
+        rnd: Math.floor(slot / grila.coloane) + deplasare.rnd,
+      };
     });
+  }
+
+  function coordonateCurente(foliiEl) {
+    return foliiEl.map((el) => ({
+      col: parseFloat(el.style.getPropertyValue("--col")) || 0,
+      rnd: parseFloat(el.style.getPropertyValue("--rnd")) || 0,
+    }));
+  }
+
+  function aplicaCoordonate(foliiEl, coord) {
+    foliiEl.forEach((el, i) => {
+      el.style.setProperty("--col", String(coord[i].col));
+      el.style.setProperty("--rnd", String(coord[i].rnd));
+    });
+  }
+
+  function aseazaFoliile(stiva, pastreazaLocul = false) {
+    const foliiEl = [...stiva.querySelectorAll(".viz3-folie")];
+    if (!foliiEl.length) return;
+    if (ceasGrup) {
+      clearTimeout(ceasGrup);
+      ceasGrup = null;
+    }
+
+    const finale = coordonateDestinatie(stiva, pastreazaLocul);
+    const grupuri = alegeGrupuri(foliiEl.length);
+
+    if (!grupuri.length) {
+      aplicaCoordonate(foliiEl, finale);
+      durataTranzitiei = vitezaReasezare;
+      return;
+    }
+
+    // Actul 1: grupurile se strang. Cine nu e in niciun grup asteapta pe loc.
+    const acum = coordonateCurente(foliiEl);
+    const intermediare = [...acum];
+    const destinatii = [...finale];
+    grupuri.forEach((membri) => {
+      const intalnire = loculIntalnirii(membri, acum);
+      membri.forEach((i) => (intermediare[i] = intalnire));
+      // Uneori grupul nu se mai desface: ramane suprapus si in destinatie,
+      // deci un slot ramane gol.
+      if (Math.random() < cfgGrupare.proportie_grup_ramane) {
+        const gazda = membri[Math.floor(Math.random() * membri.length)];
+        membri.forEach((i) => (destinatii[i] = finale[gazda]));
+      }
+    });
+
+    aplicaCoordonate(foliiEl, intermediare);
+    // Actul 2: de la grup spre destinatie, dupa ce primul act s-a terminat.
+    ceasGrup = setTimeout(() => aplicaCoordonate(foliiEl, destinatii), vitezaReasezare);
+    durataTranzitiei = 2 * vitezaReasezare;
   }
 
   function aplicaAranjament() {
@@ -270,7 +364,8 @@
     if (autoSecunde <= 0 || !foliiActive) return;
     ceasAuto = setTimeout(() => {
       pozitieAleatoare();
-      programeazaAuto(vitezaReasezare + autoSecunde * 1000);
+      // Trecerea cu act intermediar dureaza dublu; pauza se numara dupa ea.
+      programeazaAuto(durataTranzitiei + autoSecunde * 1000);
     }, intarziere);
   }
 
@@ -512,6 +607,24 @@
     });
     randReasezare.append(bifaReasezare, textReasezare);
 
+    const randGrup = document.createElement("label");
+    randGrup.className = "viz3-optiune";
+    const bifaGrup = document.createElement("input");
+    bifaGrup.type = "checkbox";
+    bifaGrup.checked = axa.grupare_implicita === true;
+    grupareIntermediara = bifaGrup.checked;
+    cfgGrupare = {
+      proportie_cu_grup: axa.proportie_cu_grup ?? 0.5,
+      tipare_grup: axa.tipare_grup ?? [[2]],
+      proportie_grup_ramane: axa.proportie_grup_ramane ?? 0.5,
+    };
+    const textGrup = document.createElement("span");
+    textGrup.textContent = "Grupează intermediar 2-3 suprapuneri de folii";
+    bifaGrup.addEventListener("change", () => {
+      grupareIntermediara = bifaGrup.checked;
+    });
+    randGrup.append(bifaGrup, textGrup);
+
     const randButoane = document.createElement("div");
     randButoane.className = "viz3-folii-butoane";
     const butoane = axa.optiuni.map((opt) => {
@@ -552,6 +665,7 @@
     const deActivat = [
       bifaAleator,
       bifaReasezare,
+      bifaGrup,
       dimensiune.slider,
       viteza.slider,
       ...auto.controale,
@@ -569,6 +683,7 @@
       comutator,
       randAleator,
       randReasezare,
+      randGrup,
       randButoane,
       dimensiune.rand,
       viteza.rand,

@@ -162,6 +162,17 @@
           // 1 = ramane mereu. Nu se aplica la suprapus: acolo foliile stau
           // toate in aceeasi celula, deci reamestecarea lor nu se vede.
           proportie_ramane_pe_loc: 0.5,
+          // Pas intermediar: cateva folii se stang intr-un grup, apoi pleaca
+          // spre destinatie. Fiecare nivel se trage la sorti separat.
+          grupare_implicita: true,
+          // Cat de des are loc actul intermediar. Restul trecerilor raman
+          // directe, ca sa nu devina monoton.
+          proportie_cu_grup: 0.5,
+          // Tiparele de grupare: o pereche, doua perechi, sau trei folii.
+          tipare_grup: [[2], [2, 2], [3]],
+          // Cat de des un grup ramane suprapus si in destinatie, in loc sa se
+          // imprastie fiecare la slotul ei.
+          proportie_grup_ramane: 0.5,
           optiuni: [
             { id: "suprapus", eticheta: "4", titlu: "Toate 4 suprapuse", activa: true },
             { id: "orizontal", eticheta: "↔", titlu: "Desfăcute pe orizontală" },
