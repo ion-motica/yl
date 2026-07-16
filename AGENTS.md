@@ -11,6 +11,12 @@
 
 ## Programare simplă și modulară în YouLearn
 
+> La **organizarea codului** (modul nou, feature nou, restructurare) citește întâi
+> `documente de referinta/razgandire-ieftina.md` — instrument de diagnostic pentru cuplare.
+> NU la fiecare modificare, și nu ca listă de bifat: dacă diagnosticul iese curat, nu se face nimic.
+> Documentul are secțiune proprie despre când e contraproductiv; ea are prioritate față de tentația
+> de a aplica tehnici.
+
 Design simplu, modular, necomplicat, ca o gramatică generativă. Modularitate prin API/metodă cu argumente explicite.
 
 Când adăugăm funcționalități noi în YouLearn, folosim preferabil un contract/API comun cu inversion of control. Codul existent trebuie să apeleze feature-ul nou și să-i furnizeze explicit parametrii necesari. Feature-ul nou nu trebuie să ghicească sau să extragă context din interiorul quizurilor. Contextul aparține quizului; feature-ul primește datele printr-un contract/API explicit, le validează/normalizează și procesează. Aplicăm asta pentru loguri/analytics, event contract / event reporting.
