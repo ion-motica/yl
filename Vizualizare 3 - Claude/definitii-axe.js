@@ -158,6 +158,11 @@
           // se micsoreze. Ruperea se face la cuvinte, iar randurile se
           // echilibreaza. Titlurile cresc in sus de la aceeasi linie de baza.
           titluri_2_randuri_implicit: true,
+          // Casetele se vad ca un sir, inclusiv cele goale.
+          titluri_incadrate_implicit: true,
+          // Pline pana la titlul foliei inclusiv: se vede ce etape a parcurs
+          // folia si cate mai are de parcurs.
+          casete_colorate_implicit: true,
           // Cand e activ, aranjamentul intreg se aseaza in alt loc pe panza:
           // randul pe alta linie, coloana pe alta coloana, patratul in alt colt.
           reasezare_aleatoare_implicit: true,
@@ -237,7 +242,13 @@
   // Suprapuse, cele 4 folii reconstituie exact tabla întreagă, fiindcă un fact
   // are exact o stare. A muta o stare pe altă folie = a o muta aici.
   const FOLII = [
-    { id: "f1", eticheta: "Netestat + Abia început", stari: ["netestat", "abia_inceput"] },
+    {
+      id: "f1",
+      // ` ` = spatiu ne-despartitor: leaga "+ Abia inceput" intr-o bucata
+      // care nu se poate rupe, deci singura ruptura posibila e dupa "Netestat".
+      eticheta: "Netestat + Abia început",
+      stari: ["netestat", "abia_inceput"],
+    },
     { id: "f2", eticheta: "Nu îl știe", stari: ["nu_il_stie"] },
     { id: "f3", eticheta: "În lucru", stari: ["in_lucru"] },
     { id: "f4", eticheta: "Fluent", stari: ["fluent"] },

@@ -98,6 +98,8 @@
   let proportieRamanePeLoc = 0;
   let grupareIntermediara = true;
   let titluriPe2Randuri = true;
+  let titluriIncadrate = true;
+  let caseteColorate = true;
   let cfgGrupare = {};
   let ceasGrup = null;
   // Cat a durat ultima trecere: dubla, daca a avut act intermediar. Ceasul
@@ -259,7 +261,12 @@
     let font = fontMax;
     for (let i = 0; i < MAX_PASI_POTRIVIRE; i += 1) {
       el.style.fontSize = `${font}px`;
-      if (Math.round(el.scrollHeight / (INALTIME_RAND * font)) <= randuri) break;
+      const incapeInRanduri =
+        Math.round(el.scrollHeight / (INALTIME_RAND * font)) <= randuri;
+      // Si pe latime: o bucata legata (ex. "+ Abia inceput") nu se rupe, deci
+      // ar iesi lateral din caseta fara ca numarul de randuri sa se schimbe.
+      const incapeInLatime = el.scrollWidth <= el.clientWidth + 1;
+      if (incapeInRanduri && incapeInLatime) break;
       font *= PAS_POTRIVIRE;
     }
     return font;
@@ -280,9 +287,11 @@
     // inainte: altfel textul nu s-ar rupe si ar iesi mereu "incape pe un rand".
     // `transition: none` e obligatoriu: fontul e animat, iar fara asta fiecare
     // masuratoare ar citi marimea de DINAINTE de schimbare, nu pe cea pusa.
+    // Latimea o da caseta; noi punem doar ce lipseste ca masuratoarea sa fie
+    // corecta. `transition: none` e obligatoriu: fontul e animat, iar fara asta
+    // fiecare masuratoare ar citi marimea de DINAINTE de schimbare.
     titluri.forEach((t) => {
       t.style.transition = "none";
-      t.style.width = `${LATIME_SFERT_PROCENT}%`;
       t.style.whiteSpace = "normal";
     });
 
@@ -294,7 +303,6 @@
 
     titluri.forEach((t) => {
       t.style.fontSize = "";
-      t.style.width = "";
       t.style.whiteSpace = "";
       t.style.transition = "";
     });
@@ -505,6 +513,8 @@
     // setAttribute, nu dataset: `dataset.titluri2Randuri` ar da atributul
     // `data-titluri2-randuri`, care nu se potriveste cu selectorul din CSS.
     stiva.setAttribute("data-titluri-2-randuri", titluriPe2Randuri ? "1" : "0");
+    stiva.setAttribute("data-titluri-incadrate", titluriIncadrate ? "1" : "0");
+    stiva.setAttribute("data-casete-colorate", caseteColorate ? "1" : "0");
     aplicaUmplere(stiva);
   }
 
@@ -515,9 +525,8 @@
   // se poata calca. Randurile sunt la sute de px distanta, iar intalnirile
   // intermediare pot da si randuri fractionare.
   const TOLERANTA_RAND = 0.1;
-  // Casuta unui titlu din latimea foliei, inaltimea unui rand (vezi
-  // line-height din CSS) si cat de fin coboram cand cautam fontul.
-  const LATIME_SFERT_PROCENT = 25;
+  // Inaltimea unui rand (vezi line-height din CSS) si cat de fin coboram cand
+  // cautam fontul care incape.
   const INALTIME_RAND = 1.15;
   const PAS_POTRIVIRE = 0.96;
   const MAX_PASI_POTRIVIRE = 30;
@@ -776,6 +785,34 @@
     });
     randTitluri.append(bifaTitluri, textTitluri);
 
+    const randIncadrate = document.createElement("label");
+    randIncadrate.className = "viz3-optiune";
+    const bifaIncadrate = document.createElement("input");
+    bifaIncadrate.type = "checkbox";
+    bifaIncadrate.checked = axa.titluri_incadrate_implicit === true;
+    titluriIncadrate = bifaIncadrate.checked;
+    const textIncadrate = document.createElement("span");
+    textIncadrate.textContent = "Titluri folii încadrate";
+    bifaIncadrate.addEventListener("change", () => {
+      titluriIncadrate = bifaIncadrate.checked;
+      aplicaAranjament();
+    });
+    randIncadrate.append(bifaIncadrate, textIncadrate);
+
+    const randColorate = document.createElement("label");
+    randColorate.className = "viz3-optiune";
+    const bifaColorate = document.createElement("input");
+    bifaColorate.type = "checkbox";
+    bifaColorate.checked = axa.casete_colorate_implicit === true;
+    caseteColorate = bifaColorate.checked;
+    const textColorate = document.createElement("span");
+    textColorate.textContent = "Casete colorate până la titlul foliei inclusiv";
+    bifaColorate.addEventListener("change", () => {
+      caseteColorate = bifaColorate.checked;
+      aplicaAranjament();
+    });
+    randColorate.append(bifaColorate, textColorate);
+
     const randButoane = document.createElement("div");
     randButoane.className = "viz3-folii-butoane";
     const butoane = axa.optiuni.map((opt) => {
@@ -818,6 +855,8 @@
       bifaReasezare,
       bifaGrup,
       bifaTitluri,
+      bifaIncadrate,
+      bifaColorate,
       dimensiune.slider,
       viteza.slider,
       ...auto.controale,
@@ -837,6 +876,8 @@
       randReasezare,
       randGrup,
       randTitluri,
+      randIncadrate,
+      randColorate,
       randButoane,
       dimensiune.rand,
       viteza.rand,
@@ -958,14 +999,34 @@
     return el;
   }
 
-  function randeazaFolie(model, folie) {
+  // Bara de titluri = cate o caseta pentru fiecare folie, in ordinea
+  // progresiei. Titlul foliei sta in caseta ei, deci pozitia rezulta din
+  // caseta, nu se mai calculeaza. Casetele pana la ea inclusiv sunt pline: se
+  // vede ce etape a parcurs si cate mai are.
+  function randeazaBaraTitluri(folie, index, total) {
+    const bara = document.createElement("div");
+    bara.className = "viz3-bara-titluri";
+    for (let i = 0; i < total; i += 1) {
+      const caseta = document.createElement("div");
+      caseta.className = "viz3-caseta";
+      if (i <= index) caseta.classList.add("viz3-caseta--plina");
+      if (i === index) {
+        const titlu = document.createElement("span");
+        titlu.className = "viz3-folie-titlu";
+        titlu.textContent = folie.eticheta;
+        caseta.appendChild(titlu);
+      }
+      bara.appendChild(caseta);
+    }
+    return bara;
+  }
+
+  function randeazaFolie(model, folie, index, total) {
     const el = document.createElement("div");
     el.className = "viz3-folie";
     el.dataset.folie = folie.id;
 
-    const titlu = document.createElement("span");
-    titlu.className = "viz3-folie-titlu";
-    titlu.textContent = folie.eticheta;
+    const bara = randeazaBaraTitluri(folie, index, total);
 
     const grila = document.createElement("div");
     grila.className = "viz3-grila";
@@ -974,7 +1035,7 @@
       grila.appendChild(areStarea ? randeazaCelula(celula) : randeazaFantoma(celula));
     });
 
-    el.append(titlu, grila);
+    el.append(bara, grila);
     return el;
   }
 
@@ -995,7 +1056,11 @@
     // întreagă, fiindcă un fact are exact o stare.
     const stiva = document.createElement("div");
     stiva.className = "viz3-folii";
-    folii.forEach((folie) => stiva.appendChild(randeazaFolie(model, folie)));
+    folii.forEach((folie, i) =>
+      stiva.appendChild(randeazaFolie(model, folie, i, folii.length))
+    );
+    // Numarul de casete din bara vine din datele foliilor, nu din CSS.
+    document.documentElement.style.setProperty("--viz3-nr-folii", String(folii.length));
     container.appendChild(stiva);
     // Panza isi ia marimea din datele aranjamentelor, nu din CSS.
     const panza = panzaMax();

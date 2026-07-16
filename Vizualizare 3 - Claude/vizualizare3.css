@@ -24,13 +24,20 @@
      latime, dupa ordinea progresiei) si creste pana la fontul maxim de aici,
      daca are loc gol in dreapta. Daca ar calca peste titlul vecin, JS-ul il
      micsoreaza cat sa incapa in sfertul lui. */
-  --viz3-titlu-font-max: 40px;
+  --viz3-titlu-font-max: 56px;
   --viz3-titlu-spatiu: 4px;
+  /* Highlight-ul e translucid: barele foliilor se suprapun cand foliile se
+     suprapun, iar un fond opac ar ascunde titlurile de dedesubt. Aceeasi
+     culoare pentru toate foliile. */
+  --viz3-caseta-plina: rgba(240, 160, 45, 0.28);
+  --viz3-caseta-contur: #b9bfc9;
+  --viz3-caseta-gap: 7px;
+  --viz3-caseta-rotunjire: 9px;
   /* Cu casute fixe: se incearca un rand, apoi doua, apoi trei, pana fontul
      trece pragul. Fontul e apoi acelasi pentru toate titlurile si nu se mai
      schimba, fiindca latimea casutei (un sfert de folie) nu se schimba nici ea.
      Pragul e in px de asezare, ca `--viz3-titlu-font-max`. */
-  --viz3-titlu-prag: 30px;
+  --viz3-titlu-prag: 28px;
   --viz3-titlu-randuri-max: 3;
 }
 
@@ -195,40 +202,70 @@ body {
   transition: transform var(--viz3-durata);
 }
 
-.viz3-folie:nth-child(1) { --i: 0; }
-.viz3-folie:nth-child(2) { --i: 1; }
-.viz3-folie:nth-child(3) { --i: 2; }
-.viz3-folie:nth-child(4) { --i: 3; }
 
 /* Titlul foliei. Sta in interiorul foliei, deci se scaleaza odata cu ea. */
 /* Offsetul e permanent: doua folii pot ajunge in acelasi loc (grupare), iar
    la left:0 titlurile lor s-ar calca exact. Asa devine si reper: recunosti
    folia dupa pozitia titlului. */
-/* Ancorat de JOS: titlurile cresc in sus, deci unul de un rand si unul de
+/* Bara de titluri: cate o caseta pentru fiecare folie, in ordinea progresiei.
+   Ancorata de JOS, deci titlurile cresc in sus si unul de un rand si unul de
    doua se termina pe aceeasi linie de baza, chiar deasupra foliei. */
-.viz3-folie-titlu {
+.viz3-bara-titluri {
   position: absolute;
   bottom: 100%;
+  left: 0;
+  width: 100%;
   margin-bottom: 6px;
-  left: calc(var(--i) * 25%);
+  display: grid;
+  /* `minmax(0, 1fr)`, nu `1fr`: `1fr` inseamna `minmax(auto, 1fr)`, iar `auto`
+     nu lasa coloana sa scada sub continutul ei. Un titlu lung si-ar lati
+     singur caseta, iar apoi ar "incapea" in ea. */
+  grid-template-columns: repeat(var(--viz3-nr-folii, 4), minmax(0, 1fr));
+  gap: var(--viz3-caseta-gap);
+}
+
+/* Caseta pastreaza locul chiar si goala, deci bara arata ca sirul de
+   patratele din celule: vezi ce etape a parcurs folia si cate mai are. */
+.viz3-caseta {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 3px 5px;
+  border: 2px solid transparent;
+  border-radius: var(--viz3-caseta-rotunjire);
+  transition: background var(--viz3-durata), border-color var(--viz3-durata);
+}
+
+.viz3-folii[data-titluri-incadrate="1"] .viz3-caseta {
+  border-color: var(--viz3-caseta-contur);
+}
+
+.viz3-folie-titlu {
+  width: 100%;
   font-size: var(--viz3-titlu-font-max);
   font-weight: 600;
   line-height: 1.15;
   color: var(--viz3-text-slab);
   white-space: nowrap;
-  transition: left var(--viz3-durata), font-size var(--viz3-durata);
+  text-align: left;
+  transition: font-size var(--viz3-durata);
 }
 
 /* Casute fixe: fiecare titlu sta in sfertul lui, se rupe la cuvinte si are
    MEREU aceeasi marime. Nu se mai adapteaza dupa cine e langa cine, deci nu
    mai zvacneste cand foliile se plimba sau se suprapun. `balance` egaleaza
    randurile, ca sa nu ramana un cuvant singur pe al doilea. */
+/* Fara `overflow-wrap: break-word`: ar rupe prin mijlocul cuvantului bucatile
+   legate cu spatii ne-despartitoare. Le lasam intregi; fontul scade cat sa incapa. */
 .viz3-folii[data-titluri-2-randuri="1"] .viz3-folie-titlu {
   white-space: normal;
   text-wrap: balance;
-  overflow-wrap: break-word;
-  width: 25%;
   font-size: var(--viz3-titlu-font-calculat, var(--viz3-titlu-font-max));
+}
+
+/* Colorate pana la titlul foliei inclusiv, aceeasi culoare pentru toate. */
+.viz3-folii[data-casete-colorate="1"] .viz3-caseta--plina {
+  background: var(--viz3-caseta-plina);
 }
 
 /* Fontul titlului nu mai depinde de aranjament: il pune JS-ul, dupa cat loc
