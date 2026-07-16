@@ -139,7 +139,7 @@
             {
               id: "umple",
               eticheta: "Mărește să ocupe tot spațiul lateral",
-              activa: false,
+              activa: true,
               modificator: true,
             },
           ],
@@ -177,7 +177,7 @@
               min: 0,
               max: 5000,
               pas: 50,
-              implicit: 300,
+              implicit: 4000,
               unitate: "ms",
             },
             {
@@ -187,7 +187,7 @@
               min: 0,
               max: 60,
               pas: 1,
-              implicit: 0,
+              implicit: 3,
               unitate: "secunde",
               nota: "de la așezare; 0 = oprit",
             },

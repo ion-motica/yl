@@ -331,10 +331,12 @@
     });
 
     // Cand maximul se afla abia la randare, valoarea se pune acolo (vezi
-    // sincronizeazaDimensiune), nu aici.
+    // sincronizeazaDimensiune), nu aici. `laSchimbare` porneste si starea
+    // interna, altfel controlul ar arata o valoare iar codul ar folosi alta.
     if (reglaj.implicit !== undefined && reglaj.max !== null) {
       slider.value = String(reglaj.implicit);
       arata();
+      laSchimbare(reglaj.implicit);
     }
     rand.append(cap, slider);
     return { rand, slider, arata };
@@ -358,6 +360,7 @@
     camp.max = String(reglaj.max);
     camp.step = String(reglaj.pas);
     camp.value = String(reglaj.implicit ?? reglaj.min);
+    laSchimbare(Number(camp.value));
     const plus = document.createElement("button");
     plus.type = "button";
     plus.textContent = "+";
