@@ -69,6 +69,72 @@
     });
   }
 
+  // Un nume fix ar parea logic, dar Firefox nu suprascrie descarcarile: adauga
+  // "(1)", "(2)"... la fiecare export nou, deci fisierele se aduna oricum. Mai
+  // bine data+ora in nume: fiecare export ramane distinct si se intelege cand
+  // a fost facut, nu doar al catelea e.
+  function numeFisierExport() {
+    const acum = new Date();
+    const doiDigiti = (n) => String(n).padStart(2, "0");
+    const ziua = [acum.getFullYear(), doiDigiti(acum.getMonth() + 1), doiDigiti(acum.getDate())].join("-");
+    const ora = [doiDigiti(acum.getHours()), doiDigiti(acum.getMinutes())].join("-");
+    return `youlearn-salvare-log-activitate-${ziua}-${ora}.json`;
+  }
+
+  // Buton care descarca jurnalul brut (asa cum sta in IndexedDB) ca JSON, ca
+  // sa poata fi verificat in afara browserului, fara copy-paste din consola.
+  function butonDescarcaJurnal() {
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.textContent = "Export log JSON in Downloads";
+    buton.addEventListener("click", async () => {
+      const inregistrari = await citesteJurnalul();
+      const json = JSON.stringify(inregistrari, null, 2);
+      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = numeFisierExport();
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+    return buton;
+  }
+
+  // Buton care incarca inapoi un export facut cu butonul de mai sus, ca si
+  // cum ar veni din IndexedDB. Browserul nu lasa o pagina sa citeasca singura
+  // folderul Downloads (ar fi o gaura de securitate: orice site ar putea vedea
+  // ce ai descarcat) — alegerea fisierului ramane a userului. Dialogul nativ
+  // porneste de obicei chiar din Downloads, deci exportul cel mai recent e
+  // primul vizibil daca sortezi dupa data.
+  function butonImportaJurnal() {
+    const fragment = document.createDocumentFragment();
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.hidden = true;
+    input.addEventListener("change", async () => {
+      const fisier = input.files?.[0];
+      input.value = "";
+      if (!fisier) return;
+      try {
+        const inregistrari = JSON.parse(await fisier.text());
+        if (!Array.isArray(inregistrari)) {
+          throw new Error("fisierul nu contine o listă de apăsări");
+        }
+        salveazaImport(fisier.name, inregistrari);
+        randeazaImportSalvat();
+      } catch (eroare) {
+        global.alert?.(`„${fisier.name}" nu poate fi citit ca jurnal: ${eroare.message}`);
+      }
+    });
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.textContent = "Import log JSON din Downloads";
+    buton.addEventListener("click", () => input.click());
+    fragment.append(buton, input);
+    return fragment;
+  }
+
   // ---- configurația prototipului (o singură opțiune activă / axă) -------
 
   const CONFIGURATIE = {
@@ -1170,6 +1236,8 @@
     const sursa = document.createElement("span");
     sursa.className = "viz3-sursa";
     sursa.textContent = info;
+    sursa.appendChild(butonDescarcaJurnal());
+    sursa.appendChild(butonImportaJurnal());
     antet.append(titlu, sursa);
     container.appendChild(antet);
 
@@ -1223,6 +1291,43 @@
   // Sursa aleasa acum: la schimbarea domeniului rerandam din aceeasi sursa.
   let sursaFixture = false;
 
+  // Fisierul importat tine minte peste refresh (localStorage), ca sa nu-l
+  // pierzi la un F5 din greseala. `null` = nu e niciun import activ; userul
+  // a revenit explicit la sursa live sau n-a importat inca nimic.
+  const CHEIE_IMPORT_SALVAT = "viz3_import_jurnal_salvat";
+
+  function citesteImportSalvat() {
+    try {
+      const brut = global.localStorage?.getItem(CHEIE_IMPORT_SALVAT);
+      if (!brut) return null;
+      const parsat = JSON.parse(brut);
+      if (!parsat || !Array.isArray(parsat.inregistrari)) return null;
+      return parsat;
+    } catch {
+      return null;
+    }
+  }
+
+  let importSalvat = citesteImportSalvat();
+
+  function salveazaImport(nume, inregistrari) {
+    importSalvat = { nume, inregistrari };
+    try {
+      global.localStorage?.setItem(CHEIE_IMPORT_SALVAT, JSON.stringify(importSalvat));
+    } catch {
+      // Storage plin sau indisponibil: importul tot merge pentru sesiunea curenta.
+    }
+  }
+
+  function stergeImportSalvat() {
+    importSalvat = null;
+    try {
+      global.localStorage?.removeItem(CHEIE_IMPORT_SALVAT);
+    } catch {
+      // Nimic de facut daca localStorage nu e disponibil.
+    }
+  }
+
   function analizeazaSiRandeaza(inregistrari, info) {
     const model = motor.ruleazaAnaliza({
       inregistrari,
@@ -1233,11 +1338,39 @@
     randeazaVizualizarea(vizEl, model, info);
   }
 
+  // Randeaza importul retinut si ofera o iesire explicita din el, catre
+  // fluxul normal (real sau fixture, dupa cum decide `porneste`).
+  function randeazaImportSalvat() {
+    analizeazaSiRandeaza(
+      importSalvat.inregistrari,
+      `Sursă: fișier importat „${importSalvat.nume}" (${importSalvat.inregistrari.length} apăsări).`
+    );
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.textContent = "Folosește jurnalul real";
+    buton.addEventListener("click", () => {
+      stergeImportSalvat();
+      porneste({ forteazaFixture: false });
+    });
+    vizEl.querySelector(".viz3-sursa")?.appendChild(buton);
+  }
+
+  // Ce arata acum: importul retinut, daca exista, altfel sursa live (real sau
+  // fixture). Folosita si la pornire, si la schimbarea domeniului — un import
+  // activ ramane activ, doar catalogul din spate se schimba.
+  function reseteazaVizualizarea() {
+    if (importSalvat) {
+      randeazaImportSalvat();
+    } else {
+      porneste({ forteazaFixture: sursaFixture });
+    }
+  }
+
   // Un domeniu nou = alt catalog, acelasi flux. Datele nu se recitesc altfel;
   // se schimba doar intervalul pe care il asezam.
   function schimbaDomeniu(interval) {
     catalog = global.construiesteCatalogInmultire(interval);
-    porneste({ forteazaFixture: sursaFixture });
+    reseteazaVizualizarea();
   }
 
   // Butonul oferă mereu sursa PE CARE NU o vezi acum.
@@ -1267,5 +1400,5 @@
   }
 
   randeazaControlPanel(cpEl, axe);
-  porneste({ forteazaFixture: false });
+  reseteazaVizualizarea();
 })(typeof globalThis !== "undefined" ? globalThis : this);
