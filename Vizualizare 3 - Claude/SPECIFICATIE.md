@@ -207,3 +207,10 @@ Fiecare etapă se închide cu (a) un test automat pe care îl rulezi tu și (b) 
 - Praguri numerice exacte pentru stare și pentru filtru standard v1 (propuse provizoriu în secțiunile 5–6; le calibrăm pe date reale).
 - Metoda de interval de încredere, când ajungem la afișarea incertitudinii.
 - Denumirea axei „același rol al necunoscutei" (propus în loc de „NVC").
+## 12. Preseturi (P din MABP)
+
+**Orice zonă nouă de preseturi respectă `CONTRACT-PRESETURI.md`** — șablonul
+reutilizabil: zone cu controale `data-preset`, capturare automată (fără liste
+scrise de mână), sămânță în fișier + copie de lucru în sertar, salvare cu nume
+(popup la duplicat), Delete, Make default auto-aplicat. Nu se inventează alt
+mecanism per modul. Nivel ales de user: **2 — Portabil** (17.07.2026).
