@@ -1361,6 +1361,25 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* Nu e un capitol de defilat, ci o pagina separata: statica (nu vine din
+   CpRegistry), deci ramane vizibila indiferent de quiz-ul selectat. */
+.cp-viz3-link {
+  flex-shrink: 0;
+  display: block;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #2a3548;
+  background: rgba(61, 156, 245, 0.1);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cp-viz3-link:hover {
+  background: rgba(61, 156, 245, 0.2);
+}
+
 .cp-section.is-disabled {
   opacity: 0.45;
   pointer-events: none;
