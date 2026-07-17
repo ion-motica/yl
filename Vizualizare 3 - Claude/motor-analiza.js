@@ -27,7 +27,11 @@
       eq_form: camp(bruta?.eq_form),
       intrebare: camp(bruta?.intrebare),
       raspuns: camp(bruta?.raspuns),
-      raspuns_corect: normalizeazaBoolean(bruta?.raspuns_corect),
+      // Numele real, folosit de tot restul aplicatiei, e `a_raspuns_corect`
+      // (vezi js/jurnal-intrebari.js); `raspuns_corect` e doar aliasul pe care
+      // il foloseste fixture-ul demonstrativ de aici. Acelasi ordine de
+      // preferinta ca in `Vizualizare si interpretare logs/mabp-analiza.js`.
+      raspuns_corect: normalizeazaBoolean(bruta?.a_raspuns_corect ?? bruta?.raspuns_corect),
       a_cata_apasare_pe_buton: normalizeazaNumarApasare(bruta?.a_cata_apasare_pe_buton),
       durata_raspuns_secunde: normalizeazaDurata(bruta?.durata_raspuns_secunde),
     };
