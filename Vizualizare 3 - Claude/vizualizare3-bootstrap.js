@@ -303,6 +303,10 @@
       t.style.transition = "none";
       t.style.whiteSpace = "normal";
     });
+    // Stergem rezultatul masuratorii dinainte: el e `min-height` pe casete, deci
+    // am masura propriul nostru rezultat si inaltimea n-ar mai putea scadea
+    // niciodata (ex. la un titlu mai scurt sau la un font mai mare).
+    document.documentElement.style.removeProperty("--viz3-titlu-inaltime-calculata");
 
     let ales = fontMax;
     for (let randuri = 1; randuri <= randuriMax; randuri += 1) {
@@ -332,6 +336,25 @@
     });
     document.documentElement.style.setProperty("--viz3-titlu-font-calculat", `${ales}px`);
     document.documentElement.style.setProperty("--viz3-titlu-inaltime-calculata", `${inaltimeMaxima}px`);
+  }
+
+  // Inaltimea barei de titluri, publicata pentru CSS. Din ea ies si spatiul de
+  // deasupra tablei, si distanta pe verticala dintre folii — bara unei folii
+  // sta deasupra ei, deci fara asta ar cadea peste folia de pe randul de sus.
+  // Cu titluri pe 2 randuri, `calculeazaFontulTitlurilor` o afla oricum, ca
+  // parte din egalizare; aici acoperim cazul in care bifa e stinsa.
+  function masoaraTitlurile(foliiEl) {
+    if (titluriPe2Randuri) {
+      calculeazaFontulTitlurilor(foliiEl);
+      return;
+    }
+    document.documentElement.style.removeProperty("--viz3-titlu-inaltime-calculata");
+    const bare = foliiEl
+      .map((el) => el.querySelector(".viz3-bara-titluri"))
+      .filter(Boolean);
+    if (!bare.length) return;
+    const inalt = Math.max(...bare.map((b) => b.offsetHeight));
+    document.documentElement.style.setProperty("--viz3-titlu-inaltime-calculata", `${inalt}px`);
   }
 
   // Fiecare titlu porneste de la offsetul lui fix (un sfert de latime, in
@@ -811,8 +834,11 @@
     bifaTitluri.addEventListener("change", () => {
       titluriPe2Randuri = bifaTitluri.checked;
       const stiva = document.querySelector(".viz3-folii");
-      if (stiva && titluriPe2Randuri) {
-        calculeazaFontulTitlurilor([...stiva.querySelectorAll(".viz3-folie")]);
+      // Se remasoara in ambele moduri: si pe un rand bara are o inaltime, din
+      // care ies distantele dintre folii.
+      if (stiva) {
+        aplicaCompozitie();
+        masoaraTitlurile([...stiva.querySelectorAll(".viz3-folie")]);
       }
       aplicaAranjament();
     });
@@ -1172,9 +1198,7 @@
     // masuratorile ies gresite. `setTimeout`, nu `requestAnimationFrame`:
     // rAF nu se executa deloc cat timp pagina sta intr-un tab nefocalizat.
     setTimeout(() => {
-      if (titluriPe2Randuri) {
-        calculeazaFontulTitlurilor([...stiva.querySelectorAll(".viz3-folie")]);
-      }
+      masoaraTitlurile([...stiva.querySelectorAll(".viz3-folie")]);
     }, 0);
   }
 

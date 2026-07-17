@@ -29,6 +29,22 @@
   --viz3-folie-w: calc(var(--viz3-grila-w) * var(--viz3-folie-scara));
   --viz3-folie-h: calc(var(--viz3-grila-h) * var(--viz3-folie-scara));
   --viz3-folie-gap: 16px;
+  /* Inaltimea reala a barei de titluri, masurata de JS dupa randare. Valoarea
+     de aici e doar rezerva, pana la prima masuratoare. */
+  --viz3-titlu-inaltime-calculata: 80px;
+  /* Spatiul dintre bara de titluri si grila foliei. */
+  --viz3-titlu-gap: 6px;
+  /* Cat loc cere bara deasupra foliei, in coordonatele foliei (nescalate). */
+  --viz3-titlu-spatiu-total: calc(
+    var(--viz3-titlu-inaltime-calculata) + var(--viz3-titlu-gap)
+  );
+  /* Pe VERTICALA foliile au nevoie de mai mult spatiu decat pe orizontala:
+     bara de titluri a unei folii sta deasupra ei, deci ar cadea peste folia de
+     pe randul de sus. Bara e in interiorul foliei, deci se scaleaza cu ea.
+     Pe orizontala nu e nevoie: fiecare bara e lata exact cat folia ei. */
+  --viz3-folie-gap-v: calc(
+    var(--viz3-folie-gap) + var(--viz3-titlu-spatiu-total) * var(--viz3-folie-scara)
+  );
   --viz3-durata: 300ms;
 
   /* Titlurile foliilor. Fiecare porneste de la un offset fix (un sfert de
@@ -188,12 +204,11 @@ body {
   );
   height: calc(
     var(--viz3-panza-randuri, 1) * var(--viz3-folie-h) +
-      (var(--viz3-panza-randuri, 1) - 1) * var(--viz3-folie-gap)
+      (var(--viz3-panza-randuri, 1) - 1) * var(--viz3-folie-gap-v)
   );
-  /* Loc pentru titluri: ele stau deasupra foliei si se scaleaza odata cu ea,
-     deci spatiul necesar scade cu folia. Minimul tine titlul mic lizibil. */
-  /* Loc pentru titluri de pana la doua randuri. */
-  margin-top: max(20px, calc(2.9 * var(--viz3-titlu-font-max) * var(--viz3-folie-scara)));
+  /* Loc pentru titluri: exact cat masoara bara, scalata odata cu folia. Nu o
+     estimare din font: titlurile pot ajunge pe 1, 2 sau 3 randuri. */
+  margin-top: max(20px, calc(var(--viz3-titlu-spatiu-total) * var(--viz3-folie-scara)));
   transition: width var(--viz3-durata), height var(--viz3-durata);
 }
 
@@ -207,7 +222,7 @@ body {
   transform-origin: top left;
   transform: translate(
       calc(var(--col, 0) * (var(--viz3-folie-w) + var(--viz3-folie-gap))),
-      calc(var(--rnd, 0) * (var(--viz3-folie-h) + var(--viz3-folie-gap)))
+      calc(var(--rnd, 0) * (var(--viz3-folie-h) + var(--viz3-folie-gap-v)))
     )
     scale(var(--viz3-folie-scara));
   transition: transform var(--viz3-durata);
@@ -226,7 +241,7 @@ body {
   bottom: 100%;
   left: 0;
   width: 100%;
-  margin-bottom: 6px;
+  margin-bottom: var(--viz3-titlu-gap);
   display: grid;
   /* `minmax(0, 1fr)`, nu `1fr`: `1fr` inseamna `minmax(auto, 1fr)`, iar `auto`
      nu lasa coloana sa scada sub continutul ei. Un titlu lung si-ar lati
