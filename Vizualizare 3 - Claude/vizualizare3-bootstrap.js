@@ -122,7 +122,10 @@
           throw new Error("fisierul nu contine o listă de apăsări");
         }
         salveazaImport(fisier.name, inregistrari);
-        randeazaImportSalvat();
+        // Cine tocmai a importat vrea sa vada ce a importat.
+        sursaActiva = "import";
+        salveazaSursaActiva();
+        reseteazaVizualizarea();
       } catch (eroare) {
         global.alert?.(`„${fisier.name}" nu poate fi citit ca jurnal: ${eroare.message}`);
       }
@@ -1064,6 +1067,59 @@
     );
   }
 
+  // Campurile intervalului custom: patru numere, „a-b × c-d". CP-ul valideaza
+  // aici (limitele din definitie; capetele inversate se schimba intre ele) si
+  // trimite motorului doar intervale corecte. Campurile se rescriu cu valorile
+  // corectate, ca sa se vada exact ce s-a aplicat. O schimbare de camp conteaza
+  // doar cand optiunea e bifata; altfel valorile asteapta bifarea.
+  function construiesteCampuriInterval(opt, radio, intervalInitial) {
+    const element = document.createElement("div");
+    element.className = "viz3-interval-campuri";
+    const campuri = {};
+
+    function valoare(cheie) {
+      const n = Math.round(Number(campuri[cheie].value));
+      if (!Number.isFinite(n)) return intervalInitial[cheie];
+      return Math.min(opt.limite.max, Math.max(opt.limite.min, n));
+    }
+
+    function interval() {
+      const [aMin, aMax] = [valoare("aMin"), valoare("aMax")].sort((x, y) => x - y);
+      const [bMin, bMax] = [valoare("bMin"), valoare("bMax")].sort((x, y) => x - y);
+      const corectat = { aMin, aMax, bMin, bMax };
+      Object.keys(campuri).forEach((cheie) => {
+        campuri[cheie].value = String(corectat[cheie]);
+      });
+      return corectat;
+    }
+
+    [
+      { cheie: "aMin", separator: null },
+      { cheie: "aMax", separator: "-" },
+      { cheie: "bMin", separator: "×" },
+      { cheie: "bMax", separator: "-" },
+    ].forEach(({ cheie, separator }) => {
+      if (separator) {
+        const sep = document.createElement("span");
+        sep.textContent = separator;
+        element.appendChild(sep);
+      }
+      const camp = document.createElement("input");
+      camp.type = "number";
+      camp.min = String(opt.limite.min);
+      camp.max = String(opt.limite.max);
+      camp.step = "1";
+      camp.value = String(intervalInitial[cheie]);
+      camp.addEventListener("change", () => {
+        if (radio.checked) schimbaDomeniu(opt.id, interval());
+      });
+      campuri[cheie] = camp;
+      element.appendChild(camp);
+    });
+
+    return { element, interval };
+  }
+
   function randeazaControlPanel(container, definitii) {
     const titlu = document.createElement("h1");
     titlu.textContent = "Vizualizare 3 - Claude";
@@ -1103,14 +1159,24 @@
           const input = document.createElement("input");
           input.type = axa.tip_selectie === "multipla" ? "checkbox" : "radio";
           input.name = `${etapa.etapa}-${axa.id}`;
-          input.checked = opt.activa === true;
+          // Doar axa Domeniu tine minte alegerea; restul pornesc din definitii.
+          const bifatDinSalvare = axa === axaDomeniu && optiuneSalvata;
+          input.checked = bifatDinSalvare ? opt.id === optiuneSalvata.id : opt.activa === true;
           input.disabled = opt.dezactivata === true;
 
           // O optiune care isi declara intervalul schimba domeniul. CP-ul ii da
           // feature-ului datele explicit; feature-ul nu cauta singur ce e bifat.
+          const campuriInterval = opt.interval_editabil
+            ? construiesteCampuriInterval(
+                opt,
+                input,
+                opt.id === optiuneSalvata?.id ? domeniuSalvat.interval : opt.interval
+              )
+            : null;
           if (opt.interval) {
             input.addEventListener("change", () => {
-              if (input.checked) schimbaDomeniu(opt.interval);
+              if (!input.checked) return;
+              schimbaDomeniu(opt.id, campuriInterval ? campuriInterval.interval() : opt.interval);
             });
           }
 
@@ -1127,6 +1193,7 @@
           const rand = optiune(opt.eticheta, elemente);
           if (opt.dezactivata) rand.classList.add("viz3-dezactivata");
           grup.appendChild(rand);
+          if (campuriInterval) grup.appendChild(campuriInterval.element);
         });
 
         sectiune.appendChild(grup);
@@ -1226,18 +1293,50 @@
     return el;
   }
 
+  function randSursa(elemente) {
+    const rand = document.createElement("div");
+    rand.className = "viz3-sursa-rand";
+    rand.append(...elemente);
+    return rand;
+  }
+
+  // Alegerea sursei NU sterge nimic: importul salvat ramane pe loc, oricat ai
+  // comuta. De-aia butonul lui e mereu acolo, doar dezactivat cat n-ai importat.
+  function butonAlegeSursa(id, eticheta) {
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.textContent = eticheta;
+    buton.disabled = id === "import" && !importSalvat;
+    // Evidentiem ce se vede acum, nu ce s-a cerut: fara import si fara jurnal
+    // real, „import" cade oricum pe dummy, si butonul n-are voie sa minta.
+    if (id === sursaAfisata) buton.classList.add("viz3-sursa-aleasa");
+    buton.addEventListener("click", () => {
+      sursaActiva = id;
+      salveazaSursaActiva();
+      reseteazaVizualizarea();
+    });
+    return buton;
+  }
+
   function randeazaVizualizarea(container, model, info) {
     container.replaceChildren();
 
     const antet = document.createElement("div");
     antet.className = "viz3-viz-antet";
     const titlu = document.createElement("h1");
-    titlu.textContent = "Starea curentă — tabla înmulțirii 1-10";
-    const sursa = document.createElement("span");
+    // Titlul urmeaza domeniul ales: catalogul curent isi stie intervalul.
+    titlu.textContent = `Starea curentă — tabla înmulțirii ${catalog.eticheta}`;
+    // Trei randuri: ce vezi acum / ce poti alege / import-export.
+    const sursa = document.createElement("div");
     sursa.className = "viz3-sursa";
-    sursa.textContent = info;
-    sursa.appendChild(butonDescarcaJurnal());
-    sursa.appendChild(butonImportaJurnal());
+    sursa.append(
+      randSursa([info]),
+      randSursa([
+        butonAlegeSursa("import", "Alege log importat"),
+        butonAlegeSursa("fixture", "Alege dummy log pe 8 săptămâni"),
+      ]),
+      randSursa([butonDescarcaJurnal(), butonImportaJurnal()])
+    );
     antet.append(titlu, sursa);
     container.appendChild(antet);
 
@@ -1283,13 +1382,76 @@
   const cpEl = document.getElementById("viz3-cp");
   const vizEl = document.getElementById("viz3-viz");
 
+  // Domeniul ales tine minte peste refresh, ca importul. Altfel fiecare Ctrl+R
+  // te intoarce la tabla implicita, iar datele de pe alt interval par disparute
+  // (grila iese goala desi jurnalul e acolo).
+  const CHEIE_DOMENIU_SALVAT = "viz3_domeniu_salvat";
+
+  function esteIntervalValid(interval) {
+    return ["aMin", "aMax", "bMin", "bMax"].every((cheie) =>
+      Number.isInteger(interval?.[cheie])
+    );
+  }
+
+  function citesteDomeniuSalvat() {
+    try {
+      const brut = global.localStorage?.getItem(CHEIE_DOMENIU_SALVAT);
+      if (!brut) return null;
+      const parsat = JSON.parse(brut);
+      if (!esteIntervalValid(parsat?.interval)) return null;
+      return parsat;
+    } catch {
+      return null;
+    }
+  }
+
+  function salveazaDomeniu(optiuneId, interval) {
+    try {
+      global.localStorage?.setItem(
+        CHEIE_DOMENIU_SALVAT,
+        JSON.stringify({ optiune_id: optiuneId, interval })
+      );
+    } catch {
+      // Storage plin sau indisponibil: domeniul tine doar sesiunea curenta.
+    }
+  }
+
   // Domeniul curent = intervalul optiunii bifate. Il luam din definitii, ca sa
-  // nu duplicam aici valoarea implicita.
+  // nu duplicam aici valoarea implicita. Cel salvat are prioritate, dar numai
+  // daca optiunea lui inca exista si e activa — definitiile se pot schimba.
   const axaDomeniu = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "domeniu");
-  const intervalImplicit = axaDomeniu?.optiuni.find((o) => o.activa)?.interval;
-  let catalog = global.construiesteCatalogInmultire(intervalImplicit);
-  // Sursa aleasa acum: la schimbarea domeniului rerandam din aceeasi sursa.
-  let sursaFixture = false;
+  const domeniuSalvat = citesteDomeniuSalvat();
+  const optiuneSalvata = axaDomeniu?.optiuni.find(
+    (o) => o.id === domeniuSalvat?.optiune_id && !o.dezactivata
+  );
+  const intervalPornire = optiuneSalvata
+    ? domeniuSalvat.interval
+    : axaDomeniu?.optiuni.find((o) => o.activa)?.interval;
+  let catalog = global.construiesteCatalogInmultire(intervalPornire);
+
+  // Sursa aleasa tine minte peste refresh, ca domeniul. „import" inseamna
+  // datele tale (fisierul importat, sau jurnalul real daca n-ai importat).
+  const CHEIE_SURSA_ACTIVA = "viz3_sursa_activa";
+  const SURSE = ["import", "fixture"];
+
+  function salveazaSursaActiva() {
+    try {
+      global.localStorage?.setItem(CHEIE_SURSA_ACTIVA, sursaActiva);
+    } catch {
+      // Storage indisponibil: alegerea tine doar sesiunea curenta.
+    }
+  }
+
+  let sursaActiva = "import";
+  try {
+    const salvata = global.localStorage?.getItem(CHEIE_SURSA_ACTIVA);
+    if (SURSE.includes(salvata)) sursaActiva = salvata;
+  } catch {
+    // Ramane implicitul.
+  }
+  // Ce s-a afisat efectiv (poate diferi de ce s-a cerut: „import" fara niciun
+  // import cade pe dummy). Butoanele se evidentiaza dupa asta.
+  let sursaAfisata = sursaActiva;
 
   // Fisierul importat tine minte peste refresh (localStorage), ca sa nu-l
   // pierzi la un F5 din greseala. `null` = nu e niciun import activ; userul
@@ -1319,15 +1481,6 @@
     }
   }
 
-  function stergeImportSalvat() {
-    importSalvat = null;
-    try {
-      global.localStorage?.removeItem(CHEIE_IMPORT_SALVAT);
-    } catch {
-      // Nimic de facut daca localStorage nu e disponibil.
-    }
-  }
-
   function analizeazaSiRandeaza(inregistrari, info) {
     const model = motor.ruleazaAnaliza({
       inregistrari,
@@ -1338,65 +1491,39 @@
     randeazaVizualizarea(vizEl, model, info);
   }
 
-  // Randeaza importul retinut si ofera o iesire explicita din el, catre
-  // fluxul normal (real sau fixture, dupa cum decide `porneste`).
-  function randeazaImportSalvat() {
-    analizeazaSiRandeaza(
-      importSalvat.inregistrari,
-      `Sursă: fișier importat „${importSalvat.nume}" (${importSalvat.inregistrari.length} apăsări).`
-    );
-    const buton = document.createElement("button");
-    buton.type = "button";
-    buton.textContent = "Folosește jurnalul real";
-    buton.addEventListener("click", () => {
-      stergeImportSalvat();
-      porneste({ forteazaFixture: false });
-    });
-    vizEl.querySelector(".viz3-sursa")?.appendChild(buton);
-  }
-
-  // Ce arata acum: importul retinut, daca exista, altfel sursa live (real sau
-  // fixture). Folosita si la pornire, si la schimbarea domeniului — un import
-  // activ ramane activ, doar catalogul din spate se schimba.
-  function reseteazaVizualizarea() {
-    if (importSalvat) {
-      randeazaImportSalvat();
-    } else {
-      porneste({ forteazaFixture: sursaFixture });
+  // Ce se afiseaza, de sus in jos. Folosita si la pornire, si la schimbarea
+  // sursei, si la schimbarea domeniului — nimic nu se sterge pe drum.
+  async function reseteazaVizualizarea() {
+    if (sursaActiva === "fixture") {
+      sursaAfisata = "fixture";
+      analizeazaSiRandeaza(fixture.construiesteFixture(), "Sursă: dummy log pe 8 săptămâni.");
+      return;
     }
+    if (importSalvat) {
+      sursaAfisata = "import";
+      const cate = importSalvat.inregistrari.length;
+      analizeazaSiRandeaza(importSalvat.inregistrari, `Sursă: „${importSalvat.nume}" (${cate} apăsări).`);
+      return;
+    }
+    const reale = await citesteJurnalul();
+    if (reale.length > 0) {
+      sursaAfisata = "import";
+      analizeazaSiRandeaza(reale, `Sursă: jurnal real (${reale.length} apăsări).`);
+      return;
+    }
+    sursaAfisata = "fixture";
+    analizeazaSiRandeaza(
+      fixture.construiesteFixture(),
+      "Sursă: dummy log pe 8 săptămâni (jurnal real gol, niciun log importat)."
+    );
   }
 
   // Un domeniu nou = alt catalog, acelasi flux. Datele nu se recitesc altfel;
   // se schimba doar intervalul pe care il asezam.
-  function schimbaDomeniu(interval) {
+  function schimbaDomeniu(optiuneId, interval) {
     catalog = global.construiesteCatalogInmultire(interval);
+    salveazaDomeniu(optiuneId, interval);
     reseteazaVizualizarea();
-  }
-
-  // Butonul oferă mereu sursa PE CARE NU o vezi acum.
-  function comutaSursa(container, aratamFixture) {
-    const buton = document.createElement("button");
-    buton.type = "button";
-    buton.textContent = aratamFixture
-      ? "Folosește jurnalul real"
-      : "Folosește fixture demonstrativ";
-    buton.addEventListener("click", () => porneste({ forteazaFixture: !aratamFixture }));
-    container.querySelector(".viz3-sursa")?.appendChild(buton);
-  }
-
-  async function porneste({ forteazaFixture }) {
-    const reale = forteazaFixture ? [] : await citesteJurnalul();
-    if (!forteazaFixture && reale.length > 0) {
-      sursaFixture = false;
-      analizeazaSiRandeaza(reale, `Sursă: jurnal real (${reale.length} apăsări).`);
-      comutaSursa(vizEl, false);
-    } else {
-      sursaFixture = true;
-      const dummy = fixture.construiesteFixture();
-      const motiv = forteazaFixture ? "" : " (jurnal real gol)";
-      analizeazaSiRandeaza(dummy, `Sursă: fixture demonstrativ${motiv}.`);
-      comutaSursa(vizEl, true);
-    }
   }
 
   randeazaControlPanel(cpEl, axe);

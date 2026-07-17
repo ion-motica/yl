@@ -156,6 +156,25 @@ body {
   opacity: 0.8;
 }
 
+/* Campurile intervalului custom, sub optiunea lor, aliniate cu textul ei. */
+.viz3-interval-campuri {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 4px 19px;
+  font-size: 12px;
+  color: var(--viz3-text-slab);
+}
+
+.viz3-interval-campuri input[type="number"] {
+  width: 44px;
+  padding: 2px 3px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  text-align: center;
+  font-size: 12px;
+}
+
 /* --- Zona vizualizare --- */
 .viz3-viz-antet {
   display: flex;
@@ -170,16 +189,42 @@ body {
   margin: 0;
 }
 
+/* Trei randuri: ce vezi acum / ce poti alege / import-export. */
 .viz3-sursa {
   font-size: 12px;
   color: var(--viz3-text-slab);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.viz3-sursa-rand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .viz3-sursa button {
   font-size: 12px;
-  margin-left: 6px;
   padding: 2px 8px;
   cursor: pointer;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
+}
+
+.viz3-sursa button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Sursa pe care o vezi acum. */
+.viz3-sursa button.viz3-sursa-aleasa {
+  font-weight: 600;
+  border-color: var(--viz3-accent, #2a6);
+  box-shadow: inset 0 0 0 1px var(--viz3-accent, #2a6);
 }
 
 /* --- Grila 10x10 --- */

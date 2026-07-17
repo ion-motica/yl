@@ -39,6 +39,7 @@
       schema_version: 1,
       catalog_id: `tabla_inmultirii_${aMin}_${aMax}x${bMin}_${bMax}`,
       table_id: `mul:${aMin}-${aMax}x${bMin}-${bMax}`,
+      eticheta: `${aMin}-${aMax} × ${bMin}-${bMax}`,
       operatie: "mul",
       randuri: aMax - aMin + 1,
       coloane: bMax - bMin + 1,

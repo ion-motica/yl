@@ -12,14 +12,17 @@ function incarca(caleRelativa, numeGlobal) {
 
 function incarcaTot() {
   const motor = incarca("Vizualizare 3 - Claude/motor-analiza.js", "MotorAnalizaVizualizare3");
-  const catalog = incarca("Vizualizare 3 - Claude/catalog-tabla-inmultirii.js", "CatalogTablaInmultirii");
+  const construiesteCatalog = incarca(
+    "Vizualizare 3 - Claude/catalog-tabla-inmultirii.js",
+    "construiesteCatalogInmultire"
+  );
   const praguri = incarca("Vizualizare 3 - Claude/config-praguri.js", "ConfigPraguriVizualizare3");
-  return { motor, catalog, praguri };
+  return { motor, catalog: construiesteCatalog({ aMin: 1, aMax: 10, bMin: 1, bMax: 10 }), praguri };
 }
 
 afterEach(() => {
   delete globalThis.MotorAnalizaVizualizare3;
-  delete globalThis.CatalogTablaInmultirii;
+  delete globalThis.construiesteCatalogInmultire;
   delete globalThis.ConfigPraguriVizualizare3;
 });
 

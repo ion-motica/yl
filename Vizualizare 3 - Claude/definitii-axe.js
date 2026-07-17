@@ -40,8 +40,15 @@
               eticheta: "Tabla 11-20 × 1-20",
               interval: { aMin: 11, aMax: 20, bMin: 1, bMax: 20 },
             },
-            // Singurul care nu e un preset: cere 4 campuri numerice in CP.
-            { id: "custom", eticheta: "Interval custom a-b × c-d", dezactivata: true, motiv: VOR_URMA },
+            // Singurul care nu e un preset: 4 campuri numerice in CP, cu
+            // acelasi mecanism ca preseturile (un interval -> un catalog).
+            {
+              id: "custom",
+              eticheta: "Interval custom a-b × c-d",
+              interval: { aMin: 1, aMax: 10, bMin: 1, bMax: 10 },
+              interval_editabil: true,
+              limite: { min: 1, max: 100 },
+            },
           ],
         },
         {
