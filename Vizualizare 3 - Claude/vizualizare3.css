@@ -10,8 +10,19 @@
   --viz3-celula-w: 84px;
   --viz3-celula-h: 78px;
   --viz3-grila-gap: 6px;
-  --viz3-grila-w: calc(10 * var(--viz3-celula-w) + 9 * var(--viz3-grila-gap));
-  --viz3-grila-h: calc(10 * var(--viz3-celula-h) + 9 * var(--viz3-grila-gap));
+  /* Forma grilei vine din catalogul domeniului ales, nu de aici: un domeniu
+     11-20 × 1-20 are 10 randuri si 20 de coloane. Valorile de mai jos sunt
+     doar rezerva, pentru cazul in care JS-ul n-a apucat inca sa le puna. */
+  --viz3-coloane: 10;
+  --viz3-randuri: 10;
+  --viz3-grila-w: calc(
+    var(--viz3-coloane) * var(--viz3-celula-w) +
+      (var(--viz3-coloane) - 1) * var(--viz3-grila-gap)
+  );
+  --viz3-grila-h: calc(
+    var(--viz3-randuri) * var(--viz3-celula-h) +
+      (var(--viz3-randuri) - 1) * var(--viz3-grila-gap)
+  );
   /* Marimea foliilor, reglata din CP. 1 = tabla intreaga. Se aplica si
      suprapus, si desfacut: exista o singura dimensiune. */
   --viz3-folie-scara: 1;
@@ -158,7 +169,7 @@ body {
 /* --- Grila 10x10 --- */
 .viz3-grila {
   display: grid;
-  grid-template-columns: repeat(10, var(--viz3-celula-w));
+  grid-template-columns: repeat(var(--viz3-coloane), var(--viz3-celula-w));
   grid-auto-rows: var(--viz3-celula-h);
   gap: var(--viz3-grila-gap);
 }

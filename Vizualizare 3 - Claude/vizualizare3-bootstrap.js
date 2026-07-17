@@ -138,6 +138,13 @@
       dimensiuneFolie = Math.min(reglajDimensiune?.implicit ?? latime, latime);
       sliderDimensiune.slider.value = String(dimensiuneFolie);
     }
+    // Latimea tablei depinde de domeniu (1-10 e ingusta, 11-20 × 1-20 e de
+    // doua ori mai lata). La trecerea spre un domeniu mai ingust, o dimensiune
+    // ramasa de la unul lat ar face foliile mai mari decat tabla.
+    if (dimensiuneFolie > latime) {
+      dimensiuneFolie = latime;
+      sliderDimensiune.slider.value = String(dimensiuneFolie);
+    }
     sliderDimensiune.arata();
     aplicaDimensiune();
   }
@@ -1007,6 +1014,14 @@
           input.checked = opt.activa === true;
           input.disabled = opt.dezactivata === true;
 
+          // O optiune care isi declara intervalul schimba domeniul. CP-ul ii da
+          // feature-ului datele explicit; feature-ul nu cauta singur ce e bifat.
+          if (opt.interval) {
+            input.addEventListener("change", () => {
+              if (input.checked) schimbaDomeniu(opt.interval);
+            });
+          }
+
           const text = document.createElement("span");
           text.textContent = opt.eticheta;
 
@@ -1141,6 +1156,10 @@
     );
     // Numarul de casete din bara vine din datele foliilor, nu din CSS.
     document.documentElement.style.setProperty("--viz3-nr-folii", String(folii.length));
+    // Forma grilei vine din catalogul domeniului ales, nu din CSS: 1-10 × 1-10
+    // are 10 coloane, 11-20 × 1-20 are 20.
+    document.documentElement.style.setProperty("--viz3-coloane", String(model.coloane));
+    document.documentElement.style.setProperty("--viz3-randuri", String(model.randuri));
     container.appendChild(stiva);
     // Panza isi ia marimea din datele aranjamentelor, nu din CSS.
     const panza = panzaMax();
@@ -1162,7 +1181,6 @@
   // ---- flux principal ---------------------------------------------------
 
   const motor = global.MotorAnalizaVizualizare3;
-  const catalog = global.CatalogTablaInmultirii;
   const praguri = global.ConfigPraguriVizualizare3;
   const axe = global.DefinitiiAxeVizualizare3;
   const folii = global.DefinitiiFoliiVizualizare3;
@@ -1173,6 +1191,14 @@
   const cpEl = document.getElementById("viz3-cp");
   const vizEl = document.getElementById("viz3-viz");
 
+  // Domeniul curent = intervalul optiunii bifate. Il luam din definitii, ca sa
+  // nu duplicam aici valoarea implicita.
+  const axaDomeniu = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "domeniu");
+  const intervalImplicit = axaDomeniu?.optiuni.find((o) => o.activa)?.interval;
+  let catalog = global.construiesteCatalogInmultire(intervalImplicit);
+  // Sursa aleasa acum: la schimbarea domeniului rerandam din aceeasi sursa.
+  let sursaFixture = false;
+
   function analizeazaSiRandeaza(inregistrari, info) {
     const model = motor.ruleazaAnaliza({
       inregistrari,
@@ -1181,6 +1207,13 @@
       praguri,
     });
     randeazaVizualizarea(vizEl, model, info);
+  }
+
+  // Un domeniu nou = alt catalog, acelasi flux. Datele nu se recitesc altfel;
+  // se schimba doar intervalul pe care il asezam.
+  function schimbaDomeniu(interval) {
+    catalog = global.construiesteCatalogInmultire(interval);
+    porneste({ forteazaFixture: sursaFixture });
   }
 
   // Butonul oferă mereu sursa PE CARE NU o vezi acum.
@@ -1197,9 +1230,11 @@
   async function porneste({ forteazaFixture }) {
     const reale = forteazaFixture ? [] : await citesteJurnalul();
     if (!forteazaFixture && reale.length > 0) {
+      sursaFixture = false;
       analizeazaSiRandeaza(reale, `Sursă: jurnal real (${reale.length} apăsări).`);
       comutaSursa(vizEl, false);
     } else {
+      sursaFixture = true;
       const dummy = fixture.construiesteFixture();
       const motiv = forteazaFixture ? "" : " (jurnal real gol)";
       analizeazaSiRandeaza(dummy, `Sursă: fixture demonstrativ${motiv}.`);

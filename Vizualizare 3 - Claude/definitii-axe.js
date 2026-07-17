@@ -19,10 +19,28 @@
           id: "domeniu",
           eticheta: "Domeniu matematic",
           tip_selectie: "unica",
+          // Toate domeniile sunt acelasi lucru cu alte argumente: un interval
+          // a-b × c-d. De-aia fiecare optiune isi declara doar intervalul, iar
+          // catalogul se construieste din el (vezi catalog-tabla-inmultirii.js).
+          // A adauga un domeniu = a adauga o linie aici, fara cod nou.
           optiuni: [
-            { id: "tabla_1_10", eticheta: "Tabla 1-10 × 1-10 (agregat per fact)", activa: true },
-            { id: "subtabla", eticheta: "O subtablă (ex. 7×…)", dezactivata: true, motiv: VOR_URMA },
-            { id: "tabla_11_20", eticheta: "Tabla 11-20 × 1-20", dezactivata: true, motiv: VOR_URMA },
+            {
+              id: "tabla_1_10",
+              eticheta: "Tabla 1-10 × 1-10 (agregat per fact)",
+              activa: true,
+              interval: { aMin: 1, aMax: 10, bMin: 1, bMax: 10 },
+            },
+            {
+              id: "subtabla",
+              eticheta: "O subtablă (ex. 7×…)",
+              interval: { aMin: 7, aMax: 7, bMin: 1, bMax: 10 },
+            },
+            {
+              id: "tabla_11_20",
+              eticheta: "Tabla 11-20 × 1-20",
+              interval: { aMin: 11, aMax: 20, bMin: 1, bMax: 20 },
+            },
+            // Singurul care nu e un preset: cere 4 campuri numerice in CP.
             { id: "custom", eticheta: "Interval custom a-b × c-d", dezactivata: true, motiv: VOR_URMA },
           ],
         },
