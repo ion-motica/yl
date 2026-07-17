@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --viz3-fundal: #f4f5f7;
   --viz3-panou: #ffffff;
   --viz3-bordura: #d7dae0;
@@ -149,6 +149,50 @@ body {
 
 .viz3-optiune.viz3-dezactivata {
   color: var(--viz3-text-slab);
+}
+
+/* Subsecție distinctă în interiorul unei etape: un panou recesat, cu titlu.
+   Ține opțiunile reprezentării alese (deocamdată doar Grila). */
+.viz3-subsectiune {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 8px;
+  background: var(--viz3-fundal);
+}
+
+.viz3-subsectiune-titlu {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--viz3-text);
+  margin-bottom: 8px;
+}
+
+/* Butoanele de preset. */
+.viz3-presete {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--viz3-bordura);
+}
+
+/* În capul unei subsecții stau imediat sub titlu: fără linia de sus. */
+.viz3-subsectiune > .viz3-presete {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  margin-bottom: 8px;
+}
+
+.viz3-presete button {
+  font-size: 12px;
+  padding: 3px 9px;
+  cursor: pointer;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
 }
 
 .viz3-optiune .viz3-motiv {

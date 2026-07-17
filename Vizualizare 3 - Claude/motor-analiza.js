@@ -1,4 +1,4 @@
-// Motor de analiză pentru „Vizualizare 3 - Claude".
+﻿// Motor de analiză pentru „Vizualizare 3 - Claude".
 // Funcție pură: fără DOM, fără IndexedDB, fără variabile globale.
 // Citirea datelor aparține codului apelant (bootstrap-ul).
 //

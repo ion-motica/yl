@@ -1,4 +1,4 @@
-// Catalogul declarativ al unui interval din tabla înmulțirii: a-b × c-d.
+﻿// Catalogul declarativ al unui interval din tabla înmulțirii: a-b × c-d.
 // Date, nu logică: fiecare celulă își declară poziția și eticheta.
 // Motorul așază rezultatele după `rand`/`coloana`; nu parsează identificatorul.
 //

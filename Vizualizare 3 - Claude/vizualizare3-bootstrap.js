@@ -1,4 +1,4 @@
-// Bootstrap pentru „Vizualizare 3 - Claude".
+﻿// Bootstrap pentru „Vizualizare 3 - Claude".
 // Singurul strat care atinge DOM-ul și IndexedDB. Citește datele, apelează
 // motorul pur și randează modelul rezultat. Nu recalculează metrici.
 
@@ -744,6 +744,7 @@
       const bifa = document.createElement("input");
       bifa.type = "checkbox";
       bifa.checked = opt.activa === true;
+      bifa.dataset.preset = `compozitie_${opt.id}`;
       const text = document.createElement("span");
       text.textContent = opt.eticheta;
       bifa.addEventListener("change", () => {
@@ -772,6 +773,7 @@
     if (reglaj.max !== null) slider.max = String(reglaj.max);
     slider.step = String(reglaj.pas);
     slider.disabled = true;
+    slider.dataset.preset = `folii_${reglaj.id}`;
 
     const arata = () => {
       valoare.textContent = `${slider.value} ${reglaj.unitate}`;
@@ -811,6 +813,7 @@
     camp.max = String(reglaj.max);
     camp.step = String(reglaj.pas);
     camp.value = String(reglaj.implicit ?? reglaj.min);
+    camp.dataset.preset = `folii_${reglaj.id}`;
     laSchimbare(Number(camp.value));
     const plus = document.createElement("button");
     plus.type = "button";
@@ -840,6 +843,7 @@
     const bifa = document.createElement("input");
     bifa.type = "checkbox";
     bifa.checked = axa.activ_implicit === true;
+    bifa.dataset.preset = "folii_active";
     foliiActive = bifa.checked;
     const textBifa = document.createElement("span");
     textBifa.textContent = "Activează foliile";
@@ -850,6 +854,7 @@
     const bifaAleator = document.createElement("input");
     bifaAleator.type = "checkbox";
     bifaAleator.checked = axa.glisare_aleatoare_implicit === true;
+    bifaAleator.dataset.preset = "glisare_aleatoare";
     glisareAleatoare = bifaAleator.checked;
     const textAleator = document.createElement("span");
     textAleator.textContent = "Glisează la poziție aleatoare";
@@ -864,6 +869,7 @@
     const bifaReasezare = document.createElement("input");
     bifaReasezare.type = "checkbox";
     bifaReasezare.checked = axa.reasezare_aleatoare_implicit === true;
+    bifaReasezare.dataset.preset = "reasezare_aleatoare";
     reasezareAleatoare = bifaReasezare.checked;
     proportieRamanePeLoc = axa.proportie_ramane_pe_loc ?? 0;
     const textReasezare = document.createElement("span");
@@ -879,6 +885,7 @@
     const bifaGrup = document.createElement("input");
     bifaGrup.type = "checkbox";
     bifaGrup.checked = axa.grupare_implicita === true;
+    bifaGrup.dataset.preset = "grupare_intermediara";
     grupareIntermediara = bifaGrup.checked;
     cfgGrupare = {
       proportie_cu_grup: axa.proportie_cu_grup ?? 0.5,
@@ -897,6 +904,7 @@
     const bifaTitluri = document.createElement("input");
     bifaTitluri.type = "checkbox";
     bifaTitluri.checked = axa.titluri_2_randuri_implicit === true;
+    bifaTitluri.dataset.preset = "titluri_2_randuri";
     titluriPe2Randuri = bifaTitluri.checked;
     const textTitluri = document.createElement("span");
     textTitluri.textContent = "Titluri folii pe 2 rânduri și word-wrap frumos";
@@ -918,6 +926,7 @@
     const bifaIncadrate = document.createElement("input");
     bifaIncadrate.type = "checkbox";
     bifaIncadrate.checked = axa.titluri_incadrate_implicit === true;
+    bifaIncadrate.dataset.preset = "titluri_incadrate";
     titluriIncadrate = bifaIncadrate.checked;
     const textIncadrate = document.createElement("span");
     textIncadrate.textContent = "Titluri folii încadrate";
@@ -932,6 +941,7 @@
     const bifaColorate = document.createElement("input");
     bifaColorate.type = "checkbox";
     bifaColorate.checked = axa.casete_colorate_implicit === true;
+    bifaColorate.dataset.preset = "casete_colorate";
     caseteColorate = bifaColorate.checked;
     const textColorate = document.createElement("span");
     textColorate.textContent = "Casete colorate până la titlul foliei inclusiv";
@@ -954,7 +964,7 @@
     randAliniere.append(capAliniere, randButoaneAliniere);
 
     const butoaneAliniere = [];
-    const construiesteGrupAliniere = (optiuni, idImplicit, laSchimbare) => {
+    const construiesteGrupAliniere = (optiuni, idImplicit, laSchimbare, numeGrup) => {
       const butoaneGrup = (optiuni ?? []).map((opt) => {
         const buton = document.createElement("button");
         buton.type = "button";
@@ -962,6 +972,7 @@
         buton.textContent = opt.eticheta;
         buton.title = opt.titlu;
         buton.disabled = !foliiActive;
+        buton.dataset.preset = `${numeGrup}_${opt.id}`;
         if (opt.id === idImplicit) buton.classList.add("viz3-buton-aliniere--activ");
         buton.addEventListener("click", () => {
           butoaneGrup.forEach((b) => b.classList.toggle("viz3-buton-aliniere--activ", b === buton));
@@ -984,14 +995,24 @@
       alinireTitluriOrizontala;
     aplicaAliniereTitluri();
 
-    construiesteGrupAliniere(axa.optiuni_aliniere_verticala, implicitV, (valoare) => {
-      alinireTitluriVerticala = valoare;
-      aplicaAliniereTitluri();
-    });
-    construiesteGrupAliniere(axa.optiuni_aliniere_orizontala, implicitH, (valoare) => {
-      alinireTitluriOrizontala = valoare;
-      aplicaAliniereTitluri();
-    });
+    construiesteGrupAliniere(
+      axa.optiuni_aliniere_verticala,
+      implicitV,
+      (valoare) => {
+        alinireTitluriVerticala = valoare;
+        aplicaAliniereTitluri();
+      },
+      "aliniere_verticala"
+    );
+    construiesteGrupAliniere(
+      axa.optiuni_aliniere_orizontala,
+      implicitH,
+      (valoare) => {
+        alinireTitluriOrizontala = valoare;
+        aplicaAliniereTitluri();
+      },
+      "aliniere_orizontala"
+    );
 
     const randButoane = document.createElement("div");
     randButoane.className = "viz3-folii-butoane";
@@ -1003,6 +1024,7 @@
       buton.title = opt.titlu;
       buton.disabled = !foliiActive;
       buton.dataset.aranjament = opt.id;
+      buton.dataset.preset = `aranjament_${opt.id}`;
       if (opt.activa) buton.classList.add("viz3-buton-aranjament--activ");
       buton.addEventListener("click", () => schimbaAranjament(opt.id));
       randButoane.appendChild(buton);
@@ -1120,6 +1142,44 @@
     return { element, interval };
   }
 
+  // Un preset nu stie ce fac controalele: le pune valoarea si declanseaza
+  // acelasi eveniment pe care l-ar declansa mana ta. Restul codului se conformeaza
+  // bifelor, ca de obicei.
+  function aplicaPreset(preset) {
+    Object.entries(preset.controale).forEach(([cheie, valoare]) => {
+      const el = cpEl.querySelector(`[data-preset="${cheie}"]`);
+      if (!el || el.disabled) return;
+
+      if (el.tagName === "BUTTON") {
+        if (valoare === true) el.click();
+        return;
+      }
+      if (el.type === "checkbox" || el.type === "radio") {
+        if (el.checked === valoare) return;
+        el.checked = valoare;
+        el.dispatchEvent(new Event("change"));
+        return;
+      }
+      el.value = String(valoare);
+      el.dispatchEvent(new Event(el.type === "range" ? "input" : "change"));
+    });
+  }
+
+  function randeazaButoanePreset(container, subsectiuneId) {
+    const ale = presete.filter((p) => p.subsectiune === subsectiuneId);
+    if (ale.length === 0) return;
+    const rand = document.createElement("div");
+    rand.className = "viz3-presete";
+    ale.forEach((preset) => {
+      const buton = document.createElement("button");
+      buton.type = "button";
+      buton.textContent = preset.nume;
+      buton.addEventListener("click", () => aplicaPreset(preset));
+      rand.appendChild(buton);
+    });
+    container.appendChild(rand);
+  }
+
   function randeazaControlPanel(container, definitii) {
     const titlu = document.createElement("h1");
     titlu.textContent = "Vizualizare 3 - Claude";
@@ -1135,7 +1195,28 @@
       titluEtapa.textContent = etapa.titlu;
       sectiune.appendChild(titluEtapa);
 
+      // Axele netagate stau direct in etapa; cele cu `subsectiune` intra intr-un
+      // container propriu, cu titlu si preseturile lui in cap. `tinta` e locul
+      // unde se pune axa curenta.
+      let subsectiuneCurenta = null;
+      let tinta = sectiune;
+
       etapa.axe.forEach((axa) => {
+        if (axa.subsectiune && axa.subsectiune !== subsectiuneCurenta) {
+          subsectiuneCurenta = axa.subsectiune;
+          tinta = document.createElement("div");
+          tinta.className = "viz3-subsectiune";
+          const capSub = document.createElement("div");
+          capSub.className = "viz3-subsectiune-titlu";
+          capSub.textContent = etapa.subsectiuni?.[axa.subsectiune] ?? "";
+          tinta.appendChild(capSub);
+          randeazaButoanePreset(tinta, axa.subsectiune);
+          sectiune.appendChild(tinta);
+        } else if (!axa.subsectiune) {
+          subsectiuneCurenta = null;
+          tinta = sectiune;
+        }
+
         const grup = document.createElement("div");
         grup.className = "viz3-axa";
         const eticheta = document.createElement("span");
@@ -1145,13 +1226,13 @@
 
         if (axa.tip_control === "folii") {
           randeazaControlFolii(grup, axa);
-          sectiune.appendChild(grup);
+          tinta.appendChild(grup);
           return;
         }
 
         if (axa.tip_control === "compozitie") {
           randeazaControlCompozitie(grup, axa);
-          sectiune.appendChild(grup);
+          tinta.appendChild(grup);
           return;
         }
 
@@ -1163,6 +1244,7 @@
           const bifatDinSalvare = axa === axaDomeniu && optiuneSalvata;
           input.checked = bifatDinSalvare ? opt.id === optiuneSalvata.id : opt.activa === true;
           input.disabled = opt.dezactivata === true;
+          input.dataset.preset = `${axa.id}_${opt.id}`;
 
           // O optiune care isi declara intervalul schimba domeniul. CP-ul ii da
           // feature-ului datele explicit; feature-ul nu cauta singur ce e bifat.
@@ -1196,7 +1278,7 @@
           if (campuriInterval) grup.appendChild(campuriInterval.element);
         });
 
-        sectiune.appendChild(grup);
+        tinta.appendChild(grup);
       });
 
       container.appendChild(sectiune);
@@ -1378,6 +1460,7 @@
   const cfgCompozitie = global.DefinitiiCompozitieVizualizare3;
   const aranjamente = global.DefinitiiAranjamenteVizualizare3;
   const fixture = global.FixtureLoguriDummyVizualizare3;
+  const presete = global.PreseteVizualizare3 ?? [];
 
   const cpEl = document.getElementById("viz3-cp");
   const vizEl = document.getElementById("viz3-viz");

@@ -1,4 +1,4 @@
-// Loguri sintetice pentru demonstrație și teste repetabile.
+﻿// Loguri sintetice pentru demonstrație și teste repetabile.
 // NU sunt jurnalul real al elevului, dar au exact forma lui (aceleași câmpuri).
 //
 // Generează 8 săptămâni de exersare pe tabla 1-20 × 1-20, cu o progresie

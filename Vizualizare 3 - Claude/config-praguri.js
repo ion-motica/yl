@@ -1,4 +1,4 @@
-// Praguri și filtre pentru „Vizualizare 3 - Claude".
+﻿// Praguri și filtre pentru „Vizualizare 3 - Claude".
 // TOATE valorile de aici sunt PROVIZORII și de calibrat pe date reale.
 // Se ajustează direct în acest fișier, fără atingerea logicii motorului.
 // Versionat: când schimbi praguri pentru un raport oficial, crește `praguri_version`.

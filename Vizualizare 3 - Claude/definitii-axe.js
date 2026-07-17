@@ -1,4 +1,4 @@
-// Axele declarative ale control panelului „Vizualizare 3 - Claude".
+﻿// Axele declarative ale control panelului „Vizualizare 3 - Claude".
 // CP-ul se GENEREAZĂ din acest array. A adăuga o opțiune = a o adăuga aici,
 // fără cod nou de interfață. O opțiune indisponibilă rămâne vizibilă cu
 // `dezactivata: true` + `motiv`, exact cum cere contractul MABP.
@@ -137,13 +137,20 @@
     {
       etapa: 5,
       titlu: "5 · Vizualizare",
+      // Axele marcate cu `subsectiune` se string intr-un container propriu, cu
+      // titlul de aici. „Reprezentare" ramane in afara: ea alege ce se afiseaza,
+      // iar subsectiunea tine optiunile reprezentarii alese. Cand vor aparea si
+      // alte reprezentari, fiecare isi va avea subsectiunea ei (colapsabila).
+      subsectiuni: {
+        grila_optiuni: "Opțiuni pt Grila X × Y stare",
+      },
       axe: [
         {
           id: "vizualizare",
           eticheta: "Reprezentare",
           tip_selectie: "unica",
           optiuni: [
-            { id: "grila_10x10", eticheta: "Grila 10×10 stare", activa: true },
+            { id: "grila_10x10", eticheta: "Grila X × Y stare", activa: true },
             { id: "grafic_linie", eticheta: "Grafic linie (progres)", dezactivata: true, motiv: VOR_URMA },
             { id: "matrice", eticheta: "Matrice fact × eq_form", dezactivata: true, motiv: VOR_URMA },
             { id: "lista", eticheta: "Listă facts problematice", dezactivata: true, motiv: VOR_URMA },
@@ -152,6 +159,7 @@
         {
           id: "compozitie",
           eticheta: "Compoziție pătrățele",
+          subsectiune: "grila_optiuni",
           // Ce componente are o celula. Se aplica in TOATE aranjamentele, ca
           // celulele sa nu-si schimbe continutul cand foliile trec prin
           // suprapus. Nu schimba configuratia motorului; e prezentare.
@@ -172,6 +180,7 @@
         {
           id: "folii",
           eticheta: "Folii transparente",
+          subsectiune: "grila_optiuni",
           // Control special: comutator on/off + butoane de aranjament.
           // Nu schimbă configurația motorului; e strict prezentare.
           tip_control: "folii",
