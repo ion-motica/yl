@@ -163,6 +163,21 @@
           // Pline pana la titlul foliei inclusiv: se vede ce etape a parcurs
           // folia si cate mai are de parcurs.
           casete_colorate_implicit: true,
+          // Alinierea textului in caseta: verticala si orizontala,
+          // independente una de alta. Implicit jos + stanga, ca sa nu schimbe
+          // aspectul deja stabilit (bara ancorata de jos, scris la stanga).
+          aliniere_titluri_verticala_implicit: "jos",
+          aliniere_titluri_orizontala_implicit: "stanga",
+          optiuni_aliniere_verticala: [
+            { id: "sus", eticheta: "Sus", titlu: "Aliniere sus", valoare: "flex-start" },
+            { id: "mijloc", eticheta: "Mij", titlu: "Aliniere pe mijloc", valoare: "center" },
+            { id: "jos", eticheta: "Jos", titlu: "Aliniere jos", valoare: "flex-end" },
+          ],
+          optiuni_aliniere_orizontala: [
+            { id: "stanga", eticheta: "Stg", titlu: "Aliniere stânga", valoare: "left" },
+            { id: "centru", eticheta: "Ctr", titlu: "Aliniere centru", valoare: "center" },
+            { id: "dreapta", eticheta: "Dr", titlu: "Aliniere dreapta", valoare: "right" },
+          ],
           // Cand e activ, aranjamentul intreg se aseaza in alt loc pe panza:
           // randul pe alta linie, coloana pe alta coloana, patratul in alt colt.
           reasezare_aleatoare_implicit: true,

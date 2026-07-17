@@ -100,6 +100,8 @@
   let titluriPe2Randuri = true;
   let titluriIncadrate = true;
   let caseteColorate = true;
+  let alinireTitluriVerticala = "flex-end";
+  let alinireTitluriOrizontala = "left";
   let cfgGrupare = {};
   let ceasGrup = null;
   // Cat a durat ultima trecere: dubla, daca a avut act intermediar. Ceasul
@@ -301,12 +303,27 @@
       if (ales >= prag) break;
     }
 
+    // Fontul e comun, dar fiecare titlu se poate rupe pe alt numar de randuri
+    // la acelasi font (unul scurt incape pe un rand, altul lung pe trei). Bara
+    // fiecarei folii isi ia inaltimea doar din titlul ei, deci fara pasul asta
+    // ar ramane inegale. Masuram toate la fontul ALES (nu la cel intermediar
+    // din cautare) si retinem cea mai mare, ca s-o aplice toate casetele.
+    // Masuram caseta (parintele), nu titlul: min-height se pune pe caseta, iar
+    // caseta e border-box, deci include padding-ul — altfel casetele scurte
+    // s-ar opri cu cativa px sub cea lunga, care isi adauga padding-ul separat.
+    let inaltimeMaxima = 0;
+    titluri.forEach((t) => {
+      t.style.fontSize = `${ales}px`;
+      inaltimeMaxima = Math.max(inaltimeMaxima, t.parentElement.scrollHeight);
+    });
+
     titluri.forEach((t) => {
       t.style.fontSize = "";
       t.style.whiteSpace = "";
       t.style.transition = "";
     });
     document.documentElement.style.setProperty("--viz3-titlu-font-calculat", `${ales}px`);
+    document.documentElement.style.setProperty("--viz3-titlu-inaltime-calculata", `${inaltimeMaxima}px`);
   }
 
   // Fiecare titlu porneste de la offsetul lui fix (un sfert de latime, in
@@ -442,6 +459,14 @@
 
   function aplicaViteza() {
     document.documentElement.style.setProperty("--viz3-durata", `${vitezaReasezare}ms`);
+  }
+
+  // Verticala muta scrisul in caseta (align-items pe caseta). Orizontala e
+  // text-align pe titlu, nu justify-content pe caseta: titlul are width:100%,
+  // deci umple mereu caseta si justify-content n-ar avea pe unde sa-l mute.
+  function aplicaAliniereTitluri() {
+    document.documentElement.style.setProperty("--viz3-titlu-align-v", alinireTitluriVerticala);
+    document.documentElement.style.setProperty("--viz3-titlu-text-align", alinireTitluriOrizontala);
   }
 
   function schimbaAranjament(id) {
@@ -813,6 +838,58 @@
     });
     randColorate.append(bifaColorate, textColorate);
 
+    // Aliniere text in caseta: verticala si orizontala, doua grupuri de cate
+    // 3 butoane, dar pe UN singur rand. Fiecare grup se comporta ca un radio:
+    // un click activeaza butonul lui si dezactiveaza restul grupului lui.
+    const randAliniere = document.createElement("div");
+    randAliniere.className = "viz3-reglaj";
+    const capAliniere = document.createElement("span");
+    capAliniere.className = "viz3-reglaj-eticheta";
+    capAliniere.textContent = "Titluri folii - Aliniere:";
+    const randButoaneAliniere = document.createElement("div");
+    randButoaneAliniere.className = "viz3-butoane-aliniere";
+    randAliniere.append(capAliniere, randButoaneAliniere);
+
+    const butoaneAliniere = [];
+    const construiesteGrupAliniere = (optiuni, idImplicit, laSchimbare) => {
+      const butoaneGrup = (optiuni ?? []).map((opt) => {
+        const buton = document.createElement("button");
+        buton.type = "button";
+        buton.className = "viz3-buton-aliniere";
+        buton.textContent = opt.eticheta;
+        buton.title = opt.titlu;
+        buton.disabled = !foliiActive;
+        if (opt.id === idImplicit) buton.classList.add("viz3-buton-aliniere--activ");
+        buton.addEventListener("click", () => {
+          butoaneGrup.forEach((b) => b.classList.toggle("viz3-buton-aliniere--activ", b === buton));
+          laSchimbare(opt.valoare);
+        });
+        randButoaneAliniere.appendChild(buton);
+        butoaneAliniere.push(buton);
+        return buton;
+      });
+      return butoaneGrup;
+    };
+
+    const implicitV = axa.aliniere_titluri_verticala_implicit;
+    const implicitH = axa.aliniere_titluri_orizontala_implicit;
+    alinireTitluriVerticala =
+      axa.optiuni_aliniere_verticala?.find((o) => o.id === implicitV)?.valoare ??
+      alinireTitluriVerticala;
+    alinireTitluriOrizontala =
+      axa.optiuni_aliniere_orizontala?.find((o) => o.id === implicitH)?.valoare ??
+      alinireTitluriOrizontala;
+    aplicaAliniereTitluri();
+
+    construiesteGrupAliniere(axa.optiuni_aliniere_verticala, implicitV, (valoare) => {
+      alinireTitluriVerticala = valoare;
+      aplicaAliniereTitluri();
+    });
+    construiesteGrupAliniere(axa.optiuni_aliniere_orizontala, implicitH, (valoare) => {
+      alinireTitluriOrizontala = valoare;
+      aplicaAliniereTitluri();
+    });
+
     const randButoane = document.createElement("div");
     randButoane.className = "viz3-folii-butoane";
     const butoane = axa.optiuni.map((opt) => {
@@ -857,6 +934,7 @@
       bifaTitluri,
       bifaIncadrate,
       bifaColorate,
+      ...butoaneAliniere,
       dimensiune.slider,
       viteza.slider,
       ...auto.controale,
@@ -878,6 +956,7 @@
       randTitluri,
       randIncadrate,
       randColorate,
+      randAliniere,
       randButoane,
       dimensiune.rand,
       viteza.rand,

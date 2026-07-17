@@ -228,7 +228,7 @@ body {
    patratele din celule: vezi ce etape a parcurs folia si cate mai are. */
 .viz3-caseta {
   display: flex;
-  align-items: flex-end;
+  align-items: var(--viz3-titlu-align-v, flex-end);
   justify-content: flex-start;
   padding: 3px 5px;
   border: 2px solid transparent;
@@ -247,7 +247,7 @@ body {
   line-height: 1.15;
   color: var(--viz3-text-slab);
   white-space: nowrap;
-  text-align: left;
+  text-align: var(--viz3-titlu-text-align, left);
   transition: font-size var(--viz3-durata);
 }
 
@@ -261,6 +261,14 @@ body {
   white-space: normal;
   text-wrap: balance;
   font-size: var(--viz3-titlu-font-calculat, var(--viz3-titlu-font-max));
+}
+
+/* Toate casetele, din toate foliile, la inaltimea celui mai inalt titlu.
+   Fara asta, fiecare bara de titluri isi ia inaltimea doar din titlul ei
+   (griduri separate per folie), deci foliile cu titlu scurt raman mai
+   scunde decat cele cu titlu lung, la acelasi font. */
+.viz3-folii[data-titluri-2-randuri="1"] .viz3-caseta {
+  min-height: var(--viz3-titlu-inaltime-calculata, auto);
 }
 
 /* Colorate pana la titlul foliei inclusiv, aceeasi culoare pentru toate. */
@@ -402,6 +410,38 @@ body {
 }
 
 .viz3-buton-aranjament--activ:not(:disabled) {
+  border-color: var(--viz3-albastru);
+  background: #e8effb;
+  color: var(--viz3-albastru);
+  font-weight: 700;
+}
+
+/* Butoanele de aliniere a titlurilor: doua grupuri de cate 3 (verticala,
+   orizontala), toate pe un singur rand. Latimea vine din text, nu fixa ca la
+   aranjamente, ca sase incapa toate sase in panoul ingust. */
+.viz3-butoane-aliniere {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.viz3-buton-aliniere {
+  padding: 3px 6px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.viz3-buton-aliniere:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.viz3-buton-aliniere--activ:not(:disabled) {
   border-color: var(--viz3-albastru);
   background: #e8effb;
   color: var(--viz3-albastru);
