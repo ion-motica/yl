@@ -308,13 +308,14 @@
     // fiecarei folii isi ia inaltimea doar din titlul ei, deci fara pasul asta
     // ar ramane inegale. Masuram toate la fontul ALES (nu la cel intermediar
     // din cautare) si retinem cea mai mare, ca s-o aplice toate casetele.
-    // Masuram caseta (parintele), nu titlul: min-height se pune pe caseta, iar
-    // caseta e border-box, deci include padding-ul — altfel casetele scurte
-    // s-ar opri cu cativa px sub cea lunga, care isi adauga padding-ul separat.
+    // Masuram cu offsetHeight, nu scrollHeight: caseta e border-box, deci
+    // min-height include si bordura (4px), pe care scrollHeight n-o numara.
+    // Cu scrollHeight, caseta cu titlul cel mai lung iesea cu 4px mai inalta
+    // decat celelalte trei (suprapuse peste ea) — de-aici bara "dublata".
     let inaltimeMaxima = 0;
     titluri.forEach((t) => {
       t.style.fontSize = `${ales}px`;
-      inaltimeMaxima = Math.max(inaltimeMaxima, t.parentElement.scrollHeight);
+      inaltimeMaxima = Math.max(inaltimeMaxima, t.parentElement.offsetHeight);
     });
 
     titluri.forEach((t) => {
