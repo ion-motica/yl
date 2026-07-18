@@ -72,13 +72,14 @@
   // Un nume fix ar parea logic, dar Firefox nu suprascrie descarcarile: adauga
   // "(1)", "(2)"... la fiecare export nou, deci fisierele se aduna oricum. Mai
   // bine data+ora in nume: fiecare export ramane distinct si se intelege cand
-  // a fost facut, nu doar al catelea e.
-  function numeFisierExport() {
+  // a fost facut, nu doar al catelea e. Acelasi tipar la orice export din
+  // pagina (jurnal, preseturi): doar prefixul se schimba.
+  function numeFisierExport(prefix) {
     const acum = new Date();
     const doiDigiti = (n) => String(n).padStart(2, "0");
     const ziua = [acum.getFullYear(), doiDigiti(acum.getMonth() + 1), doiDigiti(acum.getDate())].join("-");
     const ora = [doiDigiti(acum.getHours()), doiDigiti(acum.getMinutes())].join("-");
-    return `youlearn-salvare-log-activitate-${ziua}-${ora}.json`;
+    return `youlearn-${prefix}-${ziua}-${ora}.json`;
   }
 
   // Buton care descarca jurnalul brut (asa cum sta in IndexedDB) ca JSON, ca
@@ -93,7 +94,7 @@
       const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
       const link = document.createElement("a");
       link.href = url;
-      link.download = numeFisierExport();
+      link.download = numeFisierExport("salvare-log-activitate");
       link.click();
       URL.revokeObjectURL(url);
     });
@@ -1142,12 +1143,68 @@
     return { element, interval };
   }
 
+  // ---- preseturi (P din MABP) — vezi CONTRACT-PRESETURI.md ---------------
+  //
+  // O zonă = o subsecțiune din CP, cu preseturile ei. Sertarul (localStorage)
+  // e copia de lucru; sămânța (`PreseteVizualizare3`, din fișierul din repo)
+  // se copiază în el o singură dată, la prima deschidere. De atunci încolo
+  // doar sertarul contează — fișierul nu se mai citește ca sursă de adevăr.
+
+  function cheieSertarPreset(zona) {
+    return `viz3_presete_${zona}`;
+  }
+
+  function sertarDinSamanta(zona) {
+    return {
+      schema_version: 1,
+      default: null,
+      presete: presete
+        .filter((p) => p.subsectiune === zona)
+        .map((p) => ({ nume: p.nume, controale: { ...p.controale } })),
+      sterse: [],
+    };
+  }
+
+  function salveazaSertarPreset(zona, sertar) {
+    try {
+      global.localStorage?.setItem(cheieSertarPreset(zona), JSON.stringify(sertar));
+    } catch {
+      // Storage plin sau indisponibil: preseturile tin doar sesiunea curenta.
+    }
+  }
+
+  // Sertar gol (prima deschidere): samanta se copiaza si se scrie imediat,
+  // ca de atunci incolo cheia sa existe si fisierul din repo sa nu mai fie
+  // citit ca sursa de adevar (exact modelul userului: o copie, editata).
+  function obtineSertarPreset(zona) {
+    try {
+      const brut = global.localStorage?.getItem(cheieSertarPreset(zona));
+      if (brut) {
+        const parsat = JSON.parse(brut);
+        if (parsat && Array.isArray(parsat.presete)) {
+          return {
+            schema_version: parsat.schema_version ?? 1,
+            default: typeof parsat.default === "string" ? parsat.default : null,
+            presete: parsat.presete,
+            sterse: Array.isArray(parsat.sterse) ? parsat.sterse : [],
+          };
+        }
+      }
+    } catch {
+      // Cade pe initializarea din samanta.
+    }
+    const initial = sertarDinSamanta(zona);
+    salveazaSertarPreset(zona, initial);
+    return initial;
+  }
+
   // Un preset nu stie ce fac controalele: le pune valoarea si declanseaza
-  // acelasi eveniment pe care l-ar declansa mana ta. Restul codului se conformeaza
-  // bifelor, ca de obicei.
-  function aplicaPreset(preset) {
-    Object.entries(preset.controale).forEach(([cheie, valoare]) => {
-      const el = cpEl.querySelector(`[data-preset="${cheie}"]`);
+  // acelasi eveniment pe care l-ar declansa mana ta. Restul codului se
+  // conformeaza, ca de obicei. Scopat la `container` (zona), ca un preset sa
+  // nu poata atinge vreodata controale din afara zonei lui.
+  function aplicaControalePreset(container, controale) {
+    Object.entries(controale).forEach(([cheie, valoare]) => {
+      const el = container.querySelector(`[data-preset="${cheie}"]`);
       if (!el || el.disabled) return;
 
       if (el.tagName === "BUTTON") {
@@ -1165,20 +1222,397 @@
     });
   }
 
-  function randeazaButoanePreset(container, subsectiuneId) {
-    const ale = presete.filter((p) => p.subsectiune === subsectiuneId);
-    if (ale.length === 0) return;
-    const rand = document.createElement("div");
-    rand.className = "viz3-presete";
-    ale.forEach((preset) => {
-      const buton = document.createElement("button");
-      buton.type = "button";
-      buton.textContent = preset.nume;
-      buton.addEventListener("click", () => aplicaPreset(preset));
-      rand.appendChild(buton);
+  // Citeste TOATE controalele [data-preset] din zona, cu valorile lor de
+  // acum. Fara lista scrisa de mana: un control nou intra automat, de cum
+  // primeste atributul. Butoanele-comutator (aranjament, aliniere) se
+  // marcheaza cu clasa lor `--activ`, ca la orice alt buton din pagina.
+  function capteazaControalePreset(container) {
+    const controale = {};
+    container.querySelectorAll("[data-preset]").forEach((el) => {
+      const cheie = el.dataset.preset;
+      if (el.tagName === "BUTTON") {
+        controale[cheie] = [...el.classList].some((c) => c.endsWith("--activ"));
+        return;
+      }
+      if (el.type === "checkbox" || el.type === "radio") {
+        controale[cheie] = el.checked;
+        return;
+      }
+      controale[cheie] = Number(el.value);
     });
-    container.appendChild(rand);
+    return controale;
   }
+
+  // Randul buton+camp+OK, comun la „Salveaza ca preset" si „Redenumeste":
+  // click pe buton deschide campul (precompletat cand e cazul), Enter/OK
+  // confirma, Escape inchide fara sa schimbe nimic.
+  //
+  // Fara dialoguri native (`confirm`/`alert`): blocheaza JS-ul paginii pana
+  // raspunde omul, deci nu se pot crea, inspecta sau apasa din cod — inclusiv
+  // din teste automate. `onConfirm(nume, ajutor)` foloseste in loc:
+  //   ajutor.eroare(text)         — arata un mesaj sub camp, campul ramane deschis.
+  //   ajutor.confirmare(text, laDa) — inlocuieste campul cu un rand text + [OK] [Cancel];
+  //                                    OK cheama `laDa()`, Cancel revine la camp (text intact).
+  // Cand `onConfirm` chiar salveaza, apelantul re-randeaza toata zona, deci
+  // randul asta dispare singur — nu mai trebuie inchis explicit.
+  function randCampNume(textButon, valoareInitiala, onConfirm) {
+    const rand = document.createElement("div");
+    rand.className = "viz3-preset-inline";
+
+    let stare = "buton"; // "buton" | "camp" | "confirmare"
+    let mesajEroare = "";
+    let confirmareInfo = null;
+
+    function arata() {
+      rand.replaceChildren();
+
+      if (stare === "buton") {
+        const buton = document.createElement("button");
+        buton.type = "button";
+        buton.textContent = textButon;
+        buton.addEventListener("click", () => {
+          stare = "camp";
+          mesajEroare = "";
+          arata();
+        });
+        rand.appendChild(buton);
+        return;
+      }
+
+      if (stare === "confirmare") {
+        const text = document.createElement("span");
+        text.className = "viz3-preset-confirmare-text";
+        text.textContent = confirmareInfo.text;
+        const da = document.createElement("button");
+        da.type = "button";
+        da.textContent = "OK";
+        da.addEventListener("click", confirmareInfo.laDa);
+        const nu = document.createElement("button");
+        nu.type = "button";
+        nu.textContent = "Cancel";
+        nu.addEventListener("click", () => {
+          stare = "camp";
+          arata();
+        });
+        rand.append(text, da, nu);
+        return;
+      }
+
+      // stare === "camp"
+      const camp = document.createElement("input");
+      camp.type = "text";
+      camp.className = "viz3-preset-camp-nume";
+      camp.placeholder = "Nume preset";
+      camp.value = valoareInitiala ?? "";
+      const ok = document.createElement("button");
+      ok.type = "button";
+      ok.textContent = "OK";
+      const confirma = () => {
+        const nume = camp.value.trim();
+        if (!nume) {
+          camp.focus();
+          return;
+        }
+        valoareInitiala = nume;
+        mesajEroare = "";
+        onConfirm(nume, {
+          eroare(text) {
+            mesajEroare = text;
+            arata();
+          },
+          confirmare(text, laDa) {
+            confirmareInfo = { text, laDa };
+            stare = "confirmare";
+            arata();
+          },
+        });
+      };
+      ok.addEventListener("click", confirma);
+      camp.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") confirma();
+        if (ev.key === "Escape") {
+          stare = "buton";
+          arata();
+        }
+      });
+      rand.append(camp, ok);
+      if (mesajEroare) {
+        const eroare = document.createElement("span");
+        eroare.className = "viz3-preset-mesaj";
+        eroare.textContent = mesajEroare;
+        rand.appendChild(eroare);
+      }
+      camp.focus();
+      camp.select();
+    }
+
+    arata();
+    return rand;
+  }
+
+  // Acelasi tipar ca la jurnal (butonImportaJurnal): alegerea fisierului
+  // ramane a userului, dialogul native porneste de obicei chiar din Downloads.
+  function butonImportaPreseturi(dupaImport) {
+    const fragment = document.createDocumentFragment();
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.hidden = true;
+    input.addEventListener("change", async () => {
+      const fisier = input.files?.[0];
+      input.value = "";
+      if (!fisier) return;
+      try {
+        const parsat = JSON.parse(await fisier.text());
+        if (!parsat || !Array.isArray(parsat.presete)) {
+          throw new Error("fișierul nu conține preseturi");
+        }
+        dupaImport(parsat);
+      } catch (eroare) {
+        global.alert?.(`„${fisier.name}" nu poate fi citit ca preseturi: ${eroare.message}`);
+      }
+    });
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.textContent = "Importă preseturi JSON din Downloads";
+    buton.addEventListener("click", () => input.click());
+    fragment.append(buton, input);
+    return fragment;
+  }
+
+  // Construieste zona de preseturi a unei subsectiuni: randul de preseturi
+  // (cu eticheta „Default preset:" langa cel implicit), actiunile presetului
+  // selectat (Delete / Make default / Redenumeste), salvarea configuratiei
+  // curente si portabilitatea (export/import/reimprospatare din samanta).
+  // `container` e subsectiunea intreaga: capturarea si aplicarea citesc/scriu
+  // doar `[data-preset]` din interiorul ei, niciodata din afara zonei.
+  function construiesteZonaPreseturi(container, zona) {
+    let sertar = obtineSertarPreset(zona);
+    let numeSelectat = null;
+
+    const zonaEl = document.createElement("div");
+    zonaEl.className = "viz3-zona-preseturi";
+    container.appendChild(zonaEl);
+
+    function persista() {
+      salveazaSertarPreset(zona, sertar);
+    }
+
+    function aplicaSiSelecteaza(preset) {
+      aplicaControalePreset(container, preset.controale);
+      numeSelectat = preset.nume;
+      redeseneaza();
+    }
+
+    function salveazaCaPreset(nume, ajutor) {
+      const controale = capteazaControalePreset(container);
+      const indexExistent = sertar.presete.findIndex((p) => p.nume === nume);
+      if (indexExistent !== -1) {
+        ajutor.confirmare(
+          "Numele este deja dat pentru un preset din această secțiune. " +
+            "Apasă OK dacă vrei să îl înlocuiești, sau Cancel dacă vrei să modifici " +
+            "numele noului preset, ca să păstrezi și presetul vechi.",
+          () => {
+            sertar.presete[indexExistent] = { nume, controale };
+            sertar.sterse = sertar.sterse.filter((n) => n !== nume);
+            numeSelectat = nume;
+            persista();
+            redeseneaza();
+          }
+        );
+        return;
+      }
+      sertar.presete.push({ nume, controale });
+      sertar.sterse = sertar.sterse.filter((n) => n !== nume);
+      numeSelectat = nume;
+      persista();
+      redeseneaza();
+    }
+
+    function stergePreset(nume) {
+      sertar.presete = sertar.presete.filter((p) => p.nume !== nume);
+      if (!sertar.sterse.includes(nume)) sertar.sterse.push(nume);
+      if (sertar.default === nume) sertar.default = null;
+      if (numeSelectat === nume) numeSelectat = null;
+      persista();
+      redeseneaza();
+    }
+
+    function faDefault(nume) {
+      sertar.default = nume;
+      persista();
+      redeseneaza();
+    }
+
+    function redenumeste(numeVechi, numeNou, ajutor) {
+      if (numeNou === numeVechi) {
+        redeseneaza();
+        return;
+      }
+      if (sertar.presete.some((p) => p.nume === numeNou)) {
+        ajutor.eroare(`„${numeNou}" e deja folosit în această secțiune.`);
+        return;
+      }
+      const preset = sertar.presete.find((p) => p.nume === numeVechi);
+      if (!preset) return;
+      preset.nume = numeNou;
+      if (sertar.default === numeVechi) sertar.default = numeNou;
+      numeSelectat = numeNou;
+      persista();
+      redeseneaza();
+    }
+
+    // Numele din samanta care lipsesc din sertar si nu au fost sterse
+    // explicit se adauga. Cele sterse nu reinviu — de-aia sertarul tine si
+    // lista lor separat de lista preseturilor curente. Rezultatul se arata
+    // inline (langa butoane), nu cu `alert`: un dialog nativ blocheaza JS-ul
+    // paginii pana raspunde omul, deci nu poate fi verificat din cod.
+    let mesajReimprospatare = "";
+
+    function reimprospateazaDinSamanta() {
+      const samanta = presete.filter((p) => p.subsectiune === zona);
+      let adaugate = 0;
+      samanta.forEach((p) => {
+        const existaDeja = sertar.presete.some((existent) => existent.nume === p.nume);
+        const fostSters = sertar.sterse.includes(p.nume);
+        if (!existaDeja && !fostSters) {
+          sertar.presete.push({ nume: p.nume, controale: { ...p.controale } });
+          adaugate += 1;
+        }
+      });
+      persista();
+      mesajReimprospatare =
+        adaugate > 0
+          ? `${adaugate} preset(uri) noi adăugate din fișier.`
+          : "Nimic nou de adăugat din fișier.";
+      redeseneaza();
+    }
+
+    function exportaPreseturi() {
+      const json = JSON.stringify(sertar, null, 2);
+      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = numeFisierExport(`presete-${zona}`);
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importaPreseturi(parsat) {
+      sertar = {
+        schema_version: parsat.schema_version ?? 1,
+        default: typeof parsat.default === "string" ? parsat.default : null,
+        presete: parsat.presete.filter((p) => p && typeof p.nume === "string" && p.controale),
+        sterse: Array.isArray(parsat.sterse) ? parsat.sterse : [],
+      };
+      numeSelectat = null;
+      mesajReimprospatare = "";
+      persista();
+      redeseneaza();
+    }
+
+    // Randeaza tot ce tine de zona, de la zero, de fiecare data cand starea
+    // se schimba. Cateva butoane pentru cateva preseturi: costul e neglijabil.
+    // Primul rand aparut nu are bordura de sus (e chiar sub titlul subsectiunii).
+    function redeseneaza() {
+      zonaEl.replaceChildren();
+      let primulRand = true;
+      const adaugaRand = (rand) => {
+        if (primulRand) {
+          rand.classList.add("viz3-presete--fara-bordura");
+          primulRand = false;
+        }
+        zonaEl.appendChild(rand);
+      };
+
+      if (sertar.presete.length > 0) {
+        const randButoane = document.createElement("div");
+        randButoane.className = "viz3-presete";
+        sertar.presete.forEach((preset) => {
+          if (preset.nume === sertar.default) {
+            const eticheta = document.createElement("span");
+            eticheta.className = "viz3-preset-eticheta-default";
+            eticheta.textContent = "Default preset:";
+            randButoane.appendChild(eticheta);
+          }
+          const buton = document.createElement("button");
+          buton.type = "button";
+          buton.textContent = preset.nume;
+          if (preset.nume === numeSelectat) buton.classList.add("viz3-preset-selectat");
+          buton.addEventListener("click", () => aplicaSiSelecteaza(preset));
+          randButoane.appendChild(buton);
+        });
+        adaugaRand(randButoane);
+      }
+
+      if (numeSelectat && sertar.presete.some((p) => p.nume === numeSelectat)) {
+        const randActiuni = document.createElement("div");
+        randActiuni.className = "viz3-presete";
+
+        const sterge = document.createElement("button");
+        sterge.type = "button";
+        sterge.textContent = "Delete";
+        sterge.addEventListener("click", () => stergePreset(numeSelectat));
+        randActiuni.appendChild(sterge);
+
+        if (sertar.default !== numeSelectat) {
+          const implicit = document.createElement("button");
+          implicit.type = "button";
+          implicit.textContent = "Make default";
+          implicit.addEventListener("click", () => faDefault(numeSelectat));
+          randActiuni.appendChild(implicit);
+        }
+
+        randActiuni.appendChild(
+          randCampNume("Redenumește", numeSelectat, (nou, ajutor) =>
+            redenumeste(numeSelectat, nou, ajutor)
+          )
+        );
+
+        adaugaRand(randActiuni);
+      }
+
+      const randSalvare = document.createElement("div");
+      randSalvare.className = "viz3-presete";
+      randSalvare.appendChild(
+        randCampNume("Salvează setări curente ca Preset", "", salveazaCaPreset)
+      );
+      adaugaRand(randSalvare);
+
+      const randPortabil = document.createElement("div");
+      randPortabil.className = "viz3-presete";
+      const btnExport = document.createElement("button");
+      btnExport.type = "button";
+      btnExport.textContent = "Exportă preseturile ca JSON";
+      btnExport.addEventListener("click", exportaPreseturi);
+      const btnRefresh = document.createElement("button");
+      btnRefresh.type = "button";
+      btnRefresh.textContent = "Reîmprospătează din fișier";
+      btnRefresh.addEventListener("click", reimprospateazaDinSamanta);
+      randPortabil.append(btnExport, butonImportaPreseturi(importaPreseturi), btnRefresh);
+      if (mesajReimprospatare) {
+        const status = document.createElement("span");
+        status.className = "viz3-preset-mesaj";
+        status.textContent = mesajReimprospatare;
+        randPortabil.appendChild(status);
+      }
+      adaugaRand(randPortabil);
+    }
+
+    redeseneaza();
+
+    return {
+      aplicaDefault() {
+        if (!sertar.default) return;
+        const preset = sertar.presete.find((p) => p.nume === sertar.default);
+        if (preset) aplicaSiSelecteaza(preset);
+      },
+    };
+  }
+
+  // Zonele de preseturi randate, ca defaultul lor sa se poata aplica o
+  // singura data, dupa prima randare a vizualizarii (vezi mai jos).
+  const zonePreseturi = [];
 
   function randeazaControlPanel(container, definitii) {
     const titlu = document.createElement("h1");
@@ -1210,7 +1644,7 @@
           capSub.className = "viz3-subsectiune-titlu";
           capSub.textContent = etapa.subsectiuni?.[axa.subsectiune] ?? "";
           tinta.appendChild(capSub);
-          randeazaButoanePreset(tinta, axa.subsectiune);
+          zonePreseturi.push(construiesteZonaPreseturi(tinta, axa.subsectiune));
           sectiune.appendChild(tinta);
         } else if (!axa.subsectiune) {
           subsectiuneCurenta = null;
@@ -1610,5 +2044,10 @@
   }
 
   randeazaControlPanel(cpEl, axe);
-  reseteazaVizualizarea();
+  // Defaultul se aplica dupa prima randare, nu inainte: sliderul dimensiunii
+  // foliei isi ia maximul real (latimea tablei) abia atunci (sincronizeazaDimensiune),
+  // iar un preset aplicat mai devreme ar fi clampat gresit de un range fara max.
+  reseteazaVizualizarea().then(() => {
+    zonePreseturi.forEach((zona) => zona.aplicaDefault());
+  });
 })(typeof globalThis !== "undefined" ? globalThis : this);

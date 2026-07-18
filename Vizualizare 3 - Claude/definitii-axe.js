@@ -142,7 +142,7 @@
       // iar subsectiunea tine optiunile reprezentarii alese. Cand vor aparea si
       // alte reprezentari, fiecare isi va avea subsectiunea ei (colapsabila).
       subsectiuni: {
-        grila_optiuni: "Opțiuni pt Grila X × Y stare",
+        grila_optiuni: "5.1 Opțiuni pt Grila X × Y stare",
       },
       axe: [
         {

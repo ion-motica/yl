@@ -6,8 +6,26 @@ inventezi alt mecanism. `SPECIFICATIE.md` §12 trimite aici.
 
 Stil cerut de user: **simplu, robust, reconfigurabil. Nu sofisticat, nu smart.**
 
-Acesta e un document de plan: nimic de mai jos nu e implementat încă, în afara
-pieselor marcate „există deja".
+**Implementat (17.07.2026)** în Vizualizare 3, subsecția `grila_optiuni`, nivelul
+2 — Portabil: `vizualizare3-bootstrap.js` (funcțiile din jurul
+`construiesteZonaPreseturi`), `vizualizare3.css` (`.viz3-preset-*`). Testat în
+browser (nu doar `node --check`): capturare/salvare, nume duplicat (înlocuire
+și renunțare), Delete, Make default + auto-aplicare la pornire (inclusiv
+ordinea corectă față de măsurarea sliderului de dimensiune), redenumire,
+export, reîmprospătare din fișier (respectă lista de nume șterse).
+
+**Deviere de la text, decisă în timpul implementării:** popup-ul de nume
+duplicat (§„Salvare" mai jos) NU e `window.confirm()`. Un dialog nativ
+blochează JS-ul paginii până răspunde omul — netestabil din cod și, verificat
+direct, blochează inclusiv tab-ul în automatizările de testare ale acestui
+asistent. Aceeași problemă avea și `window.alert()` folosit la două mesaje noi
+(nume duplicat la redenumire, rezultatul reîmprospătării). Toate trei sunt
+înlocuite cu UI inline (text + butoane create din JS, în rândul respectiv),
+cu EXACT același text și aceeași semantică OK/Cancel din contract. Șablonul
+`randCampNume` din bootstrap arată mecanismul; se reia la orice zonă nouă —
+**niciun `confirm`/`alert`/`prompt` nativ în zona de preseturi.** (Excepție
+lăsată pe loc: eroarea de import cu fișier corupt, care reia un `alert()`
+deja existent la importul jurnalului — cale rară, tratată separat.)
 
 ## Vocabular
 
@@ -28,10 +46,11 @@ pieselor marcate „există deja".
    declanșează evenimentul nativ (`change` la bife/câmpuri, `input` la slidere,
    `click` la butoane). Pagina reacționează exact ca la mâna omului; zero logică
    dublată. Cheile necunoscute se ignoră în tăcere — un preset vechi nu strică
-   pagina nouă. *(există deja: `aplicaPreset` în bootstrap)*
+   pagina nouă. *(există deja: `aplicaControalePreset` în bootstrap)*
 3. **Salvare** — capturează zona, cere numele, scrie în sertar. Numele e cheia,
    unic **în interiorul zonei** (același nume în altă zonă e permis, nu se ceartă).
-   Dacă numele există deja în zonă, popup simplu:
+   Dacă numele există deja în zonă, popup simplu — **inline, nu `window.confirm()`**
+   (vezi „Deviere de la text" mai sus):
 
    > Numele este deja dat pentru un preset din această secțiune.
    > Apasă **OK** dacă vrei să îl înlocuiești.
