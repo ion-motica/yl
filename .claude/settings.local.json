@@ -57,7 +57,8 @@
       "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" diff -- .claude/settings.local.json)",
       "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" add .claude/settings.local.json)",
       "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" commit -m \"Adauga .claude/launch.json \\(config servere dev\\) in repo\")",
-      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" log --oneline -3)"
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" log --oneline -3)",
+      "Bash(git rm *)"
     ]
   }
 }
