@@ -1823,8 +1823,8 @@
     buton.type = "button";
     buton.textContent = eticheta;
     buton.disabled = id === "import" && !importSalvat;
-    // Evidentiem ce se vede acum, nu ce s-a cerut: fara import si fara jurnal
-    // real, „import" cade oricum pe dummy, si butonul n-are voie sa minta.
+    // Evidentiem ce se vede acum, nu ce s-a cerut: „jurnal" cu IndexedDB gol
+    // cade pe dummy, si butonul n-are voie sa minta.
     if (id === sursaAfisata) buton.classList.add("viz3-sursa-aleasa");
     buton.addEventListener("click", () => {
       sursaActiva = id;
@@ -1848,6 +1848,7 @@
     sursa.append(
       randSursa([info]),
       randSursa([
+        butonAlegeSursa("jurnal", "Citește din IndexedDB"),
         butonAlegeSursa("import", "Alege log importat"),
         butonAlegeSursa("fixture", "Alege dummy log pe 8 săptămâni"),
       ]),
@@ -1946,10 +1947,12 @@
     : axaDomeniu?.optiuni.find((o) => o.activa)?.interval;
   let catalog = global.construiesteCatalogInmultire(intervalPornire);
 
-  // Sursa aleasa tine minte peste refresh, ca domeniul. „import" inseamna
-  // datele tale (fisierul importat, sau jurnalul real daca n-ai importat).
+  // Sursa aleasa tine minte peste refresh, ca domeniul. Trei surse: „jurnal"
+  // (jurnalul real, citit live din IndexedDB la fiecare selectare), „import"
+  // (doar fisierul importat, fara fallback pe jurnal) si „fixture" (dummy-ul
+  // generat).
   const CHEIE_SURSA_ACTIVA = "viz3_sursa_activa";
-  const SURSE = ["import", "fixture"];
+  const SURSE = ["jurnal", "import", "fixture"];
 
   function salveazaSursaActiva() {
     try {
@@ -1959,16 +1962,13 @@
     }
   }
 
-  let sursaActiva = "import";
+  let sursaActiva = "jurnal";
   try {
     const salvata = global.localStorage?.getItem(CHEIE_SURSA_ACTIVA);
     if (SURSE.includes(salvata)) sursaActiva = salvata;
   } catch {
     // Ramane implicitul.
   }
-  // Ce s-a afisat efectiv (poate diferi de ce s-a cerut: „import" fara niciun
-  // import cade pe dummy). Butoanele se evidentiaza dupa asta.
-  let sursaAfisata = sursaActiva;
 
   // Fisierul importat tine minte peste refresh (localStorage), ca sa nu-l
   // pierzi la un F5 din greseala. `null` = nu e niciun import activ; userul
@@ -1988,6 +1988,15 @@
   }
 
   let importSalvat = citesteImportSalvat();
+
+  // Migrare de la schema cu 2 surse: „import" salvat fara vreun fisier
+  // importat insemna, pe vechea semantica, jurnalul real. Pe cea noua ar fi
+  // un buton dezactivat — il ducem la sensul lui adevarat.
+  if (sursaActiva === "import" && !importSalvat) sursaActiva = "jurnal";
+
+  // Ce s-a afisat efectiv (poate diferi de ce s-a cerut: „jurnal" fara date
+  // reale cade pe dummy). Butoanele se evidentiaza dupa asta.
+  let sursaAfisata = sursaActiva;
 
   function salveazaImport(nume, inregistrari) {
     importSalvat = { nume, inregistrari };
@@ -2016,22 +2025,24 @@
       analizeazaSiRandeaza(fixture.construiesteFixture(), "Sursă: dummy log pe 8 săptămâni.");
       return;
     }
-    if (importSalvat) {
+    if (sursaActiva === "import" && importSalvat) {
       sursaAfisata = "import";
       const cate = importSalvat.inregistrari.length;
       analizeazaSiRandeaza(importSalvat.inregistrari, `Sursă: „${importSalvat.nume}" (${cate} apăsări).`);
       return;
     }
+    // „jurnal" (si, defensiv, un „import" ramas fara fisier — nu se poate
+    // alege din UI, dar starea persistata nu e sub controlul nostru).
     const reale = await citesteJurnalul();
     if (reale.length > 0) {
-      sursaAfisata = "import";
-      analizeazaSiRandeaza(reale, `Sursă: jurnal real (${reale.length} apăsări).`);
+      sursaAfisata = "jurnal";
+      analizeazaSiRandeaza(reale, `Sursă: jurnal real din IndexedDB (${reale.length} apăsări).`);
       return;
     }
     sursaAfisata = "fixture";
     analizeazaSiRandeaza(
       fixture.construiesteFixture(),
-      "Sursă: dummy log pe 8 săptămâni (jurnal real gol, niciun log importat)."
+      "Sursă: dummy log pe 8 săptămâni (jurnalul real din IndexedDB e gol)."
     );
   }
 
