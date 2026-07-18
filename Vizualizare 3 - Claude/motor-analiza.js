@@ -168,6 +168,14 @@
 
   // ---- filtrarea (standard v1) -----------------------------------------
 
+  // Apăsare oarbă (sub plancher): nu e un răspuns citit, iese și din precizie.
+  // Câmp opțional: filtrele care nu-l au (ex. filtru_standard_v1) nu exclud nimic aici.
+  function esteRaspunsImpulsiv(intrebare, filtru) {
+    const prag = filtru.plancher_impulsivitate_secunde;
+    const t = intrebare.timp_primul_raspuns_secunde;
+    return prag != null && t !== null && t < prag;
+  }
+
   // Nu șterge întrebări; marchează care intră în calculul vitezei. Precizia
   // folosește toate primele apăsări (dacă nu ceri altfel din configurare).
   function aplicaFiltre(calup, filtru) {
@@ -177,17 +185,10 @@
       if (t === null) return false;
       return t >= filtru.timp_minim_secunde && t <= filtru.timp_maxim_secunde;
     };
-    // Apăsare oarbă (sub plancher): nu e un răspuns citit, iese și din precizie.
-    // Câmp opțional: filtrele care nu-l au (ex. filtru_standard_v1) nu exclud nimic aici.
-    const impulsiva = (intrebare) => {
-      const prag = filtru.plancher_impulsivitate_secunde;
-      const t = intrebare.timp_primul_raspuns_secunde;
-      return prag != null && t !== null && t < prag;
-    };
 
     const pentruViteza = intrebari.filter(
       (intrebare) =>
-        !impulsiva(intrebare) &&
+        !esteRaspunsImpulsiv(intrebare, filtru) &&
         (!filtru.viteza_doar_corect_din_prima || intrebare.corect_din_prima === true) &&
         timpValidPtViteza(intrebare)
     );
@@ -198,7 +199,9 @@
             timpValidPtViteza(intrebare)
         )
       : intrebari;
-    const pentruPrecizie = pentruPrecizieBaza.filter((intrebare) => !impulsiva(intrebare));
+    const pentruPrecizie = pentruPrecizieBaza.filter(
+      (intrebare) => !esteRaspunsImpulsiv(intrebare, filtru)
+    );
 
     return { pentruPrecizie, pentruViteza };
   }
@@ -402,6 +405,105 @@
     };
   }
 
+  // ---- segmentarea în calupuri (pentru seria de scoruri, §13) -----------
+
+  // „Răspuns valid" = exact ce numără calculeazaStatistici ca `n` (are
+  // rezultat, nu e impulsiv, respectă intervalul de timp dacă filtrul cere
+  // asta) — garantează n_valide al calupului == n_total al scorului.
+  function esteRaspunsValidPentruCalup(intrebare, filtru) {
+    if (intrebare.corect_din_prima === null || intrebare.corect_din_prima === undefined) {
+      return false;
+    }
+    if (esteRaspunsImpulsiv(intrebare, filtru)) return false;
+    if (filtru.exclude_timpi_extremi_din_precizie) {
+      const t = intrebare.timp_primul_raspuns_secunde;
+      if (t !== null && (t < filtru.timp_minim_secunde || t > filtru.timp_maxim_secunde)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Închide un calup colectat NOU -> VECHI (timpul scanării înapoi) și îl
+  // aduce la forma cronologică (VECHI -> NOU) cerută de contract.
+  function inchideCalup(calupNouVechi, nValide, complet, indexDinPrezent, filtru) {
+    const intrebariCronologic = calupNouVechi.slice().reverse();
+    const zileValide = intrebariCronologic
+      .filter((intrebare) => esteRaspunsValidPentruCalup(intrebare, filtru))
+      .map((intrebare) => ziDin(intrebare.data_ora_ro))
+      .filter(Boolean);
+    return {
+      index_din_prezent: indexDinPrezent,
+      intrebari: intrebariCronologic,
+      n_valide: nValide,
+      complet,
+      data_prima_zi: zileValide.length ? zileValide[0] : null,
+      data_ultima_zi: zileValide.length ? zileValide[zileValide.length - 1] : null,
+    };
+  }
+
+  // Taie istoricul unei ferestre de facts în calupuri de `marimeCalup`
+  // răspunsuri valide consecutive, ANCORATE ÎN PREZENT: se scanează de la cel
+  // mai recent răspuns spre cel mai vechi, deci calupul incomplet (dacă
+  // există) e mereu cel mai vechi, nu cel mai nou. Returnează cronologic
+  // (vechi -> nou); `index_din_prezent` (0 = cel mai recent) merge în
+  // celălalt sens. `intrebari` = întrebări GRUPATE (ca la calculeazaScorFluenta).
+  function segmenteazaFereastraInCalupuri({ intrebari, celuleFereastra, marimeCalup, filtru }) {
+    if (!Array.isArray(intrebari)) {
+      throw new Error("Segmentarea are nevoie de un array de întrebări.");
+    }
+    if (!Number.isInteger(marimeCalup) || marimeCalup < 1) {
+      throw new Error("Mărimea calupului trebuie să fie un întreg pozitiv.");
+    }
+
+    const cheiFereastra = new Set(celuleFereastra);
+    const aleFerestrei = intrebari.filter((intrebare) =>
+      cheiFereastra.has(cheieCelulaDinInregistrare(intrebare))
+    );
+
+    const calupuri = [];
+    let calupCurent = []; // colectat NOU -> VECHI; inchideCalup il aduce cronologic
+    let nValide = 0;
+
+    for (let i = aleFerestrei.length - 1; i >= 0; i--) {
+      const intrebare = aleFerestrei[i];
+      calupCurent.push(intrebare);
+      if (esteRaspunsValidPentruCalup(intrebare, filtru)) nValide++;
+      if (nValide === marimeCalup) {
+        calupuri.push(inchideCalup(calupCurent, nValide, true, calupuri.length, filtru));
+        calupCurent = [];
+        nValide = 0;
+      }
+    }
+    // Calupul rămas (cel mai vechi) se emite doar dacă are măcar un răspuns
+    // valid; un rest compus doar din invalide nu e un calup.
+    if (nValide >= 1) {
+      calupuri.push(inchideCalup(calupCurent, nValide, false, calupuri.length, filtru));
+    }
+
+    return calupuri.reverse();
+  }
+
+  // Seria de scoruri a unei ferestre: un element per calup, cronologic
+  // (vechi -> nou) — rândul complet al viitorului tabel.
+  function calculeazaSerieScorFluenta({ intrebari, celuleFereastra, marimeCalup, praguri }) {
+    const filtru = praguri.interpretare_v1.filtru;
+    const calupuri = segmenteazaFereastraInCalupuri({
+      intrebari,
+      celuleFereastra,
+      marimeCalup,
+      filtru,
+    });
+    return calupuri.map((calup) => ({
+      ...calculeazaScorFluenta({ intrebari: calup.intrebari, celuleFereastra, praguri }),
+      index_din_prezent: calup.index_din_prezent,
+      n_valide: calup.n_valide,
+      complet: calup.complet,
+      data_prima_zi: calup.data_prima_zi,
+      data_ultima_zi: calup.data_ultima_zi,
+    }));
+  }
+
   // ---- modelul de vizualizare ------------------------------------------
 
   // Materializează TOATE celulele catalogului, inclusiv cele fără observații
@@ -492,6 +594,8 @@
     calculeazaScorFact,
     clasificaIncredereScor,
     calculeazaScorFluenta,
+    segmenteazaFereastraInCalupuri,
+    calculeazaSerieScorFluenta,
     ruleazaAnaliza,
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);
