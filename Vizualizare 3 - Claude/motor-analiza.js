@@ -177,19 +177,28 @@
       if (t === null) return false;
       return t >= filtru.timp_minim_secunde && t <= filtru.timp_maxim_secunde;
     };
+    // Apăsare oarbă (sub plancher): nu e un răspuns citit, iese și din precizie.
+    // Câmp opțional: filtrele care nu-l au (ex. filtru_standard_v1) nu exclud nimic aici.
+    const impulsiva = (intrebare) => {
+      const prag = filtru.plancher_impulsivitate_secunde;
+      const t = intrebare.timp_primul_raspuns_secunde;
+      return prag != null && t !== null && t < prag;
+    };
 
     const pentruViteza = intrebari.filter(
       (intrebare) =>
+        !impulsiva(intrebare) &&
         (!filtru.viteza_doar_corect_din_prima || intrebare.corect_din_prima === true) &&
         timpValidPtViteza(intrebare)
     );
-    const pentruPrecizie = filtru.exclude_timpi_extremi_din_precizie
+    const pentruPrecizieBaza = filtru.exclude_timpi_extremi_din_precizie
       ? intrebari.filter(
           (intrebare) =>
             intrebare.timp_primul_raspuns_secunde === null ||
             timpValidPtViteza(intrebare)
         )
       : intrebari;
+    const pentruPrecizie = pentruPrecizieBaza.filter((intrebare) => !impulsiva(intrebare));
 
     return { pentruPrecizie, pentruViteza };
   }
@@ -274,6 +283,123 @@
       return "in_lucru";
     }
     return "nu_il_stie";
+  }
+
+  // ---- interpretare v1: scorul de apropiere de fluență (SPECIFICATIE.md §13) --
+
+  // Rampă crescătoare 0..1: sub prag0 -> 0, peste prag1 -> 1, liniar între.
+  // Folosită pentru corectitudine (prag0 = ghicit, prag1 = plin).
+  function rampaCrescatoare(valoare, prag0, prag1) {
+    if (valoare === null) return 0;
+    if (valoare <= prag0) return 0;
+    if (valoare >= prag1) return 1;
+    return (valoare - prag0) / (prag1 - prag0);
+  }
+
+  // Rampă descrescătoare 0..1: sub prag1 -> 1, peste prag0 -> 0, liniar între.
+  // Folosită pentru viteză (prag0 = zero/lent, prag1 = plin/rapid).
+  function rampaDescrescatoare(valoare, prag0, prag1) {
+    if (valoare === null) return 0;
+    if (valoare <= prag1) return 1;
+    if (valoare >= prag0) return 0;
+    return (prag0 - valoare) / (prag0 - prag1);
+  }
+
+  // Scorul unui singur fact: înmulțirea celor două rampe (ambele condiții
+  // simultan, nu adunare — vezi §13). Netestat (n=0) -> 0, „praf".
+  function calculeazaScorFact(statisticiFact, praguriInterpretareV1) {
+    if (!statisticiFact.n) {
+      return { scor: 0, coef_corectitudine: 0, coef_viteza: 0 };
+    }
+    const { corectitudine, viteza } = praguriInterpretareV1;
+    const coefCorectitudine = rampaCrescatoare(
+      statisticiFact.precizie_prima,
+      corectitudine.prag_ghicit,
+      corectitudine.prag_plin
+    );
+    const coefViteza = rampaDescrescatoare(
+      statisticiFact.mediana_timp,
+      viteza.secunde_zero,
+      viteza.secunde_plin
+    );
+    return {
+      scor: coefCorectitudine * coefViteza,
+      coef_corectitudine: coefCorectitudine,
+      coef_viteza: coefViteza,
+    };
+  }
+
+  // Etichetă de încredere per fereastră+calup, din n valide și zile distincte
+  // (§13, tabelul de etichete — texte fixate de user).
+  const ETICHETE_INCREDERE_SCOR = Object.freeze({
+    date_insuficiente: "Date insuficiente — nu calculăm",
+    incredere_mica: "Date puține — încredere mică în coeficient",
+    incredere_mare: "Date suficiente — încredere mare în coeficient",
+  });
+
+  function clasificaIncredereScor(nTotal, zileDistincte, praguriIncredere) {
+    if (nTotal < praguriIncredere.n_minim_calcul) return "date_insuficiente";
+    if (
+      nTotal >= praguriIncredere.n_incredere_mare &&
+      zileDistincte >= praguriIncredere.zile_distincte_incredere_mare
+    ) {
+      return "incredere_mare";
+    }
+    return "incredere_mica";
+  }
+
+  // Scorul unei ferestre de facts (ex. o subtablă) într-un calup: media
+  // scorurilor per fact din `celuleFereastra`, cu netestat = 0. `intrebari`
+  // conține toate întrebările calupului (poate acoperi mai multe facts);
+  // gruparea pe celulă reutilizează `selecteazaDomeniu`.
+  //
+  // NU implementează încă plafonarea pe acoperire (sub jumătate din facts
+  // testate -> „date puține" chiar cu n mare) — era DE CONFIRMAT în §13, nu
+  // decisă de user.
+  function calculeazaScorFluenta({ intrebari, celuleFereastra, praguri }) {
+    const praguriV1 = praguri.interpretare_v1;
+    const catalogFereastra = {
+      celule: celuleFereastra.map((cellId) => ({ cell_id: cellId })),
+    };
+    const domeniu = selecteazaDomeniu(intrebari, catalogFereastra);
+
+    let sumaScoruri = 0;
+    let nTotal = 0;
+    let factsTestate = 0;
+    const zileDistincteFereastra = new Set();
+
+    celuleFereastra.forEach((cellId) => {
+      const intrebariCelula = domeniu.peCelula.get(cellId) ?? [];
+      const calup = segmenteazaInCalupuri(intrebariCelula, { tip: "tot_istoricul" });
+      const filtrate = aplicaFiltre(calup, praguriV1.filtru);
+      const statistici = calculeazaStatistici(filtrate);
+      const { scor } = calculeazaScorFact(statistici, praguriV1);
+
+      sumaScoruri += scor;
+      nTotal += statistici.n;
+      if (statistici.n > 0) factsTestate += 1;
+      intrebariCelula.forEach((intrebare) => {
+        const zi = ziDin(intrebare.data_ora_ro);
+        if (zi) zileDistincteFereastra.add(zi);
+      });
+    });
+
+    const factsTotal = celuleFereastra.length;
+    const zileDistincte = zileDistincteFereastra.size;
+    const eticheta = clasificaIncredereScor(nTotal, zileDistincte, praguriV1.incredere);
+
+    return {
+      scor:
+        eticheta === "date_insuficiente" || !factsTotal
+          ? null
+          : sumaScoruri / factsTotal,
+      eticheta,
+      eticheta_text: ETICHETE_INCREDERE_SCOR[eticheta],
+      n_total: nTotal,
+      zile_distincte: zileDistincte,
+      facts_testate: factsTestate,
+      facts_total: factsTotal,
+    };
   }
 
   // ---- modelul de vizualizare ------------------------------------------
@@ -363,6 +489,9 @@
     aplicaFiltre,
     calculeazaStatistici,
     clasificaStare,
+    calculeazaScorFact,
+    clasificaIncredereScor,
+    calculeazaScorFluenta,
     ruleazaAnaliza,
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

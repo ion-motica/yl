@@ -214,3 +214,190 @@ reutilizabil: zone cu controale `data-preset`, capturare automată (fără liste
 scrise de mână), sămânță în fișier + copie de lucru în sertar, salvare cu nume
 (popup la duplicat), Delete, Make default auto-aplicat. Nu se inventează alt
 mecanism per modul. Nivel ales de user: **2 — Portabil** (17.07.2026).
+
+## 13. Interpretare v1 — scorul de apropiere de fluență (tabel pe calupuri)
+
+Detaliază opțiunile „progres/direcție; comparație calupuri" (axa 4) și un tabel nou în
+axa 5. Decizii înghețate cu userul la 18.07.2026, după analiza pe jurnalul real
+(652 apăsări, 12–17.07.2026). Praguri calibrate pe UN adult — provizorii; corecturile
+din cercetarea aprofundată (18.07.2026) sunt integrate mai jos, profilurile de copii
+rămân de validat pe date reale.
+
+### Scopul scorului (fixat de user)
+
+1. „Unde ești acum" — poziția pe drumul praf → fluent.
+2. „Nu pedalezi în gol" — progres măsurat obiectiv, fără să mintă.
+3. „Cât mai e de lucru" — din poziție + ritmul observat pe serii de calupuri, NU
+   dintr-o promisiune de liniaritate: ultimii metri SUNT în pantă (legea exercițiului:
+   4s→3s vine în zeci de repetiții, 2,5s→2,0s în sute).
+
+### Funcția (pură, în motor)
+
+`calculeazaScorFluenta(intrebariFerestrei, praguri)` → `{ scor 0..100, eticheta }`,
+apelată o dată per (fereastră de facts × calup). Tabelul = funcția pe calupuri
+consecutive; graficele viitoare = aceleași valori. (În discuții: „scorFluenta".)
+
+### Formula per fact
+
+```text
+scor_fact = rampa_corectitudine × rampa_viteza    // înmulțire: ambele condiții simultan
+```
+
+- **rampa_corectitudine** — pe precizia corect-din-prima (filtru standard v1):
+  ≤ 45% → 0 · ≥ 90% → 1 · liniar între. Pragul de ghicit e **45%, nu 1/3** (adoptat
+  18.07.2026, din cercetare): cine elimină o variantă implauzibilă ghicește efectiv
+  la ~50%, deci 33% ar da credit pentru eliminare-și-ghicit. Pragul se calibrează
+  împreună cu calitatea distractorilor din quiz (distractori plauzibili → prag mai
+  aproape de 33%).
+- **rampa_viteza** — pe mediana timpului corect-din-prima:
+  ≤ 2,0s → 1 (răspuns din memorie; pragul „fluent" existent) · ≥ 7,0s → 0
+  (calculează/„bâjbâie") · liniar între. Zero-ul la 7s e susținut de histograma pe
+  jurnalul real: p90 = 8s; coada medianelor „bâjbâite" începe la ~6s; între 6/7/8
+  diferă doar ~7 facts. Independent de filtrul 15/20s: filtrul curăță datele („a
+  plecat de la masă"), rampa notează viteza — un corect de 11s contează la
+  corectitudine, viteza lui e 0.
+- **netestat → 0** („praf").
+- **Plancher de impulsivitate** (adoptat 18.07.2026): răspunsurile sub **0,35s** se
+  aruncă complet — și din precizie, nu doar din viteză (fizic imposibil să citești
+  3 variante; e apăsare oarbă). Zona corectă 0,35–0,8s = „suspectă de noroc" — doar
+  documentată în v1, netratată (la adult aproape inexistentă; la copii va conta).
+
+Exemplu: fact cu 80% corecte, mediană 4,0s → (0,80−0,45)/(0,90−0,45) ≈ 0,78;
+(7−4)/(7−2) = 0,60; scor = 0,78 × 0,60 ≈ **47%** din drum.
+
+### Scorul celulei
+
+Media scor_fact pe **toate** facts din fereastră, cu netestat = 0. E milestone-ul pe
+drumul „toate facts fluente": și acoperirea de teritoriu nou, și accelerarea celui
+cunoscut urcă scorul. În celulă: **un singur număr** („% din drum") + eticheta de
+încredere.
+
+### Calupuri (coloanele)
+
+Numărate pe răspunsuri **valide** (post-filtrare), **în interiorul fiecărei ferestre**
+→ n constant per celulă. Bife: 25 / 50 / 100 / 200, implicit **100**. Consecință
+asumată: „ultimele 100" ale subtablei 2* acoperă alte date calendaristice decât ale
+subtablei 19* — antet „ultimele 100 / anterioarele 100 / …", intervalul real de date
+mărunt sau la hover. Alternativ („vor urma"): calup pe sesiuni/zile — acolo n variază
+per celulă, etichetele o spun.
+
+### Etichete de încredere per celulă (texte fixate de user)
+
+| n valide | etichetă | afișare |
+| --- | --- | --- |
+| sub 15 | Date insuficiente — nu calculăm | fără număr |
+| 15–49 | Date puține — încredere mică în coeficient | scor gri/mic |
+| 50+ **și ≥2 zile distincte** | Date suficiente — încredere mare în coeficient | scor normal |
+
+„Încredere mare" cere și **≥2 zile distincte** în calup (adoptat 18.07.2026): viteza
+copiilor variază puternic de la o zi la alta (test-retest r≈0,2 — „forma zilei"),
+deci 100 de răspunsuri dintr-o singură după-amiază entuziastă nu-s dovadă stabilă;
+fără zile ≥2, eticheta se plafonează la „Date puține". Regula din spate: scorul
+poate minți cu ±1/(2√n) → 25→±10 puncte, 50→±7, 100→±5, 200→±3,5. DE CONFIRMAT:
+plafonare la „date puține" și când sub jumătate din facts au măcar un răspuns
+(acoperire mică).
+
+### Citirea diferențelor (anti-amăgire)
+
+- Diferența dintre 2 celule tremură ~×1,4 față de o celulă: la calup 100, semnal abia
+  de la ~7 puncte; sub prag → „zgomot sau informație, nu știm la granulația asta".
+- Pași mici dar toți în aceeași direcție pe 3–4 calupuri consecutive = semnal, chiar
+  dacă fiecare pas e sub prag.
+- **Anti cherry-picking:** granulația se alege DOAR după n („sita se alege după
+  mărimea pietrișului, nu după unde a sclipit ceva"), niciodată după scoruri.
+
+### Analiza de fezabilitate a granulației (recomandator; propus de user)
+
+Rulată by default pentru fereastra bifată: numără răspunsurile valide per combinație
+candidat (mărimi de calup × pe-întrebări/pe-sesiuni), arată câte celule ar avea
+fiecare etichetă, recomandă combinația cu cele mai multe celule „bazate". Se uită
+NUMAI la n, nu la scoruri — corectă prin construcție.
+
+### Vizualizarea (opțiune nouă în axa 5)
+
+Rânduri = subtablele domeniului activ + „Toată fereastra"; coloane = calupuri
+(vechi → noi); celulă = scor + etichetă. Ultima coloană ≈ starea curentă.
+
+### session_id
+
+Câmp nou în jurnal (partea de quiz) pentru înregistrările viitoare; fallback pentru
+cele vechi: sesiune = ziua calendaristică. DE DECIS: regula de generare a id-ului
+(la încărcarea paginii? după pauză de X minute?).
+
+### Schiță praguri noi pentru `config-praguri.js` (se implementează odată cu funcția)
+
+```js
+interpretare_v1: {
+  corectitudine: { prag_ghicit: 0.45, prag_plin: 0.9 },
+  viteza: { secunde_plin: 2.0, secunde_zero: 7.0 },
+  // corect_suspect: doar documentat în v1, netratat.
+  impulsivitate: { plancher_secunde: 0.35, corect_suspect_sub_secunde: 0.8 },
+  incredere: { n_minim_calcul: 15, n_incredere_mare: 50, zile_distincte_incredere_mare: 2 },
+  calup: { marimi: [25, 50, 100, 200], implicita: 100 },
+}
+```
+
+### Profiluri de vârstă (vor urma — la primul copil-utilizator)
+
+Puncte de plecare din cercetare (extrapolate, de validat pe date reale):
+
+| profil | plin (credit maxim) | zero | plancher impulsivitate |
+| --- | --- | --- | --- |
+| adult (actual) | 2,0s | 7s | 0,35s |
+| 10-12 ani | ~2,0s | ~6s | 0,30s |
+| 7-9 ani | ~2,5s | ~8s | 0,35s |
+
+Config: un obiect de praguri per profil + bifă de selecție.
+
+### Dificultatea factului (v2, vor urma)
+
+Problem-size effect (cel mai robust fenomen din aritmetica cognitivă): un prag
+uniform e nedrept cu 7×8 față de 12×2. Soluția potrivită arhitecturii: grupe de
+dificultate declarate în catalog (ușor/mediu/greu per fact); pragurile de viteză
+se deplasează cu ~+1-1,5s la cele grele. Nuanță din cercetare: multe erori vin din
+interferența între vecini (18×7 vs 17×7), nu doar din mărimea operanzilor.
+
+### Decizie documentată: tablele 11-20
+
+Literatura n-are norme de fluență pentru 11-20; școala le tratează procedural
+(14×6 = 10×6 + 4×6). Aplicația își propune explicit contrariul — memorarea directă —
+iar datele userului arată că se poate (25 facts sub 2s în 5 zile). Pragurile rămân
+deci ambițioase CA DECIZIE ASUMATĂ: măsoară un obiectiv pe care școala nici nu-l
+încearcă; scorurile vor arăta „aspre" față de așteptările școlare — nu e eroare de
+măsurare, e ținta.
+
+**Principiu de ton** (din experiența userului, care și-a administrat singur dușul
+rece al lui 11-20 după fluența pe 1-10): scorul și etichetele **măsoară drumul, nu
+judecă persoana**. Nimic din UI nu are voie să comunice „ești prost" — un copil
+nemotivat primește de aici încurajare măsurabilă („uite, se adună"), nu verdict.
+
+### Calibrare empirică viitoare: valea bimodală
+
+Distribuția timpilor = două cocoașe (memoria, ~sub 1,5s; calculul, 3-10s) cu o vale
+între ele. Valea, măsurată pe datele fiecărei grupe de vârstă/dificultate, e pragul
+de retrieval empiric — mai bun decât orice cifră din literatură. Scriptul de
+histogramă existent o poate căuta când se strâng destule date.
+
+### Notate, în afara acestui modul
+
+- **Quiz:** recomandare de acoperire — cât mai multe facts distincte din tabla vizată,
+  pe lângă seturile intensive de remediere → tot mai puține „netestate", analiză tot
+  mai exactă.
+- **Quiz (din cercetare, 18.07.2026):** distractori plauzibili (calibrează pragul
+  ghicitului); ocazional itemi cu scris liber pentru facts candidate la „fluent"
+  (recunoașterea la 3 variante e mai ușoară decât producția — un „fluent" la variante
+  poate să nu fie fluent cu adevărat); sesiuni scurte ~4-5 min (oboseala crește spre
+  coada sesiunii); presiunea de viteză abia de la ≥80% corecte („accuracy before
+  speed" — regulă de antrenament, nu de măsurare; scorul rămâne înmulțire, fără
+  praguri-treaptă).
+- **session_id** capătă un rol în plus: pe viitor permite filtrarea „cozii obosite"
+  a sesiunilor lungi.
+- **Viitor:** mod „probă de testare" (facts aleatorii, fără repetare-consolidare)
+  pentru măsura CQPM (corecte/minut — standardul literaturii; pe quizurile adaptive
+  actuale ar fi distorsionată de repetarea intensivă a greșelilor).
+
+### Rămase deschise
+
+Regula de generare `session_id` · plafonarea pe acoperire (DE CONFIRMAT mai sus) ·
+validarea profilurilor de vârstă pe date reale de copii (punctele de plecare sunt
+în subsecțiunea „Profiluri de vârstă").

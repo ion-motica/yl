@@ -35,6 +35,32 @@
       in_lucru: { precizie_minima: 0.8, mediana_maxima_secunde: 4.0 },
       // Orice e testat destul dar sub „în lucru" = „nu îl știe".
     },
+
+    // Interpretare v1: scorul de apropiere de fluență, per fereastră de facts
+    // × calup (SPECIFICATIE.md, secțiunea 13). Independent de `filtru_standard_v1`
+    // și `stare` de mai sus (folosite pentru starea curentă / grila 10×10) —
+    // nu le schimbă comportamentul.
+    interpretare_v1: {
+      // Ca `filtru_standard_v1`, plus `plancher_impulsivitate_secunde`: sub el,
+      // răspunsul iese și din precizie (apăsare oarbă, nu răspuns citit).
+      filtru: {
+        viteza_doar_corect_din_prima: true,
+        timp_minim_secunde: 0.5,
+        timp_maxim_secunde: 15,
+        exclude_timpi_extremi_din_precizie: false,
+        plancher_impulsivitate_secunde: 0.35,
+      },
+      // Rampă corectitudine: sub prag_ghicit -> 0, peste prag_plin -> 1, liniar între.
+      // 0.45 (nu 1/3): cine elimină o variantă implauzibilă ghicește efectiv la ~50%.
+      corectitudine: { prag_ghicit: 0.45, prag_plin: 0.9 },
+      // Rampă viteză: sub secunde_plin -> 1, peste secunde_zero -> 0, liniar între.
+      viteza: { secunde_plin: 2.0, secunde_zero: 7.0 },
+      // Etichetă de încredere per fereastră+calup, din n valide + zile distincte.
+      incredere: { n_minim_calcul: 15, n_incredere_mare: 50, zile_distincte_incredere_mare: 2 },
+      // Bife de mărime calup (nr. răspunsuri valide); segmentarea efectivă pe
+      // calupuri rămâne „vor urma" — aici doar opțiunile disponibile.
+      calup: { marimi: [25, 50, 100, 200], implicita: 100 },
+    },
   };
 
   global.ConfigPraguriVizualizare3 = Object.freeze(CONFIG_PRAGURI);
