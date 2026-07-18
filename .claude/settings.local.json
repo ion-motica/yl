@@ -49,7 +49,14 @@
       "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" check-ignore -v .claude .claude/settings.local.json)",
       "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" status --short --ignored .claude/)",
       "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" status --short)",
-      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" add -f .claude/settings.local.json)"
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" add -f .claude/settings.local.json)",
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" commit -m \"Adauga .claude/settings.local.json in repo, ca sa fie disponibil si pe alt PC\")",
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" check-ignore -v .claude/launch.json)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" add .claude/launch.json)",
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" diff -- .claude/settings.local.json)",
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" add .claude/settings.local.json)",
+      "Bash(git -C \"C:/Users/I/Projects/Youlearn.com\" commit -m \"Adauga .claude/launch.json \\(config servere dev\\) in repo\")"
     ]
   }
 }
