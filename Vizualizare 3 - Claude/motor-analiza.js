@@ -504,6 +504,79 @@
     }));
   }
 
+  // ---- modelul tabelului de scor pe calupuri (§13, opțiune nouă în axa 5) --
+
+  // Eticheta antetului unei coloane, după distanța ei față de prezent
+  // (0 = cea mai recentă). Motorul nu formatează alte texte de UI.
+  function eticheteAntetCalup(idx, marimeCalup) {
+    if (idx === 0) return `ultimele ${marimeCalup}`;
+    if (idx === 1) return `anterioarele ${marimeCalup}`;
+    return `cu ${idx} calupuri în urmă`;
+  }
+
+  // Construiește modelul tabelului „% fluență per subtablă": un rând per
+  // subtablă (valoare distinctă `a` din catalog) + un rând „Toată fereastra",
+  // coloane = calupuri, cronologic (vechi -> noi), ALINIATE LA DREAPTA —
+  // coloana comună e „prezentul" (index_din_prezent 0 cade pe ultima coloană
+  // la toate rândurile, indiferent câte calupuri are fiecare rând).
+  // `inregistrari` sunt BRUTE, ca la ruleazaAnaliza; celula = un element din
+  // calculeazaSerieScorFluenta. `null` = „rândul ăsta n-are un calup atât de
+  // vechi" — diferit de o celulă cu eticheta `date_insuficiente`.
+  function construiesteModelTabelFluenta({ inregistrari, catalog, marimeCalup, praguri }) {
+    if (!Array.isArray(inregistrari)) {
+      throw new Error("Motorul are nevoie de un array de înregistrări.");
+    }
+    if (!catalog || !Array.isArray(catalog.celule)) {
+      throw new Error("Motorul are nevoie de un catalog cu celule.");
+    }
+
+    const intrebari = grupeazaApasarilePeIntrebari(normalizeaza(inregistrari));
+
+    const valoriA = [...new Set(catalog.celule.map((c) => c.a))].sort((x, y) => x - y);
+    const ferestre = valoriA.map((a) => ({
+      tip: "subtabla",
+      eticheta: `${a} ×`,
+      celuleFereastra: catalog.celule.filter((c) => c.a === a).map((c) => c.cell_id),
+    }));
+    ferestre.push({
+      tip: "total",
+      eticheta: "Toată fereastra",
+      celuleFereastra: catalog.celule.map((c) => c.cell_id),
+    });
+
+    const serii = ferestre.map((fereastra) => ({
+      tip: fereastra.tip,
+      eticheta: fereastra.eticheta,
+      serie: calculeazaSerieScorFluenta({
+        intrebari,
+        celuleFereastra: fereastra.celuleFereastra,
+        marimeCalup,
+        praguri,
+      }),
+    }));
+
+    const nrColoane = Math.max(0, ...serii.map(({ serie }) => serie.length));
+
+    const randuri = serii.map(({ tip, eticheta, serie }) => ({
+      tip,
+      eticheta,
+      celule: [...Array(nrColoane - serie.length).fill(null), ...serie],
+    }));
+
+    const antete = Array.from({ length: nrColoane }, (_, coloana) => {
+      const idx = nrColoane - 1 - coloana;
+      return { index_din_prezent: idx, eticheta: eticheteAntetCalup(idx, marimeCalup) };
+    });
+
+    return {
+      tip: "tabel_fluenta",
+      marime_calup: marimeCalup,
+      eticheta_domeniu: catalog.eticheta,
+      antete,
+      randuri,
+    };
+  }
+
   // ---- modelul de vizualizare ------------------------------------------
 
   // Materializează TOATE celulele catalogului, inclusiv cele fără observații
@@ -596,6 +669,7 @@
     calculeazaScorFluenta,
     segmenteazaFereastraInCalupuri,
     calculeazaSerieScorFluenta,
+    construiesteModelTabelFluenta,
     ruleazaAnaliza,
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

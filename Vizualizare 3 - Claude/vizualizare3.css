@@ -66,6 +66,13 @@
      Pragul e in px de asezare, ca `--viz3-titlu-font-max`. */
   --viz3-titlu-prag: 28px;
   --viz3-titlu-randuri-max: 3;
+
+  /* Tabelul de scor pe calupuri (axa 5, opțiunea "Tabel % fluență"). */
+  --viz3-tabel-font: 14px;
+  --viz3-tabel-redus-font: 12px;
+  --viz3-tabel-redus-culoare: #999;
+  --viz3-tabel-contur: #ddd;
+  --viz3-tabel-total-fundal: #f6f6f6;
 }
 
 * {
@@ -731,4 +738,78 @@ body {
   font-size: 8px;
   letter-spacing: -0.1px;
   color: var(--viz3-text-slab);
+}
+
+/* --- Tabelul "% fluență per subtablă" (axa 5) --- */
+.viz3-tabel-scroll {
+  overflow-x: auto;
+}
+
+.viz3-tabel {
+  border-collapse: collapse;
+  font-size: var(--viz3-tabel-font);
+}
+
+.viz3-tabel th,
+.viz3-tabel td {
+  padding: 4px 8px;
+  border: 1px solid var(--viz3-tabel-contur);
+}
+
+.viz3-tabel thead th {
+  text-align: right;
+}
+
+.viz3-tabel thead th:first-child {
+  text-align: left;
+}
+
+/* Coloana cu numele randurilor ramane vizibila la scroll orizontal. Fundal
+   explicit pe th (nu doar pe tr): sticky poate sa nu mosteneasca corect
+   fundalul randului, altfel coloanele de dedesubt s-ar vedea prin ea. */
+.viz3-tabel thead th:first-child,
+.viz3-tabel tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--viz3-panou);
+}
+
+.viz3-tabel tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+
+.viz3-tabel td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.viz3-tabel-celula-goala {
+  background: var(--viz3-fundal);
+}
+
+.viz3-tabel-redus {
+  color: var(--viz3-tabel-redus-culoare);
+  font-size: var(--viz3-tabel-redus-font);
+}
+
+.viz3-tabel-insuficient {
+  color: var(--viz3-tabel-redus-culoare);
+}
+
+.viz3-tabel-total {
+  font-weight: 600;
+  background: var(--viz3-tabel-total-fundal);
+}
+
+/* Coloana fixa a randului "Toata fereastra" isi tine propriul fundal (nu pe
+   cel implicit al coloanei fixe), la fel cum arata restul randului. */
+.viz3-tabel-total th {
+  background: var(--viz3-tabel-total-fundal);
+}
+
+.viz3-tabel-gol {
+  color: var(--viz3-text-slab);
+  font-style: italic;
 }

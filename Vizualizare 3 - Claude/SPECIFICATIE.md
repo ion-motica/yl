@@ -272,14 +272,55 @@ drumul „toate facts fluente": și acoperirea de teritoriu nou, și accelerarea
 cunoscut urcă scorul. În celulă: **un singur număr** („% din drum") + eticheta de
 încredere.
 
-### Calupuri (coloanele)
+### Fotografii (coloanele) — v2, decisă 20.07.2026
 
-Numărate pe răspunsuri **valide** (post-filtrare), **în interiorul fiecărei ferestre**
-→ n constant per celulă. Bife: 25 / 50 / 100 / 200, implicit **100**. Consecință
-asumată: „ultimele 100" ale subtablei 2* acoperă alte date calendaristice decât ale
-subtablei 19* — antet „ultimele 100 / anterioarele 100 / …", intervalul real de date
-mărunt sau la hover. Alternativ („vor urma"): calup pe sesiuni/zile — acolo n variază
-per celulă, etichetele o spun.
+**Istoric:** v1 (felii cronologice de N răspunsuri, numărate per fereastră) a fost
+implementată, testată pe jurnalul real și **înlocuită în aceeași zi**: o felie
+subțire peste o fereastră mare măsura acoperirea, nu fluența (rândul „Toată
+fereastra" avea plafon artificial 12,5% la calup 25 pe 200 facts), iar coloanele nu
+erau aliniate în timp între rânduri. Designul v2 (propus de user, validat pe date
+reale prin simulare) le rezolvă pe amândouă.
+
+**Celula = o FOTOGRAFIE a stării ferestrei la un moment dat**, prin eșantionare
+stratificată per fact:
+
+- de la fiecare fact din fereastră se iau **ultimele lui A răspunsuri valide** de
+  până la momentul fotografiei (A = „adâncimea", bifă: **2 / 5 / 10 / 20 răspunsuri
+  per fact**, implicit **5**); fără redistribuire între facts (decis: complexitate
+  fără câștig real — surplusul unui fact nu stabilizează alt fact);
+- fact **niciodată testat** până la acel moment → 0 („praf"); fact testat cândva dar
+  nu recent → contribuie cu ultimele lui A răspunsuri, oricât de vechi (fostele
+  „trepte 1/2" s-au dizolvat: o singură regulă, fără cazuri speciale);
+- scorul celulei = media scorurilor per fact pe TOATE facts din fereastră; **scorul
+  brut se calculează întotdeauna** — eticheta de încredere decide doar AFIȘAREA
+  („—" sub prag), nu calculul (altfel rândul-medie n-ar avea din ce se calcula);
+- n-ul celulei = suma contribuțiilor per fact (max A × nr facts); etichetele de
+  încredere rămân pe n + zile distincte, neschimbate.
+
+**Momentele foto sunt COMUNE tuturor rândurilor** (cadență decisă 20.07.2026):
+ancorate în prezent, la fiecare `A × facts_per_subtablă` răspunsuri valide ale
+întregii ferestre, numărate înapoi de la ultimul răspuns. Consecințe:
+
+- **antetele coloanelor sunt DATE reale** (data momentului foto; ultima = „acum");
+- rândul „Toată fereastra" = **media coloanei** — și coincide matematic cu calculul
+  direct per-fact la aceeași adâncime (subtable egale ca număr de facts);
+- pozele consecutive se suprapun: un fact neexersat între ele arată la fel —
+  segmente plate = „aici nu s-a lucrat", onest;
+- adâncimea per fact face totul independent de dimensiunea ferestrei (10×10 regula,
+  11-20×1-20 excepția userului, custom a-b×c-d) — nimic de recalculat.
+
+**Scăderi oneste (principiu de ton):** quizul retestează des facts-urile slabe, deci
+cele tari poartă dovezi vechi; când un fact tare-dar-ruginit e retestat, scorul
+poate SCĂDEA. Nu e regres — e rugină descoperită. UI-ul nu o prezintă drept eșec.
+
+**Ultima coloană ≠ grila** (documentat): fotografia = ultimele A per fact; grila =
+toată istoria per fact. Bifa viitoare „ultimele N răspunsuri" din axa 2 a grilei
+le-ar realinia.
+
+Alternativ („vor urma"): momente foto pe sesiuni/zile calendaristice — bifă
+separată. Alternative statistice cunoscute și amânate deliberat: EWMA (parametru
+opac), shrinkage bayesian (schimbă rampele), Elo/IRT per fact (overkill), modele de
+uitare FSRS (dacă „rugina" devine problemă reală).
 
 ### Etichete de încredere per celulă (texte fixate de user)
 
@@ -293,9 +334,10 @@ per celulă, etichetele o spun.
 copiilor variază puternic de la o zi la alta (test-retest r≈0,2 — „forma zilei"),
 deci 100 de răspunsuri dintr-o singură după-amiază entuziastă nu-s dovadă stabilă;
 fără zile ≥2, eticheta se plafonează la „Date puține". Regula din spate: scorul
-poate minți cu ±1/(2√n) → 25→±10 puncte, 50→±7, 100→±5, 200→±3,5. DE CONFIRMAT:
-plafonare la „date puține" și când sub jumătate din facts au măcar un răspuns
-(acoperire mică).
+poate minți cu ±1/(2√n) → 25→±10 puncte, 50→±7, 100→±5, 200→±3,5. Decis
+20.07.2026: **NU se plafonează și pe acoperire** — eticheta rămâne doar pe n + zile;
+acoperirea mică se vede oricum în scor (netestatele intră cu 0) și în detaliile
+celulei (facts testate X/Y, la hover).
 
 ### Citirea diferențelor (anti-amăgire)
 
@@ -311,12 +353,21 @@ plafonare la „date puține" și când sub jumătate din facts au măcar un ră
 Rulată by default pentru fereastra bifată: numără răspunsurile valide per combinație
 candidat (mărimi de calup × pe-întrebări/pe-sesiuni), arată câte celule ar avea
 fiecare etichetă, recomandă combinația cu cele mai multe celule „bazate". Se uită
-NUMAI la n, nu la scoruri — corectă prin construcție.
+NUMAI la n, nu la scoruri — corectă prin construcție. Decis 20.07.2026: intră ca
+rundă separată, DUPĂ tabel.
 
 ### Vizualizarea (opțiune nouă în axa 5)
 
 Rânduri = subtablele domeniului activ + „Toată fereastra"; coloane = calupuri
 (vechi → noi); celulă = scor + etichetă. Ultima coloană ≈ starea curentă.
+
+Decis 20.07.2026: bifele tabelului = **adâncimea fotografiei** (2/5/10/20 răspunsuri
+per fact, implicit 5), în **subsecțiunea proprie a tabelului** („5.2 Opțiuni pt
+Tabel % fluență") — NU în axa 2; axa 2 rămâne a grilei. Sub bife, o **linie
+dinamică de fezabilitate**: „subtable de F facts · poză = A×F răspunsuri · date
+valide: B → N poze". Antetele coloanelor = data momentului foto (ultima = „acum").
+Plan de implementare: `PLAN-tabel-fotografii.md` (înlocuiește `PLAN-tabel-fluenta.md`,
+rămas ca istoric al v1).
 
 ### session_id
 
@@ -333,7 +384,9 @@ interpretare_v1: {
   // corect_suspect: doar documentat în v1, netratat.
   impulsivitate: { plancher_secunde: 0.35, corect_suspect_sub_secunde: 0.8 },
   incredere: { n_minim_calcul: 15, n_incredere_mare: 50, zile_distincte_incredere_mare: 2 },
-  calup: { marimi: [25, 50, 100, 200], implicita: 100 },
+  // Adâncimile fotografiei (2/5/10/20 per fact) NU stau aici: sunt opțiuni de
+  // axă și trăiesc declarativ în definitii-axe.js, ca orice altă axă. Blocul
+  // `calup` din config (mort, necitit de cod) se șterge la implementarea v2.
 }
 ```
 
@@ -398,6 +451,5 @@ histogramă existent o poate căuta când se strâng destule date.
 
 ### Rămase deschise
 
-Regula de generare `session_id` · plafonarea pe acoperire (DE CONFIRMAT mai sus) ·
-validarea profilurilor de vârstă pe date reale de copii (punctele de plecare sunt
-în subsecțiunea „Profiluri de vârstă").
+Regula de generare `session_id` · validarea profilurilor de vârstă pe date reale
+de copii (punctele de plecare sunt în subsecțiunea „Profiluri de vârstă").

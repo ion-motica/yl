@@ -1640,6 +1640,7 @@
           subsectiuneCurenta = axa.subsectiune;
           tinta = document.createElement("div");
           tinta.className = "viz3-subsectiune";
+          tinta.dataset.subsectiune = axa.subsectiune;
           const capSub = document.createElement("div");
           capSub.className = "viz3-subsectiune-titlu";
           capSub.textContent = etapa.subsectiuni?.[axa.subsectiune] ?? "";
@@ -1834,14 +1835,13 @@
     return buton;
   }
 
-  function randeazaVizualizarea(container, model, info) {
-    container.replaceChildren();
-
+  // Antetul comun (titlu + cele 3 randuri de sursa), refolosit de grila si de
+  // tabel. `titluText` e singura diferenta intre reprezentari.
+  function construiesteAntet(titluText, info) {
     const antet = document.createElement("div");
     antet.className = "viz3-viz-antet";
     const titlu = document.createElement("h1");
-    // Titlul urmeaza domeniul ales: catalogul curent isi stie intervalul.
-    titlu.textContent = `Starea curentă — tabla înmulțirii ${catalog.eticheta}`;
+    titlu.textContent = titluText;
     // Trei randuri: ce vezi acum / ce poti alege / import-export.
     const sursa = document.createElement("div");
     sursa.className = "viz3-sursa";
@@ -1855,7 +1855,15 @@
       randSursa([butonDescarcaJurnal(), butonImportaJurnal()])
     );
     antet.append(titlu, sursa);
-    container.appendChild(antet);
+    return antet;
+  }
+
+  function randeazaVizualizarea(container, model, info) {
+    container.replaceChildren();
+    // Titlul urmeaza domeniul ales: catalogul curent isi stie intervalul.
+    container.appendChild(
+      construiesteAntet(`Starea curentă — tabla înmulțirii ${catalog.eticheta}`, info)
+    );
 
     // Tabla = 4 folii transparente suprapuse. Suprapuse arată exact ca tabla
     // întreagă, fiindcă un fact are exact o stare.
@@ -1883,6 +1891,110 @@
     // rAF nu se executa deloc cat timp pagina sta intr-un tab nefocalizat.
     setTimeout(() => {
       masoaraTitlurile([...stiva.querySelectorAll(".viz3-folie")]);
+    }, 0);
+  }
+
+  // ---- randarea tabelului de scor pe calupuri --------------------------
+
+  // Formatarea unei celule: text + clasă, dupa ETICHETA de încredere, nu
+  // dupa `scor === null` — o celulă null în model înseamnă „rândul ăsta n-are
+  // un calup atât de vechi", diferit de o celulă `date_insuficiente` (calup
+  // existent, dar subțire).
+  function formateazaCelulaTabel(celula) {
+    if (celula.eticheta === "date_insuficiente") {
+      return { text: "—", clasa: "viz3-tabel-insuficient" };
+    }
+    const procent = `${Math.round(celula.scor * 100)}%`;
+    if (celula.eticheta === "incredere_mica") {
+      return { text: procent, clasa: "viz3-tabel-redus" };
+    }
+    return { text: procent, clasa: null };
+  }
+
+  function titluCelulaTabel(celula) {
+    let text = `${celula.eticheta_text} · n=${celula.n_total} · zile=${celula.zile_distincte} · facts ${celula.facts_testate}/${celula.facts_total}`;
+    if (celula.data_prima_zi && celula.data_ultima_zi) {
+      text += ` · ${celula.data_prima_zi} → ${celula.data_ultima_zi}`;
+    }
+    return text;
+  }
+
+  function randeazaTabelFluenta(container, model, info) {
+    // Foliile nu mai exista in DOM cand se trece pe tabel; ceasurile lor nu
+    // au voie sa continue sa lucreze pe noduri detasate.
+    if (ceasGrup) {
+      clearTimeout(ceasGrup);
+      ceasGrup = null;
+    }
+    if (ceasAuto) {
+      clearTimeout(ceasAuto);
+      ceasAuto = null;
+    }
+
+    container.replaceChildren();
+    container.appendChild(
+      construiesteAntet(
+        `% fluență per subtablă — ${model.eticheta_domeniu} · calup ${model.marime_calup}`,
+        info
+      )
+    );
+
+    if (model.antete.length === 0) {
+      const gol = document.createElement("p");
+      gol.className = "viz3-tabel-gol";
+      gol.textContent =
+        "Nicio dată în domeniul ales — tabelul apare când există răspunsuri înregistrate.";
+      container.appendChild(gol);
+      return;
+    }
+
+    const scroll = document.createElement("div");
+    scroll.className = "viz3-tabel-scroll";
+    const tabel = document.createElement("table");
+    tabel.className = "viz3-tabel";
+
+    const thead = document.createElement("thead");
+    const randAntet = document.createElement("tr");
+    randAntet.appendChild(document.createElement("th"));
+    model.antete.forEach((antet) => {
+      const th = document.createElement("th");
+      th.textContent = antet.eticheta;
+      randAntet.appendChild(th);
+    });
+    thead.appendChild(randAntet);
+
+    const tbody = document.createElement("tbody");
+    model.randuri.forEach((rand) => {
+      const tr = document.createElement("tr");
+      if (rand.tip === "total") tr.classList.add("viz3-tabel-total");
+      const capRand = document.createElement("th");
+      capRand.scope = "row";
+      capRand.textContent = rand.eticheta;
+      tr.appendChild(capRand);
+
+      rand.celule.forEach((celula) => {
+        const td = document.createElement("td");
+        if (!celula) {
+          td.className = "viz3-tabel-celula-goala";
+        } else {
+          const { text, clasa } = formateazaCelulaTabel(celula);
+          td.textContent = text;
+          if (clasa) td.className = clasa;
+          td.title = titluCelulaTabel(celula);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    tabel.append(thead, tbody);
+    scroll.appendChild(tabel);
+    container.appendChild(scroll);
+    // Deschide pe coloanele recente (dreapta), nu pe cele mai vechi — acolo
+    // majoritatea rândurilor sunt goale. `scrollWidth` e corect abia dupa ce
+    // browserul a asezat tabelul, nu in timpul randarii (ca la masoaraTitlurile).
+    setTimeout(() => {
+      scroll.scrollLeft = scroll.scrollWidth;
     }, 0);
   }
 
@@ -2007,7 +2119,43 @@
     }
   }
 
+  // Ce reprezentare e activă (grilă vs tabel) și mărimea calupului pentru
+  // tabel. NU se persistă peste refresh — doar Domeniul ține minte (convenție).
+  const axaVizualizare = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "vizualizare");
+  const axaMarimeCalup = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "marime_calup");
+  let reprezentareActiva = axaVizualizare?.optiuni.find((o) => o.activa)?.id ?? "grila_10x10";
+  let marimeCalupActiva = axaMarimeCalup?.optiuni.find((o) => o.activa)?.marime ?? 100;
+  let ultimaAnaliza = null; // { inregistrari, info } — pt. re-randare fără recitirea sursei
+
+  function marimeDinOptiune(idOptiune) {
+    return axaMarimeCalup?.optiuni.find((o) => o.id === idOptiune)?.marime ?? marimeCalupActiva;
+  }
+
+  // Arată doar subsecțiunea de opțiuni a reprezentării active (5.1 sau 5.2);
+  // subsecțiunile care nu aparțin niciunei reprezentări rămân mereu vizibile.
+  function actualizeazaSubsectiuni() {
+    const etapaViz = axe.find((e) => e.reprezentare_subsectiuni);
+    const mapare = etapaViz?.reprezentare_subsectiuni ?? {};
+    const legate = new Set(Object.values(mapare));
+    const vizibila = mapare[reprezentareActiva];
+    cpEl.querySelectorAll("[data-subsectiune]").forEach((el) => {
+      const id = el.dataset.subsectiune;
+      el.hidden = legate.has(id) && id !== vizibila;
+    });
+  }
+
   function analizeazaSiRandeaza(inregistrari, info) {
+    ultimaAnaliza = { inregistrari, info };
+    if (reprezentareActiva === "tabel_fluenta") {
+      const model = motor.construiesteModelTabelFluenta({
+        inregistrari,
+        catalog,
+        marimeCalup: marimeCalupActiva,
+        praguri,
+      });
+      randeazaTabelFluenta(vizEl, model, info);
+      return;
+    }
     const model = motor.ruleazaAnaliza({
       inregistrari,
       catalog,
@@ -2015,6 +2163,10 @@
       praguri,
     });
     randeazaVizualizarea(vizEl, model, info);
+  }
+
+  function rerandeaza() {
+    if (ultimaAnaliza) analizeazaSiRandeaza(ultimaAnaliza.inregistrari, ultimaAnaliza.info);
   }
 
   // Ce se afiseaza, de sus in jos. Folosita si la pornire, si la schimbarea
@@ -2055,6 +2207,21 @@
   }
 
   randeazaControlPanel(cpEl, axe);
+  actualizeazaSubsectiuni();
+  // Delegare pe container: schimbarea reprezentarii (grila/tabel) sau a
+  // marimii calupului re-randeaza fara sa recitim sursa de date.
+  cpEl.addEventListener("change", (ev) => {
+    const preset = ev.target?.dataset?.preset ?? "";
+    if (preset.startsWith("vizualizare_") && ev.target.checked) {
+      reprezentareActiva = preset.slice("vizualizare_".length);
+      actualizeazaSubsectiuni();
+      rerandeaza();
+    }
+    if (preset.startsWith("marime_calup_") && ev.target.checked) {
+      marimeCalupActiva = marimeDinOptiune(preset.slice("marime_calup_".length));
+      rerandeaza();
+    }
+  });
   // Defaultul se aplica dupa prima randare, nu inainte: sliderul dimensiunii
   // foliei isi ia maximul real (latimea tablei) abia atunci (sincronizeazaDimensiune),
   // iar un preset aplicat mai devreme ar fi clampat gresit de un range fara max.

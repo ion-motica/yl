@@ -143,7 +143,11 @@
       // alte reprezentari, fiecare isi va avea subsectiunea ei (colapsabila).
       subsectiuni: {
         grila_optiuni: "5.1 Opțiuni pt Grila X × Y stare",
+        tabel_optiuni: "5.2 Opțiuni pt Tabel % fluență",
       },
+      // Ce subsecțiune de opțiuni aparține cărei reprezentări; bootstrap-ul
+      // ascunde subsecțiunile reprezentărilor inactive.
+      reprezentare_subsectiuni: { grila_10x10: "grila_optiuni", tabel_fluenta: "tabel_optiuni" },
       axe: [
         {
           id: "vizualizare",
@@ -151,6 +155,7 @@
           tip_selectie: "unica",
           optiuni: [
             { id: "grila_10x10", eticheta: "Grila X × Y stare", activa: true },
+            { id: "tabel_fluenta", eticheta: "Tabel % fluență per subtablă (serie calupuri)" },
             { id: "grafic_linie", eticheta: "Grafic linie (progres)", dezactivata: true, motiv: VOR_URMA },
             { id: "matrice", eticheta: "Matrice fact × eq_form", dezactivata: true, motiv: VOR_URMA },
             { id: "lista", eticheta: "Listă facts problematice", dezactivata: true, motiv: VOR_URMA },
@@ -271,6 +276,19 @@
               unitate: "secunde",
               nota: "de la așezare; 0 = oprit",
             },
+          ],
+        },
+        {
+          id: "marime_calup",
+          eticheta: "Mărime calup (răspunsuri valide)",
+          subsectiune: "tabel_optiuni",
+          tip_selectie: "unica",
+          // `marime` e valoarea citită de cod; id-ul e doar identificator de bifă.
+          optiuni: [
+            { id: "25", eticheta: "25 (±10 puncte)", marime: 25 },
+            { id: "50", eticheta: "50 (±7)", marime: 50 },
+            { id: "100", eticheta: "100 (±5)", marime: 100, activa: true },
+            { id: "200", eticheta: "200 (±3,5)", marime: 200 },
           ],
         },
       ],
