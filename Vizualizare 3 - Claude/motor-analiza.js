@@ -660,6 +660,59 @@
     };
   }
 
+  // Fezabilitatea adâncimilor candidate: rulează modelul tabelului per candidat
+  // și numără etichetele de încredere pe celulele subtablelor (rândul „Toată
+  // fereastra" e medie derivată — s-ar număra aceleași date de două ori).
+  // Criteriu (decis 21.07.2026): procentul de celule „încredere mare"; la
+  // egalitate câștigă adâncimea mai mică. Se uită NUMAI la etichete (n + zile),
+  // niciodată la scoruri — anti cherry-picking, corect prin construcție.
+  // Rulează construiesteModelTabelFluenta per candidat, fără reuse — funcție
+  // pură, cost trivial la mărimea jurnalului; simplitatea bate optimizarea.
+  function construiesteRecomandareAdancime({ inregistrari, catalog, adancimi, praguri }) {
+    if (!Array.isArray(adancimi) || adancimi.length === 0) {
+      throw new Error("Recomandatorul are nevoie de un array nevid de adâncimi candidate.");
+    }
+
+    const candidati = adancimi.map((adancime) => {
+      const model = construiesteModelTabelFluenta({ inregistrari, catalog, adancime, praguri });
+      const contor = { incredere_mare: 0, incredere_mica: 0, date_insuficiente: 0 };
+      let total = 0;
+      model.randuri
+        .filter((rand) => rand.tip === "subtabla")
+        .forEach((rand) =>
+          rand.celule.forEach((celula) => {
+            contor[celula.eticheta] += 1;
+            total += 1;
+          })
+        );
+      return {
+        adancime,
+        poze: model.antete.length,
+        celule_total: total,
+        contor,
+        procent_bazate: total ? contor.incredere_mare / total : 0,
+      };
+    });
+
+    let recomandata = null;
+    candidati.forEach((c) => {
+      if (c.contor.incredere_mare === 0) return;
+      if (
+        !recomandata ||
+        c.procent_bazate > recomandata.procent_bazate ||
+        (c.procent_bazate === recomandata.procent_bazate && c.adancime < recomandata.adancime)
+      ) {
+        recomandata = c;
+      }
+    });
+
+    return {
+      tip: "recomandare_adancime",
+      candidati,
+      adancime_recomandata: recomandata ? recomandata.adancime : null,
+    };
+  }
+
   // ---- modelul de vizualizare ------------------------------------------
 
   // Materializează TOATE celulele catalogului, inclusiv cele fără observații
@@ -753,6 +806,7 @@
     segmenteazaFereastraInCalupuri,
     calculeazaSerieScorFluenta,
     construiesteModelTabelFluenta,
+    construiesteRecomandareAdancime,
     ruleazaAnaliza,
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

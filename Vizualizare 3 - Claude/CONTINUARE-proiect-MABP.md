@@ -54,6 +54,16 @@ eq_form, extra, …`). Sursa reală: `js/jurnal-intrebari.js`.
 câmpul canonic `fact` (ex. "7*8=56"), nu textul întrebării. Grila e POZIȚIONALĂ: 7×3 ≠ 3×7.
 Notă: `fact_id` e per-eq_form; `familyKey` (canonic, comutativ) NU se salvează în jurnal.
 
+**Domeniul de interes al userului e tabla 1-10 (10×10)** — 11-20 a fost doar
+experimentul care a produs jurnalul real descărcat, nu domeniul urmărit. Jurnalul
+real conține EXCLUSIV facts pe 11-20 (verificat: 0 din 652 înregistrări au primul
+operand în 1-10) — pe domeniul implicit (1-10), tabelele/grila arată goale pe
+date reale; verificarea mecanicii pe 1-10 se face cu
+`FixtureLoguriDummyVizualizare3.construiesteFixture()` (1-20 × 1-20, determinist).
+Opțiunea „Tabla 11-20 × 1-20" din axa Domeniu (`definitii-axe.js`) e deja activă
+și funcțională (adăugată 17.07.2026, catalogul generalizat ca interval
+`{aMin,aMax,bMin,bMax}` în `catalog-tabla-inmultirii.js`) — NU mai e „vor urma".
+
 ## Clasificarea stării (praguri PROVIZORII, în `config-praguri.js`, versionate)
 
 Progresie: `netestat → abia_inceput → nu_il_stie → in_lucru → fluent`. Fiecare celulă arată `n` și
@@ -83,11 +93,21 @@ Filtru standard v1: doar prima apăsare; viteza doar pe corecte-din-prima; exclu
 - **Progres/direcție** — comparație de calupuri, delta agregat (delta per fact comparabil, apoi
   agregare). ASTA e ținta reală: „uite câteva zecimi de secundă de progres care se adună!". În
   prototip afișăm doar STARE, nu progres, fiindcă progresul de zecimi e valid doar agregat.
+- **Pas independent de adâncime** — acum pasul dintre poze e fixat la o „celulă
+  plină" (adâncime × facts/subtablă), deci adâncimi mici dau poze care se
+  suprapun aproape total. Userul a întrebat (21.07.2026) dacă un pas MAI MARE,
+  ales separat, n-ar da poze mai rare dar mai distincte — relevant mai ales pt.
+  Progres/direcție (de mai sus), unde tocmai diferența dintre poze vecine e ce
+  se compară. Decis: etapă separată, DUPĂ recomandatorul de fezabilitate
+  (`PLAN-recomandator-fezabilitate.md`), nu în runda curentă.
+- **Tabla adunării 1-10 (+)** — prioritatea userului e „tabla + sau × 1-10"
+  (21.07.2026). Azi motorul mapează doar înmulțirea (`cheieCelulaDinInregistrare`,
+  punct unic înlocuibil, regex `[*x×]`), iar catalogul are doar operația `mul`.
+  De făcut: catalog `add` + extinderea mapării + opțiune în axa Domeniu. Un log
+  de adunare azi cade în „necatalogate" → tabele goale, fără crash.
 - Ferestre temporale/volum (azi/7z/30z, ultimele N răspunsuri).
 - IQR/MAD, percentile, procente pe intervale.
 - Structuri EFF/eq_form granulare (matrice fact × eq_form).
-- **Grila 11-20** — jurnalul real e T× 11-20, deci grila 1-10 e goală pe date reale. Catalogul e
-  generat declarativ în `catalog-tabla-inmultirii.js`; un al doilea catalog + opțiune în axa Domeniu.
 - Incertitudine (interval Wilson) — DE DECIS metoda cu userul.
 
 ## Evaluarea statistică (agreată)

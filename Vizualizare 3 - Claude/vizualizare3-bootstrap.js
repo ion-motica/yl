@@ -1707,6 +1707,12 @@
             motiv.textContent = ` (${opt.motiv})`;
             elemente.push(motiv);
           }
+          if (axa.marcaj_recomandare) {
+            const marcaj = document.createElement("span");
+            marcaj.className = "viz3-marcaj-recomandare";
+            marcaj.dataset.marcajAdancime = String(opt.adancime);
+            elemente.push(marcaj);
+          }
           const rand = optiune(opt.eticheta, elemente);
           if (opt.dezactivata) rand.classList.add("viz3-dezactivata");
           grup.appendChild(rand);
@@ -2011,6 +2017,90 @@
     }
   }
 
+  // Marcajul „(Recomandat)" langa optiunea de adancime castigatoare — informeaza,
+  // nu alege in locul userului. Recalculat la fiecare analiza pe tabel (domeniul
+  // sau sursa pot schimba recomandarea). Cand nicio adancime n-are celule bazate,
+  // adancime_recomandata e null si toate marcajele se golesc.
+  function actualizeazaMarcajeRecomandareAdancime(recomandare) {
+    axaAdancime.optiuni.forEach((opt) => {
+      const marcaj = cpEl.querySelector(`[data-marcaj-adancime="${opt.adancime}"]`);
+      if (!marcaj) return;
+      marcaj.textContent = opt.adancime === recomandare.adancime_recomandata ? " (Recomandat)" : "";
+    });
+  }
+
+  // Tabelul de comparatie a adancimilor candidate, randat SUB tabelul de
+  // evolutie. NU cheama replaceChildren pe container — randeazaTabelFluenta
+  // tocmai l-a populat pe container (vizEl) si nu trebuie sters, doar completat.
+  function randeazaTabelRecomandareAdancime(container, recomandare, axaAdancime) {
+    const titlu = document.createElement("h2");
+    titlu.className = "viz3-tabel-recomandare-titlu";
+    titlu.textContent = "Tabel pt. recomandare adâncime per fact";
+    container.appendChild(titlu);
+
+    const tabel = document.createElement("table");
+    tabel.className = "viz3-tabel viz3-tabel-recomandare";
+
+    const thead = document.createElement("thead");
+    const randAntet = document.createElement("tr");
+    ["Adâncime per fact", "Nr. calupuri", "Celule în tabel (subtable × calupuri)",
+     "Celule bazate (≥50 răsp. și ≥2 zile)", "% bazate"]
+      .forEach((text) => {
+        const th = document.createElement("th");
+        th.textContent = text;
+        randAntet.appendChild(th);
+      });
+    thead.appendChild(randAntet);
+
+    const tbody = document.createElement("tbody");
+    recomandare.candidati.forEach((candidat) => {
+      const tr = document.createElement("tr");
+      const esteRecomandata = candidat.adancime === recomandare.adancime_recomandata;
+      if (esteRecomandata) {
+        tr.classList.add("viz3-tabel-recomandat");
+      }
+      // Prima coloana = textul EXACT al bifei de adancime (congruenta cu CP),
+      // nu doar numarul. Optiunea exista mereu (candidatii vin din axa).
+      const optiune = axaAdancime.optiuni.find((o) => o.adancime === candidat.adancime);
+      const etichetaAdancime = optiune ? optiune.eticheta : `${candidat.adancime} răspunsuri / fact`;
+      [
+        etichetaAdancime,
+        candidat.poze,
+        candidat.celule_total,
+        candidat.contor.incredere_mare,
+        `${Math.round(candidat.procent_bazate * 100)}%` + (esteRecomandata ? " (Recomandat)" : ""),
+      ].forEach((valoare) => {
+        const td = document.createElement("td");
+        td.textContent = String(valoare);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+
+    tabel.append(thead, tbody);
+    container.appendChild(tabel);
+
+    // Legenda de sub tabel: ce inseamna fiecare coloana. Termenii sunt EXACT
+    // antetele coloanelor (congruenta cu tabelul); definitiile sunt textul
+    // userului, verbatim.
+    const legenda = document.createElement("dl");
+    legenda.className = "viz3-legenda-recomandare";
+    [
+      ["Adâncime per fact", "Nr. de turns trecute de evaluat pt. fiecare fact."],
+      ["Nr. calupuri", "În câte calupuri suprapuse se împarte istoricul de turns (= coloanele tabelului)."],
+      ["Celule în tabel (subtable × calupuri)", 'Câte celule apar în tabelul de evoluție a fluenței tablei (except linia "Total") = nr. de subtable × nr. calupuri.'],
+      ["Celule bazate (≥50 răsp. și ≥2 zile)", "Nr. de celule pentru calcularea cărora s-au folosit ≥ 50 de turns ȘI din 2+ zile diferite ⇒ raport mare signal/noise."],
+      ["% bazate", '% de celule bazate din toate celulele din tabel (except rândul "Total").'],
+    ].forEach(([termen, definitie]) => {
+      const dt = document.createElement("dt");
+      dt.textContent = termen;
+      const dd = document.createElement("dd");
+      dd.textContent = definitie;
+      legenda.append(dt, dd);
+    });
+    container.appendChild(legenda);
+  }
+
   // ---- flux principal ---------------------------------------------------
 
   const motor = global.MotorAnalizaVizualizare3;
@@ -2138,6 +2228,10 @@
   const axaAdancime = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "adancime_foto");
   let reprezentareActiva = axaVizualizare?.optiuni.find((o) => o.activa)?.id ?? "grila_10x10";
   let adancimeActiva = axaAdancime?.optiuni.find((o) => o.activa)?.adancime ?? 5;
+  // true doar dupa ce userul bifeaza manual o alta adancime decat cea
+  // recomandata; se reseteaza la fiecare deschidere a tabelului, schimbare de
+  // domeniu sau de sursa (vezi reseteazaVizualizarea si listenerul de mai jos).
+  let adancimeAlesaManual = false;
   let ultimaAnaliza = null; // { inregistrari, info } — pt. re-randare fără recitirea sursei
 
   function adancimeDinOptiune(idOptiune) {
@@ -2160,6 +2254,24 @@
   function analizeazaSiRandeaza(inregistrari, info) {
     ultimaAnaliza = { inregistrari, info };
     if (reprezentareActiva === "tabel_fluenta") {
+      const recomandare = motor.construiesteRecomandareAdancime({
+        inregistrari,
+        catalog,
+        adancimi: axaAdancime.optiuni.map((o) => o.adancime),
+        praguri,
+      });
+      if (
+        !adancimeAlesaManual &&
+        recomandare.adancime_recomandata !== null &&
+        recomandare.adancime_recomandata !== adancimeActiva
+      ) {
+        adancimeActiva = recomandare.adancime_recomandata;
+        const optiuneRecomandata = axaAdancime.optiuni.find((o) => o.adancime === adancimeActiva);
+        const inputRecomandat = optiuneRecomandata
+          ? cpEl.querySelector(`input[data-preset="adancime_foto_${optiuneRecomandata.id}"]`)
+          : null;
+        if (inputRecomandat) inputRecomandat.checked = true;
+      }
       const model = motor.construiesteModelTabelFluenta({
         inregistrari,
         catalog,
@@ -2167,6 +2279,8 @@
         praguri,
       });
       randeazaTabelFluenta(vizEl, model, info);
+      actualizeazaMarcajeRecomandareAdancime(recomandare);
+      if (model.antete.length > 0) randeazaTabelRecomandareAdancime(vizEl, recomandare, axaAdancime);
       return;
     }
     const model = motor.ruleazaAnaliza({
@@ -2185,6 +2299,7 @@
   // Ce se afiseaza, de sus in jos. Folosita si la pornire, si la schimbarea
   // sursei, si la schimbarea domeniului — nimic nu se sterge pe drum.
   async function reseteazaVizualizarea() {
+    adancimeAlesaManual = false;
     if (sursaActiva === "fixture") {
       sursaAfisata = "fixture";
       analizeazaSiRandeaza(fixture.construiesteFixture(), "Sursă: dummy log pe 8 săptămâni.");
@@ -2227,11 +2342,13 @@
     const preset = ev.target?.dataset?.preset ?? "";
     if (preset.startsWith("vizualizare_") && ev.target.checked) {
       reprezentareActiva = preset.slice("vizualizare_".length);
+      if (reprezentareActiva === "tabel_fluenta") adancimeAlesaManual = false;
       actualizeazaSubsectiuni();
       rerandeaza();
     }
     if (preset.startsWith("adancime_foto_") && ev.target.checked) {
       adancimeActiva = adancimeDinOptiune(preset.slice("adancime_foto_".length));
+      adancimeAlesaManual = true;
       rerandeaza();
     }
   });

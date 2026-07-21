@@ -350,11 +350,24 @@ celulei (facts testate X/Y, la hover).
 
 ### Analiza de fezabilitate a granulației (recomandator; propus de user)
 
-Rulată by default pentru fereastra bifată: numără răspunsurile valide per combinație
-candidat (mărimi de calup × pe-întrebări/pe-sesiuni), arată câte celule ar avea
-fiecare etichetă, recomandă combinația cu cele mai multe celule „bazate". Se uită
-NUMAI la n, nu la scoruri — corectă prin construcție. Decis 20.07.2026: intră ca
-rundă separată, DUPĂ tabel.
+Rulată automat la fiecare randare a tabelului: rulează modelul tabelului pentru
+fiecare adâncime candidat (2/5/10/20), numără etichetele de încredere pe celulele
+subtablelor din toate pozele (rândul „Toată fereastra" exclus — medie derivată) și
+recomandă adâncimea cu cel mai mare PROCENT de celule „încredere mare"; la
+egalitate câștigă adâncimea mai mică; fără recomandare când nicio celulă nu e
+bazată. Se uită NUMAI la etichete (n + zile), nu la scoruri — corectă prin
+construcție. Afișare: bifa recomandată se auto-selectează (o dată, respectă
+alegerea manuală ulterioară a userului până la următoarea deschidere/schimbare de
+domeniu sau sursă) + marcaj „(Recomandat)" lângă eticheta ei; tabel de comparație
+complet sub tabelul de evoluție, cu toate cele 4 adâncimi. Decis 21.07.2026
+(implementat: `PLAN-recomandator-fezabilitate.md`). Recomandarea urmează
+domeniul activ din axa Domeniu — orice interval de înmulțire (11-20, o
+subtablă, custom a-b × c-d) merge automat, fără cod dedicat; prioritatea
+absolută a userului rămâne tabla 1-10 (× sau, în viitor, +) — 11-20 a fost doar
+experimentul care a produs jurnalul real. Tabla adunării cere catalog nou +
+extinderea mapării fact→celulă (`cheieCelulaDinInregistrare`, azi doar
+înmulțire) = etapă separată. Granulația calendaristică (zi/3 zile/săptămână) și
+pasul independent de adâncime = etape următoare, nefăcute.
 
 ### Vizualizarea (opțiune nouă în axa 5)
 

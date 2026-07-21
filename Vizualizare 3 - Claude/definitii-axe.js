@@ -285,6 +285,9 @@
           tip_selectie: "unica",
           // Bootstrap-ul scrie sub axă linia de fezabilitate (câte poze ies din date).
           nota_dinamica: true,
+          // Bootstrap-ul pune, per opțiune, un span gol care primeste "(Recomandat)"
+          // cand recomandatorul alege optiunea asta (vezi marcaj_recomandare mai jos).
+          marcaj_recomandare: true,
           // `adancime` e valoarea citită de cod; id-ul e doar identificator de bifă.
           optiuni: [
             { id: "2", eticheta: "2 răspunsuri / fact", adancime: 2 },

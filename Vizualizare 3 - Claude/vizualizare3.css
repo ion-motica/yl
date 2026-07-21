@@ -815,3 +815,36 @@ body {
   color: var(--viz3-text-slab);
   margin-top: 6px;
 }
+
+.viz3-marcaj-recomandare {
+  font-size: 11px;
+  color: var(--viz3-accent, #2a6);
+  font-weight: 600;
+}
+
+.viz3-tabel-recomandare-titlu {
+  margin-top: 24px;
+  font-size: 15px;
+}
+
+.viz3-tabel-recomandare tr.viz3-tabel-recomandat th,
+.viz3-tabel-recomandare tr.viz3-tabel-recomandat td {
+  color: var(--viz3-accent, #2a6);
+  font-weight: 600;
+}
+
+.viz3-legenda-recomandare {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--viz3-text-slab);
+}
+
+.viz3-legenda-recomandare dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.viz3-legenda-recomandare dd {
+  margin: 2px 0 0;
+}
