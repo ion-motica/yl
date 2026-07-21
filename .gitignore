@@ -1,3 +1,4 @@
 .codex-tmp-gitdir-*/
 .acl-*.txt
 .acl-save.txt
+node_modules/
