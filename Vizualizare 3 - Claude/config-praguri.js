@@ -57,10 +57,6 @@
       viteza: { secunde_plin: 2.0, secunde_zero: 7.0 },
       // Etichetă de încredere per fereastră+calup, din n valide + zile distincte.
       incredere: { n_minim_calcul: 15, n_incredere_mare: 50, zile_distincte_incredere_mare: 2 },
-      // Bife de mărime calup (nr. răspunsuri valide). Segmentarea e
-      // implementată în motor (segmenteazaFereastraInCalupuri); `marimi`
-      // rămân opțiunile disponibile pentru UI-ul viitor.
-      calup: { marimi: [25, 50, 100, 200], implicita: 100 },
     },
   };
 

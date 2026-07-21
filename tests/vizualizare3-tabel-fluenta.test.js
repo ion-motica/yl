@@ -31,7 +31,6 @@ const PRAGURI = {
     corectitudine: { prag_ghicit: 0.45, prag_plin: 0.9 },
     viteza: { secunde_plin: 2.0, secunde_zero: 7.0 },
     incredere: { n_minim_calcul: 15, n_incredere_mare: 50, zile_distincte_incredere_mare: 2 },
-    calup: { marimi: [25, 50, 100, 200], implicita: 100 },
   },
 };
 
@@ -64,95 +63,146 @@ const CATALOG = {
   ],
 };
 
-it("structura randurilor, fara nicio intrebare", () => {
+// Fixture principal (adancime 5 -> pas = 5×2 = 10):
+// bloc A (10): 6 × 12*1=12 @1,5s (zile alternate 07-01/07-02), apoi
+//              4 × 12*2=24 @6,0s (aceleași zile alternate; a 10-a cade pe 07-02);
+// bloc B (10): 5 × 13*1=13 @1,5s (07-10/07-11), apoi 5 × 12*1=12 @1,5s (07-12).
+function construiesteFixturePrincipal() {
+  return [
+    ...apasariFact("12*1=12", 6, 1.5, ["2026-07-01", "2026-07-02"]),
+    ...apasariFact("12*2=24", 4, 6.0, ["2026-07-01", "2026-07-02"]),
+    ...apasariFact("13*1=13", 5, 1.5, ["2026-07-10", "2026-07-11"]),
+    ...apasariFact("12*1=12", 5, 1.5, ["2026-07-12"]),
+  ];
+}
+
+it("structura si antetele pozelor (2 momente, ambele complete)", () => {
   const motor = incarcaMotor();
   const model = motor.construiesteModelTabelFluenta({
-    inregistrari: [],
+    inregistrari: construiesteFixturePrincipal(),
     catalog: CATALOG,
-    marimeCalup: 50,
+    adancime: 5,
     praguri: PRAGURI,
   });
 
   assert.equal(model.eticheta_domeniu, "12-13 × 1-2");
-  assert.equal(model.marime_calup, 50);
-  assert.deepEqual(model.antete, []);
+  assert.equal(model.adancime, 5);
+  assert.equal(model.facts_per_subtabla, 2);
+  assert.equal(model.numar_raspunsuri_valide, 20);
+
+  assert.deepEqual(
+    model.antete.map((a) => a.eticheta),
+    ["02.07", "acum"]
+  );
+  assert.deepEqual(
+    model.antete.map((a) => a.este_acum),
+    [false, true]
+  );
+
   assert.deepEqual(
     model.randuri.map((r) => r.eticheta),
     ["12 ×", "13 ×", "Toată fereastra"]
   );
-  assert.deepEqual(
-    model.randuri.map((r) => r.tip),
-    ["subtabla", "subtabla", "total"]
-  );
-  model.randuri.forEach((r) => assert.deepEqual(r.celule, []));
+  model.randuri.forEach((rand) => assert.equal(rand.celule.length, 2));
 });
 
-it("aliniere la dreapta, antete si scoruri pe date reale", () => {
+it("scorurile exacte pe fiecare poza, chiar cand eticheta e date_insuficiente", () => {
   const motor = incarcaMotor();
-  // 100 pe 12*1=12 @1.5s (zile alternate) urmate de 50 pe 13*2=26 @6.0s.
-  const inregistrari = [
-    ...apasariFact("12*1=12", 100, 1.5, ["2026-07-01", "2026-07-02"]),
-    ...apasariFact("13*2=26", 50, 6.0, ["2026-07-10", "2026-07-11"]),
-  ];
-
   const model = motor.construiesteModelTabelFluenta({
-    inregistrari,
+    inregistrari: construiesteFixturePrincipal(),
     catalog: CATALOG,
-    marimeCalup: 50,
+    adancime: 5,
     praguri: PRAGURI,
   });
-
-  assert.deepEqual(
-    model.antete.map((a) => a.eticheta),
-    ["cu 2 calupuri în urmă", "anterioarele 50", "ultimele 50"]
-  );
 
   const [rand12, rand13, randTotal] = model.randuri;
-  assert.equal(rand12.eticheta, "12 ×");
-  assert.equal(rand13.eticheta, "13 ×");
-  assert.equal(randTotal.eticheta, "Toată fereastra");
+  const aproape = (valoare, asteptat) => assert.ok(Math.abs(valoare - asteptat) < 1e-9);
 
-  // 12 ×: doar 12*1 e testat (fluent, scor 1); 12*2 netestat (0) -> media 0.5.
-  assert.equal(rand12.celule[0], null);
-  assert.ok(Math.abs(rand12.celule[1].scor - 0.5) < 1e-9);
-  assert.ok(Math.abs(rand12.celule[2].scor - 0.5) < 1e-9);
-  assert.equal(rand12.celule[1].eticheta, "incredere_mare");
-  assert.equal(rand12.celule[2].eticheta, "incredere_mare");
+  // Poza k=10 ("02.07"): 12×: (1 + 0,2)/2 = 0,6 · n=9 · date_insuficiente (n<15).
+  aproape(rand12.celule[0].scor, 0.6);
+  assert.equal(rand12.celule[0].n, 9);
+  assert.equal(rand12.celule[0].zile_distincte, 2);
+  assert.equal(rand12.celule[0].eticheta, "date_insuficiente");
 
-  // 13 ×: un singur calup (exact 50 raspunsuri); 13*2 la 0.2 viteza -> media 0.1.
-  assert.equal(rand13.celule[0], null);
-  assert.equal(rand13.celule[1], null);
-  assert.ok(Math.abs(rand13.celule[2].scor - 0.1) < 1e-9);
-  assert.equal(rand13.celule[2].eticheta, "incredere_mare");
+  // 13×: nimic testat inca -> scor 0, n=0, date_insuficiente.
+  aproape(rand13.celule[0].scor, 0);
+  assert.equal(rand13.celule[0].n, 0);
+  assert.equal(rand13.celule[0].eticheta, "date_insuficiente");
 
-  // Toata fereastra: 3 calupuri, cate 1 fact "activ" din 4 -> 0.25 / 0.25 / 0.05.
-  assert.ok(Math.abs(randTotal.celule[0].scor - 0.25) < 1e-9);
-  assert.ok(Math.abs(randTotal.celule[1].scor - 0.25) < 1e-9);
-  assert.ok(Math.abs(randTotal.celule[2].scor - 0.05) < 1e-9);
-  randTotal.celule.forEach((c) => assert.equal(c.eticheta, "incredere_mare"));
+  // Toata fereastra k=10: (1 + 0,2 + 0 + 0)/4 = 0,3 · n=9.
+  aproape(randTotal.celule[0].scor, 0.3);
+  assert.equal(randTotal.celule[0].n, 9);
 
-  // Aliniere la dreapta: ultima coloana e mereu index_din_prezent 0.
-  model.randuri.forEach((rand) => {
-    const ultima = rand.celule[rand.celule.length - 1];
-    if (ultima) assert.equal(ultima.index_din_prezent, 0);
-  });
+  // Poza k=20 ("acum"): 12×: 12*1 (ultimele 5, din 07-12) -> 1; 12*2 neschimbat -> 0,2.
+  aproape(rand12.celule[1].scor, 0.6);
+  assert.equal(rand12.celule[1].n, 9);
+  assert.equal(rand12.celule[1].zile_distincte, 3);
+
+  // 13×: 13*1 -> 1; 13*2 netestat -> 0 => media 0,5.
+  aproape(rand13.celule[1].scor, 0.5);
+  assert.equal(rand13.celule[1].n, 5);
+
+  // Toata fereastra k=20: (1 + 0,2 + 1 + 0)/4 = 0,55 · n=14.
+  aproape(randTotal.celule[1].scor, 0.55);
+  assert.equal(randTotal.celule[1].n, 14);
 });
 
-it("celula subtire: sub pragul minim, eticheta date_insuficiente si scor null", () => {
+it("randul Toata fereastra e media subtablelor pe fiecare coloana", () => {
   const motor = incarcaMotor();
-  const inregistrari = apasariFact("12*1=12", 10, 1.5, ["2026-07-01"]);
-
   const model = motor.construiesteModelTabelFluenta({
-    inregistrari,
+    inregistrari: construiesteFixturePrincipal(),
     catalog: CATALOG,
-    marimeCalup: 50,
+    adancime: 5,
     praguri: PRAGURI,
   });
 
+  const [rand12, rand13, randTotal] = model.randuri;
+  randTotal.celule.forEach((celulaTotal, idx) => {
+    const medieSubtable = (rand12.celule[idx].scor + rand13.celule[idx].scor) / 2;
+    assert.ok(Math.abs(celulaTotal.scor - medieSubtable) < 1e-9);
+  });
+});
+
+it("facts_noi: numara doar facts cu raspuns nou fata de poza anterioara", () => {
+  const motor = incarcaMotor();
+  const model = motor.construiesteModelTabelFluenta({
+    inregistrari: construiesteFixturePrincipal(),
+    catalog: CATALOG,
+    adancime: 5,
+    praguri: PRAGURI,
+  });
+
+  const [rand12, rand13] = model.randuri;
+  // k=10 (prima poza, kAnterior=0): ambele facts din 12× au raspunsuri; niciun 13×.
+  assert.equal(rand12.celule[0].facts_noi, 2);
+  assert.equal(rand13.celule[0].facts_noi, 0);
+  // k=20 (kAnterior=10): doar 12*1 are raspunsuri noi in bloc B pt 12×;
+  // doar 13*1 are raspunsuri noi pt 13× (13*2 nu apare niciodata).
+  assert.equal(rand12.celule[1].facts_noi, 1);
+  assert.equal(rand13.celule[1].facts_noi, 1);
+});
+
+it("eticheta incredere_mica: n intre pragul minim si n_incredere_mare", () => {
+  const motor = incarcaMotor();
+  const inregistrari = [
+    ...apasariFact("12*1=12", 10, 1.5, ["2026-07-01", "2026-07-02"]),
+    ...apasariFact("12*2=24", 10, 6.0, ["2026-07-01", "2026-07-02"]),
+  ];
+  const model = motor.construiesteModelTabelFluenta({
+    inregistrari,
+    catalog: CATALOG,
+    adancime: 10,
+    praguri: PRAGURI,
+  });
+
+  assert.equal(model.antete.length, 1);
+  assert.equal(model.antete[0].este_acum, true);
+
   const rand12 = model.randuri.find((r) => r.eticheta === "12 ×");
-  assert.equal(rand12.celule.length, 1);
-  assert.equal(rand12.celule[0].eticheta, "date_insuficiente");
-  assert.equal(rand12.celule[0].scor, null);
+  assert.ok(Math.abs(rand12.celule[0].scor - 0.6) < 1e-9);
+  assert.equal(rand12.celule[0].n, 20);
+  assert.equal(rand12.celule[0].zile_distincte, 2);
+  assert.equal(rand12.celule[0].eticheta, "incredere_mica");
 });
 
 it("valideaza intrarile", () => {
@@ -161,7 +211,7 @@ it("valideaza intrarile", () => {
     motor.construiesteModelTabelFluenta({
       inregistrari: "nu-i array",
       catalog: CATALOG,
-      marimeCalup: 50,
+      adancime: 5,
       praguri: PRAGURI,
     })
   );
@@ -169,8 +219,26 @@ it("valideaza intrarile", () => {
     motor.construiesteModelTabelFluenta({
       inregistrari: [],
       catalog: CATALOG,
-      marimeCalup: 0,
+      adancime: 0,
       praguri: PRAGURI,
     })
   );
+});
+
+it("fara nicio inregistrare valida: antete goale, toate randurile fara celule", () => {
+  const motor = incarcaMotor();
+  const model = motor.construiesteModelTabelFluenta({
+    inregistrari: [],
+    catalog: CATALOG,
+    adancime: 5,
+    praguri: PRAGURI,
+  });
+
+  assert.equal(model.numar_raspunsuri_valide, 0);
+  assert.deepEqual(model.antete, []);
+  assert.deepEqual(
+    model.randuri.map((r) => r.eticheta),
+    ["12 ×", "13 ×", "Toată fereastra"]
+  );
+  model.randuri.forEach((r) => assert.deepEqual(r.celule, []));
 });

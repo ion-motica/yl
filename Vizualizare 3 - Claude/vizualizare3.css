@@ -785,10 +785,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.viz3-tabel-celula-goala {
-  background: var(--viz3-fundal);
-}
-
 .viz3-tabel-redus {
   color: var(--viz3-tabel-redus-culoare);
   font-size: var(--viz3-tabel-redus-font);
@@ -812,4 +808,10 @@ body {
 .viz3-tabel-gol {
   color: var(--viz3-text-slab);
   font-style: italic;
+}
+
+.viz3-nota-dinamica {
+  font-size: 11px;
+  color: var(--viz3-text-slab);
+  margin-top: 6px;
 }

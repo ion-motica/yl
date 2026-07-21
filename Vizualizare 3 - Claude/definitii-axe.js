@@ -279,16 +279,18 @@
           ],
         },
         {
-          id: "marime_calup",
-          eticheta: "Mărime calup (răspunsuri valide)",
+          id: "adancime_foto",
+          eticheta: "Adâncimea fotografiei (ultimele N răspunsuri per fact)",
           subsectiune: "tabel_optiuni",
           tip_selectie: "unica",
-          // `marime` e valoarea citită de cod; id-ul e doar identificator de bifă.
+          // Bootstrap-ul scrie sub axă linia de fezabilitate (câte poze ies din date).
+          nota_dinamica: true,
+          // `adancime` e valoarea citită de cod; id-ul e doar identificator de bifă.
           optiuni: [
-            { id: "25", eticheta: "25 (±10 puncte)", marime: 25 },
-            { id: "50", eticheta: "50 (±7)", marime: 50 },
-            { id: "100", eticheta: "100 (±5)", marime: 100, activa: true },
-            { id: "200", eticheta: "200 (±3,5)", marime: 200 },
+            { id: "2", eticheta: "2 răspunsuri / fact", adancime: 2 },
+            { id: "5", eticheta: "5 răspunsuri / fact", adancime: 5, activa: true },
+            { id: "10", eticheta: "10 răspunsuri / fact", adancime: 10 },
+            { id: "20", eticheta: "20 răspunsuri / fact", adancime: 20 },
           ],
         },
       ],

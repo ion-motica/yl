@@ -1713,6 +1713,13 @@
           if (campuriInterval) grup.appendChild(campuriInterval.element);
         });
 
+        if (axa.nota_dinamica) {
+          const nota = document.createElement("div");
+          nota.className = "viz3-nota-dinamica";
+          nota.dataset.notaAxa = axa.id;
+          grup.appendChild(nota);
+        }
+
         tinta.appendChild(grup);
       });
 
@@ -1896,10 +1903,8 @@
 
   // ---- randarea tabelului de scor pe calupuri --------------------------
 
-  // Formatarea unei celule: text + clasă, dupa ETICHETA de încredere, nu
-  // dupa `scor === null` — o celulă null în model înseamnă „rândul ăsta n-are
-  // un calup atât de vechi", diferit de o celulă `date_insuficiente` (calup
-  // existent, dar subțire).
+  // Formatarea unei celule: text + clasă, dupa ETICHETA de încredere. Toate
+  // celulele au un scor (niciodată null); eticheta decide doar afișarea.
   function formateazaCelulaTabel(celula) {
     if (celula.eticheta === "date_insuficiente") {
       return { text: "—", clasa: "viz3-tabel-insuficient" };
@@ -1912,7 +1917,9 @@
   }
 
   function titluCelulaTabel(celula) {
-    let text = `${celula.eticheta_text} · n=${celula.n_total} · zile=${celula.zile_distincte} · facts ${celula.facts_testate}/${celula.facts_total}`;
+    const purtate = celula.facts_testate - celula.facts_noi;
+    const neatinse = celula.facts_total - celula.facts_testate;
+    let text = `${celula.eticheta_text} · n=${celula.n} · zile=${celula.zile_distincte} · facts: ${celula.facts_noi} noi · ${purtate} purtate · ${neatinse} neatinse`;
     if (celula.data_prima_zi && celula.data_ultima_zi) {
       text += ` · ${celula.data_prima_zi} → ${celula.data_ultima_zi}`;
     }
@@ -1934,7 +1941,7 @@
     container.replaceChildren();
     container.appendChild(
       construiesteAntet(
-        `% fluență per subtablă — ${model.eticheta_domeniu} · calup ${model.marime_calup}`,
+        `% fluență per subtablă — ${model.eticheta_domeniu} · ${model.adancime} răsp/fact`,
         info
       )
     );
@@ -1974,14 +1981,10 @@
 
       rand.celule.forEach((celula) => {
         const td = document.createElement("td");
-        if (!celula) {
-          td.className = "viz3-tabel-celula-goala";
-        } else {
-          const { text, clasa } = formateazaCelulaTabel(celula);
-          td.textContent = text;
-          if (clasa) td.className = clasa;
-          td.title = titluCelulaTabel(celula);
-        }
+        const { text, clasa } = formateazaCelulaTabel(celula);
+        td.textContent = text;
+        if (clasa) td.className = clasa;
+        td.title = titluCelulaTabel(celula);
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -1996,6 +1999,16 @@
     setTimeout(() => {
       scroll.scrollLeft = scroll.scrollWidth;
     }, 0);
+
+    // Linia de fezabilitate sub bifele de adâncime: cate poze ies din date.
+    const nota = cpEl.querySelector('[data-nota-axa="adancime_foto"]');
+    if (nota) {
+      const pas = model.adancime * model.facts_per_subtabla;
+      nota.textContent =
+        `Fereastră: subtable de ${model.facts_per_subtabla} facts · ` +
+        `poză = ${model.adancime}×${model.facts_per_subtabla} = ${pas} răspunsuri · ` +
+        `date valide: ${model.numar_raspunsuri_valide} → ${model.antete.length} poze`;
+    }
   }
 
   // ---- flux principal ---------------------------------------------------
@@ -2119,16 +2132,16 @@
     }
   }
 
-  // Ce reprezentare e activă (grilă vs tabel) și mărimea calupului pentru
+  // Ce reprezentare e activă (grilă vs tabel) și adâncimea fotografiei pentru
   // tabel. NU se persistă peste refresh — doar Domeniul ține minte (convenție).
   const axaVizualizare = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "vizualizare");
-  const axaMarimeCalup = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "marime_calup");
+  const axaAdancime = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "adancime_foto");
   let reprezentareActiva = axaVizualizare?.optiuni.find((o) => o.activa)?.id ?? "grila_10x10";
-  let marimeCalupActiva = axaMarimeCalup?.optiuni.find((o) => o.activa)?.marime ?? 100;
+  let adancimeActiva = axaAdancime?.optiuni.find((o) => o.activa)?.adancime ?? 5;
   let ultimaAnaliza = null; // { inregistrari, info } — pt. re-randare fără recitirea sursei
 
-  function marimeDinOptiune(idOptiune) {
-    return axaMarimeCalup?.optiuni.find((o) => o.id === idOptiune)?.marime ?? marimeCalupActiva;
+  function adancimeDinOptiune(idOptiune) {
+    return axaAdancime?.optiuni.find((o) => o.id === idOptiune)?.adancime ?? adancimeActiva;
   }
 
   // Arată doar subsecțiunea de opțiuni a reprezentării active (5.1 sau 5.2);
@@ -2150,7 +2163,7 @@
       const model = motor.construiesteModelTabelFluenta({
         inregistrari,
         catalog,
-        marimeCalup: marimeCalupActiva,
+        adancime: adancimeActiva,
         praguri,
       });
       randeazaTabelFluenta(vizEl, model, info);
@@ -2217,8 +2230,8 @@
       actualizeazaSubsectiuni();
       rerandeaza();
     }
-    if (preset.startsWith("marime_calup_") && ev.target.checked) {
-      marimeCalupActiva = marimeDinOptiune(preset.slice("marime_calup_".length));
+    if (preset.startsWith("adancime_foto_") && ev.target.checked) {
+      adancimeActiva = adancimeDinOptiune(preset.slice("adancime_foto_".length));
       rerandeaza();
     }
   });

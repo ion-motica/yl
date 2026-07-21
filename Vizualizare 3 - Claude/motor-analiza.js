@@ -504,74 +504,157 @@
     }));
   }
 
-  // ---- modelul tabelului de scor pe calupuri (§13, opțiune nouă în axa 5) --
+  // ---- modelul tabelului de scor pe calupuri (§13, fotografii stratificate v2) --
 
-  // Eticheta antetului unei coloane, după distanța ei față de prezent
-  // (0 = cea mai recentă). Motorul nu formatează alte texte de UI.
-  function eticheteAntetCalup(idx, marimeCalup) {
-    if (idx === 0) return `ultimele ${marimeCalup}`;
-    if (idx === 1) return `anterioarele ${marimeCalup}`;
-    return `cu ${idx} calupuri în urmă`;
+  // Eticheta antetului unei poze care nu e „acum": ziua din data_ora_ro a
+  // ultimului răspuns valid inclus, formatul "zz.ll" (fixat de user).
+  function formateazaZiuaAntet(dataOraRo) {
+    const text = String(dataOraRo ?? "");
+    return `${text.slice(8, 10)}.${text.slice(5, 7)}`;
+  }
+
+  // Fereastra unui fact la momentul `k` (indexul din `valide` până la care se
+  // uită înapoi, exclusiv): ultimele `adancime` răspunsuri valide ale
+  // factului, oricât de vechi. Fără redistribuire între facts (decis).
+  function fereastraFactLaMoment(valide, cellId, k, adancime) {
+    const aleFactului = valide
+      .slice(0, k)
+      .filter((intrebare) => cheieCelulaDinInregistrare(intrebare) === cellId);
+    return aleFactului.slice(Math.max(0, aleFactului.length - adancime));
+  }
+
+  // O celulă a tabelului = o fotografie a stării ferestrei (`cellIds`) la
+  // momentul `k`, prin eșantionare stratificată per fact (SPECIFICATIE.md
+  // §13, „Fotografii — v2"). Scorul brut se calculează ÎNTOTDEAUNA — eticheta
+  // de încredere decide doar afișarea, nu calculul.
+  function construiesteCelulaFoto({ valide, cellIds, k, kAnterior, adancime, praguriV1 }) {
+    let sumaScoruri = 0;
+    let nTotal = 0;
+    let factsTestate = 0;
+    let factsNoi = 0;
+    const zileContribuite = [];
+
+    cellIds.forEach((cellId) => {
+      const fereastra = fereastraFactLaMoment(valide, cellId, k, adancime);
+      const statistici = calculeazaStatistici(aplicaFiltre({ curent: fereastra }, praguriV1.filtru));
+      const { scor } = calculeazaScorFact(statistici, praguriV1);
+
+      sumaScoruri += scor;
+      nTotal += statistici.n;
+      if (statistici.n > 0) factsTestate += 1;
+
+      const areRaspunsNou = valide
+        .slice(kAnterior, k)
+        .some((intrebare) => cheieCelulaDinInregistrare(intrebare) === cellId);
+      if (areRaspunsNou) factsNoi += 1;
+
+      fereastra.forEach((intrebare) => {
+        const zi = ziDin(intrebare.data_ora_ro);
+        if (zi) zileContribuite.push(zi);
+      });
+    });
+
+    zileContribuite.sort();
+    const zileDistincte = new Set(zileContribuite).size;
+    const eticheta = clasificaIncredereScor(nTotal, zileDistincte, praguriV1.incredere);
+
+    return {
+      scor: cellIds.length ? sumaScoruri / cellIds.length : 0,
+      eticheta,
+      eticheta_text: ETICHETE_INCREDERE_SCOR[eticheta],
+      n: nTotal,
+      zile_distincte: zileDistincte,
+      facts_testate: factsTestate,
+      facts_total: cellIds.length,
+      facts_noi: factsNoi,
+      data_prima_zi: zileContribuite.length ? zileContribuite[0] : null,
+      data_ultima_zi: zileContribuite.length ? zileContribuite[zileContribuite.length - 1] : null,
+    };
   }
 
   // Construiește modelul tabelului „% fluență per subtablă": un rând per
   // subtablă (valoare distinctă `a` din catalog) + un rând „Toată fereastra",
-  // coloane = calupuri, cronologic (vechi -> noi), ALINIATE LA DREAPTA —
-  // coloana comună e „prezentul" (index_din_prezent 0 cade pe ultima coloană
-  // la toate rândurile, indiferent câte calupuri are fiecare rând).
-  // `inregistrari` sunt BRUTE, ca la ruleazaAnaliza; celula = un element din
-  // calculeazaSerieScorFluenta. `null` = „rândul ăsta n-are un calup atât de
-  // vechi" — diferit de o celulă cu eticheta `date_insuficiente`.
-  function construiesteModelTabelFluenta({ inregistrari, catalog, marimeCalup, praguri }) {
+  // coloane = fotografii ale ferestrei, ancorate în prezent (momente comune
+  // tuturor rândurilor, cronologic vechi -> noi; ultima = „acum").
+  // `inregistrari` sunt BRUTE, ca la ruleazaAnaliza.
+  function construiesteModelTabelFluenta({ inregistrari, catalog, adancime, praguri }) {
     if (!Array.isArray(inregistrari)) {
       throw new Error("Motorul are nevoie de un array de înregistrări.");
     }
     if (!catalog || !Array.isArray(catalog.celule)) {
       throw new Error("Motorul are nevoie de un catalog cu celule.");
     }
+    if (!Number.isInteger(adancime) || adancime < 1) {
+      throw new Error("Adâncimea fotografiei trebuie să fie un întreg pozitiv.");
+    }
 
+    const praguriV1 = praguri.interpretare_v1;
     const intrebari = grupeazaApasarilePeIntrebari(normalizeaza(inregistrari));
+    const celuleCunoscute = new Set(catalog.celule.map((c) => c.cell_id));
+    const aleDomeniului = intrebari.filter((intrebare) =>
+      celuleCunoscute.has(cheieCelulaDinInregistrare(intrebare))
+    );
+    const valide = aleDomeniului.filter((intrebare) =>
+      esteRaspunsValidPentruCalup(intrebare, praguriV1.filtru)
+    );
+    const B = valide.length;
 
     const valoriA = [...new Set(catalog.celule.map((c) => c.a))].sort((x, y) => x - y);
+    const factsPerSubtabla = catalog.celule.filter((c) => c.a === valoriA[0]).length;
     const ferestre = valoriA.map((a) => ({
       tip: "subtabla",
       eticheta: `${a} ×`,
-      celuleFereastra: catalog.celule.filter((c) => c.a === a).map((c) => c.cell_id),
+      cellIds: catalog.celule.filter((c) => c.a === a).map((c) => c.cell_id),
     }));
     ferestre.push({
       tip: "total",
       eticheta: "Toată fereastra",
-      celuleFereastra: catalog.celule.map((c) => c.cell_id),
+      cellIds: catalog.celule.map((c) => c.cell_id),
     });
 
-    const serii = ferestre.map((fereastra) => ({
-      tip: fereastra.tip,
-      eticheta: fereastra.eticheta,
-      serie: calculeazaSerieScorFluenta({
-        intrebari,
-        celuleFereastra: fereastra.celuleFereastra,
-        marimeCalup,
-        praguri,
-      }),
+    if (B === 0) {
+      return {
+        tip: "tabel_fluenta",
+        adancime,
+        eticheta_domeniu: catalog.eticheta,
+        facts_per_subtabla: factsPerSubtabla,
+        numar_raspunsuri_valide: 0,
+        antete: [],
+        randuri: ferestre.map(({ tip, eticheta }) => ({ tip, eticheta, celule: [] })),
+      };
+    }
+
+    const pas = adancime * factsPerSubtabla;
+    const momenteNouVechi = [];
+    for (let k = B; k >= 1; k -= pas) momenteNouVechi.push(k);
+    const momente = momenteNouVechi.slice().reverse();
+
+    const antete = momente.map((k) => ({
+      eticheta: k === B ? "acum" : formateazaZiuaAntet(valide[k - 1].data_ora_ro),
+      este_acum: k === B,
     }));
 
-    const nrColoane = Math.max(0, ...serii.map(({ serie }) => serie.length));
-
-    const randuri = serii.map(({ tip, eticheta, serie }) => ({
+    const randuri = ferestre.map(({ tip, eticheta, cellIds }) => ({
       tip,
       eticheta,
-      celule: [...Array(nrColoane - serie.length).fill(null), ...serie],
+      celule: momente.map((k, idx) =>
+        construiesteCelulaFoto({
+          valide,
+          cellIds,
+          k,
+          kAnterior: idx === 0 ? 0 : momente[idx - 1],
+          adancime,
+          praguriV1,
+        })
+      ),
     }));
-
-    const antete = Array.from({ length: nrColoane }, (_, coloana) => {
-      const idx = nrColoane - 1 - coloana;
-      return { index_din_prezent: idx, eticheta: eticheteAntetCalup(idx, marimeCalup) };
-    });
 
     return {
       tip: "tabel_fluenta",
-      marime_calup: marimeCalup,
+      adancime,
       eticheta_domeniu: catalog.eticheta,
+      facts_per_subtabla: factsPerSubtabla,
+      numar_raspunsuri_valide: B,
       antete,
       randuri,
     };
