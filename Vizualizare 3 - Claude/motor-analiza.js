@@ -572,6 +572,13 @@
     };
   }
 
+  // Garda de afisare pt. randurile de subtabla: celula "conteaza" abia cand
+  // eticheta ei (deja calculata de clasificaIncredereScor) e incredere_mare
+  // (n>=50 agregat + >=2 zile). Reutilizeaza clasificarea; fara prag nou.
+  function casutaEDeAfisat(celula) {
+    return celula.eticheta === "incredere_mare";
+  }
+
   // Construiește modelul tabelului „% fluență per subtablă": un rând per
   // subtablă (valoare distinctă `a` din catalog) + un rând „Toată fereastra",
   // coloane = fotografii ale ferestrei, ancorate în prezent (momente comune
@@ -619,15 +626,29 @@
         eticheta_domeniu: catalog.eticheta,
         facts_per_subtabla: factsPerSubtabla,
         numar_raspunsuri_valide: 0,
+        numar_exercitii_valide_pe_zi: [],
         antete: [],
         randuri: ferestre.map(({ tip, eticheta }) => ({ tip, eticheta, celule: [] })),
       };
     }
 
-    const pas = adancime * factsPerSubtabla;
-    const momenteNouVechi = [];
-    for (let k = B; k >= 1; k -= pas) momenteNouVechi.push(k);
-    const momente = momenteNouVechi.slice().reverse();
+    // O coloana = o zi calendaristica. Momentul unei zile = cati raspunsuri
+    // valide s-au strans pana la sfarsitul ei (k pt. valide.slice(0, k)).
+    // Sesiuni multiple in aceeasi zi -> aceeasi zi -> se cumuleaza automat.
+    const momente = [];
+    for (let i = 1; i <= B; i++) {
+      const ziCurenta = ziDin(valide[i - 1].data_ora_ro);
+      const ziUrmatoare = i < B ? ziDin(valide[i].data_ora_ro) : null;
+      if (ziCurenta !== ziUrmatoare) momente.push(i);
+    }
+    // Garanteaza ca ultima poza e mereu "acum" (k=B), chiar daca data ultimului
+    // raspuns e corupta (ziDin -> null) si n-a declansat granita de mai sus.
+    if (momente.length === 0 || momente[momente.length - 1] !== B) momente.push(B);
+
+    // Cate raspunsuri VALIDE au picat in fiecare zi = diferenta momentelor.
+    const numarExercitiiValidePeZi = momente.map(
+      (k, idx) => k - (idx === 0 ? 0 : momente[idx - 1])
+    );
 
     const antete = momente.map((k) => ({
       eticheta: k === B ? "acum" : formateazaZiuaAntet(valide[k - 1].data_ora_ro),
@@ -655,6 +676,7 @@
       eticheta_domeniu: catalog.eticheta,
       facts_per_subtabla: factsPerSubtabla,
       numar_raspunsuri_valide: B,
+      numar_exercitii_valide_pe_zi: numarExercitiiValidePeZi,
       antete,
       randuri,
     };
@@ -806,6 +828,7 @@
     segmenteazaFereastraInCalupuri,
     calculeazaSerieScorFluenta,
     construiesteModelTabelFluenta,
+    casutaEDeAfisat,
     construiesteRecomandareAdancime,
     ruleazaAnaliza,
   });

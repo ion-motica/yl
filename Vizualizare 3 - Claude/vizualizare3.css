@@ -848,3 +848,48 @@ body {
 .viz3-legenda-recomandare dd {
   margin: 2px 0 0;
 }
+
+.viz3-tabel-total td {
+  position: relative;
+}
+
+.viz3-sageata-sus,
+.viz3-sageata-jos {
+  position: absolute;
+  left: -0.6em;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* +50% marime (11px -> 16.5px). "Mai groasa" nu e un procent continuu in CSS
+   (font-weight e in trepte, 100-900) - urcata la maxim + un contur subtire,
+   ca ingrosarea sa se vada efectiv pe glif. */
+.viz3-sageata-sus {
+  color: var(--viz3-accent, #2a6);
+  font-size: 16.5px;
+  font-weight: 900;
+  -webkit-text-stroke: 0.6px currentColor;
+  text-stroke: 0.6px currentColor;
+}
+
+.viz3-sageata-jos {
+  color: #c33;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.viz3-tabel-celula-goala {
+  background: #fafafa;
+}
+
+.viz3-tabel-exercitii th,
+.viz3-tabel-exercitii td {
+  color: var(--viz3-text-slab);
+  font-size: 12px;
+}
+
+.viz3-tabel-exercitii td {
+  text-align: center;
+  vertical-align: middle;
+}

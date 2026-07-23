@@ -1932,6 +1932,41 @@
     return text;
   }
 
+  // Randul de efort brut al zilei (raspunsuri valide/zi), muted, deasupra Total.
+  function construiesteRandExercitii(numarPeZi) {
+    const tr = document.createElement("tr");
+    tr.className = "viz3-tabel-exercitii";
+    const cap = document.createElement("th");
+    cap.scope = "row";
+    cap.textContent = "Ex. lucrate";
+    tr.appendChild(cap);
+    numarPeZi.forEach((n) => {
+      const td = document.createElement("td");
+      td.textContent = String(n);
+      tr.appendChild(td);
+    });
+    return tr;
+  }
+
+  // Sageti de directie pe randul Total: intre coloane cu procent ROTUNJIT diferit.
+  // Verde ↗ crestere, rosu ↘ scadere; prima coloana nu are (n-are precedenta).
+  // Se pozitioneaza pe marginea stanga a celulei (CSS) = "pe linia dintre celule".
+  function adaugaSagetiTotal(tr, celule) {
+    const tds = Array.from(tr.children).slice(1); // sare peste <th> de rand
+    let procentAnterior = null;
+    tds.forEach((td, idx) => {
+      const procent = Math.round(celule[idx].scor * 100);
+      if (procentAnterior !== null && procent !== procentAnterior) {
+        const urca = procent > procentAnterior;
+        const sageata = document.createElement("span");
+        sageata.className = urca ? "viz3-sageata-sus" : "viz3-sageata-jos";
+        sageata.textContent = urca ? "↗" : "↘";
+        td.appendChild(sageata);
+      }
+      procentAnterior = procent;
+    });
+  }
+
   function randeazaTabelFluenta(container, model, info) {
     // Foliile nu mai exista in DOM cand se trece pe tabel; ceasurile lor nu
     // au voie sa continue sa lucreze pe noduri detasate.
@@ -1978,6 +2013,11 @@
 
     const tbody = document.createElement("tbody");
     model.randuri.forEach((rand) => {
+      // Randul de efort se insereaza chiar DEASUPRA randului Total.
+      if (rand.tip === "total") {
+        tbody.appendChild(construiesteRandExercitii(model.numar_exercitii_valide_pe_zi));
+      }
+
       const tr = document.createElement("tr");
       if (rand.tip === "total") tr.classList.add("viz3-tabel-total");
       const capRand = document.createElement("th");
@@ -1987,12 +2027,24 @@
 
       rand.celule.forEach((celula) => {
         const td = document.createElement("td");
-        const { text, clasa } = formateazaCelulaTabel(celula);
-        td.textContent = text;
-        if (clasa) td.className = clasa;
-        td.title = titluCelulaTabel(celula);
+        if (rand.tip === "total") {
+          // [C2] Total: mereu procent, niciodata gardat, niciodata "—".
+          td.textContent = `${Math.round(celula.scor * 100)}%`;
+        } else if (motor.casutaEDeAfisat(celula)) {
+          // Subtabla "valida in sine" -> procent (formatarea existenta).
+          const { text, clasa } = formateazaCelulaTabel(celula);
+          td.textContent = text;
+          if (clasa) td.className = clasa;
+        } else {
+          // Subtabla sub prag -> gol (tooltip-ul explica de ce, mai jos).
+          td.className = "viz3-tabel-celula-goala";
+        }
+        td.title = titluCelulaTabel(celula); // pastrat SI pe celulele goale
         tr.appendChild(td);
       });
+
+      if (rand.tip === "total") adaugaSagetiTotal(tr, rand.celule);
+
       tbody.appendChild(tr);
     });
 
@@ -2009,11 +2061,9 @@
     // Linia de fezabilitate sub bifele de adâncime: cate poze ies din date.
     const nota = cpEl.querySelector('[data-nota-axa="adancime_foto"]');
     if (nota) {
-      const pas = model.adancime * model.facts_per_subtabla;
       nota.textContent =
-        `Fereastră: subtable de ${model.facts_per_subtabla} facts · ` +
-        `poză = ${model.adancime}×${model.facts_per_subtabla} = ${pas} răspunsuri · ` +
-        `date valide: ${model.numar_raspunsuri_valide} → ${model.antete.length} poze`;
+        `Adâncime: ultimele ${model.adancime} răspunsuri / fact · o coloană = o zi · ` +
+        `date valide: ${model.numar_raspunsuri_valide} → ${model.antete.length} zile`;
     }
   }
 

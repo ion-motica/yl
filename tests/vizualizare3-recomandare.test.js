@@ -68,17 +68,19 @@ function apropiat(actual, asteptat) {
   assert.ok(Math.abs(actual - asteptat) < 1e-9, `asteptat ~${asteptat}, primit ${actual}`);
 }
 
-// Fixture principal (B=14): bloc 12*1 (8, zile alternate 07-01/07-02),
-// bloc 12*2 (4, aceleași zile alternate), bloc 13*1 (2, 07-03).
+// Fixture principal (B=10) — zile CONTIGUE (o coloană = o zi calendaristică;
+// zile alternate ca la v1 ar produce o coloană nouă la fiecare alternare, nu
+// reprezintă nimic ce ar putea produce un user real):
+// 07-01: 4× 12*1 · 07-02: 4× 12*2 · 07-03: 2× 13*1 ("acum").
 function construiesteFixturePrincipal() {
   return [
-    ...apasariFact("12*1=12", 8, 1.5, ["2026-07-01", "2026-07-02"]),
-    ...apasariFact("12*2=24", 4, 1.5, ["2026-07-01", "2026-07-02"]),
+    ...apasariFact("12*1=12", 4, 1.5, ["2026-07-01"]),
+    ...apasariFact("12*2=24", 4, 1.5, ["2026-07-02"]),
     ...apasariFact("13*1=13", 2, 1.5, ["2026-07-03"]),
   ];
 }
 
-it("structura candidaților: ordine, poze, celule_total, contor (fixture principal, [2,5])", () => {
+it("structura candidaților: poze IDENTIC pe toți candidații (grila de zile e comuna), contor variaza", () => {
   const motor = incarcaMotor();
   const rec = motor.construiesteRecomandareAdancime({
     inregistrari: construiesteFixturePrincipal(),
@@ -92,20 +94,22 @@ it("structura candidaților: ordine, poze, celule_total, contor (fixture princip
   assert.equal(rec.candidati[0].adancime, 2);
   assert.equal(rec.candidati[1].adancime, 5);
 
-  assert.equal(rec.candidati[0].poze, 4);
-  assert.equal(rec.candidati[0].celule_total, 8);
+  // 3 zile distincte in fixture -> 3 poze, ACELASI numar la orice adancime
+  // (consecinta directa a coloanelor pe zi: adancimea nu mai controleaza pasul).
+  assert.equal(rec.candidati[0].poze, 3);
+  assert.equal(rec.candidati[1].poze, 3);
+  assert.equal(rec.candidati[0].celule_total, 6);
+  assert.equal(rec.candidati[1].celule_total, 6);
+
   assert.deepEqual(rec.candidati[0].contor, {
     incredere_mare: 0,
     incredere_mica: 2,
-    date_insuficiente: 6,
+    date_insuficiente: 4,
   });
-
-  assert.equal(rec.candidati[1].poze, 2);
-  assert.equal(rec.candidati[1].celule_total, 4);
   assert.deepEqual(rec.candidati[1].contor, {
-    incredere_mare: 1,
+    incredere_mare: 2,
     incredere_mica: 1,
-    date_insuficiente: 2,
+    date_insuficiente: 3,
   });
 });
 
@@ -119,15 +123,18 @@ it("procentele și adâncimea recomandată (fixture principal, [2,5])", () => {
   });
 
   apropiat(rec.candidati[0].procent_bazate, 0);
-  apropiat(rec.candidati[1].procent_bazate, 0.25);
+  apropiat(rec.candidati[1].procent_bazate, 0.3333333333333333);
   assert.equal(rec.adancime_recomandata, 5);
 });
 
-it("tie-break: la procente egale câștigă adâncimea mai mică", () => {
+it("tie-break: ambele adancimi vad tot istoricul (identic) -> egalitate garantata, castiga cea mica", () => {
   const motor = incarcaMotor();
+  // Fiecare fact are 4 raspunsuri, sub AMBELE adancimi candidate (5 si 10) ->
+  // fereastra = tot istoricul in ambele cazuri -> modelele sunt byte-identice,
+  // deci egalitatea nu e coincidenta de date, ci garantata prin constructie.
   const fixture = [
-    ...apasariFact("12*1=12", 4, 1.5, ["2026-07-01", "2026-07-02"]),
-    ...apasariFact("12*2=24", 4, 1.5, ["2026-07-01", "2026-07-02"]),
+    ...apasariFact("12*1=12", 4, 1.5, ["2026-07-01"]),
+    ...apasariFact("12*2=24", 4, 1.5, ["2026-07-02"]),
   ];
   const rec = motor.construiesteRecomandareAdancime({
     inregistrari: fixture,
@@ -136,8 +143,9 @@ it("tie-break: la procente egale câștigă adâncimea mai mică", () => {
     praguri: PRAGURI,
   });
 
-  apropiat(rec.candidati[0].procent_bazate, 0.5);
-  apropiat(rec.candidati[1].procent_bazate, 0.5);
+  assert.equal(rec.candidati[0].poze, rec.candidati[1].poze);
+  apropiat(rec.candidati[0].procent_bazate, 0.25);
+  apropiat(rec.candidati[1].procent_bazate, 0.25);
   assert.equal(rec.adancime_recomandata, 5);
 });
 
