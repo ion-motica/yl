@@ -93,6 +93,37 @@ Filtru standard v1: doar prima apăsare; viteza doar pe corecte-din-prima; exclu
 - **Progres/direcție** — comparație de calupuri, delta agregat (delta per fact comparabil, apoi
   agregare). ASTA e ținta reală: „uite câteva zecimi de secundă de progres care se adună!". În
   prototip afișăm doar STARE, nu progres, fiindcă progresul de zecimi e valid doar agregat.
+  Discuție extinsă 22.07.2026 (chat, nefinalizată în plan):
+  - Calupuri **înghețate, nesuprapuse** pt. istoricul afișat (odată închis, un calup nu se
+    mai recalculează retroactiv) + un calup **viu** (sliding, se termină azi) pt. „azi a
+    contat", fără amânarea recompensei. Analogie: lumânări bursiere închise + lumânarea
+    curentă. De decis: conținutul calupului viu — „ultimele N care se termină azi" (ce
+    face deja `fereastraFactLaMoment`, gratis) vs. „tot ce s-a strâns de la ultima
+    închidere" (mai curat, dar subțire în prima zi) — diferența contează puțin pentru
+    numărarea de tranziții de stare (ambele variante taie facts-urile fără destule date
+    prin pragurile de încredere existente), ar conta dacă am afișa vreodată delte de scor.
+  - Mesajul cinstit pentru părinte NU e procent/medie (verificat cu userul: „procente nu
+    înseamnă nimic pt oameni fără studii superioare") — ci **numărare de tranziții de
+    stare** între două calupuri: „7 tăblițe au urcat o treaptă, 2 au ajuns fluente". Se
+    calculează comparând starea per celulă (deja clasificată de motor) la cele două
+    calupuri, fără niciun cod de scor nou.
+  - **Săgeți de tendință în tabelul tehnic** (`Tabel % fluență`) — vezi
+    **`PROPUNERE-sageti-progres.md`** (notă de decizie, 22.07.2026). Varianta
+    fact-cu-fact („≥8 din 10 facts au urcat") a fost **respinsă de user**: mai slabă
+    statistic decât compararea mediilor (deja implementată), n-ar aduce putere, doar un
+    al doilea factor de complexitate. Dacă se fac vreodată săgeți, se pleacă de la S1
+    (medii), cu netestatele rezolvate din quiz design (quizul începe cu facts-urile
+    netestate în sesiunea precedentă → acoperire ~completă → media reflectă măiestria
+    și dificultatea se anulează în diferență). Reziduu inerent: pe subtablă (10 facts)
+    mișcările mici stau sub zgomot; progresul mic se vede acumulat sau pe rândul Total.
+  - ~~Rând nou sub „Toată fereastra": nr. total de răspunsuri valide din acea coloană,
+    cu textul „ai muncit atât, ai progresat de la X% la Y%".~~ RESPINS (22.07.2026):
+    numărul de răspunsuri e deja vizibil în tooltip-ul celulei Total (`n=${celula.n}`,
+    `vizualizare3-bootstrap.js:1928`) — un rând separat ar duplica; iar „progres de la
+    X% la Y%" moștenește conflația acoperire/măiestrie de mai sus (procentul crește și
+    doar din facts noi atinse, nu neapărat din facts deja purtate devenite mai bune) —
+    nu e un mesaj pe care să te bazezi fără să verifici tooltip-ul dedesubt, ceea ce
+    anulează scopul unui rând-rezumat.
 - **Pas independent de adâncime** — acum pasul dintre poze e fixat la o „celulă
   plină" (adâncime × facts/subtablă), deci adâncimi mici dau poze care se
   suprapun aproape total. Userul a întrebat (21.07.2026) dacă un pas MAI MARE,
