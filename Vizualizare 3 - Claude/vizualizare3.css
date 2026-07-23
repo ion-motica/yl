@@ -189,6 +189,17 @@ body {
   margin-bottom: 8px;
 }
 
+.viz3-optiuni-subtitlu {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--viz3-text);
+  margin: 4px 0;
+}
+
+.viz3-spatiu-optiuni {
+  height: 10px;
+}
+
 /* Butoanele de preset. */
 .viz3-presete {
   display: flex;
@@ -949,10 +960,13 @@ body {
   pointer-events: none;
 }
 
-/* Bifa "Afișează săgeți progres pe rândul Total" (5.2) - săgețile raman in
-   DOM (adaugaSagetiTotal le construieste mereu), doar vizibilitatea comuta. */
-.viz3-tabel.viz3-arata-sageti .viz3-sageata-sus,
-.viz3-tabel.viz3-arata-sageti .viz3-sageata-jos {
+/* Bifele "Afișează săgeți" (5.2): săgețile rămân mereu în DOM (adaugaSageataCelula
+   le construiește la randare pentru fiecare celulă eligibilă), doar vizibilitatea
+   comută. O săgeată se vede dacă modul ei e pornit; "acum" are două etichete, deci
+   se aprinde din oricare din cele două bife (reuniune), fără dublură. */
+.viz3-tabel.viz3-arata-sageti-total .viz3-sageata--total,
+.viz3-tabel.viz3-arata-sageti-acum .viz3-sageata--acum,
+.viz3-tabel.viz3-arata-sageti-toate .viz3-sageata--toate {
   display: block;
 }
 

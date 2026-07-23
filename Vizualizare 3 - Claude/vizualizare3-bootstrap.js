@@ -1962,23 +1962,25 @@
     return tr;
   }
 
-  // Sageti de directie pe randul Total: intre coloane cu procent ROTUNJIT diferit.
-  // Verde ↗ crestere, rosu ↘ scadere; prima coloana nu are (n-are precedenta).
-  // Se pozitioneaza pe marginea stanga a celulei (CSS) = "pe linia dintre celule".
-  function adaugaSagetiTotal(tr, celule) {
-    const tds = Array.from(tr.children).slice(1); // sare peste <th> de rand
-    let procentAnterior = null;
-    tds.forEach((td, idx) => {
-      const procent = Math.round(celule[idx].scor * 100);
-      if (procentAnterior !== null && procent !== procentAnterior) {
-        const urca = procent > procentAnterior;
-        const sageata = document.createElement("span");
-        sageata.className = urca ? "viz3-sageata-sus" : "viz3-sageata-jos";
-        sageata.textContent = urca ? "↗" : "↘";
-        td.appendChild(sageata);
-      }
-      procentAnterior = procent;
-    });
+  // Sageata de directie pentru O celula: compara procentul rotunjit `cc` cu
+  // referinta `cs` (ultima celula AFISATA din stanga, deja sarita peste goluri de
+  // apelant). `cs === null` (prima celula afisata) sau `cc === cs` -> nicio sageata.
+  // Etichetele de mod (--total/--acum/--toate) decid, prin CSS, care bifa o arata;
+  // celula "acum" a unei subtable primeste O SINGURA sageata cu doua etichete, deci
+  // "acum" + "toate" pornite nu dubleaza. Singurul loc unde se naste o sageata.
+  function adaugaSageataCelula(td, { cc, cs, tipRand, esteAcum }) {
+    if (cs === null || cc === cs) return;
+    const urca = cc > cs;
+    const sageata = document.createElement("span");
+    sageata.className = urca ? "viz3-sageata-sus" : "viz3-sageata-jos";
+    sageata.textContent = urca ? "↗" : "↘";
+    if (tipRand === "total") {
+      sageata.classList.add("viz3-sageata--total");
+    } else if (tipRand === "subtabla") {
+      sageata.classList.add("viz3-sageata--toate");
+      if (esteAcum) sageata.classList.add("viz3-sageata--acum");
+    }
+    td.appendChild(sageata);
   }
 
   // Bara verticala din spatele scrisului (2.1): doua segmente stivuite de jos
@@ -2080,7 +2082,7 @@
       // Reseteaza la null la fiecare rand nou (fara referinta = prima celula).
       let procentAnteriorAfisat = null;
 
-      rand.celule.forEach((celula) => {
+      rand.celule.forEach((celula, idx) => {
         const td = document.createElement("td");
         let procentCurent = null;
         let afisata = false;
@@ -2110,13 +2112,17 @@
 
         if (afisata) {
           td.appendChild(construiesteBaraProgres(procentCurent, procentAnteriorAfisat));
+          adaugaSageataCelula(td, {
+            cc: procentCurent,
+            cs: procentAnteriorAfisat,
+            tipRand: rand.tip,
+            esteAcum: model.antete[idx]?.este_acum === true,
+          });
           procentAnteriorAfisat = procentCurent;
         }
 
         tr.appendChild(td);
       });
-
-      if (rand.tip === "total") adaugaSagetiTotal(tr, rand.celule);
 
       tbody.appendChild(tr);
     });
@@ -2366,7 +2372,9 @@
   // tabelul insusi se reconstruieste des (schimbare adancime/domeniu/sursa) —
   // vezi aplicaOptiuniProgresTabel. Valorile initiale = defaultul din
   // definitii-axe.js (constructia controalelor le suprascrie oricum imediat).
-  let progresTabelSageti = true;
+  let progresTabelSagetiTotal = true;
+  let progresTabelSagetiAcum = true;
+  let progresTabelSagetiToate = true;
   let progresTabelBaraActiva = false;
   let progresTabelLatime = 100;
   let progresTabelPozitie = 50;
@@ -2378,7 +2386,9 @@
   // motorului. No-op cand tabelul nu exista inca (ex. la construirea CP-ului).
   function aplicaOptiuniProgresTabel() {
     if (!tabelFluentaAtual) return;
-    tabelFluentaAtual.classList.toggle("viz3-arata-sageti", progresTabelSageti);
+    tabelFluentaAtual.classList.toggle("viz3-arata-sageti-total", progresTabelSagetiTotal);
+    tabelFluentaAtual.classList.toggle("viz3-arata-sageti-acum", progresTabelSagetiAcum);
+    tabelFluentaAtual.classList.toggle("viz3-arata-sageti-toate", progresTabelSagetiToate);
     tabelFluentaAtual.classList.toggle("viz3-arata-bara", progresTabelBaraActiva);
     tabelFluentaAtual.style.setProperty("--viz3-bara-latime", `${progresTabelLatime}%`);
     tabelFluentaAtual.style.setProperty("--viz3-bara-pozitie-frac", String(progresTabelPozitie / 100));
@@ -2390,25 +2400,46 @@
   }
 
   // Comutatoarele + reglajele "Progres" (5.2): control special, ca folii, cu
-  // doua comutatoare independente (nu se exclud) + 4 slidere ale barei.
+  // comutatoare independente (nu se exclud) + 4 slidere ale barei.
   function randeazaControlProgresTabel(grup, axa) {
-    const optSageti = axa.optiuni.find((o) => o.id === "sageti_total");
+    const optSagetiTotal = axa.optiuni.find((o) => o.id === "sageti_total");
+    const optSagetiAcum = axa.optiuni.find((o) => o.id === "sageti_acum");
+    const optSagetiToate = axa.optiuni.find((o) => o.id === "sageti_toate");
     const optBara = axa.optiuni.find((o) => o.id === "bara_verticala");
 
-    const randSageti = document.createElement("label");
-    randSageti.className = "viz3-optiune";
-    const bifaSageti = document.createElement("input");
-    bifaSageti.type = "checkbox";
-    bifaSageti.checked = optSageti.activa === true;
-    bifaSageti.dataset.preset = `progres_tabel_${optSageti.id}`;
-    progresTabelSageti = bifaSageti.checked;
-    const textSageti = document.createElement("span");
-    textSageti.textContent = optSageti.eticheta;
-    bifaSageti.addEventListener("change", () => {
-      progresTabelSageti = bifaSageti.checked;
-      aplicaOptiuniProgresTabel();
-    });
-    randSageti.append(bifaSageti, textSageti);
+    // O bifa de sageti: seteaza starea prin `aplicaStare` si reaplica clasele
+    // (fara re-randare). dataset.preset = progres_tabel_<id> -> intra in sertarul
+    // localStorage al subsectiunii; la restaurare sistemul reemite `change`, deci
+    // listenerul de aici prinde valoarea.
+    function faBifaSageti(opt, aplicaStare) {
+      const rand = document.createElement("label");
+      rand.className = "viz3-optiune";
+      const bifa = document.createElement("input");
+      bifa.type = "checkbox";
+      bifa.checked = opt.activa === true;
+      bifa.dataset.preset = `progres_tabel_${opt.id}`;
+      aplicaStare(bifa.checked);
+      const text = document.createElement("span");
+      text.textContent = opt.eticheta;
+      bifa.addEventListener("change", () => {
+        aplicaStare(bifa.checked);
+        aplicaOptiuniProgresTabel();
+      });
+      rand.append(bifa, text);
+      return rand;
+    }
+
+    const subtitluSageti = document.createElement("div");
+    subtitluSageti.className = "viz3-optiuni-subtitlu";
+    subtitluSageti.textContent = "Afișează săgeți";
+
+    const randTotal = faBifaSageti(optSagetiTotal, (v) => (progresTabelSagetiTotal = v));
+    const randAcum = faBifaSageti(optSagetiAcum, (v) => (progresTabelSagetiAcum = v));
+    const randToate = faBifaSageti(optSagetiToate, (v) => (progresTabelSagetiToate = v));
+
+    // Rand liber intre grupul de sageti si bifa barei (cerinta).
+    const spatiu = document.createElement("div");
+    spatiu.className = "viz3-spatiu-optiuni";
 
     const randBara = document.createElement("label");
     randBara.className = "viz3-optiune";
@@ -2467,7 +2498,18 @@
       aplicaOptiuniProgresTabel();
     });
 
-    grup.append(randSageti, randBara, latime.rand, pozitie.rand, inaltime.rand, opacitateRosu.rand);
+    grup.append(
+      subtitluSageti,
+      randTotal,
+      randAcum,
+      randToate,
+      spatiu,
+      randBara,
+      latime.rand,
+      pozitie.rand,
+      inaltime.rand,
+      opacitateRosu.rand
+    );
   }
 
   function adancimeDinOptiune(idOptiune) {

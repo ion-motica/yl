@@ -300,14 +300,16 @@
           id: "progres_tabel",
           eticheta: "Progres",
           subsectiune: "tabel_optiuni",
-          // Control special, ca "folii"/"compozitie": doua comutatoare
-          // independente (nu se exclud reciproc) + reglajele barei. Randat de
+          // Control special, ca "folii"/"compozitie": comutatoare independente
+          // (nu se exclud reciproc) + reglajele barei. Randat de
           // randeazaControlProgresTabel (bootstrap) - nu de calea generica de
           // axa, fiindca fiecare comutator schimba doar o clasa/variabila CSS
           // pe tabelul deja randat, nu configuratia motorului.
           tip_control: "progres_tabel",
           optiuni: [
-            { id: "sageti_total", eticheta: "Afișează săgeți progres pe rândul Total", activa: true },
+            { id: "sageti_total", eticheta: "Pt. rândul Total", activa: true },
+            { id: "sageti_acum", eticheta: "Pt. coloana Acum la subtablă", activa: true },
+            { id: "sageti_toate", eticheta: "Pe toate subtablele", activa: true },
             { id: "bara_verticala", eticheta: "Bară de progres verticală", activa: false },
           ],
           // Reglaje continue ale barei. Dezactivate (grayed out) cat timp
