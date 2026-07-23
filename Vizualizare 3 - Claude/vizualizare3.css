@@ -73,6 +73,20 @@
   --viz3-tabel-redus-culoare: #999;
   --viz3-tabel-contur: #ddd;
   --viz3-tabel-total-fundal: #f6f6f6;
+
+  /* Bara de progres verticala din celule (2.1). Verde = reutilizeaza chiar
+     culoarea "fluent" din grila; portocaliu/rosu sunt noi (grila n-are rosu -
+     acolo starile nu regreseaza niciodata). Latime/pozitie/inaltime/opacitate-
+     rosu sunt suprascrise inline pe <table> de aplicaOptiuniProgresTabel; cele
+     de-aici sunt doar rezerva pana ruleaza JS-ul. */
+  --viz3-bara-verde: #1f7a44;
+  --viz3-bara-portocaliu: #d98324;
+  --viz3-bara-rosu: #c0392b;
+  --viz3-bara-grila-linie: rgba(0, 0, 0, 0.55);
+  --viz3-bara-latime: 100%;
+  --viz3-bara-pozitie-frac: 0.5;
+  --viz3-bara-inaltime-rand: 90px;
+  --viz3-bara-opacitate-rosu: 0.5;
 }
 
 * {
@@ -810,6 +824,78 @@ body {
   font-style: italic;
 }
 
+/* Bara de progres verticala (2.1): un div in spatele scrisului, ascuns
+   implicit - bifa "Bară de progres verticală" (5.2) adaugă .viz3-arata-bara
+   pe <table>. Constructia (construiesteBaraProgres) e mereu in DOM, ca
+   userul sa poata comuta fara re-randare. */
+.viz3-tabel tbody td {
+  /* Ancora pt. pozitionarea absoluta a barei si a textului deasupra ei. Fara
+     efect vizual cand nu exista bara. */
+  position: relative;
+}
+
+.viz3-celula-text {
+  position: relative;
+  z-index: 1;
+}
+
+.viz3-tabel.viz3-arata-bara tbody tr:not(.viz3-tabel-exercitii) td {
+  height: var(--viz3-bara-inaltime-rand);
+}
+
+.viz3-bara {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* pozitie 0 = lipita stanga, 50 = centrata, 100 = lipita dreapta, pt orice
+     latime (vezi PLAN-bara-progres-tabel.md §3/§6). */
+  left: calc((100% - var(--viz3-bara-latime)) * var(--viz3-bara-pozitie-frac));
+  width: var(--viz3-bara-latime);
+  flex-direction: column-reverse; /* primul copil DOM (S1) cade jos */
+  justify-content: flex-start;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.viz3-tabel.viz3-arata-bara .viz3-bara {
+  display: flex;
+}
+
+.viz3-bara-s1,
+.viz3-bara-s2 {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.viz3-bara-s1 {
+  background: var(--viz3-bara-verde);
+}
+
+.viz3-bara-s2--castig {
+  background: var(--viz3-bara-portocaliu);
+}
+
+.viz3-bara-s2--pierdere {
+  background: var(--viz3-bara-rosu);
+  opacity: var(--viz3-bara-opacitate-rosu);
+}
+
+/* Grila de separatoare: o linie la fiecare 10% din inaltimea benzii, peste
+   umplere (S1/S2), sub scris - "cat mai are omul de parcurs" pana la 100%. */
+.viz3-bara-grila {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to top,
+    var(--viz3-bara-grila-linie) 0,
+    var(--viz3-bara-grila-linie) 1px,
+    transparent 1px,
+    transparent 10%
+  );
+}
+
 .viz3-nota-dinamica {
   font-size: 11px;
   color: var(--viz3-text-slab);
@@ -855,11 +941,19 @@ body {
 
 .viz3-sageata-sus,
 .viz3-sageata-jos {
+  display: none;
   position: absolute;
   left: -0.6em;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+}
+
+/* Bifa "Afișează săgeți progres pe rândul Total" (5.2) - săgețile raman in
+   DOM (adaugaSagetiTotal le construieste mereu), doar vizibilitatea comuta. */
+.viz3-tabel.viz3-arata-sageti .viz3-sageata-sus,
+.viz3-tabel.viz3-arata-sageti .viz3-sageata-jos {
+  display: block;
 }
 
 /* +50% marime (11px -> 16.5px). "Mai groasa" nu e un procent continuu in CSS

@@ -296,6 +296,65 @@
             { id: "20", eticheta: "20 răspunsuri / fact", adancime: 20 },
           ],
         },
+        {
+          id: "progres_tabel",
+          eticheta: "Progres",
+          subsectiune: "tabel_optiuni",
+          // Control special, ca "folii"/"compozitie": doua comutatoare
+          // independente (nu se exclud reciproc) + reglajele barei. Randat de
+          // randeazaControlProgresTabel (bootstrap) - nu de calea generica de
+          // axa, fiindca fiecare comutator schimba doar o clasa/variabila CSS
+          // pe tabelul deja randat, nu configuratia motorului.
+          tip_control: "progres_tabel",
+          optiuni: [
+            { id: "sageti_total", eticheta: "Afișează săgeți progres pe rândul Total", activa: true },
+            { id: "bara_verticala", eticheta: "Bară de progres verticală", activa: false },
+          ],
+          // Reglaje continue ale barei. Dezactivate (grayed out) cat timp
+          // "bara_verticala" e nebifat, ca la sliderele foliilor.
+          reglaje: [
+            {
+              id: "latime",
+              eticheta: "Lățime bandă",
+              tip: "slider",
+              min: 5,
+              max: 100,
+              pas: 1,
+              implicit: 100,
+              unitate: "%",
+            },
+            {
+              id: "pozitie",
+              eticheta: "Poziție bandă (0 stânga · 100 dreapta)",
+              tip: "slider",
+              min: 0,
+              max: 100,
+              pas: 1,
+              implicit: 50,
+              unitate: "%",
+            },
+            {
+              id: "inaltime",
+              eticheta: "Înălțime rând",
+              tip: "slider",
+              min: 24,
+              max: 250,
+              pas: 2,
+              implicit: 90,
+              unitate: "px",
+            },
+            {
+              id: "opacitate_rosu",
+              eticheta: "Opacitate roșu (pierdere)",
+              tip: "slider",
+              min: 0,
+              max: 100,
+              pas: 1,
+              implicit: 50,
+              unitate: "%",
+            },
+          ],
+        },
       ],
     },
   ];

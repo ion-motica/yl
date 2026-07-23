@@ -757,7 +757,7 @@
     });
   }
 
-  function randeazaSlider(reglaj, laSchimbare) {
+  function randeazaSlider(reglaj, laSchimbare, prefixAxa) {
     const rand = document.createElement("div");
     rand.className = "viz3-reglaj";
     const cap = document.createElement("div");
@@ -774,7 +774,7 @@
     if (reglaj.max !== null) slider.max = String(reglaj.max);
     slider.step = String(reglaj.pas);
     slider.disabled = true;
-    slider.dataset.preset = `folii_${reglaj.id}`;
+    slider.dataset.preset = `${prefixAxa}_${reglaj.id}`;
 
     const arata = () => {
       valoare.textContent = `${slider.value} ${reglaj.unitate}`;
@@ -1037,16 +1037,24 @@
     const gasesteReglaj = (id) => reglaje.find((r) => r.id === id);
 
     reglajDimensiune = gasesteReglaj("dimensiune");
-    const dimensiune = randeazaSlider(reglajDimensiune, (v) => {
-      dimensiuneFolie = v;
-      aplicaDimensiune();
-    });
+    const dimensiune = randeazaSlider(
+      reglajDimensiune,
+      (v) => {
+        dimensiuneFolie = v;
+        aplicaDimensiune();
+      },
+      axa.id
+    );
     sliderDimensiune = dimensiune;
 
-    const viteza = randeazaSlider(gasesteReglaj("viteza"), (v) => {
-      vitezaReasezare = v;
-      aplicaViteza();
-    });
+    const viteza = randeazaSlider(
+      gasesteReglaj("viteza"),
+      (v) => {
+        vitezaReasezare = v;
+        aplicaViteza();
+      },
+      axa.id
+    );
 
     const auto = randeazaNumar(gasesteReglaj("auto"), (v) => {
       autoSecunde = v;
@@ -1671,6 +1679,12 @@
           return;
         }
 
+        if (axa.tip_control === "progres_tabel") {
+          randeazaControlProgresTabel(grup, axa);
+          tinta.appendChild(grup);
+          return;
+        }
+
         axa.optiuni.forEach((opt) => {
           const input = document.createElement("input");
           input.type = axa.tip_selectie === "multipla" ? "checkbox" : "radio";
@@ -1967,6 +1981,41 @@
     });
   }
 
+  // Bara verticala din spatele scrisului (2.1): doua segmente stivuite de jos
+  // intr-un flex column-reverse (primul copil DOM = S1 = jos). `cs` = procentul
+  // celulei de referinta (deja sarita peste goluri de apelant), sau null pt.
+  // prima celula afisata a randului. Vizibilitatea/marimea tin de clasele si
+  // variabilele CSS aplicate pe <table> (aplicaOptiuniProgresTabel) - functia
+  // asta construieste mereu structura, indiferent daca bara e activa acum.
+  function construiesteBaraProgres(cc, cs) {
+    const bara = document.createElement("div");
+    bara.className = "viz3-bara";
+
+    const s1 = document.createElement("div");
+    s1.className = "viz3-bara-s1";
+    const s2 = document.createElement("div");
+    s2.className = "viz3-bara-s2";
+
+    if (cs === null || cc === cs) {
+      s1.style.flexBasis = `${cc}%`;
+      s2.style.flexBasis = "0%";
+    } else if (cc > cs) {
+      s1.style.flexBasis = `${cs}%`;
+      s2.style.flexBasis = `${cc - cs}%`;
+      s2.classList.add("viz3-bara-s2--castig");
+    } else {
+      s1.style.flexBasis = `${cc}%`;
+      s2.style.flexBasis = `${cs - cc}%`;
+      s2.classList.add("viz3-bara-s2--pierdere");
+    }
+
+    const grila = document.createElement("div");
+    grila.className = "viz3-bara-grila";
+
+    bara.append(s1, s2, grila);
+    return bara;
+  }
+
   function randeazaTabelFluenta(container, model, info) {
     // Foliile nu mai exista in DOM cand se trece pe tabel; ceasurile lor nu
     // au voie sa continue sa lucreze pe noduri detasate.
@@ -1982,7 +2031,7 @@
     container.replaceChildren();
     container.appendChild(
       construiesteAntet(
-        `% fluență per subtablă — ${model.eticheta_domeniu} · ${model.adancime} răsp/fact`,
+        `Tabel % fluență per subtablă (serie calupuri) — ${model.eticheta_domeniu} · ${model.adancime} răsp/fact`,
         info
       )
     );
@@ -1993,6 +2042,7 @@
       gol.textContent =
         "Nicio dată în domeniul ales — tabelul apare când există răspunsuri înregistrate.";
       container.appendChild(gol);
+      tabelFluentaAtual = null; // tabelul vechi (daca a existat) nu mai e in DOM
       return;
     }
 
@@ -2025,21 +2075,44 @@
       capRand.textContent = rand.eticheta;
       tr.appendChild(capRand);
 
+      // Referinta (cs) pt. bara de progres (2.1): ultimul procent AFISAT din
+      // acest rand, sarind peste golurile dintre - nu neaparat coloana vecina.
+      // Reseteaza la null la fiecare rand nou (fara referinta = prima celula).
+      let procentAnteriorAfisat = null;
+
       rand.celule.forEach((celula) => {
         const td = document.createElement("td");
+        let procentCurent = null;
+        let afisata = false;
         if (rand.tip === "total") {
           // [C2] Total: mereu procent, niciodata gardat, niciodata "—".
-          td.textContent = `${Math.round(celula.scor * 100)}%`;
+          procentCurent = Math.round(celula.scor * 100);
+          afisata = true;
+          const text = document.createElement("span");
+          text.className = "viz3-celula-text";
+          text.textContent = `${procentCurent}%`;
+          td.appendChild(text);
         } else if (motor.casutaEDeAfisat(celula)) {
           // Subtabla "valida in sine" -> procent (formatarea existenta).
-          const { text, clasa } = formateazaCelulaTabel(celula);
-          td.textContent = text;
+          const { text: continut, clasa } = formateazaCelulaTabel(celula);
+          procentCurent = Math.round(celula.scor * 100);
+          afisata = true;
+          const text = document.createElement("span");
+          text.className = "viz3-celula-text";
+          text.textContent = continut;
+          td.appendChild(text);
           if (clasa) td.className = clasa;
         } else {
           // Subtabla sub prag -> gol (tooltip-ul explica de ce, mai jos).
           td.className = "viz3-tabel-celula-goala";
         }
         td.title = titluCelulaTabel(celula); // pastrat SI pe celulele goale
+
+        if (afisata) {
+          td.appendChild(construiesteBaraProgres(procentCurent, procentAnteriorAfisat));
+          procentAnteriorAfisat = procentCurent;
+        }
+
         tr.appendChild(td);
       });
 
@@ -2051,6 +2124,11 @@
     tabel.append(thead, tbody);
     scroll.appendChild(tabel);
     container.appendChild(scroll);
+    // Reglajele "Progres" (5.2) tin starea in variabile JS, nu in tabel - la
+    // fiecare reconstructie (schimbare adancime/domeniu/sursa) se reaplica pe
+    // tabelul nou, ca userul sa nu piarda ce a bifat/tras.
+    tabelFluentaAtual = tabel;
+    aplicaOptiuniProgresTabel();
     // Deschide pe coloanele recente (dreapta), nu pe cele mai vechi — acolo
     // majoritatea rândurilor sunt goale. `scrollWidth` e corect abia dupa ce
     // browserul a asezat tabelul, nu in timpul randarii (ca la masoaraTitlurile).
@@ -2283,6 +2361,114 @@
   // domeniu sau de sursa (vezi reseteazaVizualizarea si listenerul de mai jos).
   let adancimeAlesaManual = false;
   let ultimaAnaliza = null; // { inregistrari, info } — pt. re-randare fără recitirea sursei
+
+  // Starea comutatoarelor/reglajelor "Progres" (5.2), tinuta aici fiindca
+  // tabelul insusi se reconstruieste des (schimbare adancime/domeniu/sursa) —
+  // vezi aplicaOptiuniProgresTabel. Valorile initiale = defaultul din
+  // definitii-axe.js (constructia controalelor le suprascrie oricum imediat).
+  let progresTabelSageti = true;
+  let progresTabelBaraActiva = false;
+  let progresTabelLatime = 100;
+  let progresTabelPozitie = 50;
+  let progresTabelInaltime = 90;
+  let progresTabelOpacitateRosu = 50;
+  let tabelFluentaAtual = null; // <table> curent, sau null cand nu e randat
+
+  // Pur prezentare: clase + variabile CSS pe tabelul curent. Nu atinge modelul
+  // motorului. No-op cand tabelul nu exista inca (ex. la construirea CP-ului).
+  function aplicaOptiuniProgresTabel() {
+    if (!tabelFluentaAtual) return;
+    tabelFluentaAtual.classList.toggle("viz3-arata-sageti", progresTabelSageti);
+    tabelFluentaAtual.classList.toggle("viz3-arata-bara", progresTabelBaraActiva);
+    tabelFluentaAtual.style.setProperty("--viz3-bara-latime", `${progresTabelLatime}%`);
+    tabelFluentaAtual.style.setProperty("--viz3-bara-pozitie-frac", String(progresTabelPozitie / 100));
+    tabelFluentaAtual.style.setProperty("--viz3-bara-inaltime-rand", `${progresTabelInaltime}px`);
+    tabelFluentaAtual.style.setProperty(
+      "--viz3-bara-opacitate-rosu",
+      String(progresTabelOpacitateRosu / 100)
+    );
+  }
+
+  // Comutatoarele + reglajele "Progres" (5.2): control special, ca folii, cu
+  // doua comutatoare independente (nu se exclud) + 4 slidere ale barei.
+  function randeazaControlProgresTabel(grup, axa) {
+    const optSageti = axa.optiuni.find((o) => o.id === "sageti_total");
+    const optBara = axa.optiuni.find((o) => o.id === "bara_verticala");
+
+    const randSageti = document.createElement("label");
+    randSageti.className = "viz3-optiune";
+    const bifaSageti = document.createElement("input");
+    bifaSageti.type = "checkbox";
+    bifaSageti.checked = optSageti.activa === true;
+    bifaSageti.dataset.preset = `progres_tabel_${optSageti.id}`;
+    progresTabelSageti = bifaSageti.checked;
+    const textSageti = document.createElement("span");
+    textSageti.textContent = optSageti.eticheta;
+    bifaSageti.addEventListener("change", () => {
+      progresTabelSageti = bifaSageti.checked;
+      aplicaOptiuniProgresTabel();
+    });
+    randSageti.append(bifaSageti, textSageti);
+
+    const randBara = document.createElement("label");
+    randBara.className = "viz3-optiune";
+    const bifaBara = document.createElement("input");
+    bifaBara.type = "checkbox";
+    bifaBara.checked = optBara.activa === true;
+    bifaBara.dataset.preset = `progres_tabel_${optBara.id}`;
+    progresTabelBaraActiva = bifaBara.checked;
+    const textBara = document.createElement("span");
+    textBara.textContent = optBara.eticheta;
+    randBara.append(bifaBara, textBara);
+
+    const reglaje = axa.reglaje ?? [];
+    const gasesteReglaj = (id) => reglaje.find((r) => r.id === id);
+
+    const latime = randeazaSlider(
+      gasesteReglaj("latime"),
+      (v) => {
+        progresTabelLatime = v;
+        aplicaOptiuniProgresTabel();
+      },
+      axa.id
+    );
+    const pozitie = randeazaSlider(
+      gasesteReglaj("pozitie"),
+      (v) => {
+        progresTabelPozitie = v;
+        aplicaOptiuniProgresTabel();
+      },
+      axa.id
+    );
+    const inaltime = randeazaSlider(
+      gasesteReglaj("inaltime"),
+      (v) => {
+        progresTabelInaltime = v;
+        aplicaOptiuniProgresTabel();
+      },
+      axa.id
+    );
+    const opacitateRosu = randeazaSlider(
+      gasesteReglaj("opacitate_rosu"),
+      (v) => {
+        progresTabelOpacitateRosu = v;
+        aplicaOptiuniProgresTabel();
+      },
+      axa.id
+    );
+
+    // Sliderele barei n-au sens cat timp bara e oprita - dezactivate, ca la
+    // "Activeaza foliile".
+    const sliderele = [latime.slider, pozitie.slider, inaltime.slider, opacitateRosu.slider];
+    sliderele.forEach((el) => (el.disabled = !progresTabelBaraActiva));
+    bifaBara.addEventListener("change", () => {
+      progresTabelBaraActiva = bifaBara.checked;
+      sliderele.forEach((el) => (el.disabled = !progresTabelBaraActiva));
+      aplicaOptiuniProgresTabel();
+    });
+
+    grup.append(randSageti, randBara, latime.rand, pozitie.rand, inaltime.rand, opacitateRosu.rand);
+  }
 
   function adancimeDinOptiune(idOptiune) {
     return axaAdancime?.optiuni.find((o) => o.id === idOptiune)?.adancime ?? adancimeActiva;
