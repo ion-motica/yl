@@ -85,7 +85,10 @@
       "Bash(git commit -m 'Vizualizare 3: Etapa 1 - coloane pe zi + gărzi incredere, săgeți progres, UI tweaks *)",
       "Bash(git commit -m 'Vizualizare 3: bara de progres verticala in tabelul % fluenta - doua segmente + grila, slidere, bife CP 5.2 *)",
       "Bash(git commit -m 'Adauga in AGENTS.md regula despre invocarea skill-urilor grele *)",
-      "Bash(git commit -m 'Vizualizare 3: documenteaza discutia 22.07 - calupuri inghetate/vii, mesaj cinstit pt. parinte, decizia sageti fact-cu-fact respinsa *)"
+      "Bash(git commit -m 'Vizualizare 3: documenteaza discutia 22.07 - calupuri inghetate/vii, mesaj cinstit pt. parinte, decizia sageti fact-cu-fact respinsa *)",
+      "Bash(node --check definitii-axe.js)",
+      "Bash(cd /d/Users/I/Projects/Youlearn.com 2>/dev/null; find . -maxdepth 1 -iname \"launch.json\" -o -maxdepth 2 -path \"*/.claude/launch.json\" 2>/dev/null; ls -la \".claude\" 2>/dev/null || echo \"no .claude at root\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8771/index.html)"
     ],
     "defaultMode": "auto"
   }
