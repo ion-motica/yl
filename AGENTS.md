@@ -1,5 +1,11 @@
 # Resurse comune YouLearn
 
+## Invocarea skill-urilor grele
+
+Nu invoca skill-uri de referință grele (ex. `claude-api`, `docx`, `pptx`, `xlsx`) pentru întrebări conversaționale/comparative — răspunde din cunoștințe proprii, cu mențiunea că detaliile pot fi depășite.
+
+Dacă e nevoie real de un skill greu (se scrie/editează cod care folosește acel API, sau utilizatorul cere fapte autoritative curente pentru o decizie reală), nu-l invoca direct — întreabă întâi, explicit: „e nevoie de skill greu, o să coste tokeni, îl invoc sau răspund din cunoștințe cu caveat?" Invocă doar după răspuns afirmativ.
+
 ## Deschiderea locală în Codex browser
 
 - Citește mai întâi `Codex docs/Deschidere Codex browser - referinta pt Codex.md`; nu relua încercările vechi deja documentate.
