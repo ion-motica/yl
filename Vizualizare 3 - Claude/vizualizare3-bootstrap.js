@@ -1946,13 +1946,40 @@
     return text;
   }
 
+  // Celulele de date calendaristice ale unui rand de antet: aceeasi logica la
+  // randul din <thead> si la copia din josul tabelului, ca cele doua sa ramana
+  // mereu identice. `tagCelula` = "th" (headerul de sus) sau "td" (copia de
+  // jos, ca sa preia alinierea la dreapta a coloanelor de date, nu pe cea la
+  // stanga a randurilor din tbody).
+  function construiesteCeluleAntetDate(tr, antete, tagCelula) {
+    antete.forEach((antet) => {
+      const celula = document.createElement(tagCelula);
+      celula.className = "viz3-tabel-date";
+      celula.textContent = antet.eticheta;
+      if (antet.este_azi) celula.classList.add("viz3-antet-azi");
+      tr.appendChild(celula);
+    });
+  }
+
+  // Copia randului de date calendaristice, sub "Nr. ex. lucrate": userul vede
+  // etichetele si fara sa deruleze inapoi la headerul din capul tabelului.
+  function construiesteRandDateDuplicat(antete) {
+    const tr = document.createElement("tr");
+    tr.className = "viz3-tabel-date-jos";
+    const colTitlu = document.createElement("th");
+    colTitlu.textContent = "Data:";
+    tr.appendChild(colTitlu);
+    construiesteCeluleAntetDate(tr, antete, "td");
+    return tr;
+  }
+
   // Randul de efort brut al zilei (raspunsuri valide/zi), muted, deasupra Total.
   function construiesteRandExercitii(numarPeZi) {
     const tr = document.createElement("tr");
     tr.className = "viz3-tabel-exercitii";
     const cap = document.createElement("th");
     cap.scope = "row";
-    cap.textContent = "Ex. lucrate";
+    cap.textContent = "Nr. ex. lucrate";
     tr.appendChild(cap);
     numarPeZi.forEach((n) => {
       const td = document.createElement("td");
@@ -2018,6 +2045,28 @@
     return bara;
   }
 
+  // Randul "Grafic bare", chiar deasupra randului Total: aceleasi perechi
+  // (cc, cs) ale randului Total, dar DOAR bara (fara procentul scris - e
+  // dedesubt, pe randul Total). Independent de bifa "In fiecare celula"
+  // (clasa + variabile CSS proprii, vezi .viz3-bara--grafic) - cele doua
+  // bife nu se ating (decizie: independente, nu "in loc de").
+  function construiesteRandGraficBare(perechiTotal) {
+    const tr = document.createElement("tr");
+    tr.className = "viz3-tabel-grafic-bare";
+    const cap = document.createElement("th");
+    cap.scope = "row";
+    cap.textContent = "Grafic bare";
+    tr.appendChild(cap);
+    perechiTotal.forEach(({ cc, cs }) => {
+      const td = document.createElement("td");
+      const bara = construiesteBaraProgres(cc, cs);
+      bara.classList.add("viz3-bara--grafic");
+      td.appendChild(bara);
+      tr.appendChild(td);
+    });
+    return tr;
+  }
+
   function randeazaTabelFluenta(container, model, info) {
     // Foliile nu mai exista in DOM cand se trece pe tabel; ceasurile lor nu
     // au voie sa continue sa lucreze pe noduri detasate.
@@ -2055,21 +2104,14 @@
 
     const thead = document.createElement("thead");
     const randAntet = document.createElement("tr");
-    randAntet.appendChild(document.createElement("th"));
-    model.antete.forEach((antet) => {
-      const th = document.createElement("th");
-      th.textContent = antet.eticheta;
-      randAntet.appendChild(th);
-    });
+    const colTitluAntet = document.createElement("th");
+    colTitluAntet.textContent = "Data:";
+    randAntet.appendChild(colTitluAntet);
+    construiesteCeluleAntetDate(randAntet, model.antete, "th");
     thead.appendChild(randAntet);
 
     const tbody = document.createElement("tbody");
     model.randuri.forEach((rand) => {
-      // Randul de efort se insereaza chiar DEASUPRA randului Total.
-      if (rand.tip === "total") {
-        tbody.appendChild(construiesteRandExercitii(model.numar_exercitii_valide_pe_zi));
-      }
-
       const tr = document.createElement("tr");
       if (rand.tip === "total") tr.classList.add("viz3-tabel-total");
       const capRand = document.createElement("th");
@@ -2081,6 +2123,9 @@
       // acest rand, sarind peste golurile dintre - nu neaparat coloana vecina.
       // Reseteaza la null la fiecare rand nou (fara referinta = prima celula).
       let procentAnteriorAfisat = null;
+      // Colectate DOAR pt. randul Total: aceleasi perechi (cc, cs), refolosite
+      // neschimbate de randul "Grafic bare" de deasupra (construiesteRandGraficBare).
+      const perechiTotal = rand.tip === "total" ? [] : null;
 
       rand.celule.forEach((celula, idx) => {
         const td = document.createElement("td");
@@ -2118,13 +2163,21 @@
             tipRand: rand.tip,
             esteAcum: model.antete[idx]?.este_acum === true,
           });
+          if (perechiTotal) perechiTotal.push({ cc: procentCurent, cs: procentAnteriorAfisat });
           procentAnteriorAfisat = procentCurent;
         }
 
         tr.appendChild(td);
       });
 
+      // Randul "Grafic bare" se insereaza chiar DEASUPRA randului Total.
+      if (perechiTotal) tbody.appendChild(construiesteRandGraficBare(perechiTotal));
       tbody.appendChild(tr);
+      // Randul de efort + copia randului de date se insereaza chiar SUB Total.
+      if (rand.tip === "total") {
+        tbody.appendChild(construiesteRandExercitii(model.numar_exercitii_valide_pe_zi));
+        tbody.appendChild(construiesteRandDateDuplicat(model.antete));
+      }
     });
 
     tabel.append(thead, tbody);
@@ -2380,6 +2433,13 @@
   let progresTabelPozitie = 50;
   let progresTabelInaltime = 90;
   let progresTabelOpacitateRosu = 50;
+  // Randul "Grafic bare" (deasupra Total): stare + reglaje complet separate de
+  // cele de mai sus - cele doua bife nu se ating intre ele (decizie: 1a).
+  let progresTabelGraficBareActiv = true;
+  let progresTabelGraficBareLatime = 100;
+  let progresTabelGraficBarePozitie = 50;
+  let progresTabelGraficBareInaltime = 90;
+  let progresTabelGraficBareOpacitateRosu = 50;
   let tabelFluentaAtual = null; // <table> curent, sau null cand nu e randat
 
   // Pur prezentare: clase + variabile CSS pe tabelul curent. Nu atinge modelul
@@ -2397,15 +2457,49 @@
       "--viz3-bara-opacitate-rosu",
       String(progresTabelOpacitateRosu / 100)
     );
+
+    tabelFluentaAtual.classList.toggle("viz3-arata-grafic-bare", progresTabelGraficBareActiv);
+    tabelFluentaAtual.style.setProperty("--viz3-grafic-bare-latime", `${progresTabelGraficBareLatime}%`);
+    tabelFluentaAtual.style.setProperty(
+      "--viz3-grafic-bare-pozitie-frac",
+      String(progresTabelGraficBarePozitie / 100)
+    );
+    tabelFluentaAtual.style.setProperty(
+      "--viz3-grafic-bare-inaltime-rand",
+      `${progresTabelGraficBareInaltime}px`
+    );
+    tabelFluentaAtual.style.setProperty(
+      "--viz3-grafic-bare-opacitate-rosu",
+      String(progresTabelGraficBareOpacitateRosu / 100)
+    );
+  }
+
+  // Buton "sliders": comuta panoul colapsabil de reglaje aflat imediat sub
+  // randul bifei. Panoul ramane mereu in DOM (doar `hidden`), ca sliderele
+  // sa-si pastreze valorile cand se inchide si redeschide panoul.
+  function construiesteButonSlidere(panou) {
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.className = "viz3-buton-slidere";
+    buton.textContent = "sliders";
+    buton.setAttribute("aria-expanded", "false");
+    buton.addEventListener("click", () => {
+      const seDeschide = panou.hidden;
+      panou.hidden = !seDeschide;
+      buton.setAttribute("aria-expanded", String(seDeschide));
+      buton.classList.toggle("viz3-buton-slidere--activ", seDeschide);
+    });
+    return buton;
   }
 
   // Comutatoarele + reglajele "Progres" (5.2): control special, ca folii, cu
-  // comutatoare independente (nu se exclud) + 4 slidere ale barei.
+  // comutatoare independente (nu se exclud).
   function randeazaControlProgresTabel(grup, axa) {
     const optSagetiTotal = axa.optiuni.find((o) => o.id === "sageti_total");
     const optSagetiAcum = axa.optiuni.find((o) => o.id === "sageti_acum");
     const optSagetiToate = axa.optiuni.find((o) => o.id === "sageti_toate");
     const optBara = axa.optiuni.find((o) => o.id === "bara_verticala");
+    const optGraficBare = axa.optiuni.find((o) => o.id === "grafic_bare_rand");
 
     // O bifa de sageti: seteaza starea prin `aplicaStare` si reaplica clasele
     // (fara re-randare). dataset.preset = progres_tabel_<id> -> intra in sertarul
@@ -2437,65 +2531,104 @@
     const randAcum = faBifaSageti(optSagetiAcum, (v) => (progresTabelSagetiAcum = v));
     const randToate = faBifaSageti(optSagetiToate, (v) => (progresTabelSagetiToate = v));
 
-    // Rand liber intre grupul de sageti si bifa barei (cerinta).
+    // Rand liber intre grupul de sageti si subtitlul barei (cerinta).
     const spatiu = document.createElement("div");
     spatiu.className = "viz3-spatiu-optiuni";
 
-    const randBara = document.createElement("label");
-    randBara.className = "viz3-optiune";
-    const bifaBara = document.createElement("input");
-    bifaBara.type = "checkbox";
-    bifaBara.checked = optBara.activa === true;
-    bifaBara.dataset.preset = `progres_tabel_${optBara.id}`;
-    progresTabelBaraActiva = bifaBara.checked;
-    const textBara = document.createElement("span");
-    textBara.textContent = optBara.eticheta;
-    randBara.append(bifaBara, textBara);
+    const subtitluBare = document.createElement("div");
+    subtitluBare.className = "viz3-optiuni-subtitlu";
+    subtitluBare.textContent = "Bară de progres verticală";
 
-    const reglaje = axa.reglaje ?? [];
-    const gasesteReglaj = (id) => reglaje.find((r) => r.id === id);
+    // O bifa de bara + butonul ei "sliders" + panoul colapsabil cu cele 4
+    // reglaje, chiar sub rand. `stare` grupeaza toti setterii (activ + cele 4
+    // reglaje) intr-un singur obiect, ca "In fiecare celula" si "Grafic bare"
+    // sa foloseasca aceeasi functie fara sa impartaseasca nicio variabila -
+    // fiecare bifa isi are propriile slidere, independente (decizie: 1a).
+    function construiesteGrupBara(opt, prefixPreset, stare) {
+      const rand = document.createElement("div");
+      rand.className = "viz3-rand-cu-slidere";
 
-    const latime = randeazaSlider(
-      gasesteReglaj("latime"),
-      (v) => {
+      const eticheta = document.createElement("label");
+      eticheta.className = "viz3-optiune";
+      const bifa = document.createElement("input");
+      bifa.type = "checkbox";
+      bifa.checked = opt.activa === true;
+      bifa.dataset.preset = `progres_tabel_${opt.id}`;
+      const text = document.createElement("span");
+      text.textContent = opt.eticheta;
+      eticheta.append(bifa, text);
+
+      const panou = document.createElement("div");
+      panou.className = "viz3-panou-slidere";
+      panou.hidden = true;
+      const butonSlidere = construiesteButonSlidere(panou);
+      rand.append(eticheta, butonSlidere);
+
+      const reglaje = axa.reglaje ?? [];
+      const gasesteReglaj = (id) => reglaje.find((r) => r.id === id);
+
+      const latime = randeazaSlider(gasesteReglaj("latime"), stare.latime, prefixPreset);
+      const pozitie = randeazaSlider(gasesteReglaj("pozitie"), stare.pozitie, prefixPreset);
+      const inaltime = randeazaSlider(gasesteReglaj("inaltime"), stare.inaltime, prefixPreset);
+      const opacitateRosu = randeazaSlider(
+        gasesteReglaj("opacitate_rosu"),
+        stare.opacitateRosu,
+        prefixPreset
+      );
+      panou.append(latime.rand, pozitie.rand, inaltime.rand, opacitateRosu.rand);
+
+      // Sliderele n-au sens cat timp bifa e oprita - dezactivate, ca la
+      // "Activeaza foliile".
+      const sliderele = [latime.slider, pozitie.slider, inaltime.slider, opacitateRosu.slider];
+      sliderele.forEach((el) => (el.disabled = !bifa.checked));
+      stare.activ(bifa.checked);
+      bifa.addEventListener("change", () => {
+        stare.activ(bifa.checked);
+        sliderele.forEach((el) => (el.disabled = !bifa.checked));
+        aplicaOptiuniProgresTabel();
+      });
+
+      return { rand, panou };
+    }
+
+    const grupBara = construiesteGrupBara(optBara, "progres_tabel", {
+      activ: (v) => (progresTabelBaraActiva = v),
+      latime: (v) => {
         progresTabelLatime = v;
         aplicaOptiuniProgresTabel();
       },
-      axa.id
-    );
-    const pozitie = randeazaSlider(
-      gasesteReglaj("pozitie"),
-      (v) => {
+      pozitie: (v) => {
         progresTabelPozitie = v;
         aplicaOptiuniProgresTabel();
       },
-      axa.id
-    );
-    const inaltime = randeazaSlider(
-      gasesteReglaj("inaltime"),
-      (v) => {
+      inaltime: (v) => {
         progresTabelInaltime = v;
         aplicaOptiuniProgresTabel();
       },
-      axa.id
-    );
-    const opacitateRosu = randeazaSlider(
-      gasesteReglaj("opacitate_rosu"),
-      (v) => {
+      opacitateRosu: (v) => {
         progresTabelOpacitateRosu = v;
         aplicaOptiuniProgresTabel();
       },
-      axa.id
-    );
+    });
 
-    // Sliderele barei n-au sens cat timp bara e oprita - dezactivate, ca la
-    // "Activeaza foliile".
-    const sliderele = [latime.slider, pozitie.slider, inaltime.slider, opacitateRosu.slider];
-    sliderele.forEach((el) => (el.disabled = !progresTabelBaraActiva));
-    bifaBara.addEventListener("change", () => {
-      progresTabelBaraActiva = bifaBara.checked;
-      sliderele.forEach((el) => (el.disabled = !progresTabelBaraActiva));
-      aplicaOptiuniProgresTabel();
+    const grupGraficBare = construiesteGrupBara(optGraficBare, "progres_tabel_grafic", {
+      activ: (v) => (progresTabelGraficBareActiv = v),
+      latime: (v) => {
+        progresTabelGraficBareLatime = v;
+        aplicaOptiuniProgresTabel();
+      },
+      pozitie: (v) => {
+        progresTabelGraficBarePozitie = v;
+        aplicaOptiuniProgresTabel();
+      },
+      inaltime: (v) => {
+        progresTabelGraficBareInaltime = v;
+        aplicaOptiuniProgresTabel();
+      },
+      opacitateRosu: (v) => {
+        progresTabelGraficBareOpacitateRosu = v;
+        aplicaOptiuniProgresTabel();
+      },
     });
 
     grup.append(
@@ -2504,11 +2637,11 @@
       randAcum,
       randToate,
       spatiu,
-      randBara,
-      latime.rand,
-      pozitie.rand,
-      inaltime.rand,
-      opacitateRosu.rand
+      subtitluBare,
+      grupBara.rand,
+      grupBara.panou,
+      grupGraficBare.rand,
+      grupGraficBare.panou
     );
   }
 

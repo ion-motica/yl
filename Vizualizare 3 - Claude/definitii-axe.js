@@ -154,8 +154,8 @@
           eticheta: "Reprezentare",
           tip_selectie: "unica",
           optiuni: [
-            { id: "grila_10x10", eticheta: "Grila X × Y stare", activa: true },
-            { id: "tabel_fluenta", eticheta: "Tabel % fluență per subtablă (serie calupuri)" },
+            { id: "grila_10x10", eticheta: "Grila X × Y stare" },
+            { id: "tabel_fluenta", eticheta: "Tabel % fluență per subtablă (serie calupuri)", activa: true },
             { id: "grafic_linie", eticheta: "Grafic linie (progres)", dezactivata: true, motiv: VOR_URMA },
             { id: "matrice", eticheta: "Matrice fact × eq_form", dezactivata: true, motiv: VOR_URMA },
             { id: "lista", eticheta: "Listă facts problematice", dezactivata: true, motiv: VOR_URMA },
@@ -310,7 +310,12 @@
             { id: "sageti_total", eticheta: "Pt. rândul Total", activa: true },
             { id: "sageti_acum", eticheta: "Pt. coloana Acum la subtablă", activa: true },
             { id: "sageti_toate", eticheta: "Pe toate subtablele", activa: true },
-            { id: "bara_verticala", eticheta: "Bară de progres verticală", activa: false },
+            { id: "bara_verticala", eticheta: "În fiecare celulă", activa: false },
+            {
+              id: "grafic_bare_rand",
+              eticheta: "Rând cu bare deasupra rândului Toată fereastra",
+              activa: true,
+            },
           ],
           // Reglaje continue ale barei. Dezactivate (grayed out) cat timp
           // "bara_verticala" e nebifat, ca la sliderele foliilor.

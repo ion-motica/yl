@@ -69,7 +69,6 @@
 
   /* Tabelul de scor pe calupuri (axa 5, opțiunea "Tabel % fluență"). */
   --viz3-tabel-font: 14px;
-  --viz3-tabel-redus-font: 12px;
   --viz3-tabel-redus-culoare: #999;
   --viz3-tabel-contur: #ddd;
   --viz3-tabel-total-fundal: #f6f6f6;
@@ -87,6 +86,13 @@
   --viz3-bara-pozitie-frac: 0.5;
   --viz3-bara-inaltime-rand: 90px;
   --viz3-bara-opacitate-rosu: 0.5;
+
+  /* Randul "Grafic bare" (deasupra Total): acelasi 4 reglaje, dar variabile
+     proprii - independente de cele de mai sus (bifele nu se ating). */
+  --viz3-grafic-bare-latime: 100%;
+  --viz3-grafic-bare-pozitie-frac: 0.5;
+  --viz3-grafic-bare-inaltime-rand: 90px;
+  --viz3-grafic-bare-opacitate-rosu: 0.5;
 }
 
 * {
@@ -198,6 +204,47 @@ body {
 
 .viz3-spatiu-optiuni {
   height: 10px;
+}
+
+/* Randul unei bife de bara + butonul ei "sliders" (5.2, B3): bifa/eticheta ia
+   tot spatiul, butonul sta lipit la dreapta. */
+.viz3-rand-cu-slidere {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.viz3-rand-cu-slidere .viz3-optiune {
+  flex: 1;
+}
+
+.viz3-buton-slidere {
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 4px;
+  background: var(--viz3-panou);
+  color: var(--viz3-text);
+  cursor: pointer;
+}
+
+.viz3-buton-slidere--activ {
+  background: var(--viz3-albastru);
+  color: #fff;
+  border-color: var(--viz3-albastru);
+}
+
+/* Panoul colapsabil cu cele 4 reglaje, chiar sub randul bifei lui. */
+.viz3-panou-slidere {
+  margin: 2px 0 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--viz3-bordura);
+}
+
+.viz3-panou-slidere[hidden] {
+  display: none;
 }
 
 /* Butoanele de preset. */
@@ -771,7 +818,11 @@ body {
 }
 
 .viz3-tabel {
-  border-collapse: collapse;
+  /* "separate" (nu "collapse"): la collapse, bordurile sunt pictate de tabel,
+     nu de celula - iar fundalul coloanei sticky (prima coloana) nu mai
+     acopera complet muchia, si continutul scrolat se vede prin ea. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--viz3-tabel-font);
 }
 
@@ -779,10 +830,15 @@ body {
 .viz3-tabel td {
   padding: 4px 8px;
   border: 1px solid var(--viz3-tabel-contur);
+  font-weight: 400;
 }
 
+/* Bold doar pe: primul rand (thead), ultimul rand (copia de date de jos),
+   prima coloana (th-urile din tbody) si randul "Toata fereastra" - restul
+   continutului tabelului (mai putin sagetile) ramane pe acelasi font/size. */
 .viz3-tabel thead th {
   text-align: right;
+  font-weight: 700;
 }
 
 .viz3-tabel thead th:first-child {
@@ -791,18 +847,21 @@ body {
 
 /* Coloana cu numele randurilor ramane vizibila la scroll orizontal. Fundal
    explicit pe th (nu doar pe tr): sticky poate sa nu mosteneasca corect
-   fundalul randului, altfel coloanele de dedesubt s-ar vedea prin ea. */
+   fundalul randului, altfel coloanele de dedesubt s-ar vedea prin ea.
+   z-index 2, nu 1: .viz3-celula-text (z-index 1) e intr-o celula ULTERIOARA
+   in DOM, deci la egalitate de z-index ar castiga ea (ordinea din DOM
+   deapartajeaza), pictandu-se peste coloana fixa la scroll. */
 .viz3-tabel thead th:first-child,
 .viz3-tabel tbody th {
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: 2;
   background: var(--viz3-panou);
 }
 
 .viz3-tabel tbody th {
   text-align: left;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .viz3-tabel td {
@@ -812,7 +871,6 @@ body {
 
 .viz3-tabel-redus {
   color: var(--viz3-tabel-redus-culoare);
-  font-size: var(--viz3-tabel-redus-font);
 }
 
 .viz3-tabel-insuficient {
@@ -820,8 +878,14 @@ body {
 }
 
 .viz3-tabel-total {
-  font-weight: 600;
+  font-weight: 700;
   background: var(--viz3-tabel-total-fundal);
+}
+
+/* Specificitatea ".viz3-tabel td" (element+clasa) invinge ".viz3-tabel-total"
+   (doar clasa) pt. font-weight - fara asta, td-urile randului rman pe 400. */
+.viz3-tabel-total td {
+  font-weight: 700;
 }
 
 /* Coloana fixa a randului "Toata fereastra" isi tine propriul fundal (nu pe
@@ -850,8 +914,25 @@ body {
   z-index: 1;
 }
 
-.viz3-tabel.viz3-arata-bara tbody tr:not(.viz3-tabel-exercitii) td {
+/* :not(.viz3-tabel-grafic-bare) - randul "Grafic bare" isi are propria
+   inaltime (mai jos, legata de bifa lui), nu pe cea a "In fiecare celula". */
+.viz3-tabel.viz3-arata-bara tbody tr:not(.viz3-tabel-exercitii):not(.viz3-tabel-grafic-bare) td {
   height: var(--viz3-bara-inaltime-rand);
+}
+
+/* Randul "Grafic bare" (deasupra Total): ascuns implicit, ca orice rand nou -
+   bifa lui ("Rand cu bare deasupra randului Toata fereastra") adauga
+   .viz3-arata-grafic-bare pe <table>, independent de .viz3-arata-bara. */
+.viz3-tabel-grafic-bare {
+  display: none;
+}
+
+.viz3-tabel.viz3-arata-grafic-bare .viz3-tabel-grafic-bare {
+  display: table-row;
+}
+
+.viz3-tabel.viz3-arata-grafic-bare .viz3-tabel-grafic-bare td {
+  height: var(--viz3-grafic-bare-inaltime-rand);
 }
 
 .viz3-bara {
@@ -874,6 +955,19 @@ body {
   display: flex;
 }
 
+/* Bara randului "Grafic bare": vizibilitate + latime/pozitie proprii, legate
+   de bifa si variabilele ei (independente de ".viz3-arata-bara" de mai sus -
+   cele doua bife nu se ating, decizie: 1a). Aceeasi specificitate ca
+   ".viz3-bara" de mai sus - trebuie sa vina DUPA, ca left/width sa castige. */
+.viz3-tabel.viz3-arata-grafic-bare .viz3-bara--grafic {
+  display: flex;
+}
+
+.viz3-bara--grafic {
+  left: calc((100% - var(--viz3-grafic-bare-latime)) * var(--viz3-grafic-bare-pozitie-frac));
+  width: var(--viz3-grafic-bare-latime);
+}
+
 .viz3-bara-s1,
 .viz3-bara-s2 {
   flex: 0 0 auto;
@@ -891,6 +985,13 @@ body {
 .viz3-bara-s2--pierdere {
   background: var(--viz3-bara-rosu);
   opacity: var(--viz3-bara-opacitate-rosu);
+}
+
+/* Specificitate mai mare (doua clase) decat ".viz3-bara-s2--pierdere" de mai
+   sus - castiga indiferent de ordine, ca opacitatea rosului din "Grafic bare"
+   sa-si urmeze propriul slider, nu pe cel de la "In fiecare celula". */
+.viz3-bara--grafic .viz3-bara-s2--pierdere {
+  opacity: var(--viz3-grafic-bare-opacitate-rosu);
 }
 
 /* Grila de separatoare: o linie la fiecare 10% din inaltimea benzii, peste
@@ -950,14 +1051,21 @@ body {
   position: relative;
 }
 
+/* Un SINGUR loc pentru size / bold / caracter(vizual) / pozitie, comun ambelor
+   sageti - o modificare aici afecteaza toate afisarile, indiferent care bifa e
+   pornita. Doar culoarea ramane per-directie (sus verde / jos rosu). */
 .viz3-sageata-sus,
 .viz3-sageata-jos {
   display: none;
   position: absolute;
-  left: -0.6em;
-  top: 50%;
-  transform: translateY(-50%);
+  left: -0.3em;
+  top: 53%;
+  transform: translateY(-57%);
   pointer-events: none;
+  font-size: 21px;
+  font-weight: 900;
+  -webkit-text-stroke: 0.6px currentColor;
+  text-stroke: 0.6px currentColor;
 }
 
 /* Bifele "Afișează săgeți" (5.2): săgețile rămân mereu în DOM (adaugaSageataCelula
@@ -970,34 +1078,37 @@ body {
   display: block;
 }
 
-/* +50% marime (11px -> 16.5px). "Mai groasa" nu e un procent continuu in CSS
-   (font-weight e in trepte, 100-900) - urcata la maxim + un contur subtire,
-   ca ingrosarea sa se vada efectiv pe glif. */
+/* Doar culoarea difera intre directii; size / bold / stroke / pozitie sunt in
+   regula comuna de mai sus. Font-weight urcat la maxim (900) + contur subtire,
+   fiindca "mai groasa" nu e un procent continuu in CSS. */
 .viz3-sageata-sus {
   color: var(--viz3-accent, #2a6);
-  font-size: 16.5px;
-  font-weight: 900;
-  -webkit-text-stroke: 0.6px currentColor;
-  text-stroke: 0.6px currentColor;
 }
 
 .viz3-sageata-jos {
   color: #c33;
-  font-size: 11px;
-  font-weight: 700;
 }
 
 .viz3-tabel-celula-goala {
   background: #fafafa;
 }
 
-.viz3-tabel-exercitii th,
-.viz3-tabel-exercitii td {
-  color: var(--viz3-text-slab);
-  font-size: 12px;
-}
-
 .viz3-tabel-exercitii td {
   text-align: center;
   vertical-align: middle;
+}
+
+/* Celulele de date calendaristice (randul din thead + copia de jos): acelasi
+   stil in ambele locuri, ca sa nu para doua randuri diferite. Specificitate
+   ".viz3-tabel .viz3-tabel-date" (doua clase), nu doar ".viz3-tabel-date":
+   altfel ".viz3-tabel td" (clasa+element) ar castiga si td-urile din copia
+   de jos ar ramane nebold. */
+.viz3-tabel .viz3-tabel-date {
+  font-weight: 700;
+}
+
+/* Coloana zilei de azi in randurile de antet (sus si copia de jos): userul
+   vede dintr-o privire care coloana e ziua curenta, fara sa citeasca data. */
+.viz3-antet-azi {
+  background: #fff3a0;
 }

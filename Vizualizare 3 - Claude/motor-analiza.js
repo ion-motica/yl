@@ -506,11 +506,19 @@
 
   // ---- modelul tabelului de scor pe calupuri (§13, fotografii stratificate v2) --
 
-  // Eticheta antetului unei poze care nu e „acum": ziua din data_ora_ro a
-  // ultimului răspuns valid inclus, formatul "zz.ll" (fixat de user).
+  // Eticheta antetului unei poze: ziua din data_ora_ro a ultimului răspuns
+  // valid inclus, formatul "zz.ll" (fixat de user). Se aplică si pozei „acum".
   function formateazaZiuaAntet(dataOraRo) {
     const text = String(dataOraRo ?? "");
     return `${text.slice(8, 10)}.${text.slice(5, 7)}`;
+  }
+
+  // Ziua calendaristica de azi, in acelasi format "AAAA-LL-ZZ" ca ziDin, ca sa
+  // poata fi comparate direct (highlight-ul coloanei de azi in antet).
+  function ziuaAzi() {
+    const d = new Date();
+    const doi = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${doi(d.getMonth() + 1)}-${doi(d.getDate())}`;
   }
 
   // Fereastra unui fact la momentul `k` (indexul din `valide` până la care se
@@ -650,10 +658,15 @@
       (k, idx) => k - (idx === 0 ? 0 : momente[idx - 1])
     );
 
-    const antete = momente.map((k) => ({
-      eticheta: k === B ? "acum" : formateazaZiuaAntet(valide[k - 1].data_ora_ro),
-      este_acum: k === B,
-    }));
+    const ziuaCurenta = ziuaAzi();
+    const antete = momente.map((k) => {
+      const dataOraRo = valide[k - 1].data_ora_ro;
+      return {
+        eticheta: formateazaZiuaAntet(dataOraRo),
+        este_acum: k === B,
+        este_azi: ziDin(dataOraRo) === ziuaCurenta,
+      };
+    });
 
     const randuri = ferestre.map(({ tip, eticheta, cellIds }) => ({
       tip,
