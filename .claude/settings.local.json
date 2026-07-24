@@ -88,7 +88,8 @@
       "Bash(git commit -m 'Vizualizare 3: documenteaza discutia 22.07 - calupuri inghetate/vii, mesaj cinstit pt. parinte, decizia sageti fact-cu-fact respinsa *)",
       "Bash(node --check definitii-axe.js)",
       "Bash(cd /d/Users/I/Projects/Youlearn.com 2>/dev/null; find . -maxdepth 1 -iname \"launch.json\" -o -maxdepth 2 -path \"*/.claude/launch.json\" 2>/dev/null; ls -la \".claude\" 2>/dev/null || echo \"no .claude at root\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8771/index.html)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8771/index.html)",
+      "Bash(git commit -m 'Vizualizare 3: rand '\\\\''Grafic bare'\\\\'' independent + reordonare/bold tabel fluenta, fix coloana sticky, sageti unificate' -m 'definitii-axe.js: *)"
     ],
     "defaultMode": "auto"
   }
