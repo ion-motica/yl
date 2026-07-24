@@ -306,6 +306,12 @@
 
   function renderProgress() {
     if (!quiz) return;
+    if (quiz.customEngine) {
+      dom.levelInfoEl.textContent = "";
+      dom.progressVisualEl?.classList.add("hidden");
+      renderArenaActions();
+      return;
+    }
     const display = ProgressDisplay.resolve(quiz);
     dom.levelInfoEl.textContent = quiz.getLevelLabel();
     const currentLevel =
@@ -443,6 +449,7 @@
 
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
+    if (quiz?.customEngine) return;
     const maxLevel = quiz.getMaxLevel();
     dom.levelPickerEl.style.display = "flex";
     dom.levelPickerEl.style.flexWrap = "wrap";
@@ -563,6 +570,7 @@
 
   function switchQuiz(id) {
     if (id === QuizRegistry.getActiveId() && quiz && !quiz.isCompleted()) return;
+    if (quiz?.customEngine) quiz.unmountArena?.();
     QuizRegistry.setActive(id);
     const meta = QuizRegistry.get(id);
     applyQuizTitleDisplay();
@@ -580,7 +588,11 @@
     lastGreenCells = null;
     lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
     dom.playPauseBtn.disabled = false;
-    engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+    if (quiz?.customEngine) {
+      quiz.mountArena?.({ arenaEl: dom.arena, optionsEl: dom.optionsEl, gameEl: dom.gameEl });
+    } else {
+      engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+    }
     renderProgress();
   }
 
@@ -1128,7 +1140,11 @@
   buildQuizPicker();
   buildLevelPicker();
   applyLiftLayout();
-  engine.startRound(quiz.beginRound(quiz.pickNextRound()));
+  if (quiz?.customEngine) {
+    quiz.mountArena?.({ arenaEl: dom.arena, optionsEl: dom.optionsEl, gameEl: dom.gameEl });
+  } else {
+    engine.startRound(quiz.beginRound(quiz.pickNextRound()));
+  }
   renderProgress();
   engine.startFallLoop();
   applyDesktopGrid();
