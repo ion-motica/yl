@@ -1,15 +1,14 @@
 /**
- * Motor „Cl. 1 - Rigle" — etapa 1 (doar mișcare, fără validare).
+ * Motor 2 (m2) — „Cl. 1 - Rigle", etapa 1 (doar mișcarea, fără validare).
  *
- * Un lift îngust coboară lent și continuu; apăsarea unui buton îl glisează pe una
- * din coloanele-riglă. Fără feedback, fără sărbătoare — acelea vin în etape viitoare.
- * Vezi `js/rigle/SPEC-etapa1.md`.
+ * Motor complet separat de motorul 1 (FallingEngine): scenă proprie + butoane
+ * proprii. Când m2 e activ, shell-ul m1 din arenă e suprimat (scenă, slot butoane,
+ * bară fixă) — m1 nu există aici. Vezi `js/rigle/SPEC-etapa1.md`.
  *
  *   RigleEngine.mount({ arenaEl, optionsEl }, config?) → { destroy }
  *
- * `mount` ascunde scena motorului 1 din `#arena` și butoanele `.option` existente,
- * randează scena Rigle + 3 butoane proprii, apoi pornește coborârea. `destroy`
- * oprește totul și restaurează nodurile ascunse.
+ * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
+ * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
  */
 (function (global) {
   "use strict";
@@ -23,18 +22,12 @@
   overflow: hidden;
   --cell: 32px;
   font-family: system-ui, sans-serif;
-}
-.rigle-grid {
-  position: absolute;
-  inset: 0;
-  background-color: #fbfbf3;
-  background-image:
-    linear-gradient(to right, rgba(70, 120, 190, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(70, 120, 190, 0.2) 1px, transparent 1px);
+  background: #fbfbf3;
 }
 .rigle-columns {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
 }
 .rigle-col {
@@ -46,6 +39,7 @@
 }
 .rigle-lift {
   position: absolute;
+  z-index: 2;
   box-sizing: border-box;
   background: #ffffff;
   border: 2px solid #3a4a63;
@@ -56,7 +50,6 @@
   align-items: center;
   gap: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
-  z-index: 3;
 }
 .rigle-lift--ready {
   transition: left 0.35s ease;
@@ -84,7 +77,7 @@
 .rigle-apple--albastru {
   background: #2f6fe0;
 }
-/* Halou neutru: un disc deschis exact în spatele mărului, ca legibilitatea să nu
+/* Halou neutru: disc deschis exact în spatele mărului, ca legibilitatea să nu
    depindă de culoarea fundalului (roșu/albastru sau altele, care se vor schimba). */
 .rigle-apple::before {
   content: "";
@@ -101,6 +94,56 @@
   position: relative;
   z-index: 1;
   font-size: calc(var(--cell) * 0.74);
+  line-height: 1;
+}
+/* Grila de caiet = DOAR linii, strat de sus peste tot (paper, coloane, lift). */
+.rigle-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(70, 120, 190, 0.28) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(70, 120, 190, 0.28) 1px, transparent 1px);
+}
+/* Butoanele m2 — look-ul copiat din motorul 1, dar complet self-contained
+   (clasă proprie, valori hardcodate; nu depinde de .option / #options). */
+.rigle-buttons {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  width: 100%;
+  height: clamp(126px, 25dvh, 252px);
+  padding: 0 0.5rem;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.rigle-btn {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  height: 100%;
+  padding: 0.7rem 0.4rem;
+  border: 2px solid rgba(61, 156, 245, 0.55);
+  border-radius: 10px;
+  background: rgba(20, 28, 40, 0.4);
+  color: #e8eef5;
+  cursor: pointer;
+  box-sizing: border-box;
+  font: inherit;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.rigle-btn:hover {
+  border-color: #3d9cf5;
+}
+.rigle-btn-num {
+  font-size: 2rem;
+  font-weight: 700;
   line-height: 1;
 }
 `;
@@ -135,10 +178,10 @@
     injectStyles();
 
     const totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0);
+    const butoaneLayer = optionsEl.parentElement; // #div-strat-butoane
 
-    // ── Ascunde tot ce ține de motorul 1 (restaurat exact la destroy). ──
-    // Include #lift-fixed-host: în modul „bară fixă" (default prin ASNW) conținutul
-    // liftului stă acolo, în afara #arena, deci trebuie ascuns separat.
+    // ── Suprimă shell-ul m1 din arenă (scenă + slot butoane + bară fixă). ──
+    // m1 nu există cât timp m2 e activ; restaurăm exact la destroy.
     const restoreList = [];
     const hideEl = (el) => {
       if (!el) return;
@@ -146,20 +189,15 @@
       el.style.display = "none";
     };
     [...arenaEl.children].forEach(hideEl);
-    [...optionsEl.querySelectorAll(".option")].forEach(hideEl);
+    hideEl(optionsEl);
     hideEl(document.getElementById("lift-fixed-host"));
 
-    // ── Scena Rigle ──
+    // ── Scena m2 (paper → coloane → lift → grilă deasupra tuturor). ──
     const scene = document.createElement("div");
     scene.className = "rigle-scene";
 
-    const gridEl = document.createElement("div");
-    gridEl.className = "rigle-grid";
-    scene.appendChild(gridEl);
-
     const columnsWrap = document.createElement("div");
     columnsWrap.className = "rigle-columns";
-    scene.appendChild(columnsWrap);
     const colEls = cfg.latimiColoane.map((w) => {
       const col = document.createElement("div");
       col.className = "rigle-col";
@@ -187,49 +225,44 @@
       }
     });
     lift.append(qEl, rowEl);
-    scene.appendChild(lift);
 
+    const gridEl = document.createElement("div");
+    gridEl.className = "rigle-grid";
+
+    scene.append(columnsWrap, lift, gridEl);
     arenaEl.appendChild(scene);
 
-    // ── Butoane proprii (identice cu `.option`), în slotul `#options`. ──
+    // ── Butoanele proprii ale m2, în stratul de butoane (peste scenă). ──
+    const buttonsBar = document.createElement("div");
+    buttonsBar.className = "rigle-buttons";
     const myButtons = cfg.latimiColoane.map((w, idx) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "option rigle-option";
-      const prime = document.createElement("span");
-      prime.className = "prime";
-      prime.textContent = String(w);
-      btn.appendChild(prime);
+      btn.className = "rigle-btn";
+      const num = document.createElement("span");
+      num.className = "rigle-btn-num";
+      num.textContent = String(w);
+      btn.appendChild(num);
       btn.addEventListener("click", () => selectColumn(idx));
-      optionsEl.appendChild(btn);
+      buttonsBar.appendChild(btn);
       return btn;
     });
+    butoaneLayer.appendChild(buttonsBar);
 
     // ── Geometrie + stare ──
     let cell = 32;
-    let bandTop = 0;
-    let bandBottom = 0;
     let colX = [];
     let travel = 1;
     let colIndex = cfg.latimiColoane.indexOf(cfg.coloanaInitiala);
     if (colIndex < 0) colIndex = Math.floor(cfg.latimiColoane.length / 2);
-    let y = 0; // 0..travel (compensare verticală față de bandTop)
+    let y = 0; // 0..travel (top-ul liftului, de la marginea de sus a arenei)
 
     function computeGeometry() {
       const arenaRect = arenaEl.getBoundingClientRect();
       const W = arenaRect.width || 360;
       const H = arenaRect.height || 720;
-      // Insete măsurate RELATIV la arenă (nu din --hud-h/--options-h, care sunt
-      // viewport-relative și ies aberante pe desktop, unde cutia e centrată).
-      // Banda utilă = între josul barei de sus și susul barei de butoane.
-      const topBar = document.querySelector(".butoane-sus");
-      const topBarBottom = topBar
-        ? topBar.getBoundingClientRect().bottom - arenaRect.top
-        : H * 0.08;
-      const optionsTop = optionsEl.getBoundingClientRect().top - arenaRect.top;
-      bandTop = Math.max(0, topBarBottom) + 6;
-      bandBottom = (optionsTop > 0 ? optionsTop : H * 0.75) - 6;
-
+      // Coloanele și traseul liftului merg de la marginea de sus la cea de jos a
+      // #arena (curg pe sub bara de sus și pe sub butoane).
       const sumW = cfg.latimiColoane.reduce((s, w) => s + w, 0);
       const nGaps = Math.max(0, cfg.latimiColoane.length - 1);
       cell = Math.max(14, Math.floor(W / (sumW + nGaps + 1)));
@@ -246,22 +279,21 @@
 
       scene.style.setProperty("--cell", `${cell}px`);
       gridEl.style.backgroundSize = `${cell}px ${cell}px`;
-      gridEl.style.backgroundPosition = `${margin}px ${bandTop}px`;
+      gridEl.style.backgroundPosition = `${margin}px 0px`;
 
-      const colH = Math.max(0, bandBottom - bandTop);
       colEls.forEach((el, i) => {
         el.style.left = `${colX[i]}px`;
-        el.style.top = `${bandTop}px`;
+        el.style.top = "0px";
         el.style.width = `${cfg.latimiColoane[i] * cell}px`;
-        el.style.height = `${colH}px`;
+        el.style.height = `${H}px`;
       });
 
       lift.style.width = `${totalMere * cell}px`;
       const liftH = lift.offsetHeight || cell * 2.4;
-      travel = Math.max(1, colH - liftH);
+      travel = Math.max(1, H - liftH);
 
       lift.style.left = `${colX[colIndex]}px`;
-      lift.style.top = `${bandTop + Math.min(y, travel)}px`;
+      lift.style.top = `${Math.min(y, travel)}px`;
     }
 
     function selectColumn(idx) {
@@ -275,6 +307,18 @@
     // gliseze din colț la pornire.
     requestAnimationFrame(() => lift.classList.add("rigle-lift--ready"));
 
+    // ── Taste 1/2/3 → coloana 1/2/3 (poziții stânga→dreapta). ──
+    const onKey = (e) => {
+      if (e.repeat) return;
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+        return;
+      }
+      const idx = ["1", "2", "3"].indexOf(e.key);
+      if (idx >= 0 && idx < colX.length) selectColumn(idx);
+    };
+    document.addEventListener("keydown", onKey);
+
     // ── Bucla de coborâre (lentă, continuă, wrap la podea, aceeași coloană). ──
     let rafId = null;
     let lastTs = 0;
@@ -284,7 +328,7 @@
       lastTs = ts;
       y += cfg.vitezaCoborare * dt;
       if (y >= travel) y = 0;
-      lift.style.top = `${bandTop + y}px`;
+      lift.style.top = `${y}px`;
       rafId = requestAnimationFrame(tick);
     }
     rafId = requestAnimationFrame(tick);
@@ -300,8 +344,9 @@
     function destroy() {
       if (rafId) cancelAnimationFrame(rafId);
       ro.disconnect();
+      document.removeEventListener("keydown", onKey);
       scene.remove();
-      myButtons.forEach((btn) => btn.remove());
+      buttonsBar.remove();
       restoreList.forEach(({ el, prev }) => {
         el.style.display = prev;
       });
