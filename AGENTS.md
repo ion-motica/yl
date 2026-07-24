@@ -118,6 +118,16 @@ Când adăugăm funcționalități noi în YouLearn, folosim preferabil un contr
 
 Dacă experimentăm un feature structural: propune un quiz evaluat ca fiind potrivit pentru testare; după aprobare, clonează-l și fă modificările pe acea clonă.
 
+## Butoane „default" pe opțiuni (md / make default)
+
+> Când userul cere un **default** pe un set de opțiuni (radio/bife) cu buton „make default",
+> **întreabă-l întâi dacă vrea standardul „md"** documentat în
+> `documente de referinta/standard-butoane-default-md.md`, apoi aplică-l exact ca acolo.
+>
+> Regula-nucleu: **defaultul marcat se încarcă la refresh; bifarea e temporară și NU devine
+> default.** Nu inventa o regulă „ține minte ultima bifă" și nu re-litiga distincția dacă userul
+> a stabilit-o deja.
+
 ## `numaraTICs()`
 
 - Sursa comună: `js/numara-tics.js`.

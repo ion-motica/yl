@@ -236,6 +236,38 @@ body {
   border-color: var(--viz3-albastru);
 }
 
+/* Randul unei reprezentari + butonul ei „md"/„default" (5, Reprezentare):
+   bifa/eticheta ia tot spatiul, butonul sta lipit la dreapta — ca la slidere. */
+.viz3-rand-cu-default {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.viz3-rand-cu-default .viz3-optiune {
+  flex: 1;
+}
+
+.viz3-buton-default {
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 4px;
+  background: var(--viz3-panou);
+  color: var(--viz3-text);
+  cursor: pointer;
+}
+
+/* Reprezentarea deja-default: buton plin, fara mana de click (nu face nimic). */
+.viz3-buton-default--activ {
+  background: var(--viz3-albastru);
+  color: #fff;
+  border-color: var(--viz3-albastru);
+  cursor: default;
+}
+
 /* Panoul colapsabil cu cele 4 reglaje, chiar sub randul bifei lui. */
 .viz3-panou-slidere {
   margin: 2px 0 8px;

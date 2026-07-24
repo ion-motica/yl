@@ -1689,9 +1689,14 @@
           const input = document.createElement("input");
           input.type = axa.tip_selectie === "multipla" ? "checkbox" : "radio";
           input.name = `${etapa.etapa}-${axa.id}`;
-          // Doar axa Domeniu tine minte alegerea; restul pornesc din definitii.
-          const bifatDinSalvare = axa === axaDomeniu && optiuneSalvata;
-          input.checked = bifatDinSalvare ? opt.id === optiuneSalvata.id : opt.activa === true;
+          // Domeniu si Reprezentare pornesc din alegerea salvata; restul din definitii.
+          if (axa === axaDomeniu && optiuneSalvata) {
+            input.checked = opt.id === optiuneSalvata.id;
+          } else if (axa === axaVizualizare) {
+            input.checked = opt.id === reprezentareDefault;
+          } else {
+            input.checked = opt.activa === true;
+          }
           input.disabled = opt.dezactivata === true;
           input.dataset.preset = `${axa.id}_${opt.id}`;
 
@@ -1729,7 +1734,19 @@
           }
           const rand = optiune(opt.eticheta, elemente);
           if (opt.dezactivata) rand.classList.add("viz3-dezactivata");
-          grup.appendChild(rand);
+
+          // Axa Reprezentare: fiecare optiune functionala primeste un buton „md"
+          // (make default) langa ea. Butonul sta IN AFARA label-ului, ca apasarea
+          // lui sa nu bifeze radio-ul (modelul: „md" nu comuta ce vezi acum).
+          if (axa === axaVizualizare && !opt.dezactivata) {
+            const randDefault = document.createElement("div");
+            randDefault.className = "viz3-rand-cu-default";
+            randDefault.appendChild(rand);
+            randDefault.appendChild(construiesteButonDefault(opt.id));
+            grup.appendChild(randDefault);
+          } else {
+            grup.appendChild(rand);
+          }
           if (campuriInterval) grup.appendChild(campuriInterval.element);
         });
 
@@ -2349,6 +2366,28 @@
     : axaDomeniu?.optiuni.find((o) => o.activa)?.interval;
   let catalog = global.construiesteCatalogInmultire(intervalPornire);
 
+  // Reprezentarea „default" (ce se incarca la refresh) tine minte peste refresh,
+  // ca domeniul. Defaultul se schimba DOAR cu butonul „md" (nu prin bifare:
+  // bifarea comuta doar ce vezi acum, temporar). La refresh se incarca defaultul
+  // marcat, niciodata ultima bifa. Deocamdata doar pe axa Reprezentare.
+  const CHEIE_REPREZENTARE_DEFAULT = "viz3_reprezentare_default";
+
+  function citesteReprezentareDefaultSalvata() {
+    try {
+      return global.localStorage?.getItem(CHEIE_REPREZENTARE_DEFAULT) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function salveazaReprezentareDefault(optiuneId) {
+    try {
+      global.localStorage?.setItem(CHEIE_REPREZENTARE_DEFAULT, optiuneId);
+    } catch {
+      // Storage plin/indisponibil: defaultul tine doar sesiunea curenta.
+    }
+  }
+
   // Sursa aleasa tine minte peste refresh, ca domeniul. Trei surse: „jurnal"
   // (jurnalul real, citit live din IndexedDB la fiecare selectare), „import"
   // (doar fisierul importat, fara fallback pe jurnal) si „fixture" (dummy-ul
@@ -2413,7 +2452,55 @@
   // tabel. NU se persistă peste refresh — doar Domeniul ține minte (convenție).
   const axaVizualizare = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "vizualizare");
   const axaAdancime = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "adancime_foto");
-  let reprezentareActiva = axaVizualizare?.optiuni.find((o) => o.activa)?.id ?? "grila_10x10";
+  // Defaultul salvat are prioritate, dar numai daca optiunea lui inca exista si e
+  // functionala (definitiile se pot schimba). Altfel, optiunea `activa`.
+  const reprezDefaultSalvat = citesteReprezentareDefaultSalvata();
+  const optiuneReprezDefault = axaVizualizare?.optiuni.find(
+    (o) => o.id === reprezDefaultSalvat && !o.dezactivata
+  );
+  let reprezentareDefault =
+    optiuneReprezDefault?.id ??
+    axaVizualizare?.optiuni.find((o) => o.activa)?.id ??
+    "grila_10x10";
+  let reprezentareActiva = reprezentareDefault;
+
+  // Butoanele „md"/„default" de langa fiecare reprezentare, tinute ca sa le
+  // putem re-eticheta cand defaultul se schimba (bifare sau apasare „md").
+  const butoaneDefaultReprezentare = new Map();
+
+  function construiesteButonDefault(optId) {
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.className = "viz3-buton-default";
+    buton.addEventListener("click", () => faDefaultReprezentare(optId));
+    butoaneDefaultReprezentare.set(optId, buton);
+    actualizeazaUnButonDefault(optId);
+    return buton;
+  }
+
+  function actualizeazaUnButonDefault(optId) {
+    const buton = butoaneDefaultReprezentare.get(optId);
+    if (!buton) return;
+    const esteDefault = optId === reprezentareDefault;
+    buton.textContent = esteDefault ? "default" : "md";
+    buton.title = esteDefault ? "Reprezentarea implicită la deschidere" : "make default";
+    buton.classList.toggle("viz3-buton-default--activ", esteDefault);
+  }
+
+  function actualizeazaButoaneDefault() {
+    butoaneDefaultReprezentare.forEach((_buton, optId) => actualizeazaUnButonDefault(optId));
+  }
+
+  // Seteaza reprezentarea default (ce se incarca la refresh) si o salveaza.
+  // Apasarea pe cea deja-default nu face nimic (a facut deja). NU comuta ce vezi
+  // acum — doar bifarea face asta (in listenerul de change), care apeleaza tot
+  // asta ca sa alinieze defaultul cu reprezentarea bifata.
+  function faDefaultReprezentare(optId) {
+    if (optId === reprezentareDefault) return;
+    reprezentareDefault = optId;
+    salveazaReprezentareDefault(optId);
+    actualizeazaButoaneDefault();
+  }
   let adancimeActiva = axaAdancime?.optiuni.find((o) => o.activa)?.adancime ?? 5;
   // true doar dupa ce userul bifeaza manual o alta adancime decat cea
   // recomandata; se reseteaza la fiecare deschidere a tabelului, schimbare de
@@ -2754,6 +2841,9 @@
     if (preset.startsWith("vizualizare_") && ev.target.checked) {
       reprezentareActiva = preset.slice("vizualizare_".length);
       if (reprezentareActiva === "tabel_fluenta") adancimeAlesaManual = false;
+      // Bifarea DOAR comuta ce vezi acum; NU schimba defaultul. Doar butonul
+      // „md" seteaza defaultul persistent — la refresh se incarca acela, nu
+      // ultima bifa. La refresh, o bifare netransformata-in-default se pierde.
       actualizeazaSubsectiuni();
       rerandeaza();
     }
