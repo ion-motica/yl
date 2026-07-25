@@ -54,7 +54,10 @@ Scena Rigle umple `#arena` (cutia 1:2 blocată de `LayoutStage`). Fundal deschis
     centrat cu **halou neutru** (glow/cerc deschis în spatele emoji-ului) ca să nu depindă
     de culoarea fundalului.
 - **Mișcare**: `y` prin `requestAnimationFrame` (descreștere lentă + wrap); `x` prin
-  tranziție CSS ~350ms `ease` la apăsarea butonului.
+  tranziție CSS ~350ms `ease` la apăsarea butonului (sau tastele 1/2/3).
+- **Butoane**: fiecare are lățimea coloanei lui și stă exact peste ea (jos). Butoanele de
+  sus (≡/CP/⏸) primesc fundal semitransparent cât e m2 activ (scoped), ca scrisul să se
+  vadă peste galben.
 
 Parametrii exacți (viteză, `--cell`, culori) se reglează vizual în browser.
 

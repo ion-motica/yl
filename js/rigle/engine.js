@@ -108,25 +108,24 @@
 }
 /* Butoanele m2 — look-ul copiat din motorul 1, dar complet self-contained
    (clasă proprie, valori hardcodate; nu depinde de .option / #options). */
+/* Butoanele m2: fiecare are lățimea coloanei lui și stă exact peste ea
+   (left/width setate din JS); poziționate absolut în bara de jos. */
 .rigle-buttons {
   margin-top: auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.45rem;
+  position: relative;
   width: 100%;
   height: clamp(126px, 25dvh, 252px);
-  padding: 0 0.5rem;
   box-sizing: border-box;
   pointer-events: none;
 }
 .rigle-btn {
   pointer-events: auto;
+  position: absolute;
+  top: 0;
+  bottom: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.25rem;
-  height: 100%;
+  justify-content: center;
   padding: 0.7rem 0.4rem;
   border: 2px solid rgba(61, 156, 245, 0.55);
   border-radius: 10px;
@@ -145,6 +144,15 @@
   font-size: 2rem;
   font-weight: 700;
   line-height: 1;
+}
+/* Butoanele de sus (≡/CP/⏸) — fundal semitransparent cât e m2 activ, ca scrisul
+   să se vadă peste coloanele galbene. Scoped pe m2: nu atinge motorul 1. */
+.rigle-active .butoane-sus .menu-toggle,
+.rigle-active .butoane-sus .cp-toggle,
+.rigle-active .butoane-sus .play-pause {
+  background: rgba(20, 28, 40, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 `;
 
@@ -174,8 +182,10 @@
     if (!arenaEl || !optionsEl) {
       throw new Error("RigleEngine.mount: lipsesc arenaEl / optionsEl");
     }
+    const gameEl = (hosts && hosts.gameEl) || document.getElementById("game");
     const cfg = Object.assign({}, DEFAULTS, config || {});
     injectStyles();
+    if (gameEl) gameEl.classList.add("rigle-active");
 
     const totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0);
     const butoaneLayer = optionsEl.parentElement; // #div-strat-butoane
@@ -288,6 +298,12 @@
         el.style.height = `${H}px`;
       });
 
+      // Butoanele: lățimea coloanei lor, exact peste coloană.
+      myButtons.forEach((btn, i) => {
+        btn.style.left = `${colX[i]}px`;
+        btn.style.width = `${cfg.latimiColoane[i] * cell}px`;
+      });
+
       lift.style.width = `${totalMere * cell}px`;
       const liftH = lift.offsetHeight || cell * 2.4;
       travel = Math.max(1, H - liftH);
@@ -347,6 +363,7 @@
       document.removeEventListener("keydown", onKey);
       scene.remove();
       buttonsBar.remove();
+      if (gameEl) gameEl.classList.remove("rigle-active");
       restoreList.forEach(({ el, prev }) => {
         el.style.display = prev;
       });
