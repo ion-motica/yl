@@ -1225,7 +1225,7 @@ body {
   top: var(--hud-h, 5.5rem);
   left: 0;
   right: 0;
-  bottom: var(--options-h, 0px);
+  bottom: 0;
   z-index: var(--zindex-meniuri);
   width: auto;
   max-height: none;

@@ -62,7 +62,7 @@
       if (tocItem) tocItem.disabled = !enabled;
     }
 
-    function scrollToPanel(id) {
+    function scrollToPanel(id, instant) {
       const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
       if (!section || section.classList.contains("is-disabled")) return;
       // .cp-scroll e singurul container cu scroll — nu scrollIntoView (ar mișca și pagina).
@@ -70,11 +70,20 @@
         section.getBoundingClientRect().top -
         scrollEl.getBoundingClientRect().top +
         scrollEl.scrollTop;
-      scrollEl.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      scrollEl.scrollTo({ top: Math.max(0, top), behavior: instant ? "auto" : "smooth" });
     }
 
     function scrollToTop() {
       scrollEl.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // La deschiderea CP din butonul dedicat: sare direct la sectiunea proprie a
+    // quizului activ (daca are una); altfel, doar daca nu are, cade pe AAM.
+    function scrollToActiveQuizSection() {
+      const list = Registry.list();
+      const primary = list.find((def) => def.quizSpecific && def.isEnabled());
+      const target = primary || list.find((def) => def.quizFallback && def.isEnabled());
+      if (target) scrollToPanel(target.id, true);
     }
 
     function reorderDom(order) {
@@ -217,6 +226,7 @@
       getMountEl,
       setPanelEnabled,
       applyLayoutMode,
+      scrollToActiveQuizSection,
       refreshEnabledStates: () => {
         Registry.list().forEach((def) => setPanelEnabled(def.id, def.isEnabled()));
       },

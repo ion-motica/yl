@@ -97,7 +97,8 @@
       "Bash(echo \"exit=$?\")",
       "Read(//c/Users/I/AppData/Local/Temp/claude/C--Users-I-Projects-Youlearn-com/a697d6c2-e242-4221-acc4-126fecddc2bc/scratchpad/**)",
       "Bash(node --check \"js/cp-registry.js\")",
-      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8770/index.html\" -TimeoutSec 3 -UseBasicParsing; \"8770 UP: $\\($r.StatusCode\\)\" } catch { \"8770 DOWN: $\\($_.Exception.Message\\)\" })"
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8770/index.html\" -TimeoutSec 3 -UseBasicParsing; \"8770 UP: $\\($r.StatusCode\\)\" } catch { \"8770 DOWN: $\\($_.Exception.Message\\)\" })",
+      "Bash(node --check \"js/cp-shell.js\")"
     ],
     "defaultMode": "auto"
   }

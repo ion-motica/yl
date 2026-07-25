@@ -513,16 +513,21 @@
 
   // Buton [CP]: overlay pe mobil; pe desktop panoul e andocat în dreapta scenei.
   const cpToggleEl = document.getElementById("cp-toggle");
+  function openCpToActiveQuizSection() {
+    cpShell.setOpen(true);
+    cpShell.scrollToActiveQuizSection();
+  }
   cpToggleEl?.addEventListener("click", () => {
     if (!cpShell) return;
     const drawerOpen = isMobileLayout() && dom.gameEl.classList.contains("drawer-open");
     const willOpen = !cpShell.isOpen();
     if (drawerOpen) setDrawer(false);
     if (drawerOpen && willOpen) {
-      requestAnimationFrame(() => cpShell.setOpen(true));
+      requestAnimationFrame(openCpToActiveQuizSection);
       return;
     }
-    cpShell.setOpen(!cpShell.isOpen());
+    if (willOpen) openCpToActiveQuizSection();
+    else cpShell.setOpen(false);
   });
 
   // După ce alegi un quiz sau un nivel, închidem sertarul ca să se vadă arena.
@@ -719,27 +724,32 @@
     id: "subquiz",
     title: "CP — Subquiz",
     isEnabled: () => typeof quiz?.getSubquizStartOptions === "function",
+    quizSpecific: true,
   });
   CpRegistry.register({
     id: "equationTonomat",
     title: "CP - Ecuatii",
     isEnabled: () => typeof quiz?.appendTonomatControlPanel === "function",
+    quizSpecific: true,
   });
   CpRegistry.register({
     id: "rigle",
     title: "CP — Rigle",
     isEnabled: () => typeof quiz?.appendRigleControlPanel === "function",
+    quizSpecific: true,
   });
   CpRegistry.register({
     id: "preEquationNav",
     title: "CP - Pre-ecuatii",
     isEnabled: () =>
       typeof quiz?.appendPreEquationNavigationControlPanel === "function",
+    quizSpecific: true,
   });
   CpRegistry.register({
     id: "sq2EffVbs",
     title: "CP — SQ2 EFF VBS",
     isEnabled: () => typeof quiz?.appendSq2ControlPanel === "function",
+    quizSpecific: true,
   });
   CpRegistry.register({
     id: "liftType",
@@ -755,6 +765,7 @@
     id: "aam",
     title: "CP — Acolada Axa Mere",
     isEnabled: () => aamCpEnabled,
+    quizFallback: true,
   });
   CpRegistry.register({
     id: "debug",
