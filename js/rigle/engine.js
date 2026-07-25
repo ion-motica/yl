@@ -27,6 +27,23 @@
   font-family: system-ui, sans-serif;
   background: #fbfbf3;
 }
+/* Suprapunere „PAUZĂ" — propria copie a lui .game.is-paused .div-strat-anunturi::after
+   din style.css, fiindcă acel element e unul dintre copiii #arena pe care Rigle îi
+   ascunde. Duplicare intenționată, nu bug — vezi setPauza() în JS. */
+.game.rigle-active.is-paused .rigle-scene::after {
+  content: "PAUZĂ";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  pointer-events: none;
+}
 .rigle-columns {
   position: absolute;
   inset: 0;
@@ -300,6 +317,8 @@
     let colEls = [];
     let myButtons = [];
     let rowEls = []; // rowEls[coloană][rând] = elementul .rigle-row (numerotare)
+    let paused = false;
+    const playPauseBtn = document.getElementById("play-pause");
     let colIndex = cfg.coloanaInitialaIndex;
     if (colIndex < 0 || colIndex >= cfg.latimiColoane.length) {
       colIndex = Math.floor(cfg.latimiColoane.length / 2);
@@ -452,7 +471,7 @@
         mismatchEl.style.left = `${latimeColoana * cell}px`;
         mismatchEl.style.width = `${(totalMere - latimeColoana) * cell}px`;
         mismatchEl.style.top = `${rowEl.offsetTop + rowEl.offsetHeight}px`;
-        mismatchEl.style.height = `${Math.max(4, cell * 0.35)}px`;
+        mismatchEl.style.height = `${cell}px`; // înălțimea unui rând de pătrățele
       }
     }
 
@@ -500,17 +519,23 @@
     // funcție de distanța (în orice direcție) până la rândul liftului. Ieftin: doar
     // `maxRanduri` scrieri de style, nicio creare de DOM (asta se întâmplă o singură
     // dată, în randeazaNumerotare).
+    //
+    // `pozitieReper` e FRACȚIONARĂ, nu rotunjită la rând întreg — altfel gradientul
+    // sare o dată pe celulă parcursă (vizibil brusc). Fiindcă se recalculează la
+    // fiecare cadru din tick(), iar `y` avansează continuu, opacitatea/culoarea
+    // fiecărui rând se ajustează în fiecare cadru (practic la fiecare fracțiune de
+    // pătrățel), nu doar când liftul trece pe rândul următor.
     function actualizeazaNumerotareAnimata() {
       if (cfg.numerotareRanduri !== "animat") return;
       const randuriColoana = rowEls[colIndex];
       if (!randuriColoana) return;
       const liftH = lift.offsetHeight || cell * 2.4;
-      const randBaza = Math.round((y + liftH) / cell) + 1; // rândul liftului + cel de sub
+      const pozitieReper = (y + liftH) / cell + 1; // rândul liftului + cel de sub, fracționar
       const Xsus = Math.max(1, cfg.randuriInSus);
       const Xjos = Math.max(1, cfg.randuriInJos);
 
       randuriColoana.forEach((randEl, r) => {
-        const distanta = randBaza - r; // pozitiv = deasupra liftului, negativ = sub
+        const distanta = pozitieReper - r; // pozitiv = deasupra liftului, negativ = sub
         const X = distanta >= 0 ? Xsus : Xjos;
         const distantaAbs = Math.abs(distanta);
         if (distantaAbs > X) {
@@ -536,6 +561,27 @@
       actualizeazaNumerotareAnimata();
       actualizeazaMismatch();
     }
+
+    // Pauză proprie lui m2 — motorul 1 (falling-engine.js) are „if
+    // (getQuiz().isCompleted()) return;" ca prim rând al handler-ului de pauză, iar
+    // Rigle raportează isCompleted()→true (§2 RIGLE-REFERENCE), deci butonul/tasta nu
+    // ajung niciodată la logica lui m1. Duplicat aici, nu adăugat în falling-engine.js
+    // — pauza lui m1 e împletită cu fallHeld/animating/locked/bouncing/optionBtns,
+    // stare fără sens pentru m2; „nicio modificare în falling-engine.js" e principiul
+    // stabilit încă din etapa 1.
+    function setPauza(val) {
+      paused = val;
+      if (playPauseBtn) playPauseBtn.textContent = paused ? "▶" : "⏸";
+      if (gameEl) gameEl.classList.toggle("is-paused", paused);
+      myButtons.forEach((btn) => {
+        btn.disabled = paused;
+      });
+    }
+
+    function onPlayPauseClick() {
+      setPauza(!paused);
+    }
+    if (playPauseBtn) playPauseBtn.addEventListener("click", onPlayPauseClick);
 
     function applyGridLines() {
       const parts = [];
@@ -621,12 +667,18 @@
     requestAnimationFrame(() => lift.classList.add("rigle-lift--ready"));
 
     // ── Taste 1/2/3 → coloana 1/2/3 (poziții stânga→dreapta). ──
+    // Space/p/P NU se tratează aici: falling-engine.js are deja un listener de
+    // keydown negardat (fără isCompleted()) care apelează necondiționat
+    // `playPauseBtn.click()` pentru acele taste — ajunge oricum la
+    // onPlayPauseClick() mai jos. Tratarea și aici ar comuta pauza de două ori pe
+    // apăsare (dublu-toggle = anulare reciprocă) — verificat, era bug real.
     const onKey = (e) => {
       if (e.repeat) return;
       const t = e.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
         return;
       }
+      if (paused) return; // fără schimbare de coloană cât timp e pauză
       const idx = ["1", "2", "3"].indexOf(e.key);
       if (idx >= 0 && idx < colX.length) selectColumn(idx);
     };
@@ -639,13 +691,15 @@
       if (!lastTs) lastTs = ts;
       const dt = Math.min((ts - lastTs) / 1000, 0.05);
       lastTs = ts;
-      y += cfg.vitezaCoborare * dt;
-      if (y >= travel) {
-        y = 0;
-        faNouFact();
+      if (!paused) {
+        y += cfg.vitezaCoborare * dt;
+        if (y >= travel) {
+          y = 0;
+          faNouFact();
+        }
+        lift.style.top = `${y}px`;
+        actualizeazaNumerotareAnimata();
       }
-      lift.style.top = `${y}px`;
-      actualizeazaNumerotareAnimata();
       rafId = requestAnimationFrame(tick);
     }
     rafId = requestAnimationFrame(tick);
@@ -662,9 +716,16 @@
       if (rafId) cancelAnimationFrame(rafId);
       ro.disconnect();
       document.removeEventListener("keydown", onKey);
+      if (playPauseBtn) {
+        playPauseBtn.removeEventListener("click", onPlayPauseClick);
+        playPauseBtn.textContent = "⏸"; // iconul implicit (nepauzat) — motorul 1 pornește mereu nepauzat
+      }
       scene.remove();
       buttonsBar.remove();
-      if (gameEl) gameEl.classList.remove("rigle-active");
+      if (gameEl) {
+        gameEl.classList.remove("rigle-active");
+        gameEl.classList.remove("is-paused"); // nu lăsăm starea de pauză să "scurgă" spre motorul 1
+      }
       restoreList.forEach(({ el, prev }) => {
         el.style.display = prev;
       });

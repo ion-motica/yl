@@ -87,9 +87,14 @@ RigleEngine.mount(hosts, config) → {
 2. Construiește scena m2 și bara de butoane proprie (secțiunea 5).
 3. Pornește bucla de coborâre (`requestAnimationFrame`) și ascultătorul de taste 1/2/3.
 4. Observă `#arena` cu `ResizeObserver` pentru recalcul geometrie (rotire, mobil↔desktop).
+5. Adaugă propriul `click` pe `#play-pause` (căutat direct prin `getElementById`, ca la
+   `#lift-fixed-host`) — pauza lui m2 e complet independentă de `paused` din
+   `falling-engine.js` (gotcha #12).
 
-**La `destroy()`**: oprește bucla + tastele, scoate nodurile m2, restaurează exact
-`display`-ul reținut pe fiecare element ascuns, scoate clasa `rigle-active`.
+**La `destroy()`**: oprește bucla + tastele + listener-ul de pauză, scoate nodurile m2,
+restaurează exact `display`-ul reținut pe fiecare element ascuns, scoate clasa
+`rigle-active` **și** `is-paused`, resetează iconul `#play-pause` la „⏸" — motorul 1
+(sau orice pornește după) nu trebuie să moștenească o stare de pauză de la Rigle.
 
 **`config`** — ce trimite quiz-ul azi:
 
@@ -148,6 +153,9 @@ lift mai lat decât orice coloană.
   dreptunghi portocaliu (`.rigle-lift-mismatch`) marchează diferența — peste celulele
   goale (coloană mai lată) sau sub merele care ies (coloană mai îngustă). Live, la
   fiecare schimbare de coloană sau fact — nu ține de „validare" (nu se scorează nimic).
+- **Pauză proprie**, independentă de motorul 1 — buton `#play-pause` + tastele
+  Space/p/P opresc bucla de coborâre (`y` înghețat), dezactivează butoanele `.rigle-btn`
+  și arată „PAUZĂ" peste scenă (gotcha #12 pentru mecanismul exact).
 
 **NU e implementat** (etape viitoare, neplanificate încă în cod):
 - Validare (nicio verificare corect/greșit) — `indexCorect` din fact e transportat, dar
@@ -226,7 +234,8 @@ indiferent de padding/border-ul intern al liftului:
   (astea DOAR se măsoară — depind de înălțimea randată a textului întrebării).
 - **Coloană mai îngustă** (`latime < totalMere`): `left: latime*cell`, `width:
   (totalMere-latime)*cell`, `top` = sub rândul de mere (`rowEl.offsetTop +
-  offsetHeight`), bandă subțire (`max(4, cell*0.35)`), nu peste mere.
+  offsetHeight`), `height: cell` (înălțimea unui rând de pătrățele — inițial era o
+  bandă subțire, `max(4, cell*0.35)`, dar era prea mică; corectat), nu peste mere.
 - **Egal**: `display: none`.
 Verificat empiric (ambele cazuri, valori exacte, două sume diferite) — potrivire
 pixel-perfectă cu formula, nicio ajustare vizuală necesară.
@@ -307,8 +316,11 @@ fereastră **bidirecțională** — `randuriInSus` rânduri deasupra + `randuriI
 sub rândul liftului, fiecare direcție cu propriul plafon — cu opacitate 1→0 și culoare
 pe un gradient HSL 205°(albastru, la lift)→320°(roz-magenta, la marginea ferestrei,
 în orice direcție) — v. `NUMEROTARE_HUE_APROAPE`/`NUMEROTARE_HUE_DEPARTE` în
-`engine.js`. La schimbare de coloană, fereastra veche se golește explicit (altfel ar
-rămâne vizibilă pe coloana părăsită).
+`engine.js`. Poziția de referință (`pozitieReper`) e **fracționară**, nu rotunjită la
+rând întreg — se recalculează în fiecare cadru din `tick()`, deci opacitatea/culoarea
+fiecărui rând se ajustează continuu pe măsură ce liftul coboară, nu doar o dată pe
+celulă parcursă (era vizibil brusc înainte de corectare). La schimbare de coloană,
+fereastra veche se golește explicit (altfel ar rămâne vizibilă pe coloana părăsită).
 
 **„Lift"** — transparența fundalului alb + afișarea marginii:
 
@@ -359,7 +371,7 @@ validare, deci n-are ce să rețină.
 | Fișier | Rol |
 |---|---|
 | `js/rigle/facte.js` | Generator pur de facte: `RigleFacte.genereazaFact()` / `.alegeVariante()`, zero DOM, zero `LayoutConfig`. |
-| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, numerotare rânduri, mismatch „prea mult/puțin", stil lift, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste/setNumerotareRanduri/setLift. |
+| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, numerotare rânduri, mismatch „prea mult/puțin", stil lift, pauză proprie, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste/setNumerotareRanduri/setLift. |
 | `js/quizzes/rigle-cl1.js` | Înregistrare quiz în `QuizRegistry`, config, callback `urmatorulFact`, contract `customEngine`, panoul CP. |
 | `js/app.js` | 5 branch-uri `customEngine` (mount/unmount + guard-uri) + `renderRiglePanel()`. |
 | `js/cp-registry.js` | `"rigle"` în `DEFAULT_ORDER`. |
@@ -438,6 +450,18 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
     calcul stabilă pentru orizontală. Verticala (`rowEl.offsetTop`/`offsetHeight`)
     chiar trebuie măsurată — depinde de înălțimea randată a textului, fără formulă
     simplă. Nu schimba orizontala pe măsurare fără motiv.
+12. **Pauza lui m2 NU tratează Space/p/P în `onKey` — bug real, găsit la testare.**
+    `falling-engine.js` are propriul `document.addEventListener("keydown", ...)`,
+    **negardat** de `isCompleted()`, care apelează necondiționat
+    `dom.playPauseBtn.click()` pentru Space/p/P, indiferent ce quiz e activ — deci
+    tasta ajunge oricum la `#play-pause`, care are și listener-ul lui m2
+    (`onPlayPauseClick`). Dacă `onKey` din `engine.js` AR fi tratat și el direct
+    Space/p/P (apelând `setPauza()`), o singură apăsare ar fi comutat pauza **de
+    două ori** (o dată din `onKey`, o dată din click-ul sintetic al lui m1) — anulare
+    reciprocă, tasta părea că nu face nimic. `onKey` din m2 tratează **doar** 1/2/3;
+    pauza vine exclusiv prin click pe `#play-pause` (real sau sintetic din m1).
+    Simetric, click-ul direct pe buton merge normal (listener-ul lui m1 pe click
+    *este* gardat de `isCompleted()`, deci nu interferează).
 
 ---
 
