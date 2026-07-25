@@ -10,11 +10,14 @@
     const Registry = global.CpRegistry;
 
     const tocEl = shellEl.querySelector(".cp-toc");
+    const scrollEl = shellEl.querySelector(".cp-scroll");
     const sectionsEl = shellEl.querySelector(".cp-sections");
     const backdropEl = shellEl.querySelector(".cp-shell-backdrop");
     const closeBtn = shellEl.querySelector(".cp-shell-close");
+    const topBtn = shellEl.querySelector(".cp-shell-top");
     const mounts = new Map();
     let open = false;
+    let drag = null;
 
     function readOpenDefault() {
       return isMobile()
@@ -34,6 +37,7 @@
       shellEl.hidden = !open;
       if (backdropEl) backdropEl.hidden = !open || !isMobile();
       if (closeBtn) closeBtn.hidden = !open || !isMobile();
+      if (topBtn) topBtn.hidden = !open || !isMobile();
       const toggle = document.getElementById("cp-toggle");
       toggle?.classList.toggle("active", open);
       toggle?.setAttribute("aria-expanded", open ? "true" : "false");
@@ -61,24 +65,16 @@
     function scrollToPanel(id) {
       const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
       if (!section || section.classList.contains("is-disabled")) return;
-      // Doar lista de secțiuni — nu scrollIntoView (ar mișca și pagina / cuprinsul).
+      // .cp-scroll e singurul container cu scroll — nu scrollIntoView (ar mișca și pagina).
       const top =
         section.getBoundingClientRect().top -
-        sectionsEl.getBoundingClientRect().top +
-        sectionsEl.scrollTop;
-      sectionsEl.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        scrollEl.getBoundingClientRect().top +
+        scrollEl.scrollTop;
+      scrollEl.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     }
 
-    function syncMoveButtons() {
-      const order = Registry.getOrder();
-      tocEl.querySelectorAll(".cp-toc-row").forEach((row) => {
-        const id = row.dataset.cpId;
-        const i = order.indexOf(id);
-        const up = row.querySelector(".cp-toc-up");
-        const down = row.querySelector(".cp-toc-down");
-        if (up) up.disabled = i <= 0;
-        if (down) down.disabled = i < 0 || i >= order.length - 1;
-      });
+    function scrollToTop() {
+      scrollEl.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function reorderDom(order) {
@@ -88,12 +84,56 @@
         if (row) tocEl.appendChild(row);
         if (section) sectionsEl.appendChild(section);
       });
-      syncMoveButtons();
     }
 
-    function movePanel(id, delta) {
-      const next = Registry.move(id, delta);
-      if (next) reorderDom(next);
+    function targetIndexFor(others, clientY) {
+      for (let i = 0; i < others.length; i++) {
+        const rect = others[i].getBoundingClientRect();
+        if (clientY < rect.top + rect.height / 2) return i;
+      }
+      return others.length;
+    }
+
+    function onDragMove(e) {
+      if (!drag) return;
+      drag.row.style.transform = `translateY(${e.clientY - drag.startY}px)`;
+      drag.targetIndex = targetIndexFor(drag.others, e.clientY);
+    }
+
+    function endDrag() {
+      if (!drag) return;
+      const { row, pointerId, id, targetIndex } = drag;
+      row.releasePointerCapture(pointerId);
+      row.removeEventListener("pointermove", onDragMove);
+      row.removeEventListener("pointerup", endDrag);
+      row.removeEventListener("pointercancel", endDrag);
+      row.classList.remove("cp-toc-row-dragging");
+      row.style.transform = "";
+      if (typeof targetIndex === "number") {
+        const order = Registry.getOrder().filter((x) => x !== id);
+        order.splice(targetIndex, 0, id);
+        reorderDom(Registry.setOrder(order));
+      }
+      drag = null;
+    }
+
+    function startDrag(e, id) {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      const row = tocEl.querySelector(`.cp-toc-row[data-cp-id="${id}"]`);
+      if (!row) return;
+      e.preventDefault();
+      drag = {
+        id,
+        row,
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        others: Array.from(tocEl.querySelectorAll(".cp-toc-row")).filter((r) => r !== row),
+      };
+      row.classList.add("cp-toc-row-dragging");
+      row.setPointerCapture(e.pointerId);
+      row.addEventListener("pointermove", onDragMove);
+      row.addEventListener("pointerup", endDrag);
+      row.addEventListener("pointercancel", endDrag);
     }
 
     function createTocRow(def) {
@@ -103,30 +143,12 @@
       row.dataset.cpId = def.id;
       row.classList.toggle("is-disabled", !enabled);
 
-      const moves = document.createElement("div");
-      moves.className = "cp-toc-moves";
-
-      const upBtn = document.createElement("button");
-      upBtn.type = "button";
-      upBtn.className = "cp-toc-move cp-toc-up";
-      upBtn.setAttribute("aria-label", "Mută sus");
-      upBtn.textContent = "↑";
-      upBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        movePanel(def.id, -1);
-      });
-
-      const downBtn = document.createElement("button");
-      downBtn.type = "button";
-      downBtn.className = "cp-toc-move cp-toc-down";
-      downBtn.setAttribute("aria-label", "Mută jos");
-      downBtn.textContent = "↓";
-      downBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        movePanel(def.id, 1);
-      });
-
-      moves.append(upBtn, downBtn);
+      const handle = document.createElement("button");
+      handle.type = "button";
+      handle.className = "cp-toc-drag";
+      handle.setAttribute("aria-label", `Reordonează „${def.title}” (trage)`);
+      handle.textContent = "⠿";
+      handle.addEventListener("pointerdown", (e) => startDrag(e, def.id));
 
       const tocBtn = document.createElement("button");
       tocBtn.type = "button";
@@ -135,7 +157,7 @@
       tocBtn.disabled = !enabled;
       tocBtn.addEventListener("click", () => scrollToPanel(def.id));
 
-      row.append(moves, tocBtn);
+      row.append(handle, tocBtn);
       return row;
     }
 
@@ -175,11 +197,10 @@
         sectionsEl.appendChild(section);
         mounts.set(def.id, body);
       });
-
-      syncMoveButtons();
     }
 
     closeBtn?.addEventListener("click", () => setOpen(false));
+    topBtn?.addEventListener("click", () => scrollToTop());
     backdropEl?.addEventListener("click", () => setOpen(false));
 
     function applyLayoutMode() {

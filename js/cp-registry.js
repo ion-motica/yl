@@ -61,7 +61,9 @@
     }
     if (panels.has("sq2EffVbs")) {
       const rest = next.filter((id) => id !== "sq2EffVbs");
-      const insertAt = rest[0] === "subquiz" ? 1 : 0;
+      // La acest pas, "subquiz" nu mai e neaparat pe index 0 (poate fi dupa
+      // "general") — cautam pozitia lui reala, nu presupunem index fix.
+      const insertAt = rest.indexOf("subquiz") + 1;
       next = [...rest.slice(0, insertAt), "sq2EffVbs", ...rest.slice(insertAt)];
     }
     return next;

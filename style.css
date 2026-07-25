@@ -1216,6 +1216,10 @@ body {
   display: none;
 }
 
+.cp-shell-top {
+  display: none;
+}
+
 .game:not(.dg-on) .cp-shell {
   position: fixed;
   top: var(--hud-h, 5.5rem);
@@ -1274,8 +1278,33 @@ body {
   display: none !important;
 }
 
+.game:not(.dg-on) .cp-shell-top {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 0.5rem;
+  right: 4.25rem;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid #2d3d52;
+  border-radius: 50%;
+  background: rgba(61, 156, 245, 0.15);
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.game:not(.dg-on) .cp-shell-top[hidden] {
+  display: none !important;
+}
+
+/* spatiu rezervat pt cele doua butoane plutitoare (top + close) */
 .game:not(.dg-on) .cp-toc {
-  padding-right: 3rem;
+  padding-right: 7rem;
 }
 
 .cp-shell-panel {
@@ -1290,8 +1319,15 @@ body {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
+/* Container unic de scroll: lista de bife + link Viz3 + sectiuni se deruleaza
+   impreuna, ca sa nu mai stea lista "inghetata" deasupra si sa blocheze vederea. */
+.cp-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .cp-toc {
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-bottom: 1px solid #2a3548;
@@ -1308,34 +1344,36 @@ body {
   border-bottom: none;
 }
 
-.cp-toc-moves {
-  display: flex;
-  flex-direction: column;
+.cp-toc-drag {
   flex-shrink: 0;
-  border-right: 1px solid rgba(42, 53, 72, 0.65);
-}
-
-.cp-toc-move {
-  flex: 1;
-  min-height: 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 2rem;
-  padding: 0;
   border: none;
+  border-right: 1px solid rgba(42, 53, 72, 0.65);
   background: transparent;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 1.1rem;
   line-height: 1;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
 }
 
-.cp-toc-move:hover:not(:disabled) {
+.cp-toc-drag:hover {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
 }
 
-.cp-toc-move:disabled {
-  opacity: 0.25;
-  cursor: default;
+.cp-toc-row-dragging {
+  position: relative;
+  z-index: 5;
+  background: #182333;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.cp-toc-row-dragging .cp-toc-drag {
+  cursor: grabbing;
 }
 
 .cp-toc-item {
@@ -1383,12 +1421,6 @@ body {
 .cp-section.is-disabled {
   opacity: 0.45;
   pointer-events: none;
-}
-
-.cp-sections {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .cp-section {
