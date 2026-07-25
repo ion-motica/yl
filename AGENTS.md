@@ -1,5 +1,30 @@
 # Resurse comune YouLearn
 
+## Index de documente pe zonă
+
+> **Regulă**: dacă userul cere o modificare sau o adăugare într-o zonă anume, caută
+> întâi dacă zona are un document de referință mai jos și citește-l **înainte** să
+> propui sau să scrii cod. Tabelul e duplicat identic în `CLAUDE.md` — spre deosebire
+> de acest fișier, `CLAUDE.md` se auto-încarcă la fiecare sesiune (verificat empiric,
+> `AGENTS.md` nu se auto-încarcă). `npm run check:docs` verifică sincronizarea.
+
+<!-- INDEX-DOCUMENTE:START -->
+| Zonă | Document(e) de citit înainte de modificare |
+|---|---|
+| Cl. 1 - Rigle (quiz cl. 1, motor propriu m2) | `documente de referinta/RIGLE-REFERENCE.md` |
+| EFF (Extended Fact Family) | `documente de referinta/EFF-REFERENCE.md` |
+| Vizualizare 3 / MABP (interpretare loguri, modul activ) | `Vizualizare 3 - Claude/CONTINUARE-proiect-MABP.md`, `Vizualizare 3 - Claude/SPECIFICATIE.md` |
+| Profil ASNW (arena simplă pt. new user) | `Documentatie Profil ASNW - arena simpla pt new user.md` |
+| Acolade (axa numerelor) | `documente de referinta/referinta acolade - text.md` |
+| Quiz nou / modificare quiz existent | `documente de referinta/QUIZ-SPEC-SABLON.md` |
+| Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
+| Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |
+| `numaraTICs()` (scris/împrumut) | `js/numara-tics.js`, `tests/numara-tics.test.js` |
+| Deschidere Codex browser local | `Codex docs/Deschidere Codex browser - referinta pt Codex.md` |
+| „Vizualizare si interpretare logs/" (MABP vechi) | **nu se modifică** — `Vizualizare si interpretare logs/README.md` (înlocuit de Vizualizare 3, păstrat intact) |
+| Zonă-test index documente (canar de diagnostic, nu e feature reală) | `documente de referinta/ZONA-TEST-REFERENCE.md` |
+<!-- INDEX-DOCUMENTE:END -->
+
 ## Invocarea skill-urilor grele
 
 Nu invoca skill-uri de referință grele (ex. `claude-api`, `docx`, `pptx`, `xlsx`) pentru întrebări conversaționale/comparative — răspunde din cunoștințe proprii, cu mențiunea că detaliile pot fi depășite.

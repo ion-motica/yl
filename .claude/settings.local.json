@@ -98,7 +98,19 @@
       "Read(//c/Users/I/AppData/Local/Temp/claude/C--Users-I-Projects-Youlearn-com/a697d6c2-e242-4221-acc4-126fecddc2bc/scratchpad/**)",
       "Bash(node --check \"js/cp-registry.js\")",
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8770/index.html\" -TimeoutSec 3 -UseBasicParsing; \"8770 UP: $\\($r.StatusCode\\)\" } catch { \"8770 DOWN: $\\($_.Exception.Message\\)\" })",
-      "Bash(node --check \"js/cp-shell.js\")"
+      "Bash(node --check \"js/cp-shell.js\")",
+      "Bash(git commit -m 'Cl. 1 - Rigle: poziție coloane - treime vs. spațiu, aliniare exactă la grilă *)",
+      "Bash(node --check \"js/rigle/facte.js\")",
+      "Bash(node --test tests/rigle-facte.test.js)",
+      "Bash(git commit -m 'Cl. 1 - Rigle: facte variabile a+b=?, variante de răspuns aleatorii *)",
+      "Bash(git commit -m 'Cl. 1 - Rigle: text lift fix, butoane mai transparente, marjă distractori liniară *)",
+      "Bash(git commit -m 'Cl. 1 - Rigle: numerotează rânduri din coloane \\(static + fade-in animat\\) *)",
+      "Bash(git commit -m 'Cl. 1 - Rigle: feedback vizual prea mult/prea putin, rânduri jos, stil lift *)",
+      "Bash(git commit -m 'Cl. 1 - Rigle: pauza proprie \\(buton + tasta p\\), mismatch mai vizibil, gradient continuu *)",
+      "Bash(echo \"=== .claude/settings.json \\(proiect\\) ===\"; cat .claude/settings.json 2>/dev/null || echo \"\\(nu exista\\)\"; echo; echo \"=== ~/.claude/settings.json \\(user\\) ===\"; cat \"$HOME/.claude/settings.json\" 2>/dev/null || echo \"\\(nu exista\\)\")",
+      "Bash(node --check scripts/check-doc-index.mjs)",
+      "Bash(npm run *)",
+      "Bash(sed -i 's#<!-- INDEX-DOCUMENTE:END -->#| Test temporar | `nicaieri.md` |\\\\n<!-- INDEX-DOCUMENTE:END -->#' CLAUDE.md)"
     ],
     "defaultMode": "auto"
   }

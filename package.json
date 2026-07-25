@@ -5,6 +5,7 @@
   "scripts": {
     "check:encoding": "node scripts/check-encoding.mjs",
     "check:encoding:strict": "node scripts/check-encoding.mjs --strict",
+    "check:docs": "node scripts/check-doc-index.mjs",
     "test": "node --test tests/addition-table-conexe-helper.test.js"
   }
 }
