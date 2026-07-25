@@ -110,7 +110,8 @@
       "Bash(echo \"=== .claude/settings.json \\(proiect\\) ===\"; cat .claude/settings.json 2>/dev/null || echo \"\\(nu exista\\)\"; echo; echo \"=== ~/.claude/settings.json \\(user\\) ===\"; cat \"$HOME/.claude/settings.json\" 2>/dev/null || echo \"\\(nu exista\\)\")",
       "Bash(node --check scripts/check-doc-index.mjs)",
       "Bash(npm run *)",
-      "Bash(sed -i 's#<!-- INDEX-DOCUMENTE:END -->#| Test temporar | `nicaieri.md` |\\\\n<!-- INDEX-DOCUMENTE:END -->#' CLAUDE.md)"
+      "Bash(sed -i 's#<!-- INDEX-DOCUMENTE:END -->#| Test temporar | `nicaieri.md` |\\\\n<!-- INDEX-DOCUMENTE:END -->#' CLAUDE.md)",
+      "Bash(taskkill //F //IM python.exe //FI \"WINDOWTITLE eq*\")"
     ],
     "defaultMode": "auto"
   }

@@ -93,12 +93,12 @@
   display: none;
   background: #ff9800;
   border-radius: 4px;
-  animation: rigle-blink 1.1s ease-in-out infinite;
+  animation: rigle-blink 0.6s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes rigle-blink {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.7; }
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 .rigle-apple {
   position: relative;
@@ -313,6 +313,7 @@
     // ── Geometrie + stare ──
     let cell = 32;
     let colX = [];
+    let mismatchMinH = 0; // prag minim înălțime pt. bara portocalie „coloană mai îngustă" — vezi computeGeometry()
     let travel = 1;
     let colEls = [];
     let myButtons = [];
@@ -418,6 +419,14 @@
         });
       }
 
+      // Prag minim pt. bara „coloană mai îngustă" din actualizeazaMismatch(): la sume
+      // mari `cell` poate ajunge la 1-3px (vezi RIGLE-REFERENCE §5) și bara devine
+      // practic invizibilă. Pragul = cât ar fi lățimea unei celule „în treime" la suma
+      // de referință 5, aceeași pe pc și pe telefon — se adaptează singur la lățimea
+      // arenei curente (mai mare pe ecran lat, mai mic pe telefon), fără prag separat.
+      const SUMA_REFERINTA_MIN_H = 5;
+      mismatchMinH = Math.max(1, Math.floor(W / cfg.latimiColoane.length / SUMA_REFERINTA_MIN_H));
+
       scene.style.setProperty("--cell", `${cell}px`);
       gridEl.style.backgroundSize = `${cell}px ${cell}px`;
       gridEl.style.backgroundPosition = `${margin}px 0px`;
@@ -451,8 +460,11 @@
     // Coordonate calculate analitic, nu măsurate — lift.style.left = colX[colIndex],
     // deci în sistemul de coordonate al liftului (0 = marginea lui stângă), coloana
     // se termină la latimeColoana*cell, indiferent de padding-ul intern al liftului.
-    // top/height ale rândului de mere SE măsoară (rowEl.offsetTop/Height), fiindcă
-    // depind de înălțimea randată a textului întrebării — nu au o formulă simplă.
+    // top-ul rândului de mere SE măsoară (rowEl.offsetTop/Height), fiindcă depinde de
+    // înălțimea randată a textului întrebării — nu are o formulă simplă. Bara e
+    // centrată pe axa verticală a rândului de mere — cu o excepție: la sumă mică
+    // (<=5) și coloană mai îngustă, rândul de mere e prea scund/aglomerat ca bara
+    // centrată să nu se suprapună vizibil peste mere, deci rămâne SUB rând, ca înainte.
     function actualizeazaMismatch() {
       const latimeColoana = cfg.latimiColoane[colIndex];
       if (latimeColoana === totalMere) {
@@ -460,18 +472,22 @@
         return;
       }
       mismatchEl.style.display = "block";
+      const centruRand = rowEl.offsetTop + rowEl.offsetHeight / 2;
       if (latimeColoana > totalMere) {
         // coloana mai lată — celule goale în continuarea rândului de mere
+        const h = Math.max(rowEl.offsetHeight, mismatchMinH);
         mismatchEl.style.left = `${totalMere * cell}px`;
         mismatchEl.style.width = `${(latimeColoana - totalMere) * cell}px`;
-        mismatchEl.style.top = `${rowEl.offsetTop}px`;
-        mismatchEl.style.height = `${rowEl.offsetHeight}px`;
+        mismatchEl.style.top = `${centruRand - h / 2}px`;
+        mismatchEl.style.height = `${h}px`;
       } else {
-        // coloana mai îngustă — mere care ies peste marginea galbenă, marcate SUB ele
+        // coloana mai îngustă — mere care ies peste marginea galbenă
+        const h = Math.max(cell, mismatchMinH);
         mismatchEl.style.left = `${latimeColoana * cell}px`;
         mismatchEl.style.width = `${(totalMere - latimeColoana) * cell}px`;
-        mismatchEl.style.top = `${rowEl.offsetTop + rowEl.offsetHeight}px`;
-        mismatchEl.style.height = `${cell}px`; // înălțimea unui rând de pătrățele
+        const top = totalMere <= 5 ? rowEl.offsetTop + rowEl.offsetHeight : centruRand - h / 2;
+        mismatchEl.style.top = `${top}px`;
+        mismatchEl.style.height = `${h}px`;
       }
     }
 
