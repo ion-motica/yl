@@ -10,13 +10,16 @@
 
 Quiz pentru clasa 1: copilul „măsoară" o sumă de obiecte cu **rigle** (coloane de
 lățimi diferite), primind feedback vizual **înainte** de a se angaja la un răspuns
-(„mură-n gură"), nu după. Deocamdată (etapa 1) mecanica e livrată, dar validarea și
+(„mură-n gură"), nu după. Mecanica + variația factelor sunt livrate; validarea și
 feedback-ul pedagogic încă nu — vezi secțiunea 4.
 
-Un lift îngust, cu întrebarea și obiectele de numărat, coboară lent și continuu peste
-3 coloane galbene. Copilul alege o coloană (buton sau tastă); liftul glisează acolo.
-Lățimea coloanei față de numărul de obiecte va arăta (în etapele viitoare) dacă
-răspunsul „încape exact".
+Un lift îngust, cu întrebarea (`a+b=?`) și obiectele de numărat, coboară lent și
+continuu peste 3 coloane galbene ale căror lățimi sunt cele 3 variante de răspuns
+pentru sumă (una corectă, două distractori aleatori). Copilul alege o coloană (buton
+sau tastă); liftul glisează acolo. Lățimea coloanei față de numărul de obiecte va
+arăta (în etapele viitoare) dacă răspunsul „încape exact". La fiecare wrap al
+liftului (ajunge jos, reapare sus) apare un fact nou, cu o sumă aleatoare în
+intervalul reglat din CP.
 
 ---
 
@@ -61,6 +64,7 @@ RigleEngine.mount(hosts, config) → {
   destroy(),
   setGridLines({ vertical?, orizontal? }),
   setColumnLayout({ treime? }),
+  reporneste(),   // y=0 + cere fact nou prin cfg.urmatorulFact() + randează
 }
 ```
 
@@ -85,45 +89,64 @@ RigleEngine.mount(hosts, config) → {
 **La `destroy()`**: oprește bucla + tastele, scoate nodurile m2, restaurează exact
 `display`-ul reținut pe fiecare element ascuns, scoate clasa `rigle-active`.
 
-**`config`** (implicit + ce trimite quiz-ul azi):
+**`config`** — ce trimite quiz-ul azi:
 
 ```js
 {
-  intrebare: "2+1=?",
-  grupe: [ { n: 2, fundal: "rosu" }, { n: 1, fundal: "albastru" } ], // total = obiecte în lift
   obiect: "🍏",
-  latimiColoane: [2, 3, 4],
-  coloanaInitiala: 3,     // lățimea coloanei pe care pornește liftul
-  vitezaCoborare: 34,     // px/s — mic, intenționat, pt. copii de cl. 1
-  gridVertical: true,     // rezolvat de quiz din CP (secțiunea 6), nu hardcodat
+  coloanaInitialaIndex: 1,  // INDEX-ul coloanei pe care pornește liftul (mijloc), nu
+                             // lățimea — lățimile sunt aleatoare, nu mai există o
+                             // „coloană de lățime 3" garantată.
+  vitezaCoborare: 34,       // px/s — mic, intenționat, pt. copii de cl. 1
+  gridVertical: true,       // rezolvat de quiz din CP (secțiunea 6), nu hardcodat
   gridOrizontal: true,
-  pozitieTreime: true,    // true = fiecare coloană o treime din spațiu; false = proporțional
+  pozitieTreime: true,      // true = fiecare coloană o treime din spațiu; false = proporțional
+  urmatorulFact: () => RigleFacte.genereazaFact({ sumaMin, sumaMax }),  // (§4, RigleFacte)
 }
 ```
 
-Config-driven, ca variațiile viitoare (alt fact, alte lățimi, alt obiect) să nu ceară
-cod nou în engine.
+`intrebare` / `grupe` / `latimiColoane` **nu** se mai trimit din quiz — vin din
+`fact = cfg.urmatorulFact()`, apelat la mount și la fiecare wrap (`randeazaFact(fact)`
+mută valorile din `fact` în `cfg`, deci `cfg.latimiColoane` etc. reflectă mereu factul
+curent, dar cine le setează s-a mutat din quiz în generator). `DEFAULTS` din engine
+păstrează totuși `intrebare`/`grupe`/`latimiColoane`/`obiect` fixe (fallback), pentru
+un `mount()` ipotetic fără `urmatorulFact` — „zero regresie" pentru orice altă folosire
+a engine-ului.
+
+Config-driven, ca variațiile viitoare (altă formă de ecuație — `?+3=5`, `21=12+?` — alt
+obiect) să nu ceară cod nou în engine: vezi §4 pentru de ce geometria suportă deja un
+lift mai lat decât orice coloană.
 
 ---
 
-## 4. Ce e implementat azi vs. ce NU (etapa 1)
+## 4. Ce e implementat azi vs. ce NU
 
 **Implementat:**
 - Lift care coboară continuu; la podea, `y` sare instant sus, `x` rămâne pe ultima
-  coloană aleasă (fără wrap orizontal).
-- 3 coloane, lățimi 2/3/4, alegere prin buton sau taste 1/2/3 (poziții stânga→dreapta,
-  nu valoarea lățimii).
+  coloană aleasă (fără wrap orizontal) — **și** apare un fact nou (vezi mai jos).
+- Facte variabile: `a+b=?` cu `a,b>=1`, sumă aleatoare într-un interval `[min,max]`
+  reglat din CP („Suma maxima", secțiunea 6), generate de `js/rigle/facte.js`
+  (`window.RigleFacte`, funcții pure — algoritm detaliat în
+  `js/rigle/PLAN-etapa2-variatie-facte.md` §4).
+- 3 coloane, lățimile = cele 3 variante de răspuns pentru sumă (una corectă + 2
+  distractori aleatori din `[suma-3, suma+3]`, excl. `suma`); poziția coloanei corecte
+  (după sortarea crescătoare) variază aleator — nu e sistematic pe mijloc sau pe o
+  poziție fixă. Alegere prin buton sau taste 1/2/3 (poziții stânga→dreapta, nu valoarea
+  lățimii).
 - Bloc rigid: obiectele din lift nu se realiniază/marchează la ieșire din ghidaj —
   pur vizual, fără logică de „încape/nu încape".
-- Grilă de caiet (linii, toggle independent vertical/orizontal din CP).
+- Grilă de caiet (linii, toggle independent vertical/orizontal din CP), aliniată exact
+  la marginile coloanelor indiferent de sumă (gotcha #4).
 
 **NU e implementat** (etape viitoare, neplanificate încă în cod):
-- Validare (nicio verificare corect/greșit).
+- Validare (nicio verificare corect/greșit) — `indexCorect` din fact e transportat, dar
+  nefolosit.
 - Feedback: pătrățele portocalii, „Prea mult"/„Prea puțin", mână care se clatină, clipit.
 - Efect de succes, afișarea rezultatului („2+1=**3**"), coborâre glorioasă, avans la
   întrebarea următoare.
-- Alte întrebări/facts (azi doar „2+1=?", fix), alte seturi de coloane, coloana 1, alte
-  obiecte decât 🍏.
+- Alte forme de ecuație (`?+3=5`, `21=12+?`) — geometria le suportă deja (§3), dar
+  generatorul azi produce doar `a+b=?`.
+- Alt număr de coloane decât 3, alte obiecte decât 🍏.
 - Niveluri, progres, timeout, sunet.
 
 ---
@@ -157,6 +180,13 @@ două moduri, alese din CP (secțiunea 6), ambele populează `colX[]` + `cell`:
 - **„În funcție de spațiu"** (`cfg.pozitieTreime = false`): `cell` = `W / (Σlățimi + nGaps
   + 1)` — un gol de mărimea unei celule între coloane și pe margini (comportamentul
   original, singurul din etapa 1). Aliniată la grilă din aceleași motive (v. mai jos).
+- **Pragul minim pe `cell` e `1px`, nu `14px`.** Cu sume mari (până la 30, variante până
+  la 33 — vezi §4), `cellsPerThird`/`sumW` cresc mult și `cell` reală poate ajunge la
+  2-3px; un prag de 14px ar forța coloanele să depășească arena (verificat: la sumă 30,
+  cu prag 14px ultima coloană ajungea la ~3,7× lățimea arenei). `1` nu e plafon estetic,
+  e doar apărare împotriva unei celule de 0 sau negative.
+- **`totalMere` nu mai e o constantă** — se recalculează din `fact.grupe` la fiecare
+  `randeazaFact()`, fiindcă numărul de obiecte variază cu factul.
 - În ambele moduri: coloanele + butoanele lor primesc **același** `left`/`width`, calculat
   din `colX[i]` și `latimiColoane[i] * cell` — de-aia fiecare buton stă exact peste
   coloana lui, indiferent de mod.
@@ -197,7 +227,7 @@ când se deschide panoul CP în timp ce Rigle e quiz-ul activ (mecanism generic 
 `cp-shell.js`, adăugat pentru toate panourile per-quiz — nu e specific implementării
 Rigle, dar Rigle îl moștenește automat prin flag).
 
-Panoul are 2 secțiuni:
+Panoul are 3 secțiuni:
 
 **„Grila"** — 2 bife independente (pot fi ambele ON/OFF):
 
@@ -213,9 +243,23 @@ Panoul are 2 secțiuni:
 | Fiecare coloană are o treime din spațiu | ON (implicit) | `true` |
 | În funcție de spațiu | OFF | `false` |
 
-Ambele secțiuni sunt **live** (apelează `mounted.setGridLines({...})` / respectiv
-`mounted.setColumnLayout({...})`, fără remount) și **persistă** între reload-uri, la fel
-ca celelalte bife simple din CP (ex. „Afiseaza Timpi raspuns").
+**„Suma maxima"** — 2 steppere (`-`/`input[number]`/`+`, tipar refolosit din
+`pre-equations-eff-navigation.js`, clasele `.pre-eq-stepper-field`/`.pre-eq-stepper` din
+`style.css` — de-aia nu are bump `style.css`):
+
+| Câmp | Interval | Implicit | Cheie `LayoutConfig` |
+|---|---|---|---|
+| Minim | 1-30 | `2` | `rigleSumaMin` |
+| Maxim | 1-30 | `5` | `rigleSumaMax` |
+
+Cuplare: dacă Minim > Maxim, Maxim e împins în sus (și simetric la Maxim < Minim, Minim
+coboară) — nu poate exista un interval invalid. La fiecare schimbare, ambele câmpuri se
+persistă și se apelează `mounted.reporneste()`, ca efectul să fie vizibil imediat, nu
+abia la următorul wrap (~20s).
+
+Toate 3 secțiunile sunt **live** (`setGridLines` / `setColumnLayout` / `reporneste`,
+fără remount) și **persistă** între reload-uri, la fel ca celelalte bife simple din CP
+(ex. „Afiseaza Timpi raspuns").
 
 `rigle` a fost adăugat explicit în `DEFAULT_ORDER` din `cp-registry.js` — fără el,
 panoul nu ar apărea deloc la un `localStorage` curat (doar la useri cu o ordine CP deja
@@ -230,10 +274,12 @@ salvată, unde intră automat la coadă).
 | `rigleGridVertical` | linii verticale grilă | `true` |
 | `rigleGridOrizontal` | linii orizontale grilă | `false` |
 | `rigleColoaneTreime` | poziție coloane: treime (`true`) vs. proporțional (`false`) | `true` |
+| `rigleSumaMin` | suma minimă a factului generat | `2` |
+| `rigleSumaMax` | suma maximă a factului generat | `5` |
 | `cpOrder` | ordinea panourilor CP (globală, nu doar Rigle) | — |
 
-Nimic din progresul/răspunsurile la Rigle nu persistă încă — etapa 1 n-are validare,
-deci n-are ce să rețină.
+Nimic din progresul/răspunsurile la Rigle nu persistă încă — nicio etapă livrată n-are
+validare, deci n-are ce să rețină.
 
 ---
 
@@ -241,12 +287,15 @@ deci n-are ce să rețină.
 
 | Fișier | Rol |
 |---|---|
-| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, mount/destroy/setGridLines. |
-| `js/quizzes/rigle-cl1.js` | Înregistrare quiz în `QuizRegistry`, config etapa 1, contract `customEngine`, panoul CP. |
+| `js/rigle/facte.js` | Generator pur de facte: `RigleFacte.genereazaFact()` / `.alegeVariante()`, zero DOM, zero `LayoutConfig`. |
+| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste. |
+| `js/quizzes/rigle-cl1.js` | Înregistrare quiz în `QuizRegistry`, config, callback `urmatorulFact`, contract `customEngine`, panoul CP. |
 | `js/app.js` | 5 branch-uri `customEngine` (mount/unmount + guard-uri) + `renderRiglePanel()`. |
 | `js/cp-registry.js` | `"rigle"` în `DEFAULT_ORDER`. |
-| `index.html` | `<script>` pentru `js/rigle/engine.js` și `js/quizzes/rigle-cl1.js`, înainte de `app.js`. |
+| `index.html` | `<script>` pentru `facte.js` → `engine.js` → `rigle-cl1.js` (ordinea contează), înainte de `app.js`. |
+| `tests/rigle-facte.test.js` | Teste pentru `facte.js` (distribuția pozițiilor, cazuri-limită sumă 2/30) — `node --test`. |
 | `js/rigle/SPEC-etapa1.md` | Specificația inițială de implementare (istoric — vezi secțiunea 11). |
+| `js/rigle/PLAN-etapa2-variatie-facte.md` | Plan facte variabile + variante (istoric — implementat, vezi secțiunea 11). |
 | `documente de referinta/RIGLE-REFERENCE.md` | Acest fișier — referință curentă. |
 
 Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) —
@@ -273,6 +322,17 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
    același `margin`/`0` ca `gridEl.style.backgroundPosition` — dacă modifici formula de
    geometrie, păstrează invariantul ăsta (nu introduce un decalaj independent de `cell`,
    cum a fost `TREIME_GAP` inițial — greșeală corectată).
+5. **Rândul de mere are voie să depășească padding-ul cutiei liftului — nu „repara".**
+   Cutia liftului are `padding: 4px` + `border: 2px`; rândul de mere (`totalMere * cell`)
+   poate fi mai lat decât spațiul interior. Centrarea flex simetrică anulează exact acel
+   padding, iar marginea stângă a rândului ajunge tot pe `colX` — verificat: la o coloană
+   de 93px, rândul iese 5,6px de fiecare parte și marginea stângă cade exact pe grilă.
+   `overflow: hidden` sau schimbarea `box-sizing` ar strica alinierea merelor la grilă.
+6. **La schimbare de fact, tranziția orizontală a liftului se suprimă temporar.**
+   `schimbaFact()` scoate clasa `.rigle-lift--ready` înainte de `randeazaFact()` și o
+   pune la loc pe `requestAnimationFrame` — altfel, cum lățimile coloanelor (deci
+   `colX[colIndex]`) se schimbă exact când `y` sare la 0, liftul ar **glisa** lateral
+   vizibil în loc să sară instant, ca un bug de mișcare.
 
 ---
 
@@ -285,9 +345,12 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
 
 ---
 
-## 11. Relația cu `js/rigle/SPEC-etapa1.md`
+## 11. Relația cu documentele de plan (istorice)
 
-`SPEC-etapa1.md` e artefactul de planificare inițială (scop/non-scop, riscuri, criterii
-de succes falsificabile) — rămâne ca istoric al deciziilor din etapa 1, dar **nu** mai e
-actualizat pas cu pas. Acest fișier (`RIGLE-REFERENCE.md`) e sursa curentă de adevăr;
-actualizează-l pe *acesta* când se schimbă mecanica, contractul sau integrarea.
+`js/rigle/SPEC-etapa1.md` (scop/non-scop, riscuri, criterii de succes falsificabile
+pentru etapa 1 — doar mișcarea) și `js/rigle/PLAN-etapa2-variatie-facte.md` (facte
+variabile + variante de răspuns, cu deciziile userului și algoritmul detaliat) sunt
+artefacte de planificare — rămân ca istoric al deciziilor, ambele **implementate**, dar
+**niciunul nu mai e actualizat pas cu pas**. Acest fișier (`RIGLE-REFERENCE.md`) e sursa
+curentă de adevăr; actualizează-l pe *acesta* când se schimbă mecanica, contractul sau
+integrarea — nu documentele de plan.

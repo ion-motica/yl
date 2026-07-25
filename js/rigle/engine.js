@@ -1,11 +1,14 @@
 /**
- * Motor 2 (m2) — „Cl. 1 - Rigle", etapa 1 (doar mișcarea, fără validare).
+ * Motor 2 (m2) — „Cl. 1 - Rigle". Motor complet separat de motorul 1 (FallingEngine):
+ * scenă proprie + butoane proprii. Când m2 e activ, shell-ul m1 din arenă e suprimat
+ * (scenă, slot butoane, bară fixă) — m1 nu există aici.
  *
- * Motor complet separat de motorul 1 (FallingEngine): scenă proprie + butoane
- * proprii. Când m2 e activ, shell-ul m1 din arenă e suprimat (scenă, slot butoane,
- * bară fixă) — m1 nu există aici. Vezi `js/rigle/SPEC-etapa1.md`.
+ * Sursa curentă de adevăr pentru arhitectură/contract e
+ * `documente de referinta/RIGLE-REFERENCE.md` — actualizeaz-o la orice schimbare aici.
+ * `js/rigle/SPEC-etapa1.md` e istoric (etapa 1, doar mișcarea).
  *
- *   RigleEngine.mount({ arenaEl, optionsEl }, config?) → { destroy }
+ *   RigleEngine.mount({ arenaEl, optionsEl }, config?)
+ *     → { destroy, setGridLines, setColumnLayout, reporneste }
  *
  * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
  * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
@@ -56,7 +59,8 @@
 }
 .rigle-lift-q {
   font-weight: 800;
-  font-size: calc(var(--cell) * 0.62);
+  font-size: clamp(11px, calc(var(--cell) * 0.62), 22px);
+  white-space: nowrap;
   color: #1f2a3a;
   line-height: 1;
 }
@@ -163,6 +167,8 @@
   }
 
   const DEFAULTS = {
+    // intrebare/grupe/latimiColoane: folosite doar dacă NU se dă `urmatorulFact`
+    // (fallback pentru un mount fără generator — vezi factInitial mai jos).
     intrebare: "2+1=?",
     grupe: [
       { n: 2, fundal: "rosu" },
@@ -170,11 +176,12 @@
     ],
     obiect: "🍏",
     latimiColoane: [2, 3, 4],
-    coloanaInitiala: 3, // lățimea coloanei pe care pornește liftul
+    coloanaInitialaIndex: 1, // index-ul coloanei pe care pornește liftul (nu lățimea ei)
     vitezaCoborare: 34, // px/s (mică — copii de clasa 1)
     gridVertical: true, // linii verticale (implicit engine; quizul rezolvă din CP)
     gridOrizontal: true, // linii orizontale
     pozitieTreime: true, // true = fiecare coloană o treime din spațiu; false = proporțional
+    urmatorulFact: null, // () => fact | null. null ⇒ factul nu se schimbă la wrap.
   };
 
   const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
@@ -190,7 +197,7 @@
     injectStyles();
     if (gameEl) gameEl.classList.add("rigle-active");
 
-    const totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0);
+    let totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0); // recalculat la fiecare fact
     const butoaneLayer = optionsEl.parentElement; // #div-strat-butoane
 
     // ── Suprimă shell-ul m1 din arenă (scenă + slot butoane + bară fixă). ──
@@ -205,38 +212,21 @@
     hideEl(optionsEl);
     hideEl(document.getElementById("lift-fixed-host"));
 
-    // ── Scena m2 (paper → coloane → lift → grilă deasupra tuturor). ──
+    // ── Scena m2: structura fixă se creează o dată aici (paper → coloane → lift →
+    // grilă). Conținutul variabil (întrebare, mere, lățimi coloane, butoane) vine
+    // din randeazaFact(), apelată la mount și la fiecare fact nou. ──
     const scene = document.createElement("div");
     scene.className = "rigle-scene";
 
     const columnsWrap = document.createElement("div");
     columnsWrap.className = "rigle-columns";
-    const colEls = cfg.latimiColoane.map((w) => {
-      const col = document.createElement("div");
-      col.className = "rigle-col";
-      col.dataset.w = String(w);
-      columnsWrap.appendChild(col);
-      return col;
-    });
 
     const lift = document.createElement("div");
     lift.className = "rigle-lift";
     const qEl = document.createElement("div");
     qEl.className = "rigle-lift-q";
-    qEl.textContent = cfg.intrebare;
     const rowEl = document.createElement("div");
     rowEl.className = "rigle-lift-row";
-    cfg.grupe.forEach((g) => {
-      for (let i = 0; i < g.n; i++) {
-        const cellEl = document.createElement("div");
-        cellEl.className = `rigle-apple rigle-apple--${g.fundal}`;
-        const emoji = document.createElement("span");
-        emoji.className = "rigle-apple-emoji";
-        emoji.textContent = cfg.obiect;
-        cellEl.appendChild(emoji);
-        rowEl.appendChild(cellEl);
-      }
-    });
     lift.append(qEl, rowEl);
 
     const gridEl = document.createElement("div");
@@ -245,30 +235,80 @@
     scene.append(columnsWrap, lift, gridEl);
     arenaEl.appendChild(scene);
 
-    // ── Butoanele proprii ale m2, în stratul de butoane (peste scenă). ──
+    // ── Bara de butoane proprie a m2, în stratul de butoane (peste scenă). ──
     const buttonsBar = document.createElement("div");
     buttonsBar.className = "rigle-buttons";
-    const myButtons = cfg.latimiColoane.map((w, idx) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "rigle-btn";
-      const num = document.createElement("span");
-      num.className = "rigle-btn-num";
-      num.textContent = String(w);
-      btn.appendChild(num);
-      btn.addEventListener("click", () => selectColumn(idx));
-      buttonsBar.appendChild(btn);
-      return btn;
-    });
     butoaneLayer.appendChild(buttonsBar);
 
     // ── Geometrie + stare ──
     let cell = 32;
     let colX = [];
     let travel = 1;
-    let colIndex = cfg.latimiColoane.indexOf(cfg.coloanaInitiala);
-    if (colIndex < 0) colIndex = Math.floor(cfg.latimiColoane.length / 2);
+    let colEls = [];
+    let myButtons = [];
+    let colIndex = cfg.coloanaInitialaIndex;
+    if (colIndex < 0 || colIndex >= cfg.latimiColoane.length) {
+      colIndex = Math.floor(cfg.latimiColoane.length / 2);
+    }
     let y = 0; // 0..travel (top-ul liftului, de la marginea de sus a arenei)
+
+    // Randare completă a conținutului variabil dintr-un fact (UI = f(state), fără
+    // update parțial): întrebarea, rândul de mere, coloanele, butoanele, apoi
+    // geometria. Ordinea contează — computeGeometry() citește lift.offsetHeight,
+    // deci conținutul liftului trebuie deja în DOM.
+    function randeazaFact(fact) {
+      cfg.intrebare = fact.intrebare;
+      cfg.grupe = fact.grupe;
+      cfg.latimiColoane = fact.latimiColoane;
+      totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0);
+
+      // 1. întrebarea
+      qEl.textContent = cfg.intrebare;
+
+      // 2. rândul de mere
+      rowEl.replaceChildren();
+      cfg.grupe.forEach((g) => {
+        for (let i = 0; i < g.n; i++) {
+          const cellEl = document.createElement("div");
+          cellEl.className = `rigle-apple rigle-apple--${g.fundal}`;
+          const emoji = document.createElement("span");
+          emoji.className = "rigle-apple-emoji";
+          emoji.textContent = cfg.obiect;
+          cellEl.appendChild(emoji);
+          rowEl.appendChild(cellEl);
+        }
+      });
+
+      // 3. coloanele
+      columnsWrap.replaceChildren();
+      colEls = cfg.latimiColoane.map((w) => {
+        const col = document.createElement("div");
+        col.className = "rigle-col";
+        col.dataset.w = String(w);
+        columnsWrap.appendChild(col);
+        return col;
+      });
+
+      // 4. butoanele — lățimea + poziția reală vin din computeGeometry() (pasul 5).
+      buttonsBar.replaceChildren();
+      myButtons = cfg.latimiColoane.map((w, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "rigle-btn";
+        const num = document.createElement("span");
+        num.className = "rigle-btn-num";
+        num.textContent = String(w);
+        btn.appendChild(num);
+        btn.addEventListener("click", () => selectColumn(idx));
+        buttonsBar.appendChild(btn);
+        return btn;
+      });
+
+      if (colIndex >= colEls.length) colIndex = Math.floor(colEls.length / 2);
+
+      // 5. geometria
+      computeGeometry();
+    }
 
     function computeGeometry() {
       const arenaRect = arenaEl.getBoundingClientRect();
@@ -287,12 +327,12 @@
         const n = cfg.latimiColoane.length;
         const thirdW = W / n;
         const cellsPerThird = Math.max(Math.max(...cfg.latimiColoane), totalMere);
-        cell = Math.max(14, Math.floor(thirdW / cellsPerThird));
+        cell = Math.max(1, Math.floor(thirdW / cellsPerThird));
         colX = cfg.latimiColoane.map((_, i) => i * cellsPerThird * cell);
       } else {
         const sumW = cfg.latimiColoane.reduce((s, w) => s + w, 0);
         const nGaps = Math.max(0, cfg.latimiColoane.length - 1);
-        cell = Math.max(14, Math.floor(W / (sumW + nGaps + 1)));
+        cell = Math.max(1, Math.floor(W / (sumW + nGaps + 1)));
         const gap = cell;
         const used = sumW * cell + nGaps * gap;
         margin = Math.max(0, Math.round((W - used) / 2));
@@ -359,7 +399,34 @@
       y = frac * travel;
     }
 
-    computeGeometry();
+    // La fact nou se schimbă lățimile coloanelor, deci colX, deci lift.style.left —
+    // cu tranziția activă liftul ar glisa orizontal exact când sare vertical sus.
+    // Se scoate clasa înainte de randare, se pune la loc pe rAF (ca la mount).
+    function schimbaFact(fact) {
+      lift.classList.remove("rigle-lift--ready");
+      randeazaFact(fact);
+      requestAnimationFrame(() => lift.classList.add("rigle-lift--ready"));
+    }
+
+    function faNouFact() {
+      const fact = cfg.urmatorulFact?.();
+      if (fact) schimbaFact(fact);
+    }
+
+    // Folosită de CP: fără ea, o schimbare de interval din „Suma maxima" s-ar vedea
+    // abia la următorul wrap (~20s), și controlul ar părea stricat.
+    function reporneste() {
+      y = 0;
+      faNouFact();
+    }
+
+    // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi
+    // diferite de a produce un fact. Fără callback (mount fără generator), se
+    // folosesc valorile din cfg — comportament identic cu etapa 1.
+    const factInitial = cfg.urmatorulFact
+      ? cfg.urmatorulFact()
+      : { intrebare: cfg.intrebare, grupe: cfg.grupe, latimiColoane: cfg.latimiColoane };
+    randeazaFact(factInitial);
     // Activăm tranziția orizontală abia după prima așezare, ca liftul să nu
     // gliseze din colț la pornire.
     requestAnimationFrame(() => lift.classList.add("rigle-lift--ready"));
@@ -376,7 +443,7 @@
     };
     document.addEventListener("keydown", onKey);
 
-    // ── Bucla de coborâre (lentă, continuă, wrap la podea, aceeași coloană). ──
+    // ── Bucla de coborâre (lentă, continuă, wrap la podea → fact nou). ──
     let rafId = null;
     let lastTs = 0;
     function tick(ts) {
@@ -384,7 +451,10 @@
       const dt = Math.min((ts - lastTs) / 1000, 0.05);
       lastTs = ts;
       y += cfg.vitezaCoborare * dt;
-      if (y >= travel) y = 0;
+      if (y >= travel) {
+        y = 0;
+        faNouFact();
+      }
       lift.style.top = `${y}px`;
       rafId = requestAnimationFrame(tick);
     }
@@ -410,7 +480,7 @@
       });
     }
 
-    return { destroy, setGridLines, setColumnLayout };
+    return { destroy, setGridLines, setColumnLayout, reporneste };
   }
 
   global.RigleEngine = { mount };
