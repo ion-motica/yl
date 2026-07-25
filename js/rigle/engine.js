@@ -174,6 +174,7 @@
     vitezaCoborare: 34, // px/s (mică — copii de clasa 1)
     gridVertical: true, // linii verticale (implicit engine; quizul rezolvă din CP)
     gridOrizontal: true, // linii orizontale
+    pozitieTreime: true, // true = fiecare coloană o treime din spațiu; false = proporțional
   };
 
   const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
@@ -275,19 +276,34 @@
       const H = arenaRect.height || 720;
       // Coloanele și traseul liftului merg de la marginea de sus la cea de jos a
       // #arena (curg pe sub bara de sus și pe sub butoane).
-      const sumW = cfg.latimiColoane.reduce((s, w) => s + w, 0);
-      const nGaps = Math.max(0, cfg.latimiColoane.length - 1);
-      cell = Math.max(14, Math.floor(W / (sumW + nGaps + 1)));
-      const gap = cell;
-      const used = sumW * cell + nGaps * gap;
-      const margin = Math.max(0, Math.round((W - used) / 2));
+      let margin = 0;
 
-      colX = [];
-      let x = margin;
-      cfg.latimiColoane.forEach((w) => {
-        colX.push(x);
-        x += w * cell + gap;
-      });
+      if (cfg.pozitieTreime) {
+        // Fiecare coloană = 1/N din lățimea arenei. `cellsPerThird` = nr. de celule
+        // cât să încapă mereu, în orice treime, ȘI coloana ei ȘI liftul (bloc rigid,
+        // poate fi mai lat decât coloana îngustă pe care stă parcat — „prea mult"
+        // vizual din SPEC). `cell` derivă din asta, deci colX cade mereu pe multipli
+        // exacți de `cell` — marginile coloanei coincid cu liniile grilei.
+        const n = cfg.latimiColoane.length;
+        const thirdW = W / n;
+        const cellsPerThird = Math.max(Math.max(...cfg.latimiColoane), totalMere);
+        cell = Math.max(14, Math.floor(thirdW / cellsPerThird));
+        colX = cfg.latimiColoane.map((_, i) => i * cellsPerThird * cell);
+      } else {
+        const sumW = cfg.latimiColoane.reduce((s, w) => s + w, 0);
+        const nGaps = Math.max(0, cfg.latimiColoane.length - 1);
+        cell = Math.max(14, Math.floor(W / (sumW + nGaps + 1)));
+        const gap = cell;
+        const used = sumW * cell + nGaps * gap;
+        margin = Math.max(0, Math.round((W - used) / 2));
+
+        colX = [];
+        let x = margin;
+        cfg.latimiColoane.forEach((w) => {
+          colX.push(x);
+          x += w * cell + gap;
+        });
+      }
 
       scene.style.setProperty("--cell", `${cell}px`);
       gridEl.style.backgroundSize = `${cell}px ${cell}px`;
@@ -333,6 +349,14 @@
       if (typeof opts.vertical === "boolean") cfg.gridVertical = opts.vertical;
       if (typeof opts.orizontal === "boolean") cfg.gridOrizontal = opts.orizontal;
       applyGridLines();
+    }
+
+    function setColumnLayout(opts) {
+      if (!opts) return;
+      if (typeof opts.treime === "boolean") cfg.pozitieTreime = opts.treime;
+      const frac = travel > 0 ? y / travel : 0;
+      computeGeometry();
+      y = frac * travel;
     }
 
     computeGeometry();
@@ -386,7 +410,7 @@
       });
     }
 
-    return { destroy, setGridLines };
+    return { destroy, setGridLines, setColumnLayout };
   }
 
   global.RigleEngine = { mount };

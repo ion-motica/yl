@@ -136,3 +136,12 @@ Dacă experimentăm un feature structural: propune un quiz evaluat ca fiind potr
 - Intrarea este fie un string cu o singură operație, fie obiectul explicit `{ operandStanga, operatie, operandDreapta }`.
 - Quizul furnizează explicit operația; funcția nu extrage context din quiz, DOM sau variabile globale.
 - Funcția simulează algoritmul scris școlar și numără TICs (Transport, Împrumut, Carry). Nu o înlocui cu o estimare de calcul mental și nu reordona operanzii.
+
+## Cl. 1 - Rigle (m2)
+
+> Înainte de orice modificare la quiz-ul „Cl. 1 - Rigle" sau la motorul lui, citește
+> `documente de referinta/RIGLE-REFERENCE.md` — arhitectură, contract engine, ce e
+> implementat vs. ce nu, gotcha-uri cunoscute. Nu re-deriva contextul din cod de la zero.
+>
+> E un motor complet separat de motorul 1 (`FallingEngine`) — nu presupune contractul
+> obișnuit de quiz (niveluri, `onAnswer`, etc.) fără să verifici întâi referința.

@@ -28,6 +28,10 @@
   const getGridVertical = () => global.LayoutConfig?.get(GRID_VERTICAL_KEY, true) !== false;
   const getGridOrizontal = () => global.LayoutConfig?.get(GRID_ORIZONTAL_KEY, false) === true;
 
+  // CP — Poziție coloane: treime din spațiu (implicit) vs. proporțional (spațiu).
+  const COL_TREIME_KEY = "rigleColoaneTreime";
+  const getColoaneTreime = () => global.LayoutConfig?.get(COL_TREIME_KEY, true) !== false;
+
   global.QuizRegistry.register({
     id: "rigle-cl1",
     title: "Cl. 1 - Rigle",
@@ -45,6 +49,7 @@
           const cfg = Object.assign({}, CONFIG_ETAPA1, {
             gridVertical: getGridVertical(),
             gridOrizontal: getGridOrizontal(),
+            pozitieTreime: getColoaneTreime(),
           });
           mounted = global.RigleEngine.mount(hosts, cfg);
         },
@@ -83,6 +88,35 @@
           addRow("Orizontal", getGridOrizontal(), (checked) => {
             global.LayoutConfig?.set(GRID_ORIZONTAL_KEY, checked);
             mounted?.setGridLines({ orizontal: checked });
+          });
+
+          const posTitle = document.createElement("p");
+          posTitle.className = "control-panel-lift-title";
+          posTitle.textContent = "Poziție coloane";
+          mount.appendChild(posTitle);
+
+          const addRadioRow = (labelText, value, currentValue, onChange) => {
+            const row = document.createElement("label");
+            row.className = "control-panel-lift-row";
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = "rigle-col-pozitie";
+            input.checked = value === currentValue;
+            input.addEventListener("change", onChange);
+            const span = document.createElement("span");
+            span.textContent = labelText;
+            row.append(input, span);
+            mount.appendChild(row);
+          };
+
+          const treimeAcum = getColoaneTreime();
+          addRadioRow("Fiecare coloană are o treime din spațiu", true, treimeAcum, () => {
+            global.LayoutConfig?.set(COL_TREIME_KEY, true);
+            mounted?.setColumnLayout({ treime: true });
+          });
+          addRadioRow("În funcție de spațiu", false, treimeAcum, () => {
+            global.LayoutConfig?.set(COL_TREIME_KEY, false);
+            mounted?.setColumnLayout({ treime: false });
           });
         },
 
