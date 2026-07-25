@@ -50,6 +50,17 @@
     global.LayoutConfig?.set(SUMA_MAX_KEY, max);
   }
 
+  // CP — Numerotează rânduri din coloane: "dezactivat" | "toate" | "animat".
+  const NUMEROTARE_KEY = "rigleNumerotare";
+  const RANDURI_SUS_KEY = "rigleRanduriInSus";
+  const RANDURI_SUS_IMPLICIT = 10;
+  const getNumerotare = () => global.LayoutConfig?.get(NUMEROTARE_KEY, "dezactivat") ?? "dezactivat";
+  const getRanduriInSus = () => global.LayoutConfig?.get(RANDURI_SUS_KEY, RANDURI_SUS_IMPLICIT) ?? RANDURI_SUS_IMPLICIT;
+  function seteazaRanduriInSus(valoare) {
+    const v = Math.max(1, Math.min(50, Math.round(valoare)));
+    global.LayoutConfig?.set(RANDURI_SUS_KEY, v);
+  }
+
   global.QuizRegistry.register({
     id: "rigle-cl1",
     title: "Cl. 1 - Rigle",
@@ -72,6 +83,8 @@
             gridVertical: getGridVertical(),
             gridOrizontal: getGridOrizontal(),
             pozitieTreime: getColoaneTreime(),
+            numerotareRanduri: getNumerotare(),
+            randuriInSus: getRanduriInSus(),
             urmatorulFact,
           });
           mounted = global.RigleEngine.mount(hosts, cfg);
@@ -118,12 +131,12 @@
           posTitle.textContent = "Poziție coloane";
           mount.appendChild(posTitle);
 
-          const addRadioRow = (labelText, value, currentValue, onChange) => {
+          const addRadioRow = (labelText, value, currentValue, groupName, onChange) => {
             const row = document.createElement("label");
             row.className = "control-panel-lift-row";
             const input = document.createElement("input");
             input.type = "radio";
-            input.name = "rigle-col-pozitie";
+            input.name = groupName;
             input.checked = value === currentValue;
             input.addEventListener("change", onChange);
             const span = document.createElement("span");
@@ -133,11 +146,11 @@
           };
 
           const treimeAcum = getColoaneTreime();
-          addRadioRow("Fiecare coloană are o treime din spațiu", true, treimeAcum, () => {
+          addRadioRow("Fiecare coloană are o treime din spațiu", true, treimeAcum, "rigle-col-pozitie", () => {
             global.LayoutConfig?.set(COL_TREIME_KEY, true);
             mounted?.setColumnLayout({ treime: true });
           });
-          addRadioRow("În funcție de spațiu", false, treimeAcum, () => {
+          addRadioRow("În funcție de spațiu", false, treimeAcum, "rigle-col-pozitie", () => {
             global.LayoutConfig?.set(COL_TREIME_KEY, false);
             mounted?.setColumnLayout({ treime: false });
           });
@@ -150,7 +163,7 @@
           let minInput = null;
           let maxInput = null;
 
-          const addStepper = (labelText, getValue, onApply) => {
+          const addStepper = (labelText, getValue, onApply, min, max, dupaAplicare) => {
             const field = document.createElement("div");
             field.className = "control-panel-lift-field pre-eq-stepper-field";
             const label = document.createElement("label");
@@ -162,8 +175,8 @@
             minus.textContent = "-";
             const input = document.createElement("input");
             input.type = "number";
-            input.min = "1";
-            input.max = "30";
+            input.min = String(min);
+            input.max = String(max);
             input.step = "1";
             input.value = String(getValue());
             const plus = document.createElement("button");
@@ -172,9 +185,8 @@
 
             const apply = (valoare) => {
               onApply(Number(valoare));
-              minInput.value = String(getSumaMin());
-              maxInput.value = String(getSumaMax());
-              mounted?.reporneste();
+              input.value = String(getValue());
+              dupaAplicare?.();
             };
 
             minus.addEventListener("click", () => apply(Number(input.value) - 1));
@@ -187,8 +199,37 @@
             return input;
           };
 
-          minInput = addStepper("Minim", getSumaMin, seteazaSumaMin);
-          maxInput = addStepper("Maxim", getSumaMax, seteazaSumaMax);
+          minInput = addStepper("Minim", getSumaMin, seteazaSumaMin, 1, 30, () => {
+            maxInput.value = String(getSumaMax());
+            mounted?.reporneste();
+          });
+          maxInput = addStepper("Maxim", getSumaMax, seteazaSumaMax, 1, 30, () => {
+            minInput.value = String(getSumaMin());
+            mounted?.reporneste();
+          });
+
+          const numTitle = document.createElement("p");
+          numTitle.className = "control-panel-lift-title";
+          numTitle.textContent = "Numerotează rânduri din coloane";
+          mount.appendChild(numTitle);
+
+          const numerotareAcum = getNumerotare();
+          addRadioRow("Dezactivat", "dezactivat", numerotareAcum, "rigle-numerotare", () => {
+            global.LayoutConfig?.set(NUMEROTARE_KEY, "dezactivat");
+            mounted?.setNumerotareRanduri({ mod: "dezactivat" });
+          });
+          addRadioRow("Pe toate rândurile", "toate", numerotareAcum, "rigle-numerotare", () => {
+            global.LayoutConfig?.set(NUMEROTARE_KEY, "toate");
+            mounted?.setNumerotareRanduri({ mod: "toate" });
+          });
+          addRadioRow("Animat fade-in pe coloana curentă", "animat", numerotareAcum, "rigle-numerotare", () => {
+            global.LayoutConfig?.set(NUMEROTARE_KEY, "animat");
+            mounted?.setNumerotareRanduri({ mod: "animat" });
+          });
+
+          addStepper("Câte rânduri în sus", getRanduriInSus, seteazaRanduriInSus, 1, 50, () => {
+            mounted?.setNumerotareRanduri({ randuriInSus: getRanduriInSus() });
+          });
         },
 
         // Stub-uri minime pentru orice apel neguardat din HUD.

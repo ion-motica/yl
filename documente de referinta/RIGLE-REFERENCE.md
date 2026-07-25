@@ -65,6 +65,7 @@ RigleEngine.mount(hosts, config) → {
   setGridLines({ vertical?, orizontal? }),
   setColumnLayout({ treime? }),
   reporneste(),   // y=0 + cere fact nou prin cfg.urmatorulFact() + randează
+  setNumerotareRanduri({ mod?, randuriInSus? }),  // live, §6 „Numerotează rânduri"
 }
 ```
 
@@ -261,9 +262,32 @@ coboară) — nu poate exista un interval invalid. La fiecare schimbare, ambele 
 persistă și se apelează `mounted.reporneste()`, ca efectul să fie vizibil imediat, nu
 abia la următorul wrap (~20s).
 
-Toate 3 secțiunile sunt **live** (`setGridLines` / `setColumnLayout` / `reporneste`,
-fără remount) și **persistă** între reload-uri, la fel ca celelalte bife simple din CP
-(ex. „Afiseaza Timpi raspuns").
+**„Numerotează rânduri din coloane"** — 3 radio exclusive, `name="rigle-numerotare"`,
+plus un stepper (tipar `addStepper` generalizat cu `min`/`max`/`dupaAplicare`, refolosit
+de la Suma maxima — vezi §8):
+
+| Opțiune | Valoare `rigleNumerotare` |
+|---|---|
+| Dezactivat (implicit) | `"dezactivat"` |
+| Pe toate rândurile | `"toate"` |
+| Animat fade-in pe coloana curentă | `"animat"` |
+
+| Câmp | Interval | Implicit | Cheie `LayoutConfig` |
+|---|---|---|---|
+| Câte rânduri în sus | 1-50 | `10` | `rigleRanduriInSus` |
+
+Fiecare rând de grilă din fiecare coloană arată `1..lățimeaColoanei` (aceleași cifre pe
+orice rând — poziția celulei, nu un contor). **„Toate rândurile"**: statice, o singură
+culoare, pe toate cele 3 coloane. **„Animat"**: doar pe coloana curentă (a liftului),
+doar o fereastră de `randuriInSus` rânduri deasupra rândului liftului, cu opacitate
+1→0 și culoare pe un gradient HSL 205°(albastru, la lift)→320°(roz-magenta, la
+marginea ferestrei) — v. `NUMEROTARE_HUE_APROAPE`/`NUMEROTARE_HUE_DEPARTE` în
+`engine.js`. La schimbare de coloană, fereastra veche se golește explicit (altfel ar
+rămâne vizibilă pe coloana părăsită).
+
+Toate 4 secțiunile sunt **live** (`setGridLines` / `setColumnLayout` / `reporneste` /
+`setNumerotareRanduri`, fără remount) și **persistă** între reload-uri, la fel ca
+celelalte bife simple din CP (ex. „Afiseaza Timpi raspuns").
 
 `rigle` a fost adăugat explicit în `DEFAULT_ORDER` din `cp-registry.js` — fără el,
 panoul nu ar apărea deloc la un `localStorage` curat (doar la useri cu o ordine CP deja
@@ -280,6 +304,8 @@ salvată, unde intră automat la coadă).
 | `rigleColoaneTreime` | poziție coloane: treime (`true`) vs. proporțional (`false`) | `true` |
 | `rigleSumaMin` | suma minimă a factului generat | `2` |
 | `rigleSumaMax` | suma maximă a factului generat | `5` |
+| `rigleNumerotare` | numerotare rânduri: `"dezactivat"`\|`"toate"`\|`"animat"` | `"dezactivat"` |
+| `rigleRanduriInSus` | modul „animat": câte rânduri deasupra liftului rămân vizibile | `10` |
 | `cpOrder` | ordinea panourilor CP (globală, nu doar Rigle) | — |
 
 Nimic din progresul/răspunsurile la Rigle nu persistă încă — nicio etapă livrată n-are
@@ -292,7 +318,7 @@ validare, deci n-are ce să rețină.
 | Fișier | Rol |
 |---|---|
 | `js/rigle/facte.js` | Generator pur de facte: `RigleFacte.genereazaFact()` / `.alegeVariante()`, zero DOM, zero `LayoutConfig`. |
-| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste. |
+| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, numerotare rânduri, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste/setNumerotareRanduri. |
 | `js/quizzes/rigle-cl1.js` | Înregistrare quiz în `QuizRegistry`, config, callback `urmatorulFact`, contract `customEngine`, panoul CP. |
 | `js/app.js` | 5 branch-uri `customEngine` (mount/unmount + guard-uri) + `renderRiglePanel()`. |
 | `js/cp-registry.js` | `"rigle"` în `DEFAULT_ORDER`. |
@@ -346,6 +372,20 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
    iese niciodată din cutie, dar marja scade sub 15px în cazurile cele mai lungi
    (2 cifre + 2 cifre pe ambii termeni). Mărul (`.rigle-apple-emoji`) rămâne proporțional
    cu `--cell` — doar textul întrebării e fix.
+8. **Numerotarea rândurilor se creează o singură dată (nu în fiecare cadru).**
+   `randeazaNumerotare()` rulează din `computeGeometry()` (mount, resize,
+   `setColumnLayout`, fact nou) și rebuild-uiește tot (`.rigle-row` per linie de grilă
+   × 3 coloane — la sumă mare, zeci de mii de noduri, dar creat o dată, nu pe cadru).
+   Doar modul „animat" scrie ceva pe `tick()`, și scrie `opacity`/`color` pe
+   **wrapper-ul de rând** (`.rigle-row`), niciodată pe cifrele individuale
+   (`.rigle-row-cell`, `color: inherit`) — de-aia actualizarea per-cadru costă
+   `maxRanduri` scrieri de style, nu `maxRanduri × lățime`. Nu muta stilul pe cifre
+   individuale fără un motiv concret — anulează exact optimizarea asta.
+9. **`requestAnimationFrame` se oprește când tab-ul nu e vizibil** (`document.hidden`).
+   La testare automată în panoul de preview: dacă pare că liftul „nu cade" deloc după
+   ce aștepți, verifică `document.visibilityState` înainte să bănuiești un bug de
+   mișcare — dacă panoul Browser nu e afișat activ, rAF-ul motorului e throttled de
+   browser, nu de cod.
 
 ---
 

@@ -8,7 +8,7 @@
  * `js/rigle/SPEC-etapa1.md` e istoric (etapa 1, doar mișcarea).
  *
  *   RigleEngine.mount({ arenaEl, optionsEl }, config?)
- *     → { destroy, setGridLines, setColumnLayout, reporneste }
+ *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri }
  *
  * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
  * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
@@ -108,6 +108,30 @@
   z-index: 3;
   pointer-events: none;
 }
+/* Numerotarea rândurilor (CP „Numerotează rânduri din coloane") — peste coloane,
+   sub lift. Un .rigle-row per linie de grilă dintr-o coloană, cu 1..lățime cifre
+   înăuntru; opacity/color se scriu pe .rigle-row (nu pe fiecare cifră), ca
+   actualizarea din modul animat să fie ieftină. */
+.rigle-row-numbers {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.rigle-row {
+  position: absolute;
+  display: flex;
+  box-sizing: border-box;
+}
+.rigle-row-cell {
+  flex: 1 0 0;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: calc(var(--cell) * 0.5);
+  line-height: 1;
+  color: inherit;
+}
 /* Butoanele m2 — look-ul copiat din motorul 1, dar complet self-contained
    (clasă proprie, valori hardcodate; nu depinde de .option / #options). */
 /* Butoanele m2: fiecare are lățimea coloanei lui și stă exact peste ea
@@ -182,9 +206,14 @@
     gridOrizontal: true, // linii orizontale
     pozitieTreime: true, // true = fiecare coloană o treime din spațiu; false = proporțional
     urmatorulFact: null, // () => fact | null. null ⇒ factul nu se schimbă la wrap.
+    numerotareRanduri: "dezactivat", // "dezactivat" | "toate" | "animat"
+    randuriInSus: 10, // modul "animat": câte rânduri deasupra liftului rămân vizibile
   };
 
   const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
+  const NUMEROTARE_CULOARE_STATICA = "rgba(70, 120, 190, 0.65)"; // modul "toate rândurile"
+  const NUMEROTARE_HUE_APROAPE = 205; // albastru, la rândul liftului
+  const NUMEROTARE_HUE_DEPARTE = 320; // roz-magenta, la marginea ferestrei (modul "animat")
 
   function mount(hosts, config) {
     const arenaEl = hosts && hosts.arenaEl;
@@ -221,6 +250,9 @@
     const columnsWrap = document.createElement("div");
     columnsWrap.className = "rigle-columns";
 
+    const rowNumbersWrap = document.createElement("div");
+    rowNumbersWrap.className = "rigle-row-numbers";
+
     const lift = document.createElement("div");
     lift.className = "rigle-lift";
     const qEl = document.createElement("div");
@@ -232,7 +264,7 @@
     const gridEl = document.createElement("div");
     gridEl.className = "rigle-grid";
 
-    scene.append(columnsWrap, lift, gridEl);
+    scene.append(columnsWrap, rowNumbersWrap, lift, gridEl);
     arenaEl.appendChild(scene);
 
     // ── Bara de butoane proprie a m2, în stratul de butoane (peste scenă). ──
@@ -246,6 +278,7 @@
     let travel = 1;
     let colEls = [];
     let myButtons = [];
+    let rowEls = []; // rowEls[coloană][rând] = elementul .rigle-row (numerotare)
     let colIndex = cfg.coloanaInitialaIndex;
     if (colIndex < 0 || colIndex >= cfg.latimiColoane.length) {
       colIndex = Math.floor(cfg.latimiColoane.length / 2);
@@ -369,12 +402,84 @@
 
       lift.style.left = `${colX[colIndex]}px`;
       lift.style.top = `${Math.min(y, travel)}px`;
+
+      randeazaNumerotare(H);
+    }
+
+    // Rebuild complet al numerotării (nu update parțial): un .rigle-row pe fiecare
+    // linie de grilă din fiecare coloană, cu 1..lățime cifre. Apelat din
+    // computeGeometry() — deci la mount, resize, setColumnLayout, fact nou și
+    // setNumerotareRanduri(). Modul "animat" pornește cu toate rândurile invizibile
+    // (opacity 0); tick()/selectColumn() decid ce se vede.
+    function randeazaNumerotare(H) {
+      rowNumbersWrap.replaceChildren();
+      rowEls = [];
+      if (cfg.numerotareRanduri === "dezactivat") return;
+
+      const maxRanduri = Math.max(0, Math.ceil(H / cell));
+      cfg.latimiColoane.forEach((w, i) => {
+        const randuriColoana = [];
+        for (let r = 0; r < maxRanduri; r++) {
+          const randEl = document.createElement("div");
+          randEl.className = "rigle-row";
+          randEl.style.left = `${colX[i]}px`;
+          randEl.style.top = `${r * cell}px`;
+          randEl.style.width = `${w * cell}px`;
+          randEl.style.height = `${cell}px`;
+          for (let k = 1; k <= w; k++) {
+            const cifraEl = document.createElement("span");
+            cifraEl.className = "rigle-row-cell";
+            cifraEl.textContent = String(k);
+            randEl.appendChild(cifraEl);
+          }
+          if (cfg.numerotareRanduri === "toate") {
+            randEl.style.color = NUMEROTARE_CULOARE_STATICA;
+            randEl.style.opacity = "1";
+          } else {
+            randEl.style.opacity = "0"; // "animat" — actualizeazaNumerotareAnimata() decide
+          }
+          rowNumbersWrap.appendChild(randEl);
+          randuriColoana.push(randEl);
+        }
+        rowEls[i] = randuriColoana;
+      });
+    }
+
+    // Modul "animat": fereastra de `randuriInSus` rânduri deasupra liftului, pe
+    // coloana curentă — opacitate + culoare (hue) în funcție de distanța până la
+    // rândul liftului. Ieftin: doar `maxRanduri` scrieri de style, nicio creare de
+    // DOM (asta se întâmplă o singură dată, în randeazaNumerotare).
+    function actualizeazaNumerotareAnimata() {
+      if (cfg.numerotareRanduri !== "animat") return;
+      const randuriColoana = rowEls[colIndex];
+      if (!randuriColoana) return;
+      const liftH = lift.offsetHeight || cell * 2.4;
+      const randBaza = Math.round((y + liftH) / cell) + 1; // rândul liftului + cel de sub
+      const X = Math.max(1, cfg.randuriInSus);
+
+      randuriColoana.forEach((randEl, r) => {
+        const distanta = randBaza - r;
+        if (distanta < 0 || distanta > X) {
+          randEl.style.opacity = "0";
+          return;
+        }
+        const t = distanta / X;
+        const hue = NUMEROTARE_HUE_APROAPE + (NUMEROTARE_HUE_DEPARTE - NUMEROTARE_HUE_APROAPE) * t;
+        randEl.style.opacity = String(1 - t);
+        randEl.style.color = `hsl(${hue}, 75%, 40%)`;
+      });
     }
 
     function selectColumn(idx) {
       if (idx < 0 || idx >= colX.length) return;
+      if (cfg.numerotareRanduri === "animat" && rowEls[colIndex]) {
+        rowEls[colIndex].forEach((randEl) => {
+          randEl.style.opacity = "0";
+        });
+      }
       colIndex = idx;
       lift.style.left = `${colX[colIndex]}px`; // glisare orizontală (tranziția CSS)
+      actualizeazaNumerotareAnimata();
     }
 
     function applyGridLines() {
@@ -420,6 +525,16 @@
       faNouFact();
     }
 
+    // CP „Numerotează rânduri din coloane" — live, fără remount. computeGeometry()
+    // rebuild-uiește randeazaNumerotare() cu noile cfg.numerotareRanduri/randuriInSus.
+    function setNumerotareRanduri(opts) {
+      if (!opts) return;
+      if (typeof opts.mod === "string") cfg.numerotareRanduri = opts.mod;
+      if (typeof opts.randuriInSus === "number") cfg.randuriInSus = opts.randuriInSus;
+      computeGeometry();
+      actualizeazaNumerotareAnimata();
+    }
+
     // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi
     // diferite de a produce un fact. Fără callback (mount fără generator), se
     // folosesc valorile din cfg — comportament identic cu etapa 1.
@@ -456,6 +571,7 @@
         faNouFact();
       }
       lift.style.top = `${y}px`;
+      actualizeazaNumerotareAnimata();
       rafId = requestAnimationFrame(tick);
     }
     rafId = requestAnimationFrame(tick);
@@ -480,7 +596,7 @@
       });
     }
 
-    return { destroy, setGridLines, setColumnLayout, reporneste };
+    return { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri };
   }
 
   global.RigleEngine = { mount };
