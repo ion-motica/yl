@@ -96,15 +96,13 @@
   font-size: calc(var(--cell) * 0.74);
   line-height: 1;
 }
-/* Grila de caiet = DOAR linii, strat de sus peste tot (paper, coloane, lift). */
+/* Grila de caiet = DOAR linii, strat de sus peste tot (paper, coloane, lift).
+   background-image e setat din JS (applyGridLines), în funcție de vertical/orizontal. */
 .rigle-grid {
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgba(70, 120, 190, 0.28) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(70, 120, 190, 0.28) 1px, transparent 1px);
 }
 /* Butoanele m2 — look-ul copiat din motorul 1, dar complet self-contained
    (clasă proprie, valori hardcodate; nu depinde de .option / #options). */
@@ -174,7 +172,11 @@
     latimiColoane: [2, 3, 4],
     coloanaInitiala: 3, // lățimea coloanei pe care pornește liftul
     vitezaCoborare: 34, // px/s (mică — copii de clasa 1)
+    gridVertical: true, // linii verticale (implicit engine; quizul rezolvă din CP)
+    gridOrizontal: true, // linii orizontale
   };
+
+  const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
 
   function mount(hosts, config) {
     const arenaEl = hosts && hosts.arenaEl;
@@ -290,6 +292,7 @@
       scene.style.setProperty("--cell", `${cell}px`);
       gridEl.style.backgroundSize = `${cell}px ${cell}px`;
       gridEl.style.backgroundPosition = `${margin}px 0px`;
+      applyGridLines();
 
       colEls.forEach((el, i) => {
         el.style.left = `${colX[i]}px`;
@@ -316,6 +319,20 @@
       if (idx < 0 || idx >= colX.length) return;
       colIndex = idx;
       lift.style.left = `${colX[colIndex]}px`; // glisare orizontală (tranziția CSS)
+    }
+
+    function applyGridLines() {
+      const parts = [];
+      if (cfg.gridVertical) parts.push(`linear-gradient(to right, ${GRID_LINE})`);
+      if (cfg.gridOrizontal) parts.push(`linear-gradient(to bottom, ${GRID_LINE})`);
+      gridEl.style.backgroundImage = parts.length ? parts.join(", ") : "none";
+    }
+
+    function setGridLines(opts) {
+      if (!opts) return;
+      if (typeof opts.vertical === "boolean") cfg.gridVertical = opts.vertical;
+      if (typeof opts.orizontal === "boolean") cfg.gridOrizontal = opts.orizontal;
+      applyGridLines();
     }
 
     computeGeometry();
@@ -369,7 +386,7 @@
       });
     }
 
-    return { destroy };
+    return { destroy, setGridLines };
   }
 
   global.RigleEngine = { mount };

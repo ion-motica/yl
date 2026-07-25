@@ -22,6 +22,12 @@
     vitezaCoborare: 34,
   };
 
+  // CP — Grilă: persistă în LayoutConfig, ca celelalte bife simple din CP.
+  const GRID_VERTICAL_KEY = "rigleGridVertical";
+  const GRID_ORIZONTAL_KEY = "rigleGridOrizontal";
+  const getGridVertical = () => global.LayoutConfig?.get(GRID_VERTICAL_KEY, true) !== false;
+  const getGridOrizontal = () => global.LayoutConfig?.get(GRID_ORIZONTAL_KEY, false) === true;
+
   global.QuizRegistry.register({
     id: "rigle-cl1",
     title: "Cl. 1 - Rigle",
@@ -36,11 +42,48 @@
 
         mountArena(hosts) {
           if (mounted) mounted.destroy();
-          mounted = global.RigleEngine.mount(hosts, CONFIG_ETAPA1);
+          const cfg = Object.assign({}, CONFIG_ETAPA1, {
+            gridVertical: getGridVertical(),
+            gridOrizontal: getGridOrizontal(),
+          });
+          mounted = global.RigleEngine.mount(hosts, cfg);
         },
         unmountArena() {
           if (mounted) mounted.destroy();
           mounted = null;
+        },
+
+        // CP — Rigle: bife pentru liniile grilei (vertical/orizontal).
+        appendRigleControlPanel(mount) {
+          if (!mount) return;
+          mount.replaceChildren();
+
+          const title = document.createElement("p");
+          title.className = "control-panel-lift-title";
+          title.textContent = "Grila";
+          mount.appendChild(title);
+
+          const addRow = (labelText, checked, onChange) => {
+            const row = document.createElement("label");
+            row.className = "control-panel-lift-row";
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.checked = checked;
+            input.addEventListener("change", () => onChange(input.checked));
+            const span = document.createElement("span");
+            span.textContent = labelText;
+            row.append(input, span);
+            mount.appendChild(row);
+          };
+
+          addRow("Vertical", getGridVertical(), (checked) => {
+            global.LayoutConfig?.set(GRID_VERTICAL_KEY, checked);
+            mounted?.setGridLines({ vertical: checked });
+          });
+          addRow("Orizontal", getGridOrizontal(), (checked) => {
+            global.LayoutConfig?.set(GRID_ORIZONTAL_KEY, checked);
+            mounted?.setGridLines({ orizontal: checked });
+          });
         },
 
         // Stub-uri minime pentru orice apel neguardat din HUD.

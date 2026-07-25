@@ -9,6 +9,7 @@
     "sq2EffVbs",
     "preEquationNav",
     "equationTonomat",
+    "rigle",
     "liftType",
     "debug",
     "lift",

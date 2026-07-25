@@ -581,6 +581,7 @@
     renderEquationTonomatPanel();
     renderPreEquationNavigationPanel();
     renderSq2EffVbsPanel();
+    renderRiglePanel();
     renderArenaActions();
     aamArena?.reset();
     buildQuizPicker();
@@ -657,6 +658,14 @@
     });
   }
 
+  function renderRiglePanel() {
+    const mount = cpShell?.getMountEl("rigle");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendRigleControlPanel !== "function") return;
+    quiz.appendRigleControlPanel(mount);
+  }
+
   function renderPreEquationNavigationPanel() {
     const mount = cpShell?.getMountEl("preEquationNav");
     if (!mount) return;
@@ -717,6 +726,11 @@
     isEnabled: () => typeof quiz?.appendTonomatControlPanel === "function",
   });
   CpRegistry.register({
+    id: "rigle",
+    title: "CP — Rigle",
+    isEnabled: () => typeof quiz?.appendRigleControlPanel === "function",
+  });
+  CpRegistry.register({
     id: "preEquationNav",
     title: "CP - Pre-ecuatii",
     isEnabled: () =>
@@ -764,6 +778,7 @@
   renderEquationTonomatPanel();
   renderPreEquationNavigationPanel();
   renderSq2EffVbsPanel();
+  renderRiglePanel();
 
   function syncResponseTimesInput() {
     if (responseTimesInput) responseTimesInput.checked = showResponseTimes;
