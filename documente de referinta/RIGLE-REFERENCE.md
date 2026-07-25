@@ -129,10 +129,14 @@ lift mai lat decât orice coloană.
   (`window.RigleFacte`, funcții pure — algoritm detaliat în
   `js/rigle/PLAN-etapa2-variatie-facte.md` §4).
 - 3 coloane, lățimile = cele 3 variante de răspuns pentru sumă (una corectă + 2
-  distractori aleatori din `[suma-3, suma+3]`, excl. `suma`); poziția coloanei corecte
-  (după sortarea crescătoare) variază aleator — nu e sistematic pe mijloc sau pe o
-  poziție fixă. Alegere prin buton sau taste 1/2/3 (poziții stânga→dreapta, nu valoarea
-  lățimii).
+  distractori aleatori din `[suma-delta, suma+delta]`, excl. `suma`); poziția coloanei
+  corecte (după sortarea crescătoare) variază aleator — nu e sistematic pe mijloc sau pe
+  o poziție fixă. Alegere prin buton sau taste 1/2/3 (poziții stânga→dreapta, nu
+  valoarea lățimii).
+- **`delta` crește liniar cu suma**, nu e fix: `±3` la `suma=3`, `±10` la `suma=30`
+  (`deltaVariante(suma)` din `facte.js`, interpolare liniară între cele două puncte,
+  `Math.round`). Sume mai mari → interval mai greu de ghicit din alegerea coloanei, nu
+  doar mai multe obiecte de numărat.
 - Bloc rigid: obiectele din lift nu se realiniază/marchează la ieșire din ghidaj —
   pur vizual, fără logică de „încape/nu încape".
 - Grilă de caiet (linii, toggle independent vertical/orizontal din CP), aliniată exact
@@ -333,6 +337,15 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
    pune la loc pe `requestAnimationFrame` — altfel, cum lățimile coloanelor (deci
    `colX[colIndex]`) se schimbă exact când `y` sare la 0, liftul ar **glisa** lateral
    vizibil în loc să sară instant, ca un bug de mișcare.
+7. **`.rigle-lift-q` (textul întrebării) e singurul element din scenă cu mărime FIXĂ
+   (`19px`), nu proporțională cu `--cell`.** Intenționat — cerință explicită („textul
+   să nu se micșoreze"), diferit de tot restul scenei, care scalează cu `--cell`. Nu
+   reintroduce `calc(var(--cell) * ...)` aici fără să verifici mai întâi overflow-ul la
+   `suma=30`: cutia liftului poate ajunge la 90px lățime, iar un text de tipul
+   „10+20=?" la 19px ocupă ~79px — verificat empiric pe ~95 de facte la sumă 30, nu
+   iese niciodată din cutie, dar marja scade sub 15px în cazurile cele mai lungi
+   (2 cifre + 2 cifre pe ambii termeni). Mărul (`.rigle-apple-emoji`) rămâne proporțional
+   cu `--cell` — doar textul întrebării e fix.
 
 ---
 

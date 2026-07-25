@@ -53,12 +53,12 @@ describe("RigleFacte.alegeVariante", () => {
     }
   });
 
-  it("la suma=30, toate cele 3 poziții apar, iar variantele pot depăși 30 (max 33)", () => {
+  it("la suma=30, toate cele 3 poziții apar, iar variantele pot depăși 30 (max 40, delta liniar=10)", () => {
     const pozitii = new Set();
     for (let i = 0; i < 500; i++) {
       const { latimiColoane, indexCorect } = alegeVariante(30);
       pozitii.add(indexCorect);
-      latimiColoane.forEach((w) => assert.ok(w <= 33, `max variantă <=33, a fost ${w}`));
+      latimiColoane.forEach((w) => assert.ok(w <= 40, `max variantă <=40, a fost ${w}`));
     }
     assert.deepEqual([...pozitii].sort(), [0, 1, 2]);
   });
@@ -73,6 +73,29 @@ describe("RigleFacte.alegeVariante", () => {
     [0, 1, 2].forEach((p) => {
       assert.ok(numarare[p] > 800 && numarare[p] < 1200, `poziția ${p}: ${numarare[p]}`);
     });
+  });
+
+  it("fereastra de distractori crește liniar cu suma: ±3 la 3, ±10 la 30, ±6 la 16", () => {
+    function extremeObservate(suma, incercari) {
+      let min = Infinity;
+      let max = -Infinity;
+      for (let i = 0; i < incercari; i++) {
+        alegeVariante(suma).latimiColoane.forEach((w) => {
+          if (w !== suma) {
+            min = Math.min(min, w);
+            max = Math.max(max, w);
+          }
+        });
+      }
+      return { min, max };
+    }
+
+    // La capete (mereu toate 3 pozițiile fezabile, deci reîncercările ating capetele).
+    assert.deepEqual(extremeObservate(3, 2000), { min: 1, max: 6 }); // delta=3, dar jos taie la 1
+    assert.deepEqual(extremeObservate(30, 2000), { min: 20, max: 40 }); // delta=10
+
+    // Punct intermediar: suma=16 -> delta=round(3+(7/27)*13)=6.
+    assert.deepEqual(extremeObservate(16, 3000), { min: 10, max: 22 });
   });
 });
 

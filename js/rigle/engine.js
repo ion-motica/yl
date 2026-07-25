@@ -59,7 +59,7 @@
 }
 .rigle-lift-q {
   font-weight: 800;
-  font-size: clamp(11px, calc(var(--cell) * 0.62), 22px);
+  font-size: 19px; /* fix, nu urmărește --cell — nu se micșorează la sume mari */
   white-space: nowrap;
   color: #1f2a3a;
   line-height: 1;
@@ -131,7 +131,7 @@
   padding: 0.7rem 0.4rem;
   border: 2px solid rgba(61, 156, 245, 0.55);
   border-radius: 10px;
-  background: rgba(20, 28, 40, 0.4);
+  background: rgba(20, 28, 40, 0.16); /* mai transparent cu 60% fata de 0.4 */
   color: #e8eef5;
   cursor: pointer;
   box-sizing: border-box;

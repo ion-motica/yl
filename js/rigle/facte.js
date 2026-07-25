@@ -11,7 +11,12 @@
 (function (global) {
   "use strict";
 
-  const DELTA_VARIANTE = 3; // fereastra ±3 pentru distractori (decizia 3b din plan)
+  // Fereastra de distractori creste liniar cu suma: ±3 la suma=3, ±10 la suma=30
+  // (mai greu de ghicit din interval pe măsură ce copilul avansează).
+  const DELTA_LA_SUMA_MICA = 3;
+  const DELTA_LA_SUMA_MARE = 10;
+  const SUMA_MICA = 3;
+  const SUMA_MARE = 30;
   const NR_VARIANTE = 3; // 3 coloane
   const LATIME_MIN_COLOANA = 1; // o coloană nu poate avea 0 pătrățele
   const LATIME_MAX_COLOANA = Infinity; // limita 1-30 e pe sumă, nu pe lățimea coloanei (plan §3)
@@ -20,6 +25,12 @@
 
   function clamp(valoare, min, max) {
     return Math.min(max, Math.max(min, valoare));
+  }
+
+  // Interpolare liniară între (SUMA_MICA, DELTA_LA_SUMA_MICA) și (SUMA_MARE, DELTA_LA_SUMA_MARE).
+  function deltaVariante(suma) {
+    const panta = (DELTA_LA_SUMA_MARE - DELTA_LA_SUMA_MICA) / (SUMA_MARE - SUMA_MICA);
+    return Math.round(DELTA_LA_SUMA_MICA + panta * (suma - SUMA_MICA));
   }
 
   function intregAleator(min, max) {
@@ -39,17 +50,19 @@
 
   /**
    * Alege 3 lățimi de coloană pentru `suma`: una e exact `suma`, celelalte două sunt
-   * distractori aleatori din [suma-3, suma+3] (fără `suma` însăși). Poziția coloanei
+   * distractori aleatori din `[suma-delta, suma+delta]` (fără `suma` însăși), cu
+   * `delta = deltaVariante(suma)` — creşte liniar de la 3 la 10. Poziția coloanei
    * corecte, după sortarea crescătoare, variază aleator între cele fezabile —
    * la sume mici lângă capătul de jos (suma=2), nu toate cele 3 poziții sunt posibile
    * matematic (nu există lățime 0 sau negativă), vezi plan §3.
    */
   function alegeVariante(suma) {
+    const delta = deltaVariante(suma);
     const jos = [];
-    for (let v = Math.max(LATIME_MIN_COLOANA, suma - DELTA_VARIANTE); v <= suma - 1; v++) {
+    for (let v = Math.max(LATIME_MIN_COLOANA, suma - delta); v <= suma - 1; v++) {
       jos.push(v);
     }
-    const susMax = Math.min(LATIME_MAX_COLOANA, suma + DELTA_VARIANTE);
+    const susMax = Math.min(LATIME_MAX_COLOANA, suma + delta);
     const sus = [];
     for (let v = suma + 1; v <= susMax; v++) {
       sus.push(v);
