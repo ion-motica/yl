@@ -8,7 +8,7 @@
  * `js/rigle/SPEC-etapa1.md` e istoric (etapa 1, doar mișcarea).
  *
  *   RigleEngine.mount({ arenaEl, optionsEl }, config?)
- *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri }
+ *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift }
  *
  * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
  * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
@@ -66,6 +66,22 @@
 }
 .rigle-lift-row {
   display: flex;
+}
+/* „Prea puțin"/„prea mult" — dreptunghi portocaliu clipitor, copil al .rigle-lift,
+   poziționat analitic (nu măsurat) relativ la colțul liftului — vezi
+   actualizeazaMismatch() în JS. Ascuns implicit (display none), afișat doar când
+   lățimea coloanei ≠ totalMere. */
+.rigle-lift-mismatch {
+  position: absolute;
+  display: none;
+  background: #ff9800;
+  border-radius: 4px;
+  animation: rigle-blink 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes rigle-blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.7; }
 }
 .rigle-apple {
   position: relative;
@@ -208,6 +224,9 @@
     urmatorulFact: null, // () => fact | null. null ⇒ factul nu se schimbă la wrap.
     numerotareRanduri: "dezactivat", // "dezactivat" | "toate" | "animat"
     randuriInSus: 10, // modul "animat": câte rânduri deasupra liftului rămân vizibile
+    randuriInJos: 10, // modul "animat": câte rânduri sub lift rămân vizibile
+    liftFundalTransparenta: 50, // 0 = alb opac, 100 = complet transparent
+    liftMargine: true, // false = marginea liftului devine transparentă (nu dispare din layout)
   };
 
   const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
@@ -259,7 +278,9 @@
     qEl.className = "rigle-lift-q";
     const rowEl = document.createElement("div");
     rowEl.className = "rigle-lift-row";
-    lift.append(qEl, rowEl);
+    const mismatchEl = document.createElement("div");
+    mismatchEl.className = "rigle-lift-mismatch";
+    lift.append(qEl, rowEl, mismatchEl);
 
     const gridEl = document.createElement("div");
     gridEl.className = "rigle-grid";
@@ -404,6 +425,35 @@
       lift.style.top = `${Math.min(y, travel)}px`;
 
       randeazaNumerotare(H);
+      actualizeazaMismatch();
+    }
+
+    // „Prea puțin"/„prea mult": compară lățimea coloanei curente cu totalMere.
+    // Coordonate calculate analitic, nu măsurate — lift.style.left = colX[colIndex],
+    // deci în sistemul de coordonate al liftului (0 = marginea lui stângă), coloana
+    // se termină la latimeColoana*cell, indiferent de padding-ul intern al liftului.
+    // top/height ale rândului de mere SE măsoară (rowEl.offsetTop/Height), fiindcă
+    // depind de înălțimea randată a textului întrebării — nu au o formulă simplă.
+    function actualizeazaMismatch() {
+      const latimeColoana = cfg.latimiColoane[colIndex];
+      if (latimeColoana === totalMere) {
+        mismatchEl.style.display = "none";
+        return;
+      }
+      mismatchEl.style.display = "block";
+      if (latimeColoana > totalMere) {
+        // coloana mai lată — celule goale în continuarea rândului de mere
+        mismatchEl.style.left = `${totalMere * cell}px`;
+        mismatchEl.style.width = `${(latimeColoana - totalMere) * cell}px`;
+        mismatchEl.style.top = `${rowEl.offsetTop}px`;
+        mismatchEl.style.height = `${rowEl.offsetHeight}px`;
+      } else {
+        // coloana mai îngustă — mere care ies peste marginea galbenă, marcate SUB ele
+        mismatchEl.style.left = `${latimeColoana * cell}px`;
+        mismatchEl.style.width = `${(totalMere - latimeColoana) * cell}px`;
+        mismatchEl.style.top = `${rowEl.offsetTop + rowEl.offsetHeight}px`;
+        mismatchEl.style.height = `${Math.max(4, cell * 0.35)}px`;
+      }
     }
 
     // Rebuild complet al numerotării (nu update parțial): un .rigle-row pe fiecare
@@ -445,25 +495,29 @@
       });
     }
 
-    // Modul "animat": fereastra de `randuriInSus` rânduri deasupra liftului, pe
-    // coloana curentă — opacitate + culoare (hue) în funcție de distanța până la
-    // rândul liftului. Ieftin: doar `maxRanduri` scrieri de style, nicio creare de
-    // DOM (asta se întâmplă o singură dată, în randeazaNumerotare).
+    // Modul "animat": fereastra de `randuriInSus` rânduri deasupra + `randuriInJos`
+    // rânduri sub rândul liftului, pe coloana curentă — opacitate + culoare (hue) în
+    // funcție de distanța (în orice direcție) până la rândul liftului. Ieftin: doar
+    // `maxRanduri` scrieri de style, nicio creare de DOM (asta se întâmplă o singură
+    // dată, în randeazaNumerotare).
     function actualizeazaNumerotareAnimata() {
       if (cfg.numerotareRanduri !== "animat") return;
       const randuriColoana = rowEls[colIndex];
       if (!randuriColoana) return;
       const liftH = lift.offsetHeight || cell * 2.4;
       const randBaza = Math.round((y + liftH) / cell) + 1; // rândul liftului + cel de sub
-      const X = Math.max(1, cfg.randuriInSus);
+      const Xsus = Math.max(1, cfg.randuriInSus);
+      const Xjos = Math.max(1, cfg.randuriInJos);
 
       randuriColoana.forEach((randEl, r) => {
-        const distanta = randBaza - r;
-        if (distanta < 0 || distanta > X) {
+        const distanta = randBaza - r; // pozitiv = deasupra liftului, negativ = sub
+        const X = distanta >= 0 ? Xsus : Xjos;
+        const distantaAbs = Math.abs(distanta);
+        if (distantaAbs > X) {
           randEl.style.opacity = "0";
           return;
         }
-        const t = distanta / X;
+        const t = distantaAbs / X;
         const hue = NUMEROTARE_HUE_APROAPE + (NUMEROTARE_HUE_DEPARTE - NUMEROTARE_HUE_APROAPE) * t;
         randEl.style.opacity = String(1 - t);
         randEl.style.color = `hsl(${hue}, 75%, 40%)`;
@@ -480,6 +534,7 @@
       colIndex = idx;
       lift.style.left = `${colX[colIndex]}px`; // glisare orizontală (tranziția CSS)
       actualizeazaNumerotareAnimata();
+      actualizeazaMismatch();
     }
 
     function applyGridLines() {
@@ -531,13 +586,32 @@
       if (!opts) return;
       if (typeof opts.mod === "string") cfg.numerotareRanduri = opts.mod;
       if (typeof opts.randuriInSus === "number") cfg.randuriInSus = opts.randuriInSus;
+      if (typeof opts.randuriInJos === "number") cfg.randuriInJos = opts.randuriInJos;
       computeGeometry();
       actualizeazaNumerotareAnimata();
+    }
+
+    // CP „Lift" — transparență fundal alb + afișare margine. Live, fără remount.
+    function aplicaStilLift() {
+      const transparenta = Math.min(100, Math.max(0, cfg.liftFundalTransparenta));
+      const alfa = (100 - transparenta) / 100;
+      lift.style.background = `rgba(255, 255, 255, ${alfa})`;
+      // Culoarea devine transparentă (nu border-width: 0), ca să nu schimbe cutia
+      // liftului — actualizeazaMismatch() presupune padding+border constante.
+      lift.style.borderColor = cfg.liftMargine ? "#3a4a63" : "transparent";
+    }
+
+    function setLift(opts) {
+      if (!opts) return;
+      if (typeof opts.transparentaFundal === "number") cfg.liftFundalTransparenta = opts.transparentaFundal;
+      if (typeof opts.margine === "boolean") cfg.liftMargine = opts.margine;
+      aplicaStilLift();
     }
 
     // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi
     // diferite de a produce un fact. Fără callback (mount fără generator), se
     // folosesc valorile din cfg — comportament identic cu etapa 1.
+    aplicaStilLift();
     const factInitial = cfg.urmatorulFact
       ? cfg.urmatorulFact()
       : { intrebare: cfg.intrebare, grupe: cfg.grupe, latimiColoane: cfg.latimiColoane };
@@ -596,7 +670,7 @@
       });
     }
 
-    return { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri };
+    return { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift };
   }
 
   global.RigleEngine = { mount };

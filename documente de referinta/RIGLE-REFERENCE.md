@@ -65,7 +65,8 @@ RigleEngine.mount(hosts, config) → {
   setGridLines({ vertical?, orizontal? }),
   setColumnLayout({ treime? }),
   reporneste(),   // y=0 + cere fact nou prin cfg.urmatorulFact() + randează
-  setNumerotareRanduri({ mod?, randuriInSus? }),  // live, §6 „Numerotează rânduri"
+  setNumerotareRanduri({ mod?, randuriInSus?, randuriInJos? }),  // live, §6 „Numerotează rânduri"
+  setLift({ transparentaFundal?, margine? }),  // live, §6 „Lift"
 }
 ```
 
@@ -142,11 +143,17 @@ lift mai lat decât orice coloană.
   pur vizual, fără logică de „încape/nu încape".
 - Grilă de caiet (linii, toggle independent vertical/orizontal din CP), aliniată exact
   la marginile coloanelor indiferent de sumă (gotcha #4).
+- **Feedback vizual „prea mult"/„prea puțin"** (fără text, doar pătrățelul portocaliu
+  clipitor — vezi §5 „Mismatch"): dacă lățimea coloanei curente ≠ `totalMere`, un
+  dreptunghi portocaliu (`.rigle-lift-mismatch`) marchează diferența — peste celulele
+  goale (coloană mai lată) sau sub merele care ies (coloană mai îngustă). Live, la
+  fiecare schimbare de coloană sau fact — nu ține de „validare" (nu se scorează nimic).
 
 **NU e implementat** (etape viitoare, neplanificate încă în cod):
 - Validare (nicio verificare corect/greșit) — `indexCorect` din fact e transportat, dar
   nefolosit.
-- Feedback: pătrățele portocalii, „Prea mult"/„Prea puțin", mână care se clatină, clipit.
+- Etichetele text „Prea mult"/„Prea puțin", mâna care se clatină — doar pătrățelul
+  portocaliu clipitor e implementat azi (vezi bulletul de mai sus).
 - Efect de succes, afișarea rezultatului („2+1=**3**"), coborâre glorioasă, avans la
   întrebarea următoare.
 - Alte forme de ecuație (`?+3=5`, `21=12+?`) — geometria le suportă deja (§3), dar
@@ -209,6 +216,22 @@ după primul așezare (ca liftul să nu gliseze din colț la mount).
 CSS proprii, hardcodate — zero dependență de `.option`/`#options`. Poziționate absolut
 în `.rigle-buttons`, cu `left`/`width` = geometria coloanei corespunzătoare.
 
+**Mismatch „prea mult/prea puțin"** (`.rigle-lift-mismatch`, `actualizeazaMismatch()`):
+un `div` **copil al `.rigle-lift`**, poziționat analitic, nu măsurat — fiindcă
+`lift.style.left = colX[colIndex]`, în sistemul de coordonate al liftului (0 = colțul
+lui stâng) coloana curentă se termină exact la `latimiColoane[colIndex] * cell`,
+indiferent de padding/border-ul intern al liftului:
+- **Coloană mai lată** (`latime > totalMere`): `left: totalMere*cell`, `width:
+  (latime-totalMere)*cell`, la `top`/`height` = `rowEl.offsetTop`/`offsetHeight`
+  (astea DOAR se măsoară — depind de înălțimea randată a textului întrebării).
+- **Coloană mai îngustă** (`latime < totalMere`): `left: latime*cell`, `width:
+  (totalMere-latime)*cell`, `top` = sub rândul de mere (`rowEl.offsetTop +
+  offsetHeight`), bandă subțire (`max(4, cell*0.35)`), nu peste mere.
+- **Egal**: `display: none`.
+Verificat empiric (ambele cazuri, valori exacte, două sume diferite) — potrivire
+pixel-perfectă cu formula, nicio ajustare vizuală necesară.
+Apelat din `computeGeometry()` (fact/resize/mod) și din `selectColumn()`.
+
 ---
 
 ## 6. Panoul CP — „CP — Rigle"
@@ -232,7 +255,7 @@ când se deschide panoul CP în timp ce Rigle e quiz-ul activ (mecanism generic 
 `cp-shell.js`, adăugat pentru toate panourile per-quiz — nu e specific implementării
 Rigle, dar Rigle îl moștenește automat prin flag).
 
-Panoul are 3 secțiuni:
+Panoul are 5 secțiuni:
 
 **„Grila"** — 2 bife independente (pot fi ambele ON/OFF):
 
@@ -275,19 +298,34 @@ de la Suma maxima — vezi §8):
 | Câmp | Interval | Implicit | Cheie `LayoutConfig` |
 |---|---|---|---|
 | Câte rânduri în sus | 1-50 | `10` | `rigleRanduriInSus` |
+| Câte rânduri în jos | 1-50 | `10` | `rigleRanduriInJos` |
 
 Fiecare rând de grilă din fiecare coloană arată `1..lățimeaColoanei` (aceleași cifre pe
 orice rând — poziția celulei, nu un contor). **„Toate rândurile"**: statice, o singură
-culoare, pe toate cele 3 coloane. **„Animat"**: doar pe coloana curentă (a liftului),
-doar o fereastră de `randuriInSus` rânduri deasupra rândului liftului, cu opacitate
-1→0 și culoare pe un gradient HSL 205°(albastru, la lift)→320°(roz-magenta, la
-marginea ferestrei) — v. `NUMEROTARE_HUE_APROAPE`/`NUMEROTARE_HUE_DEPARTE` în
+culoare, pe toate cele 3 coloane. **„Animat"**: doar pe coloana curentă (a liftului), o
+fereastră **bidirecțională** — `randuriInSus` rânduri deasupra + `randuriInJos` rânduri
+sub rândul liftului, fiecare direcție cu propriul plafon — cu opacitate 1→0 și culoare
+pe un gradient HSL 205°(albastru, la lift)→320°(roz-magenta, la marginea ferestrei,
+în orice direcție) — v. `NUMEROTARE_HUE_APROAPE`/`NUMEROTARE_HUE_DEPARTE` în
 `engine.js`. La schimbare de coloană, fereastra veche se golește explicit (altfel ar
 rămâne vizibilă pe coloana părăsită).
 
-Toate 4 secțiunile sunt **live** (`setGridLines` / `setColumnLayout` / `reporneste` /
-`setNumerotareRanduri`, fără remount) și **persistă** între reload-uri, la fel ca
-celelalte bife simple din CP (ex. „Afiseaza Timpi raspuns").
+**„Lift"** — transparența fundalului alb + afișarea marginii:
+
+| Câmp | Interval/tip | Implicit | Cheie `LayoutConfig` |
+|---|---|---|---|
+| Transparență fundal alb lift | stepper 0-100 | `50` | `rigleLiftTransparentaFundal` |
+| Afișează marginea liftului | bifă | ON | `rigleLiftMargine` |
+
+`transparență=50` → `background: rgba(255,255,255,0.5)` (`alfa = (100-transparență)/100`
+— 100 = complet transparent, 0 = alb opac). Bifa „margine" **nu** schimbă
+`border-width` (rămâne `2px` mereu) — schimbă doar `border-color` (`#3a4a63` ↔
+`transparent`), ca să nu strice invariantul de la §5 „Mismatch" (care presupune
+padding+border constante).
+
+Toate 5 secțiunile sunt **live** (`setGridLines` / `setColumnLayout` / `reporneste` /
+`setNumerotareRanduri` / `setLift`, fără remount) și **persistă** între reload-uri, la
+fel ca celelalte bife simple din CP (ex. „Afiseaza Timpi raspuns").
 
 `rigle` a fost adăugat explicit în `DEFAULT_ORDER` din `cp-registry.js` — fără el,
 panoul nu ar apărea deloc la un `localStorage` curat (doar la useri cu o ordine CP deja
@@ -306,6 +344,9 @@ salvată, unde intră automat la coadă).
 | `rigleSumaMax` | suma maximă a factului generat | `5` |
 | `rigleNumerotare` | numerotare rânduri: `"dezactivat"`\|`"toate"`\|`"animat"` | `"dezactivat"` |
 | `rigleRanduriInSus` | modul „animat": câte rânduri deasupra liftului rămân vizibile | `10` |
+| `rigleRanduriInJos` | modul „animat": câte rânduri sub lift rămân vizibile | `10` |
+| `rigleLiftTransparentaFundal` | transparența fundalului alb al liftului (0-100) | `50` |
+| `rigleLiftMargine` | afișează marginea neagră a liftului | `true` |
 | `cpOrder` | ordinea panourilor CP (globală, nu doar Rigle) | — |
 
 Nimic din progresul/răspunsurile la Rigle nu persistă încă — nicio etapă livrată n-are
@@ -318,7 +359,7 @@ validare, deci n-are ce să rețină.
 | Fișier | Rol |
 |---|---|
 | `js/rigle/facte.js` | Generator pur de facte: `RigleFacte.genereazaFact()` / `.alegeVariante()`, zero DOM, zero `LayoutConfig`. |
-| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, numerotare rânduri, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste/setNumerotareRanduri. |
+| `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, numerotare rânduri, mismatch „prea mult/puțin", stil lift, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste/setNumerotareRanduri/setLift. |
 | `js/quizzes/rigle-cl1.js` | Înregistrare quiz în `QuizRegistry`, config, callback `urmatorulFact`, contract `customEngine`, panoul CP. |
 | `js/app.js` | 5 branch-uri `customEngine` (mount/unmount + guard-uri) + `renderRiglePanel()`. |
 | `js/cp-registry.js` | `"rigle"` în `DEFAULT_ORDER`. |
@@ -386,6 +427,17 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
    ce aștepți, verifică `document.visibilityState` înainte să bănuiești un bug de
    mișcare — dacă panoul Browser nu e afișat activ, rAF-ul motorului e throttled de
    browser, nu de cod.
+10. **Ascunderea marginii liftului schimbă `border-color`, nu `border-width`.** Dacă ai
+    fi scos bordura din tot (`border: none` sau `border-width: 0`), `box-sizing:
+    border-box` ar fi redistribuit spațiul — ar fi mutat cu 2px centrarea rândului de
+    mere (gotcha #5) și, prin extensie, coordonatele lui `.rigle-lift-mismatch` (§5).
+    Culoarea devine `transparent`; cutia rămâne identică geometric.
+11. **`.rigle-lift-mismatch` se poziționează analitic (`totalMere*cell`,
+    `latimiColoane[colIndex]*cell`), nu citind `rowEl.offsetLeft`.** Măsurat empiric:
+    `rowEl.offsetLeft` variază câțiva px (centrare flex + `gap`) și **nu** e o bază de
+    calcul stabilă pentru orizontală. Verticala (`rowEl.offsetTop`/`offsetHeight`)
+    chiar trebuie măsurată — depinde de înălțimea randată a textului, fără formulă
+    simplă. Nu schimba orizontala pe măsurare fără motiv.
 
 ---
 

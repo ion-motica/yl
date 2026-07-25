@@ -53,12 +53,30 @@
   // CP — Numerotează rânduri din coloane: "dezactivat" | "toate" | "animat".
   const NUMEROTARE_KEY = "rigleNumerotare";
   const RANDURI_SUS_KEY = "rigleRanduriInSus";
-  const RANDURI_SUS_IMPLICIT = 10;
+  const RANDURI_JOS_KEY = "rigleRanduriInJos";
+  const RANDURI_IMPLICIT = 10;
   const getNumerotare = () => global.LayoutConfig?.get(NUMEROTARE_KEY, "dezactivat") ?? "dezactivat";
-  const getRanduriInSus = () => global.LayoutConfig?.get(RANDURI_SUS_KEY, RANDURI_SUS_IMPLICIT) ?? RANDURI_SUS_IMPLICIT;
+  const getRanduriInSus = () => global.LayoutConfig?.get(RANDURI_SUS_KEY, RANDURI_IMPLICIT) ?? RANDURI_IMPLICIT;
+  const getRanduriInJos = () => global.LayoutConfig?.get(RANDURI_JOS_KEY, RANDURI_IMPLICIT) ?? RANDURI_IMPLICIT;
   function seteazaRanduriInSus(valoare) {
     const v = Math.max(1, Math.min(50, Math.round(valoare)));
     global.LayoutConfig?.set(RANDURI_SUS_KEY, v);
+  }
+  function seteazaRanduriInJos(valoare) {
+    const v = Math.max(1, Math.min(50, Math.round(valoare)));
+    global.LayoutConfig?.set(RANDURI_JOS_KEY, v);
+  }
+
+  // CP — Lift: transparență fundal alb + afișare margine.
+  const LIFT_TRANSPARENTA_KEY = "rigleLiftTransparentaFundal";
+  const LIFT_MARGINE_KEY = "rigleLiftMargine";
+  const LIFT_TRANSPARENTA_IMPLICIT = 50;
+  const getLiftTransparenta = () =>
+    global.LayoutConfig?.get(LIFT_TRANSPARENTA_KEY, LIFT_TRANSPARENTA_IMPLICIT) ?? LIFT_TRANSPARENTA_IMPLICIT;
+  const getLiftMargine = () => global.LayoutConfig?.get(LIFT_MARGINE_KEY, true) !== false;
+  function seteazaLiftTransparenta(valoare) {
+    const v = Math.max(0, Math.min(100, Math.round(valoare)));
+    global.LayoutConfig?.set(LIFT_TRANSPARENTA_KEY, v);
   }
 
   global.QuizRegistry.register({
@@ -85,6 +103,9 @@
             pozitieTreime: getColoaneTreime(),
             numerotareRanduri: getNumerotare(),
             randuriInSus: getRanduriInSus(),
+            randuriInJos: getRanduriInJos(),
+            liftFundalTransparenta: getLiftTransparenta(),
+            liftMargine: getLiftMargine(),
             urmatorulFact,
           });
           mounted = global.RigleEngine.mount(hosts, cfg);
@@ -229,6 +250,22 @@
 
           addStepper("Câte rânduri în sus", getRanduriInSus, seteazaRanduriInSus, 1, 50, () => {
             mounted?.setNumerotareRanduri({ randuriInSus: getRanduriInSus() });
+          });
+          addStepper("Câte rânduri în jos", getRanduriInJos, seteazaRanduriInJos, 1, 50, () => {
+            mounted?.setNumerotareRanduri({ randuriInJos: getRanduriInJos() });
+          });
+
+          const liftTitle = document.createElement("p");
+          liftTitle.className = "control-panel-lift-title";
+          liftTitle.textContent = "Lift";
+          mount.appendChild(liftTitle);
+
+          addStepper("Transparență fundal alb lift", getLiftTransparenta, seteazaLiftTransparenta, 0, 100, () => {
+            mounted?.setLift({ transparentaFundal: getLiftTransparenta() });
+          });
+          addRow("Afișează marginea liftului", getLiftMargine(), (checked) => {
+            global.LayoutConfig?.set(LIFT_MARGINE_KEY, checked);
+            mounted?.setLift({ margine: checked });
           });
         },
 
