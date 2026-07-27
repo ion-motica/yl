@@ -193,8 +193,6 @@
   cursor: pointer;
   box-sizing: border-box;
   font: inherit;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 .rigle-btn:hover {
   border-color: #3d9cf5;

@@ -1,0 +1,35 @@
+descrie exact pas cu pas ca pt prosti cum sa pornesc din powersharll serverul youlearn pt portul pe care i folosesti de obicei
+
+Portul „de obicei" e **8770** (config `youlearn-local` din [.claude/launch.json](.claude/launch.json), legat pe 127.0.0.1 — doar pentru tine, local).
+
+
+
+## Pas cu pas în PowerShell
+
+**1. Deschide PowerShell**
+Start → scrii „PowerShell" → Enter.
+
+**2. Mergi în folderul proiectului**
+Scrii exact (cu ghilimele, că are spații în nume):
+```powershell
+cd "C:\Users\I\Projects\Youlearn.com" && python -m http.server 8770 --bind 127.0.0.1
+```
+Enter.
+
+**4. Verifică că a pornit**
+Ar trebui să vezi ceva de genul:
+```
+Serving HTTP on 127.0.0.1 port 8770 (http://127.0.0.1:8770/) ...
+```
+Fereastra PowerShell rămâne „ocupată" — asta e normal, serverul rulează cât timp fereastra e deschisă.
+
+**5. Deschide în browser**
+Mergi la:
+- `http://127.0.0.1:8770/` — pagina index
+- `http://127.0.0.1:8770/Vizualizare%203%20-%20Claude/vizualizare3.html` — modulul la care lucrezi acum
+
+**6. Ca să oprești serverul**
+Dai click în fereastra PowerShell și apeși `Ctrl + C`.
+
+---
+Notă: dacă vrei să testezi și de pe telefon (aceeași rețea WiFi), există și config-ul `youlearn-telefon` pe portul 8000, legat pe `0.0.0.0` în loc de `127.0.0.1` — dar pentru lucru normal pe calculator, 8770 e cel corect.
