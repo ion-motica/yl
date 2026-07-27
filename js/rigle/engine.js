@@ -183,8 +183,10 @@
   top: 0;
   bottom: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.3rem;
   padding: 0.7rem 0.4rem;
   border: 2px solid rgba(61, 156, 245, 0.55);
   border-radius: 10px;
@@ -201,6 +203,32 @@
   font-size: 2rem;
   font-weight: 700;
   line-height: 1;
+}
+/* „n e prea mic"/„n e prea mare" — etichetă sub numărul butonului coloanei
+   curente, cu același puls ca .rigle-lift-mismatch (același @keyframes
+   rigle-blink). Ascunsă implicit; actualizeazaMismatch() o arată doar pe butonul
+   coloanei curente când lățimea ei diferă de totalMere. Poziționare provizorie
+   (§ „deocamdată" din cerere) — doar sub cifră, nu lângă dreptunghiul de lângă
+   mere. align-self: stretch — ia toată lățimea interioară a butonului, atât ca
+   text-align (stânga/centru/dreapta după poziția coloanei) să aibă efect vizibil,
+   cât și ca scrollWidth/clientWidth din JS să măsoare corect suprapunerea reală
+   (decide 1 linie vs. 3 rânduri). */
+.rigle-btn-mismatch {
+  display: none;
+  align-self: stretch;
+  box-sizing: border-box;
+  background: #ff9800;
+  color: #1a1400;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  animation: rigle-blink 0.6s ease-in-out infinite;
+}
+.rigle-btn-mismatch--vizibil {
+  display: block;
 }
 /* Butoanele de sus (≡/CP/⏸) — fundal semitransparent cât e m2 activ, ca scrisul
    să se vadă peste coloanele galbene. Scoped pe m2: nu atinge motorul 1. */
@@ -371,6 +399,9 @@
         num.className = "rigle-btn-num";
         num.textContent = String(w);
         btn.appendChild(num);
+        const mismatchLabel = document.createElement("span");
+        mismatchLabel.className = "rigle-btn-mismatch";
+        btn.appendChild(mismatchLabel);
         btn.addEventListener("click", () => selectColumn(idx));
         buttonsBar.appendChild(btn);
         return btn;
@@ -463,16 +494,46 @@
     // centrată pe axa verticală a rândului de mere — cu o excepție: la sumă mică
     // (<=5) și coloană mai îngustă, rândul de mere e prea scund/aglomerat ca bara
     // centrată să nu se suprapună vizibil peste mere, deci rămâne SUB rând, ca înainte.
+    // Eticheta „n e prea mic"/„n e prea mare" (n = cifra butonului) — doar pe
+    // butonul coloanei curente (colIndex), curățată de pe toate celelalte la
+    // fiecare apel, ca să nu rămână agățată pe butonul coloanei părăsite.
+    // Aliniere după poziția coloanei (stânga/centru/dreapta) — întotdeauna, nu doar
+    // pe 3 rânduri. Comutare 1 linie ↔ 3 rânduri („n e" / „prea" / „mic"/„mare"):
+    // măsurată la runtime (scrollWidth > clientWidth pe o singură linie), nu un
+    // prag fix în px — se adaptează la orice lățime de coloană/ecran.
+    function actualizeazaEtichetaButon(tip) {
+      myButtons.forEach((btn, i) => {
+        const label = btn.querySelector(".rigle-btn-mismatch");
+        if (!label) return;
+        label.style.textAlign = i === 0 ? "left" : i === myButtons.length - 1 ? "right" : "center";
+        if (i === colIndex && tip) {
+          const n = cfg.latimiColoane[i];
+          label.classList.add("rigle-btn-mismatch--vizibil");
+          label.style.whiteSpace = "nowrap";
+          label.textContent = `${n} e prea ${tip}`;
+          if (label.scrollWidth > label.clientWidth + 1) {
+            label.style.whiteSpace = "normal";
+            label.innerHTML = `${n} e<br>prea<br>${tip}`;
+          }
+        } else {
+          label.textContent = "";
+          label.classList.remove("rigle-btn-mismatch--vizibil");
+        }
+      });
+    }
+
     function actualizeazaMismatch() {
       const latimeColoana = cfg.latimiColoane[colIndex];
       if (latimeColoana === totalMere) {
         mismatchEl.style.display = "none";
+        actualizeazaEtichetaButon(null);
         return;
       }
       mismatchEl.style.display = "block";
       const centruRand = rowEl.offsetTop + rowEl.offsetHeight / 2;
       if (latimeColoana > totalMere) {
         // coloana mai lată — celule goale în continuarea rândului de mere
+        actualizeazaEtichetaButon("mare");
         const h = Math.max(rowEl.offsetHeight, mismatchMinH);
         mismatchEl.style.left = `${totalMere * cell}px`;
         mismatchEl.style.width = `${(latimeColoana - totalMere) * cell}px`;
@@ -480,6 +541,7 @@
         mismatchEl.style.height = `${h}px`;
       } else {
         // coloana mai îngustă — mere care ies peste marginea galbenă
+        actualizeazaEtichetaButon("mic");
         const h = Math.max(cell, mismatchMinH);
         mismatchEl.style.left = `${latimeColoana * cell}px`;
         mismatchEl.style.width = `${(totalMere - latimeColoana) * cell}px`;
