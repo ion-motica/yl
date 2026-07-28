@@ -148,22 +148,32 @@ lift mai lat decât orice coloană.
   pur vizual, fără logică de „încape/nu încape".
 - Grilă de caiet (linii, toggle independent vertical/orizontal din CP), aliniată exact
   la marginile coloanelor indiferent de sumă (gotcha #4).
-- **Feedback vizual „prea mult"/„prea puțin"** (fără text, doar pătrățelul portocaliu
-  clipitor — vezi §5 „Mismatch"): dacă lățimea coloanei curente ≠ `totalMere`, un
-  dreptunghi portocaliu (`.rigle-lift-mismatch`) marchează diferența — peste celulele
-  goale (coloană mai lată) sau sub merele care ies (coloană mai îngustă). Live, la
-  fiecare schimbare de coloană sau fact — nu ține de „validare" (nu se scorează nimic).
+- **Feedback vizual „prea mult"/„prea puțin"**: dacă lățimea coloanei curente ≠
+  `totalMere`, un dreptunghi portocaliu (`.rigle-lift-mismatch`) marchează diferența —
+  peste celulele goale (coloană mai lată) sau sub merele care ies (coloană mai îngustă).
+  Live, la fiecare schimbare de coloană sau fact — nu ține de „validare" (nu se
+  scorează nimic).
+- **Eticheta text „n e prea mic"/„n e prea mare"/„n e corect"**, sub cifra butonului
+  coloanei curente (`.rigle-btn-mismatch`, `actualizeazaEtichetaButon`/`reglajEticheta`)
+  — cascadă normal→word-wrap→lățire+ancorare, gated de CP „Etichete FOV" → „Pe buton".
+- **FOV Lift** (`porneșteFovLift`/`avanseazaFovLift`, PLAN-fov-lift.md): la fiecare
+  apăsare, un pătrățel verde zburător pornește de la poziția analitică a celulei „N" din
+  coloana aterizată și zboară (homing exponențial per cadru, nu tranziție CSS) spre o
+  casetă cu 2 rânduri lipită deasupra liftului — „N e prea mic/mare/corect" + „N<a+b" /
+  „N>a+b" / „N=a+b". La coloana corectă, continuă spre „?" din întrebare și îl înlocuiește
+  cu suma, într-un div verde care pulsează continuu, dezvăluire care rămâne până la fact
+  nou. Gated de CP „Etichete FOV" → „Pe lift" / „Cu animație pt. corect".
 - **Pauză proprie**, independentă de motorul 1 — buton `#play-pause` + tastele
   Space/p/P opresc bucla de coborâre (`y` înghețat), dezactivează butoanele `.rigle-btn`
   și arată „PAUZĂ" peste scenă (gotcha #12 pentru mecanismul exact).
 
 **NU e implementat** (etape viitoare, neplanificate încă în cod):
-- Validare (nicio verificare corect/greșit) — `indexCorect` din fact e transportat, dar
-  nefolosit.
-- Etichetele text „Prea mult"/„Prea puțin", mâna care se clatină — doar pătrățelul
-  portocaliu clipitor e implementat azi (vezi bulletul de mai sus).
-- Efect de succes, afișarea rezultatului („2+1=**3**"), coborâre glorioasă, avans la
-  întrebarea următoare.
+- Validare cu scor/progres — coloana corectă e recunoscută vizual (`n === totalMere`,
+  folosit de eticheta de pe buton și de FOV Lift), dar nimic nu se scorează, nu există
+  „răspuns dat"/„încercare" înregistrată, nici avans automat la întrebarea următoare.
+- Mâna care se clatină (feedback fizic pe lift la coloană greșită).
+- Afișarea rezultatului în întrebare e implementată (FOV Lift, la coloana corectă), dar
+  fără coborâre glorioasă sau alt efect de succes în afară de puls.
 - Alte forme de ecuație (`?+3=5`, `21=12+?`) — geometria le suportă deja (§3), dar
   generatorul azi produce doar `a+b=?`.
 - Alt număr de coloane decât 3, alte obiecte decât 🍏.

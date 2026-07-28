@@ -79,6 +79,14 @@
     global.LayoutConfig?.set(LIFT_TRANSPARENTA_KEY, v);
   }
 
+  // CP — Etichete (FOV Feedback Oranj Verde): pe buton / pe lift / animație pt. corect.
+  const FOV_BUTON_KEY = "rigleFovButon";
+  const FOV_LIFT_KEY = "rigleFovLift";
+  const FOV_LIFT_CORECT_KEY = "rigleFovLiftAnimatieCorect";
+  const getFovButon = () => global.LayoutConfig?.get(FOV_BUTON_KEY, true) !== false;
+  const getFovLift = () => global.LayoutConfig?.get(FOV_LIFT_KEY, true) !== false;
+  const getFovLiftCorect = () => global.LayoutConfig?.get(FOV_LIFT_CORECT_KEY, true) !== false;
+
   global.QuizRegistry.register({
     id: "rigle-cl1",
     title: "Cl. 1 - Rigle",
@@ -106,6 +114,9 @@
             randuriInJos: getRanduriInJos(),
             liftFundalTransparenta: getLiftTransparenta(),
             liftMargine: getLiftMargine(),
+            fovButon: getFovButon(),
+            fovLift: getFovLift(),
+            fovLiftAnimatieCorect: getFovLiftCorect(),
             urmatorulFact,
           });
           mounted = global.RigleEngine.mount(hosts, cfg);
@@ -266,6 +277,24 @@
           addRow("Afișează marginea liftului", getLiftMargine(), (checked) => {
             global.LayoutConfig?.set(LIFT_MARGINE_KEY, checked);
             mounted?.setLift({ margine: checked });
+          });
+
+          const fovTitle = document.createElement("p");
+          fovTitle.className = "control-panel-lift-title";
+          fovTitle.textContent = "Etichete (FOV Feedback Oranj Verde)";
+          mount.appendChild(fovTitle);
+
+          addRow("Pe buton", getFovButon(), (checked) => {
+            global.LayoutConfig?.set(FOV_BUTON_KEY, checked);
+            mounted?.setFov({ buton: checked });
+          });
+          addRow("Pe lift", getFovLift(), (checked) => {
+            global.LayoutConfig?.set(FOV_LIFT_KEY, checked);
+            mounted?.setFov({ lift: checked });
+          });
+          addRow("Cu animație pt. corect", getFovLiftCorect(), (checked) => {
+            global.LayoutConfig?.set(FOV_LIFT_CORECT_KEY, checked);
+            mounted?.setFov({ animatieCorect: checked });
           });
         },
 

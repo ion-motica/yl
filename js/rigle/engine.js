@@ -8,7 +8,7 @@
  * `js/rigle/SPEC-etapa1.md` e istoric (etapa 1, doar mișcarea).
  *
  *   RigleEngine.mount({ arenaEl, optionsEl }, config?)
- *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift }
+ *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift, setFov }
  *
  * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
  * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
@@ -80,6 +80,19 @@
   white-space: nowrap;
   color: #1f2a3a;
   line-height: 1;
+}
+/* Span dedicat pt. „?" din întrebare — randeazaFact() îl creează separat (nu text brut
+   în qEl), ca porneșteFovLift()/avanseazaFovLift() să-i poată citi poziția și,
+   la coloana corectă, să-i înlocuiască conținutul cu suma, fără să atingă restul
+   întrebării. Moștenește fontul din .rigle-lift-q (fără reguli proprii) cât timp
+   arată „?"; .rigle-lift-raspuns se adaugă DOAR la dezvăluire. */
+.rigle-lift-raspuns {
+  background: #43a047;
+  color: #eafbea;
+  padding: 0 4px;
+  border-radius: 4px;
+  animation: rigle-blink 0.6s ease-in-out infinite; /* continuu, spre deosebire de
+    .rigle-btn-mismatch--corect (static) — cerință explicită a userului. */
 }
 .rigle-lift-row {
   display: flex;
@@ -254,6 +267,65 @@
   color: #eafbea;
   animation: none;
 }
+/* FOV Lift — pătrățel zburător de la coloana aterizată spre o casetă cu 2 rânduri
+   lipită deasupra liftului (PLAN-fov-lift.md). Caseta + pătrățelul sunt copii ai
+   .rigle-scene, nu ai .rigle-lift — poziția li se recalculează analitic din JS
+   (actualizeazaPozitieFovLift/avanseazaFovLift), nu prin ancorare CSS la lift. */
+.rigle-fov-lift {
+  position: absolute;
+  z-index: 4; /* peste .rigle-grid (3) și .rigle-lift (2) */
+  display: none;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 2px solid #3a4a63;
+  border-radius: 8px;
+  padding: 4px 8px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.rigle-fov-lift--vizibila {
+  display: block;
+}
+.rigle-fov-lift-linie {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+  background: #ff9800; /* implicit portocaliu — „prea mic"/„prea mare" */
+  color: #1a1400;
+  opacity: 0; /* NU display:none — porneșteFovLift() măsoară offsetTop/Left/Width/Height
+    pe aceste elemente înainte să devină vizibile; display:none le-ar da 0. */
+  transition: opacity 0.15s ease;
+}
+.rigle-fov-lift-linie--vizibila {
+  opacity: 1;
+}
+.rigle-fov-lift-linie--corect {
+  background: #43a047;
+  color: #eafbea;
+}
+.rigle-fov-zburator {
+  position: absolute;
+  z-index: 5;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #43a047;
+  color: #eafbea;
+  font-size: 0.7rem;
+  font-weight: 700;
+  transform: translate(-50%, -50%); /* (left, top) = centrul pătrățelului, nu colțul */
+  pointer-events: none;
+}
+.rigle-fov-zburator--vizibil {
+  display: flex;
+}
 /* Butoanele de sus (≡/CP/⏸) — fundal semitransparent cât e m2 activ, ca scrisul
    să se vadă peste coloanele galbene. Scoped pe m2: nu atinge motorul 1. */
 .rigle-active .butoane-sus .menu-toggle,
@@ -294,6 +366,9 @@
     randuriInJos: 10, // modul "animat": câte rânduri sub lift rămân vizibile
     liftFundalTransparenta: 50, // 0 = alb opac, 100 = complet transparent
     liftMargine: true, // false = marginea liftului devine transparentă (nu dispare din layout)
+    fovButon: true, // eticheta „n e prea mic/mare/corect" de pe buton
+    fovLift: true, // pătrățelul zburător + caseta de sub lift
+    fovLiftAnimatieCorect: true, // continuarea spre „?" (doar la coloana corectă)
   };
 
   const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
@@ -302,6 +377,14 @@
   const NUMEROTARE_CULOARE_STATICA = "rgba(70, 120, 190, 0.65)"; // modul "toate rândurile"
   const NUMEROTARE_HUE_APROAPE = 205; // albastru, la rândul liftului
   const NUMEROTARE_HUE_DEPARTE = 320; // roz-magenta, la marginea ferestrei (modul "animat")
+
+  // FOV Lift — v. PLAN-fov-lift.md §2.1 pt. derivarea pragurilor. Homing exponențial
+  // spre o țintă în mișcare lasă o eroare staționară = viteza_țintei / FOV_LAMBDA —
+  // cu vitezaCoborare=34px/s și λ=10, eroarea e ~3,4px; pragul de sosire TREBUIE să fie
+  // mai mare (altfel pătrățelul nu ajunge niciodată, secvența rămâne agățată tăcut).
+  const FOV_LAMBDA = 10; // rata de homing, 1/s
+  const FOV_PRAG_SOSIRE = 8; // px
+  const FOV_DURATA_MAX_ETAPA = 1.5; // s — plasă de siguranță, indiferent de geometrie
 
   function mount(hosts, config) {
     const arenaEl = hosts && hosts.arenaEl;
@@ -354,7 +437,19 @@
     const gridEl = document.createElement("div");
     gridEl.className = "rigle-grid";
 
-    scene.append(columnsWrap, rowNumbersWrap, lift, gridEl);
+    // FOV Lift — create o dată la mount, ca restul scenei; conținutul/poziția li se
+    // schimbă din JS (porneșteFovLift/actualizeazaPozitieFovLift), nu se recreează.
+    const fovLiftEl = document.createElement("div");
+    fovLiftEl.className = "rigle-fov-lift";
+    const fovLinie1El = document.createElement("div");
+    fovLinie1El.className = "rigle-fov-lift-linie";
+    const fovLinie2El = document.createElement("div");
+    fovLinie2El.className = "rigle-fov-lift-linie";
+    fovLiftEl.append(fovLinie1El, fovLinie2El);
+    const fovZburatorEl = document.createElement("div");
+    fovZburatorEl.className = "rigle-fov-zburator";
+
+    scene.append(columnsWrap, rowNumbersWrap, lift, gridEl, fovLiftEl, fovZburatorEl);
     arenaEl.appendChild(scene);
 
     // ── Bara de butoane proprie a m2, în stratul de butoane (peste scenă). ──
@@ -369,10 +464,13 @@
     let liftH = 0; // înălțimea liftului, calculată doar în computeGeometry() — actualizeazaNumerotareAnimata()
     // (rulează per frame, în tick()) o citește de aici, NU din lift.offsetHeight: o citire de layout
     // după fiecare scriere de lift.style.top ar forța recalcul de layout la 60fps.
+    let liftW = 0; // lățimea liftului, cache-uită în reglajLift() — la fel ca liftH, ca
+    // actualizeazaPozitieFovLift() (rulează per frame) să nu citească lift.offsetWidth.
     let travel = 1;
     let colEls = [];
     let myButtons = [];
     let rowEls = []; // rowEls[coloană][rând] = elementul .rigle-row (numerotare)
+    let necunoscutaEl = null; // span-ul „?" din întrebare — recreat la fiecare fact (randeazaFact)
     let paused = false;
     const playPauseBtn = document.getElementById("play-pause");
     let colIndex = cfg.coloanaInitialaIndex;
@@ -380,6 +478,28 @@
       colIndex = Math.floor(cfg.latimiColoane.length / 2);
     }
     let y = 0; // 0..travel (top-ul liftului, de la marginea de sus a arenei)
+
+    // ── FOV Lift: pătrățel zburător de la coloana aterizată spre caseta de sub lift,
+    // apoi (la corect, dacă bifa e activă) spre „?" din întrebare. PLAN-fov-lift.md.
+    // Homing analitic per cadru, nu tranziții CSS către un punct fix — ținta se mișcă
+    // (liftul cade continuu + glisează orizontal la schimbarea coloanei). ──
+    let fovActiv = false; // e o cursă (pătrățel zburând) în desfășurare acum
+    let fovVizibil = false; // caseta + span-urile rămase afișate din ultima apăsare
+    // (chiar după ce cursa curentă s-a terminat — persistă până la fact nou/bifă oprită)
+    let fovEtapa = 0; // 0 = spre span1, 1 = spre span2, 2 = spre „?"
+    let fovTimpEtapa = 0; // secunde de când a pornit etapa curentă (plasă de siguranță)
+    let fovPozX = 0;
+    let fovPozY = 0; // poziția curentă a pătrățelului zburător (coordonate „scenă")
+    let fovTip = null; // "mic" | "mare" | "corect" — decide culoarea și dacă merge la etapa 2
+    let fovBoxW = 0;
+    let fovBoxH = 0; // dimensiunile casetei FOV Lift, măsurate o dată la pornirea cursei
+    let fovSpan1Off = null; // { left, top, width, height } — poziția span1 relativ la casetă
+    let fovSpan2Off = null;
+    let fovNecunoscutaOff = null; // { left, top, width, height } — poziția „?" relativ la lift
+    let fovLiftTop = 0; // = Math.min(y, travel), cache-uit o dată per cadru pt. țintele FOV
+    let fovBoxTop = 0;
+    let fovBoxLeft = 0; // poziția curentă a casetei (coordonate „scenă"), recalculată per cadru
+    let fovRulareId = 0; // token — o cursă veche întârziată nu mai scrie stare după ce a pornit alta
 
     // Randare completă a conținutului variabil dintr-un fact (UI = f(state), fără
     // update parțial): întrebarea, rândul de mere, coloanele, butoanele, apoi
@@ -391,8 +511,23 @@
       cfg.latimiColoane = fact.latimiColoane;
       totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0);
 
-      // 1. întrebarea
-      qEl.textContent = cfg.intrebare;
+      // 0. FOV Lift: fact nou = stare complet nouă (idempotență) — nicio cursă veche
+      // supraviețuiește (vezi razgandire-ieftina.md §5). necunoscutaEl e recreat mai jos,
+      // fără .rigle-lift-raspuns agățată de la factul anterior.
+      fovRulareId += 1;
+      fovActiv = false;
+      fovVizibil = false;
+      fovLiftEl.classList.remove("rigle-fov-lift--vizibila");
+      fovZburatorEl.classList.remove("rigle-fov-zburator--vizibil");
+
+      // 1. întrebarea — „a+b=" ca text simplu + span dedicat pt. „?" (v. comentariul CSS
+      // de la .rigle-lift-raspuns).
+      qEl.replaceChildren();
+      qEl.append(document.createTextNode(cfg.intrebare.replace(/\?$/, "")));
+      necunoscutaEl = document.createElement("span");
+      necunoscutaEl.className = "rigle-lift-necunoscuta";
+      necunoscutaEl.textContent = "?";
+      qEl.appendChild(necunoscutaEl);
 
       // 2. rândul de mere
       rowEl.replaceChildren();
@@ -533,7 +668,8 @@
     function reglajLift() {
       const latimeMere = totalMere * cell;
       const latimeText = qEl.scrollWidth + LIFT_INSET * 2; // scrollWidth = lățimea naturală (align-items: center, fără width propriu)
-      lift.style.width = `${Math.max(latimeMere, latimeText)}px`;
+      liftW = Math.max(latimeMere, latimeText);
+      lift.style.width = `${liftW}px`;
     }
 
     // C2 — eticheta portocalie/verde de sub cifra butonului, vs. lățimea coloanei
@@ -585,11 +721,13 @@
     // Eticheta „n e prea mic"/„n e prea mare"/„n e corect" (n = cifra butonului) —
     // doar pe butonul coloanei curente (colIndex), curățată de pe toate celelalte
     // la fiecare apel, ca să nu rămână agățată pe butonul coloanei părăsite.
+    // Gated de cfg.fovButon (CP „Etichete FOV" — „Pe buton") — dezactivată, se
+    // comportă ca și cum tip ar fi mereu null (curăță, nu afișează nimic).
     function actualizeazaEtichetaButon(tip) {
       myButtons.forEach((btn, i) => {
         const label = btn.querySelector(".rigle-btn-mismatch");
         if (!label) return;
-        if (i === colIndex && tip) {
+        if (cfg.fovButon && i === colIndex && tip) {
           const n = cfg.latimiColoane[i];
           const esteCorect = tip === "corect";
           label.textContent = esteCorect ? `${n} e corect` : `${n} e prea ${tip}`;
@@ -607,6 +745,187 @@
           label.style.width = "";
         }
       });
+    }
+
+    // Text pt. caseta FOV Lift — pur, zero DOM. linie1 are aceeași formă ca în
+    // actualizeazaEtichetaButon (nu extras în comun: acolo `tip` vine gata decis de
+    // apelant, aici trebuie decis intern pt. orice idx — ar complica ambele fluxuri
+    // pt. un câștig de 3 linii, AGENTS.md 9a).
+    function calculeazaTextFov(idx) {
+      const n = cfg.latimiColoane[idx];
+      const corect = n === totalMere;
+      const tip = corect ? "corect" : n < totalMere ? "mic" : "mare";
+      const linie1 = corect ? `${n} e corect` : `${n} e prea ${tip}`;
+      const expresie = cfg.intrebare.replace(/=\?$/, "");
+      const semn = corect ? "=" : n < totalMere ? "<" : ">";
+      const linie2 = `${n}${semn}${expresie}`;
+      return { tip, linie1, linie2 };
+    }
+
+    // Repoziționează caseta FOV Lift analitic, din poziția curentă a liftului — apelată
+    // în fiecare cadru cât fovVizibil (nu doar cât zboară pătrățelul), ca să urmărească
+    // liftul din prima clipă („caseta urmărește liftul din start"). Fără nicio citire
+    // DOM: colX/y/travel/liftW/liftH sunt deja cunoscute (liftW la fel ca liftH — Pasul 0).
+    // Cache-uiește fovLiftTop/fovBoxTop/fovBoxLeft, refolosite de tintaFovEtapa() ca să
+    // nu recalculeze aceeași poziție de două ori pe cadru.
+    function actualizeazaPozitieFovLift() {
+      fovLiftTop = Math.min(y, travel);
+      // Marginea de sus a scenei taie caseta (overflow:hidden) dacă liftul e prea sus
+      // (mereu cazul imediat după fact nou, y=0) — rămâne lipită de sus, suprapusă
+      // parțial peste lift, în loc să dispară complet tăiată.
+      fovBoxTop = Math.max(0, fovLiftTop - fovBoxH);
+      const centruLift = colX[colIndex] + liftW / 2;
+      fovBoxLeft = centruLift - fovBoxW / 2;
+      fovLiftEl.style.top = `${fovBoxTop}px`;
+      fovLiftEl.style.left = `${fovBoxLeft}px`;
+    }
+
+    // Pornește (sau repornește) cursa FOV Lift pt. coloana curentă — la FIECARE
+    // apăsare de buton, corect sau greșit, mutare reală sau re-apăsare pe coloana
+    // curentă. Pregătește totul o singură dată (text, dimensiuni, offset-uri); mișcarea
+    // propriu-zisă se calculează per cadru, în avanseazaFovLift().
+    function porneșteFovLift() {
+      if (!cfg.fovLift) return;
+      fovRulareId += 1;
+
+      const { tip, linie1, linie2 } = calculeazaTextFov(colIndex);
+      fovTip = tip;
+      fovLinie1El.textContent = linie1;
+      fovLinie2El.textContent = linie2;
+      fovLinie1El.classList.remove("rigle-fov-lift-linie--vizibila");
+      fovLinie2El.classList.remove("rigle-fov-lift-linie--vizibila");
+      fovLinie1El.classList.toggle("rigle-fov-lift-linie--corect", tip === "corect");
+      fovLinie2El.classList.toggle("rigle-fov-lift-linie--corect", tip === "corect");
+      fovLiftEl.classList.add("rigle-fov-lift--vizibila");
+      fovVizibil = true;
+
+      // Dimensiuni + offset-uri — măsurate O SINGURĂ DATĂ acum, nu per cadru (Pasul 0).
+      fovBoxW = fovLiftEl.offsetWidth;
+      fovBoxH = fovLiftEl.offsetHeight;
+      fovSpan1Off = {
+        left: fovLinie1El.offsetLeft,
+        top: fovLinie1El.offsetTop,
+        width: fovLinie1El.offsetWidth,
+        height: fovLinie1El.offsetHeight,
+      };
+      fovSpan2Off = {
+        left: fovLinie2El.offsetLeft,
+        top: fovLinie2El.offsetTop,
+        width: fovLinie2El.offsetWidth,
+        height: fovLinie2El.offsetHeight,
+      };
+      fovNecunoscutaOff = necunoscutaEl
+        ? {
+            left: necunoscutaEl.offsetLeft,
+            top: necunoscutaEl.offsetTop,
+            width: necunoscutaEl.offsetWidth,
+            height: necunoscutaEl.offsetHeight,
+          }
+        : null;
+
+      actualizeazaPozitieFovLift(); // poziționează imediat caseta, nu aștepta cadrul următor
+
+      // Start: centrul celulei a N-a din coloana aterizată, la rândul curent al
+      // liftului — analitic, independent de bifa „Numerotează rânduri" (nu citește
+      // DOM din grilă; formula pt. rând e ca `pozitieReper`, fără „+1"-ul de acolo).
+      const n = cfg.latimiColoane[colIndex];
+      fovPozX = colX[colIndex] + (n - 0.5) * cell;
+      const randCurent = Math.round((y + liftH) / cell);
+      fovPozY = randCurent * cell + cell / 2;
+      fovZburatorEl.textContent = String(n);
+      fovZburatorEl.classList.add("rigle-fov-zburator--vizibil");
+      fovZburatorEl.style.left = `${fovPozX}px`;
+      fovZburatorEl.style.top = `${fovPozY}px`;
+
+      fovEtapa = 0;
+      fovTimpEtapa = 0;
+      fovActiv = true;
+    }
+
+    // Ținta curentă a pătrățelului zburător — folosește fovBoxTop/fovBoxLeft/fovLiftTop,
+    // deja cache-uite de actualizeazaPozitieFovLift() în cadrul curent (zero citire DOM).
+    function tintaFovEtapa() {
+      if (fovEtapa === 0) {
+        return {
+          x: fovBoxLeft + fovSpan1Off.left + fovSpan1Off.width / 2,
+          y: fovBoxTop + fovSpan1Off.top + fovSpan1Off.height / 2,
+        };
+      }
+      if (fovEtapa === 1) {
+        return {
+          x: fovBoxLeft + fovSpan2Off.left + fovSpan2Off.width / 2,
+          y: fovBoxTop + fovSpan2Off.top + fovSpan2Off.height / 2,
+        };
+      }
+      // etapa 2: spre „?" din întrebare — orizontal, colX[colIndex] (poziția finală a
+      // liftului, nu cea din glisarea în curs — zborul durează mai mult decât cele
+      // 0,35s de glisare, deci ținta finală e mereu cea corectă, vezi PLAN §3).
+      if (!fovNecunoscutaOff) return { x: fovPozX, y: fovPozY };
+      return {
+        x: colX[colIndex] + fovNecunoscutaOff.left + fovNecunoscutaOff.width / 2,
+        y: fovLiftTop + fovNecunoscutaOff.top + fovNecunoscutaOff.height / 2,
+      };
+    }
+
+    // Avansează cursa FOV Lift cu un cadru — apelată din tick(), doar cât fovActiv.
+    // Homing exponențial (frame-rate independent), NU tranziție CSS către un punct fix:
+    // ținta se mișcă (liftul cade continuu), deci se re-țintește în fiecare cadru.
+    // Pragul de sosire + durata maximă per etapă sunt ambele necesare — homing-ul spre o
+    // țintă mobilă lasă o eroare staționară (viteza_țintei / FOV_LAMBDA); fără prag mai
+    // mare decât eroarea aia, sau fără plasa de siguranță a duratei, cursa s-ar putea
+    // bloca tăcut la o etapă (PLAN-fov-lift.md §2.1).
+    function avanseazaFovLift(dt) {
+      const tinta = tintaFovEtapa();
+      const factor = 1 - Math.exp(-FOV_LAMBDA * dt);
+      fovPozX += (tinta.x - fovPozX) * factor;
+      fovPozY += (tinta.y - fovPozY) * factor;
+      fovZburatorEl.style.left = `${fovPozX}px`;
+      fovZburatorEl.style.top = `${fovPozY}px`;
+
+      fovTimpEtapa += dt;
+      const distanta = Math.hypot(tinta.x - fovPozX, tinta.y - fovPozY);
+      if (distanta > FOV_PRAG_SOSIRE && fovTimpEtapa < FOV_DURATA_MAX_ETAPA) return;
+
+      // sosire (sau plasa de siguranță): snap exact pe țintă, aplică efectul etapei,
+      // avansează. Idempotent — următorul cadru pornește curat de la fovTimpEtapa=0.
+      fovPozX = tinta.x;
+      fovPozY = tinta.y;
+      fovZburatorEl.style.left = `${fovPozX}px`;
+      fovZburatorEl.style.top = `${fovPozY}px`;
+      fovTimpEtapa = 0;
+
+      if (fovEtapa === 0) {
+        fovLinie1El.classList.add("rigle-fov-lift-linie--vizibila");
+        fovEtapa = 1;
+      } else if (fovEtapa === 1) {
+        fovLinie2El.classList.add("rigle-fov-lift-linie--vizibila");
+        if (fovTip === "corect" && cfg.fovLiftAnimatieCorect) {
+          fovEtapa = 2;
+        } else {
+          terminaFovLift();
+        }
+      } else {
+        dezvaluieRaspuns();
+        terminaFovLift();
+      }
+    }
+
+    // Termină cursa curentă: ascunde pătrățelul zburător. Caseta + span-urile rămân
+    // afișate (persistență — cf. cerinței: „rămâne dezvăluit până la fact nou").
+    function terminaFovLift() {
+      fovActiv = false;
+      fovZburatorEl.classList.remove("rigle-fov-zburator--vizibil");
+    }
+
+    // Înlocuiește „?" cu suma corectă, într-un div verde care pulsează CONTINUU (nu o
+    // singură dată — cerință explicită, spre deosebire de eticheta „corect" de pe
+    // buton). Idempotent: dacă era deja dezvăluit (re-apăsare pe coloana corectă după
+    // ce răspunsul se vede deja), nu ascunde/reface nimic — puls-ul continuu oricum
+    // rulează deja, nu are ce să „re-pulseze".
+    function dezvaluieRaspuns() {
+      if (!necunoscutaEl || necunoscutaEl.classList.contains("rigle-lift-raspuns")) return;
+      necunoscutaEl.textContent = String(totalMere);
+      necunoscutaEl.classList.add("rigle-lift-raspuns");
     }
 
     // „Prea puțin"/„prea mult": compară lățimea coloanei curente cu totalMere.
@@ -732,6 +1051,7 @@
       lift.style.left = `${colX[colIndex]}px`; // glisare orizontală (tranziția CSS)
       actualizeazaNumerotareAnimata();
       actualizeazaMismatch();
+      porneșteFovLift(); // la FIECARE apăsare — corect sau greșit, mutare reală sau re-apăsare
     }
 
     // Pauză proprie lui m2 — motorul 1 (falling-engine.js) are „if
@@ -826,6 +1146,26 @@
       aplicaStilLift();
     }
 
+    // CP „Etichete (FOV Feedback Oranj Verde)" — live, fără remount.
+    function setFov(opts) {
+      if (!opts) return;
+      if (typeof opts.buton === "boolean") {
+        cfg.fovButon = opts.buton;
+        actualizeazaMismatch(); // reafișează/ascunde imediat eticheta curentă
+      }
+      if (typeof opts.lift === "boolean") {
+        cfg.fovLift = opts.lift;
+        if (!cfg.fovLift) {
+          fovRulareId += 1;
+          fovActiv = false;
+          fovVizibil = false;
+          fovLiftEl.classList.remove("rigle-fov-lift--vizibila");
+          fovZburatorEl.classList.remove("rigle-fov-zburator--vizibil");
+        }
+      }
+      if (typeof opts.animatieCorect === "boolean") cfg.fovLiftAnimatieCorect = opts.animatieCorect;
+    }
+
     // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi
     // diferite de a produce un fact. Fără callback (mount fără generator), se
     // folosesc valorile din cfg — comportament identic cu etapa 1.
@@ -871,6 +1211,10 @@
         }
         lift.style.top = `${y}px`;
         actualizeazaNumerotareAnimata();
+        if (fovVizibil) {
+          actualizeazaPozitieFovLift();
+          if (fovActiv) avanseazaFovLift(dt);
+        }
       }
       rafId = requestAnimationFrame(tick);
     }
@@ -903,7 +1247,7 @@
       });
     }
 
-    return { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift };
+    return { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift, setFov };
   }
 
   global.RigleEngine = { mount };
