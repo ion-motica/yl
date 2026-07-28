@@ -218,9 +218,20 @@
    coloanei curente când lățimea ei diferă de totalMere. Poziționare provizorie
    (§ „deocamdată" din cerere) — doar sub cifră, nu lângă dreptunghiul de lângă
    mere. Se strânge pe conținut (nu align-self: stretch) — reglajEticheta() din
-   JS decide când/cât se lățește și unde se ancorează, vezi reglajTextSiDivuriPortocaliiSiVerzi(). */
+   JS decide când/cât se lățește și unde se ancorează, vezi reglajTextSiDivuriPortocaliiSiVerzi().
+   position: absolute — SCOASĂ din fluxul flex al .rigle-btn dinadins: dacă ar fi
+   un al doilea element flex (cum era înainte), apariția ei ar recentra grupul
+   „cifră+etichetă" și ar împinge cifra în sus, diferit de butoanele fără etichetă
+   vizibilă — exact bug-ul „30 apare mai sus decât 35/40". Scoasă din flux, cifra
+   rămâne mereu singurul element flex, deci la același nivel pe toate butoanele;
+   reglajEticheta() îi calculează top-ul din poziția reală a cifrei (după ce a fost
+   scoasă din flux), nu dintr-un gap fix. left:50%+transform centrează implicit;
+   reglajEticheta le suprascrie doar la ancorarea stânga/dreapta (excepția 2). */
 .rigle-btn-mismatch {
   display: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   box-sizing: border-box;
   background: #ff9800;
   color: #1a1400;
@@ -286,6 +297,7 @@
   };
 
   const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
+  const ETICHETA_GAP = 5; // px sub cifra butonului (~0.3rem, cât era gap-ul flex înainte) — v. reglajEticheta
   const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
   const NUMEROTARE_CULOARE_STATICA = "rgba(70, 120, 190, 0.65)"; // modul "toate rândurile"
   const NUMEROTARE_HUE_APROAPE = 205; // albastru, la rândul liftului
@@ -535,34 +547,37 @@
     // butonului — ca eticheta să nu iasă din arenă. Coloana din centru rămâne
     // centrată (se revarsă simetric, tot în arenă). Textul din interiorul etichetei
     // e mereu centrat (text-align: center, în CSS).
-    function reglajEticheta(label, coloanaWidth, pozitie) {
-      label.style.position = "";
-      label.style.left = "";
+    // `top` se calculează din poziția reală a cifrei (numEl), NU dintr-un gap fix —
+    // eticheta e position:absolute (CSS), deci cifra e mereu singurul element flex
+    // din buton și stă la același nivel pe toate cele 3 butoane, indiferent dacă
+    // eticheta e vizibilă sau nu (vezi comentariul din CSS, .rigle-btn-mismatch).
+    function reglajEticheta(label, btn, coloanaWidth, pozitie) {
+      const numEl = btn.querySelector(".rigle-btn-num");
+      label.style.left = ""; // revine la CSS: left:50% + transform (centrat)
       label.style.right = "";
-      label.style.top = "";
+      label.style.transform = "";
       label.style.width = "";
       label.style.whiteSpace = "nowrap";
+      label.style.top = `${numEl.offsetTop + numEl.offsetHeight + ETICHETA_GAP}px`;
       if (label.scrollWidth <= coloanaWidth) return; // normal
 
       label.style.whiteSpace = "normal"; // excepția 1: word-wrap
       label.style.width = `${coloanaWidth}px`;
       if (label.scrollWidth <= coloanaWidth) return;
 
-      const top = label.offsetTop; // poziția verticală curentă, înainte să iasă din flux
       label.style.width = `${label.scrollWidth}px`; // excepția 2: lățește pe cel mai lat rând
-      if (pozitie === "centru") return;
+      if (pozitie === "centru") return; // rămâne centrată (CSS), se revarsă simetric
 
       // position:absolute se măsoară de la cutia de padding a butonului (containing
       // block), deci padding-ul e deja „trecut peste" automat — mai rămâne doar
       // border-ul de compensat ca să ajungă la marginea reală (border-box) a
       // coloanei. (Dacă aș scădea și padding-ul, aș ieși cu atât mai mult din buton.)
-      const btn = label.closest(".rigle-btn");
       const btnStyle = getComputedStyle(btn);
-      label.style.position = "absolute";
-      label.style.top = `${top}px`;
+      label.style.transform = "none"; // anulează translateX(-50%) din CSS
       if (pozitie === "stanga") {
         label.style.left = `${-parseFloat(btnStyle.borderLeftWidth)}px`;
       } else {
+        label.style.left = "auto"; // anulează left:50% din CSS, ca right să decidă singur
         label.style.right = `${-parseFloat(btnStyle.borderRightWidth)}px`;
       }
     }
@@ -581,13 +596,13 @@
           label.classList.add("rigle-btn-mismatch--vizibil");
           label.classList.toggle("rigle-btn-mismatch--corect", esteCorect);
           const pozitie = i === 0 ? "stanga" : i === myButtons.length - 1 ? "dreapta" : "centru";
-          reglajEticheta(label, btn.getBoundingClientRect().width, pozitie);
+          reglajEticheta(label, btn, btn.getBoundingClientRect().width, pozitie);
         } else {
           label.textContent = "";
           label.classList.remove("rigle-btn-mismatch--vizibil", "rigle-btn-mismatch--corect");
-          label.style.position = "";
           label.style.left = "";
           label.style.right = "";
+          label.style.transform = "";
           label.style.top = "";
           label.style.width = "";
         }
