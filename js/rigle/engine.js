@@ -354,6 +354,9 @@
     let cell = 32;
     let colX = [];
     let mismatchMinH = 0; // prag minim înălțime pt. bara portocalie „coloană mai îngustă" — vezi computeGeometry()
+    let liftH = 0; // înălțimea liftului, calculată doar în computeGeometry() — actualizeazaNumerotareAnimata()
+    // (rulează per frame, în tick()) o citește de aici, NU din lift.offsetHeight: o citire de layout
+    // după fiecare scriere de lift.style.top ar forța recalcul de layout la 60fps.
     let travel = 1;
     let colEls = [];
     let myButtons = [];
@@ -488,7 +491,7 @@
         btn.style.width = `${cfg.latimiColoane[i] * cell}px`;
       });
 
-      const liftH = lift.offsetHeight || cell * 2.4;
+      liftH = lift.offsetHeight || cell * 2.4;
       travel = Math.max(1, H - liftH);
 
       lift.style.left = `${colX[colIndex]}px`;
@@ -684,7 +687,6 @@
       if (cfg.numerotareRanduri !== "animat") return;
       const randuriColoana = rowEls[colIndex];
       if (!randuriColoana) return;
-      const liftH = lift.offsetHeight || cell * 2.4;
       const pozitieReper = (y + liftH) / cell + 1; // rândul liftului + cel de sub, fracționar
       const Xsus = Math.max(1, cfg.randuriInSus);
       const Xjos = Math.max(1, cfg.randuriInJos);
