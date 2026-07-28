@@ -83,6 +83,14 @@
 }
 .rigle-lift-row {
   display: flex;
+  align-self: flex-start;
+  margin-left: -6px; /* -(padding 4px + border 2px ale .rigle-lift, v. LIFT_INSET
+    din JS) — pinează marginea stângă a rândului de mere la colțul stâng al
+    liftului (0 = colX[colIndex]), indiferent de lățimea liftului. Înainte se
+    baza pe centrarea flex + suprapunerea simetrică (gotcha #5) — funcționa doar
+    fiindcă rândul avea aproximativ aceeași lățime ca liftul; de când liftul se
+    poate lăți ca să încapă întrebarea, cele două lățimi pot diferi, deci ancorarea
+    trebuie explicită, nu bazată pe coincidență. */
 }
 /* „Prea puțin"/„prea mult" — dreptunghi portocaliu clipitor, copil al .rigle-lift,
    poziționat analitic (nu măsurat) relativ la colțul liftului — vezi
@@ -216,6 +224,10 @@
 .rigle-btn-mismatch {
   display: none;
   align-self: stretch;
+  /* min-width setat din JS (vezi latimeMinimaEticheta în mount) — lățimea reală
+     măsurată a cuvântului „prea" (cel mai lat cuvânt de pe un rând), nu o
+     aproximare în ch. Sub atât, mai bine iese peste marginea butonului decât să
+     se rupă cuvântul pe litere. */
   box-sizing: border-box;
   background: #ff9800;
   color: #1a1400;
@@ -229,6 +241,13 @@
 }
 .rigle-btn-mismatch--vizibil {
   display: block;
+}
+/* „n e corect" — aceeași etichetă/loc, dar verde și statică (fără puls), ca să nu
+   se confunde vizual cu avertismentul portocaliu clipitor „prea mic"/„prea mare". */
+.rigle-btn-mismatch--corect {
+  background: #43a047;
+  color: #eafbea;
+  animation: none;
 }
 /* Butoanele de sus (≡/CP/⏸) — fundal semitransparent cât e m2 activ, ca scrisul
    să se vadă peste coloanele galbene. Scoped pe m2: nu atinge motorul 1. */
@@ -247,6 +266,26 @@
     style.id = STYLE_ID;
     style.textContent = CSS;
     document.head.appendChild(style);
+  }
+
+  // Lățimea reală (px) a cuvântului „prea" randat cu fontul .rigle-btn-mismatch —
+  // folosită ca min-width pe etichetă, ca „prea" să nu se rupă niciodată pe
+  // butoane foarte înguste. Măsurată o dată (font-ul e fix, nu depinde de cell/
+  // sumă), cache-uită la nivel de modul — nu per mount.
+  let latimeCuvantPrea = null;
+  function masoaraLatimeCuvantPrea() {
+    if (latimeCuvantPrea != null) return latimeCuvantPrea;
+    injectStyles();
+    const probe = document.createElement("span");
+    probe.className = "rigle-btn-mismatch rigle-btn-mismatch--vizibil";
+    probe.style.position = "fixed";
+    probe.style.visibility = "hidden";
+    probe.style.minWidth = "0";
+    probe.textContent = "prea";
+    document.body.appendChild(probe);
+    latimeCuvantPrea = probe.getBoundingClientRect().width;
+    probe.remove();
+    return latimeCuvantPrea;
   }
 
   const DEFAULTS = {
@@ -272,6 +311,7 @@
     liftMargine: true, // false = marginea liftului devine transparentă (nu dispare din layout)
   };
 
+  const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
   const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
   const NUMEROTARE_CULOARE_STATICA = "rgba(70, 120, 190, 0.65)"; // modul "toate rândurile"
   const NUMEROTARE_HUE_APROAPE = 205; // albastru, la rândul liftului
@@ -401,6 +441,7 @@
         btn.appendChild(num);
         const mismatchLabel = document.createElement("span");
         mismatchLabel.className = "rigle-btn-mismatch";
+        mismatchLabel.style.minWidth = `${masoaraLatimeCuvantPrea()}px`;
         btn.appendChild(mismatchLabel);
         btn.addEventListener("click", () => selectColumn(idx));
         buttonsBar.appendChild(btn);
@@ -474,7 +515,15 @@
         btn.style.width = `${cfg.latimiColoane[i] * cell}px`;
       });
 
-      lift.style.width = `${totalMere * cell}px`;
+      // Cutia liftului = max(rândul de mere, textul întrebării + inset). Merele și
+      // fontul întrebării (19px, fix — gotcha #7) NU se ating; doar cutia se lățește
+      // spre dreapta când „x+y=?" e mai lat decât rândul de mere, ca textul să nu mai
+      // iasă pe afară. qEl.scrollWidth e lățimea lui naturală (align-items: center,
+      // fără width propriu, deci randează mereu la lățimea completă, indiferent de
+      // cutie) — nu trebuie sondă separată, ca la „prea" din etichetele butoanelor.
+      const latimeMere = totalMere * cell;
+      const latimeText = qEl.scrollWidth + LIFT_INSET * 2;
+      lift.style.width = `${Math.max(latimeMere, latimeText)}px`;
       const liftH = lift.offsetHeight || cell * 2.4;
       travel = Math.max(1, H - liftH);
 
@@ -494,13 +543,13 @@
     // centrată pe axa verticală a rândului de mere — cu o excepție: la sumă mică
     // (<=5) și coloană mai îngustă, rândul de mere e prea scund/aglomerat ca bara
     // centrată să nu se suprapună vizibil peste mere, deci rămâne SUB rând, ca înainte.
-    // Eticheta „n e prea mic"/„n e prea mare" (n = cifra butonului) — doar pe
-    // butonul coloanei curente (colIndex), curățată de pe toate celelalte la
-    // fiecare apel, ca să nu rămână agățată pe butonul coloanei părăsite.
+    // Eticheta „n e prea mic"/„n e prea mare"/„n e corect" (n = cifra butonului) —
+    // doar pe butonul coloanei curente (colIndex), curățată de pe toate celelalte
+    // la fiecare apel, ca să nu rămână agățată pe butonul coloanei părăsite.
     // Aliniere după poziția coloanei (stânga/centru/dreapta) — întotdeauna, nu doar
-    // pe 3 rânduri. Comutare 1 linie ↔ 3 rânduri („n e" / „prea" / „mic"/„mare"):
-    // măsurată la runtime (scrollWidth > clientWidth pe o singură linie), nu un
-    // prag fix în px — se adaptează la orice lățime de coloană/ecran.
+    // pe mai multe rânduri. Comutare 1 linie ↔ 2-3 rânduri: măsurată la runtime
+    // (scrollWidth > clientWidth pe o singură linie), nu un prag fix în px — se
+    // adaptează la orice lățime de coloană/ecran.
     function actualizeazaEtichetaButon(tip) {
       myButtons.forEach((btn, i) => {
         const label = btn.querySelector(".rigle-btn-mismatch");
@@ -508,16 +557,20 @@
         label.style.textAlign = i === 0 ? "left" : i === myButtons.length - 1 ? "right" : "center";
         if (i === colIndex && tip) {
           const n = cfg.latimiColoane[i];
+          const esteCorect = tip === "corect";
+          const linieUnica = esteCorect ? `${n} e corect` : `${n} e prea ${tip}`;
+          const linii = esteCorect ? `${n} e<br>corect!` : `${n} e<br>prea<br>${tip}`;
           label.classList.add("rigle-btn-mismatch--vizibil");
+          label.classList.toggle("rigle-btn-mismatch--corect", esteCorect);
           label.style.whiteSpace = "nowrap";
-          label.textContent = `${n} e prea ${tip}`;
+          label.textContent = linieUnica;
           if (label.scrollWidth > label.clientWidth + 1) {
             label.style.whiteSpace = "normal";
-            label.innerHTML = `${n} e<br>prea<br>${tip}`;
+            label.innerHTML = linii;
           }
         } else {
           label.textContent = "";
-          label.classList.remove("rigle-btn-mismatch--vizibil");
+          label.classList.remove("rigle-btn-mismatch--vizibil", "rigle-btn-mismatch--corect");
         }
       });
     }
@@ -526,7 +579,7 @@
       const latimeColoana = cfg.latimiColoane[colIndex];
       if (latimeColoana === totalMere) {
         mismatchEl.style.display = "none";
-        actualizeazaEtichetaButon(null);
+        actualizeazaEtichetaButon("corect");
         return;
       }
       mismatchEl.style.display = "block";
