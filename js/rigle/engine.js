@@ -8,7 +8,8 @@
  * `js/rigle/SPEC-etapa1.md` e istoric (etapa 1, doar mișcarea).
  *
  *   RigleEngine.mount({ arenaEl, optionsEl }, config?)
- *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift, setFov }
+ *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift, setFov,
+ *         setDaraGlorioasa }
  *
  * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
  * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
@@ -327,20 +328,21 @@
   display: flex;
 }
 /* Coborâre glorioasă — la coloana corectă, după ce pătrățelul FOV Lift și-a terminat
-   drumul (sau imediat, dacă „Pe lift" e oprit din CP), liftul coboară rapid până jos,
-   lăsând o dâră de contururi fantomă care se sting. Fiecare „urmă" e o copie a
-   marginii rotunjite a liftului (border-radius/border identice), fără fundal —
-   creată/ștearsă dinamic din JS (creeazaDaraGlorioasa), nu un element reutilizat ca
-   restul FOV Lift, fiindcă numărul de urme variază cu durata cadrului. */
+   drumul (sau imediat, dacă „Pe lift" e oprit din CP), liftul coboară rapid până jos ȘI,
+   simultan, un front de dreptunghiuri urcă în sus (CP „Dara glorioasă" — Lungime/Desime
+   controlează cât de sus ajunge/cât de dese sunt). Fiecare „urmă" e un dreptunghi de
+   mărimea liftului, culoare vie aleasă aleator, cu fundal semitransparent — creat/șters
+   dinamic din JS (creeazaDaraGlorioasa), nu element reutilizat ca restul FOV Lift,
+   fiindcă numărul de urme variază cu durata cadrului și cu bifele CP. */
 .rigle-glorie-dara {
   position: absolute;
   z-index: 1; /* sub .rigle-lift (2) — se vede „în urmă", nu peste el */
   box-sizing: border-box;
-  border: 2px solid #3a4a63;
+  border-width: 3px;
+  border-style: solid;
   border-radius: 8px;
-  background: transparent;
   opacity: 1;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.45s ease;
   pointer-events: none;
 }
 /* Butoanele de sus (≡/CP/⏸) — fundal semitransparent cât e m2 activ, ca scrisul
@@ -387,6 +389,8 @@
     fovLift: true, // pătrățelul zburător + caseta de sub lift
     fovLiftAnimatieCorect: true, // continuarea spre „?" (doar la coloana corectă)
     fovLiftDivizorViteza: 1, // 1 = viteza actuală, 10 = de 10x mai încet (CP slider)
+    daraLungime: 10, // 0-10; 10 = frontul de sus al dârei ajunge la marginea de sus a arenei
+    daraDesime: 50, // 0-100; 100 = dreptunghiuri cadru lângă cadru (fără gol)
   };
 
   const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
@@ -412,10 +416,11 @@
 
   // Coborâre glorioasă — la coloana corectă, după ce cursa FOV Lift s-a terminat (sau
   // imediat, dacă „Pe lift" e oprit). Durata fixă (nu viteză constantă): liftul parcurge
-  // orice distanță rămasă până jos, exact în COBORARE_GLORIOASA_DURATA secunde.
+  // orice distanță rămasă până jos, exact în COBORARE_GLORIOASA_DURATA secunde — ȘI, în
+  // aceeași durată, frontul de sus al dârei urcă spre ținta lui (CP „Lungime").
   const COBORARE_GLORIOASA_DURATA = 0.8; // s
-  const DARA_INTERVAL = 0.07; // s între două urme succesive ale dârei
-  const DARA_FADE_MS = 350; // ms — cât ține stingerea unei urme (CSS transition opacity)
+  const DARA_FADE_MS = 450; // ms — cât ține stingerea unei urme (CSS transition opacity)
+  const GLORIE_CULORI = ["#e53935", "#fb8c00", "#fdd835", "#43a047", "#1e88e5", "#8e24aa", "#00acc1", "#d81b60"];
 
   function mount(hosts, config) {
     const arenaEl = hosts && hosts.arenaEl;
@@ -532,13 +537,20 @@
     let fovBoxLeft = 0; // poziția curentă a casetei (coordonate „scenă"), recalculată per cadru
     let fovRulareId = 0; // token — o cursă veche întârziată nu mai scrie stare după ce a pornit alta
 
-    // ── Coborâre glorioasă: la coloana corectă, liftul coboară rapid până jos (0,8s),
-    // lăsând o dâră de contururi fantomă, apoi trece la fact nou. Înlocuiește incrementul
-    // normal de `y` din tick() cât timp e activă (vezi avanseazaCoborareaGlorioasa). ──
+    // ── Coborâre glorioasă: la coloana corectă, liftul coboară rapid până jos (0,8s) ȘI,
+    // simultan, un front de dreptunghiuri urcă în sus — două fluxuri, aceeași durată,
+    // direcții opuse. Înlocuiește incrementul normal de `y` din tick() cât timp e activă
+    // (vezi avanseazaCoborareaGlorioasa). Spawn-ul e legat de DISTANȚA parcursă de
+    // fiecare front (CP „Desime"), nu de un interval de timp fix — așa „Desime" chiar
+    // înseamnă „cadru lângă cadru", indiferent cât de departe ajunge frontul. ──
     let coborareGlorioasaActiva = false;
     let coborareGlorioasaTimp = 0; // secunde de la pornire
     let coborareGlorioasaYStart = 0; // y-ul liftului în momentul pornirii
-    let coborareGlorioasaUltimaDara = 0; // coborareGlorioasaTimp la ultima urmă creată
+    let coborareGlorioasaYTintaSus = 0; // ținta frontului de sus (din CP „Lungime")
+    let coborareGlorioasaVitezaJos = 0; // px/s — constantă pe durata cursei (liniar)
+    let coborareGlorioasaVitezaSus = 0; // px/s — la fel, pt. frontul de sus
+    let coborareGlorioasaDistJos = 0; // px acumulați de la ultima urmă (front jos = lift)
+    let coborareGlorioasaDistSus = 0; // px acumulați de la ultima urmă (front sus)
 
     // Randare completă a conținutului variabil dintr-un fact (UI = f(state), fără
     // update parțial): întrebarea, rândul de mere, coloanele, butoanele, apoi
@@ -985,17 +997,21 @@
       necunoscutaEl.classList.add("rigle-lift-raspuns");
     }
 
-    // O urmă a dârei — copie a conturului liftului (border/border-radius identice, fără
-    // fundal), la poziția curentă, care se stinge singură (CSS transition) și se scoate
-    // din DOM. Creată/ștearsă dinamic (nu element reutilizat, ca fovZburatorEl) — numărul
-    // de urme dintr-o cursă variază cu durata reală a cadrelor.
-    function creeazaDaraGlorioasa() {
+    // O urmă a dârei — dreptunghi de mărimea liftului, la poziția topPx dată, culoare
+    // vie aleasă aleator (fundal semitransparent + margine plină aceeași culoare), care
+    // se stinge singură (CSS transition) și se scoate din DOM. Creată/ștearsă dinamic
+    // (nu element reutilizat, ca fovZburatorEl) — numărul de urme dintr-o cursă variază
+    // cu CP „Desime" și cu durata reală a cadrelor.
+    function creeazaDaraGlorioasa(topPx) {
       const dara = document.createElement("div");
       dara.className = "rigle-glorie-dara";
+      const culoare = GLORIE_CULORI[Math.floor(Math.random() * GLORIE_CULORI.length)];
       dara.style.left = `${colX[colIndex]}px`;
-      dara.style.top = `${y}px`;
+      dara.style.top = `${topPx}px`;
       dara.style.width = `${liftW}px`;
       dara.style.height = `${liftH}px`;
+      dara.style.borderColor = culoare;
+      dara.style.background = `${culoare}55`; // hex+alfa (~33%) — fundal semitransparent, nu doar contur
       scene.appendChild(dara);
       requestAnimationFrame(() => {
         dara.style.opacity = "0"; // pornește tranziția CSS abia după primul layout (altfel nu se vede stingerea)
@@ -1009,30 +1025,57 @@
     // e un moment de tranziție spre factul următor, nu o pauză cerută de utilizator).
     // Idempotent: o cursă deja activă nu repornește (butoanele oricum sunt deja blocate,
     // deci re-apelarea ar necesita altă cale decât interacțiunea normală).
+    //
+    // Calculează vitezele (px/s) ale celor două fronturi — liniare, constante pe durata
+    // cursei, deci avanseazaCoborareaGlorioasa() nu are nevoie să rețină poziția
+    // cadrului anterior ca să afle cât s-a deplasat fiecare front. CP „Lungime" (0-10)
+    // decide ținta frontului de sus: 10 = marginea de sus a arenei (y=0), 0 = nu se
+    // mișcă deloc (rămâne la y-ul de pornire, deci nu creează nicio urmă).
     function porneșteCoborareaGlorioasa() {
       if (coborareGlorioasaActiva) return;
       coborareGlorioasaActiva = true;
       coborareGlorioasaTimp = 0;
       coborareGlorioasaYStart = y;
-      coborareGlorioasaUltimaDara = 0;
       myButtons.forEach((btn) => {
         btn.disabled = true;
       });
+
+      coborareGlorioasaVitezaJos = (travel - y) / COBORARE_GLORIOASA_DURATA;
+      const lungimeFrac = Math.max(0, Math.min(10, cfg.daraLungime)) / 10;
+      coborareGlorioasaYTintaSus = y * (1 - lungimeFrac);
+      coborareGlorioasaVitezaSus = (y - coborareGlorioasaYTintaSus) / COBORARE_GLORIOASA_DURATA;
+      coborareGlorioasaDistJos = 0;
+      coborareGlorioasaDistSus = 0;
     }
 
     // Avansează coborârea glorioasă cu un cadru — apelată din tick() ÎN LOC de
     // incrementul normal de `y`, cât timp e activă. Durată fixă (nu viteză constantă):
-    // parcurge orice distanță rămasă până jos exact în COBORARE_GLORIOASA_DURATA secunde,
-    // interpolare liniară. La final: y=0 + faNouFact() — exact ca la wrap-ul normal.
+    // ambele fronturi parcurg orice distanță le rămâne, exact în
+    // COBORARE_GLORIOASA_DURATA secunde, interpolare liniară — unul în jos (liftul),
+    // celălalt în sus (dâra), simultan. Spawn legat de distanța acumulată de fiecare
+    // front (nu de timp), pas = liftH / (Desime/100) — la Desime=100, pasul e liftH,
+    // adică „urmă lângă urmă" (cadru lângă cadru). La final: y=0 + faNouFact() — exact
+    // ca la wrap-ul normal.
     function avanseazaCoborareaGlorioasa(dt) {
       coborareGlorioasaTimp += dt;
       const t = Math.min(1, coborareGlorioasaTimp / COBORARE_GLORIOASA_DURATA);
       y = coborareGlorioasaYStart + (travel - coborareGlorioasaYStart) * t;
       lift.style.top = `${y}px`;
+      const yFrontSus = coborareGlorioasaYStart - (coborareGlorioasaYStart - coborareGlorioasaYTintaSus) * t;
 
-      if (coborareGlorioasaTimp - coborareGlorioasaUltimaDara >= DARA_INTERVAL) {
-        coborareGlorioasaUltimaDara = coborareGlorioasaTimp;
-        creeazaDaraGlorioasa();
+      const desime = Math.max(0, Math.min(100, cfg.daraDesime));
+      const pasSpatiu = liftH / Math.max(0.05, desime / 100);
+
+      coborareGlorioasaDistJos += coborareGlorioasaVitezaJos * dt;
+      while (coborareGlorioasaDistJos >= pasSpatiu) {
+        creeazaDaraGlorioasa(y);
+        coborareGlorioasaDistJos -= pasSpatiu;
+      }
+
+      coborareGlorioasaDistSus += coborareGlorioasaVitezaSus * dt;
+      while (coborareGlorioasaDistSus >= pasSpatiu) {
+        creeazaDaraGlorioasa(yFrontSus);
+        coborareGlorioasaDistSus -= pasSpatiu;
       }
 
       if (t >= 1) {
@@ -1290,6 +1333,15 @@
       }
     }
 
+    // CP „Dara glorioasă" — Lungime (0-10) / Desime (0-100). Live, fără remount; se
+    // citesc direct din cfg la fiecare pornire de cursă (porneșteCoborareaGlorioasa) —
+    // nu trebuie nimic recalculat aici, doar reținută valoarea.
+    function setDaraGlorioasa(opts) {
+      if (!opts) return;
+      if (typeof opts.lungime === "number") cfg.daraLungime = Math.max(0, Math.min(10, opts.lungime));
+      if (typeof opts.desime === "number") cfg.daraDesime = Math.max(0, Math.min(100, opts.desime));
+    }
+
     // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi
     // diferite de a produce un fact. Fără callback (mount fără generator), se
     // folosesc valorile din cfg — comportament identic cu etapa 1.
@@ -1375,7 +1427,16 @@
       });
     }
 
-    return { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift, setFov };
+    return {
+      destroy,
+      setGridLines,
+      setColumnLayout,
+      reporneste,
+      setNumerotareRanduri,
+      setLift,
+      setFov,
+      setDaraGlorioasa,
+    };
   }
 
   global.RigleEngine = { mount };

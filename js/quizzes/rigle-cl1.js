@@ -91,6 +91,15 @@
   const getFovLiftViteza = () =>
     global.LayoutConfig?.get(FOV_LIFT_VITEZA_KEY, FOV_LIFT_VITEZA_IMPLICIT) ?? FOV_LIFT_VITEZA_IMPLICIT;
 
+  // CP — Dara glorioasă: Lungime (0-10, cât de sus ajunge frontul de sus) / Desime
+  // (0-100, cât de dese sunt dreptunghiurile — 100 = cadru lângă cadru).
+  const DARA_LUNGIME_KEY = "rigleDaraLungime";
+  const DARA_DESIME_KEY = "rigleDaraDesime";
+  const DARA_LUNGIME_IMPLICIT = 10;
+  const DARA_DESIME_IMPLICIT = 50;
+  const getDaraLungime = () => global.LayoutConfig?.get(DARA_LUNGIME_KEY, DARA_LUNGIME_IMPLICIT) ?? DARA_LUNGIME_IMPLICIT;
+  const getDaraDesime = () => global.LayoutConfig?.get(DARA_DESIME_KEY, DARA_DESIME_IMPLICIT) ?? DARA_DESIME_IMPLICIT;
+
   global.QuizRegistry.register({
     id: "rigle-cl1",
     title: "Cl. 1 - Rigle",
@@ -122,6 +131,8 @@
             fovLift: getFovLift(),
             fovLiftAnimatieCorect: getFovLiftCorect(),
             fovLiftDivizorViteza: getFovLiftViteza(),
+            daraLungime: getDaraLungime(),
+            daraDesime: getDaraDesime(),
             urmatorulFact,
           });
           mounted = global.RigleEngine.mount(hosts, cfg);
@@ -324,6 +335,55 @@
           });
           vitezaRow.append(vitezaLabel, vitezaSlider, vitezaOut);
           mount.appendChild(vitezaRow);
+
+          const daraTitle = document.createElement("p");
+          daraTitle.className = "control-panel-lift-title";
+          daraTitle.textContent = "Dara glorioasă";
+          mount.appendChild(daraTitle);
+
+          const lungimeRow = document.createElement("div");
+          lungimeRow.className = "control-panel-lift-field";
+          const lungimeLabel = document.createElement("label");
+          lungimeLabel.textContent = "Lungime dara";
+          const lungimeSlider = document.createElement("input");
+          lungimeSlider.type = "range";
+          lungimeSlider.min = "0";
+          lungimeSlider.max = "10";
+          lungimeSlider.step = "1";
+          lungimeSlider.value = String(getDaraLungime());
+          const lungimeOut = document.createElement("span");
+          lungimeOut.className = "control-panel-lift-slider-out";
+          lungimeOut.textContent = lungimeSlider.value;
+          lungimeSlider.addEventListener("input", () => {
+            const v = Number(lungimeSlider.value);
+            global.LayoutConfig?.set(DARA_LUNGIME_KEY, v);
+            lungimeOut.textContent = String(v);
+            mounted?.setDaraGlorioasa({ lungime: v });
+          });
+          lungimeRow.append(lungimeLabel, lungimeSlider, lungimeOut);
+          mount.appendChild(lungimeRow);
+
+          const desimeRow = document.createElement("div");
+          desimeRow.className = "control-panel-lift-field";
+          const desimeLabel = document.createElement("label");
+          desimeLabel.textContent = "Desime dara";
+          const desimeSlider = document.createElement("input");
+          desimeSlider.type = "range";
+          desimeSlider.min = "0";
+          desimeSlider.max = "100";
+          desimeSlider.step = "1";
+          desimeSlider.value = String(getDaraDesime());
+          const desimeOut = document.createElement("span");
+          desimeOut.className = "control-panel-lift-slider-out";
+          desimeOut.textContent = desimeSlider.value;
+          desimeSlider.addEventListener("input", () => {
+            const v = Number(desimeSlider.value);
+            global.LayoutConfig?.set(DARA_DESIME_KEY, v);
+            desimeOut.textContent = String(v);
+            mounted?.setDaraGlorioasa({ desime: v });
+          });
+          desimeRow.append(desimeLabel, desimeSlider, desimeOut);
+          mount.appendChild(desimeRow);
         },
 
         // Stub-uri minime pentru orice apel neguardat din HUD.
