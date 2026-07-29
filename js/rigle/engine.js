@@ -369,6 +369,7 @@
     fovButon: true, // eticheta „n e prea mic/mare/corect" de pe buton
     fovLift: true, // pătrățelul zburător + caseta de sub lift
     fovLiftAnimatieCorect: true, // continuarea spre „?" (doar la coloana corectă)
+    fovLiftDivizorViteza: 1, // 1 = viteza actuală, 10 = de 10x mai încet (CP slider)
   };
 
   const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
@@ -379,12 +380,18 @@
   const NUMEROTARE_HUE_DEPARTE = 320; // roz-magenta, la marginea ferestrei (modul "animat")
 
   // FOV Lift — v. PLAN-fov-lift.md §2.1 pt. derivarea pragurilor. Homing exponențial
-  // spre o țintă în mișcare lasă o eroare staționară = viteza_țintei / FOV_LAMBDA —
-  // cu vitezaCoborare=34px/s și λ=10, eroarea e ~3,4px; pragul de sosire TREBUIE să fie
-  // mai mare (altfel pătrățelul nu ajunge niciodată, secvența rămâne agățată tăcut).
-  const FOV_LAMBDA = 10; // rata de homing, 1/s
-  const FOV_PRAG_SOSIRE = 8; // px
-  const FOV_DURATA_MAX_ETAPA = 1.5; // s — plasă de siguranță, indiferent de geometrie
+  // spre o țintă în mișcare lasă o eroare staționară = viteza_țintei / λ — cu
+  // vitezaCoborare=34px/s și λ implicit=10, eroarea e ~3,4px; pragul de sosire TREBUIE
+  // să fie mai mare (altfel pătrățelul nu ajunge niciodată, secvența rămâne agățată
+  // tăcut). CP „Viteza pătrățelului" (cfg.fovLiftDivizorViteza, 1-10) împarte DOAR λ —
+  // FOV_DURATA_MAX_ETAPA rămâne fixă. Testat: scalarea duratei odată cu λ (varianta
+  // inițială) ducea la ~15s/etapă la divizor=10 (eroarea staționară, 34px, depășește
+  // oricum pragul la viteză mică, deci durata devine mecanismul normal de sosire, nu
+  // doar rezerva) — mult peste ce înseamnă intuitiv „10x mai încet". Cu durata fixă,
+  // fiecare etapă durează cel mult 1,5s la orice viteză — vizibil mai lent, dar mărginit.
+  const FOV_LAMBDA = 10; // rata de homing implicită, 1/s — la divizor=1 (CP „viteza actuală")
+  const FOV_PRAG_SOSIRE = 8; // px — precizie de „a ajuns", nu depinde de viteză
+  const FOV_DURATA_MAX_ETAPA = 1.5; // s — plasă de siguranță, fixă, nu se scalează cu viteza
 
   function mount(hosts, config) {
     const arenaEl = hosts && hosts.arenaEl;
@@ -875,8 +882,19 @@
     // mare decât eroarea aia, sau fără plasa de siguranță a duratei, cursa s-ar putea
     // bloca tăcut la o etapă (PLAN-fov-lift.md §2.1).
     function avanseazaFovLift(dt) {
+      // CP „Viteza pătrățelului": divizor 1 = viteza implicită (λ=FOV_LAMBDA), divizor
+      // 10 = 10x mai încet. Durata maximă NU se scalează (rămâne FOV_DURATA_MAX_ETAPA
+      // fix) — măsurat: scalarea ei la fel ca λ ducea la ~15s/etapă (45s pt. o cursă
+      // completă la coloana corectă), mult peste ce înseamnă intuitiv „10x mai încet".
+      // La viteză mică, eroarea staționară oricum depășește pragul de sosire (vezi
+      // comentariul de la constante), deci durata fixă devine mecanismul normal de
+      // avans — fiecare etapă durează ~1,5s (nu 250ms ca la viteza implicită), vizibil
+      // mai lent, dar mărginit, nu o așteptare de zeci de secunde.
+      const divizor = Math.max(1, Math.min(10, cfg.fovLiftDivizorViteza || 1));
+      const lambdaEfectiv = FOV_LAMBDA / divizor;
+
       const tinta = tintaFovEtapa();
-      const factor = 1 - Math.exp(-FOV_LAMBDA * dt);
+      const factor = 1 - Math.exp(-lambdaEfectiv * dt);
       fovPozX += (tinta.x - fovPozX) * factor;
       fovPozY += (tinta.y - fovPozY) * factor;
       fovZburatorEl.style.left = `${fovPozX}px`;
@@ -1164,6 +1182,9 @@
         }
       }
       if (typeof opts.animatieCorect === "boolean") cfg.fovLiftAnimatieCorect = opts.animatieCorect;
+      if (typeof opts.divizorViteza === "number") {
+        cfg.fovLiftDivizorViteza = Math.max(1, Math.min(10, opts.divizorViteza));
+      }
     }
 
     // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi

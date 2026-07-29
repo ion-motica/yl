@@ -83,9 +83,13 @@
   const FOV_BUTON_KEY = "rigleFovButon";
   const FOV_LIFT_KEY = "rigleFovLift";
   const FOV_LIFT_CORECT_KEY = "rigleFovLiftAnimatieCorect";
+  const FOV_LIFT_VITEZA_KEY = "rigleFovLiftDivizorViteza";
+  const FOV_LIFT_VITEZA_IMPLICIT = 1; // 1 = viteza actuală, 10 = de 10x mai încet
   const getFovButon = () => global.LayoutConfig?.get(FOV_BUTON_KEY, true) !== false;
   const getFovLift = () => global.LayoutConfig?.get(FOV_LIFT_KEY, true) !== false;
   const getFovLiftCorect = () => global.LayoutConfig?.get(FOV_LIFT_CORECT_KEY, true) !== false;
+  const getFovLiftViteza = () =>
+    global.LayoutConfig?.get(FOV_LIFT_VITEZA_KEY, FOV_LIFT_VITEZA_IMPLICIT) ?? FOV_LIFT_VITEZA_IMPLICIT;
 
   global.QuizRegistry.register({
     id: "rigle-cl1",
@@ -117,6 +121,7 @@
             fovButon: getFovButon(),
             fovLift: getFovLift(),
             fovLiftAnimatieCorect: getFovLiftCorect(),
+            fovLiftDivizorViteza: getFovLiftViteza(),
             urmatorulFact,
           });
           mounted = global.RigleEngine.mount(hosts, cfg);
@@ -296,6 +301,29 @@
             global.LayoutConfig?.set(FOV_LIFT_CORECT_KEY, checked);
             mounted?.setFov({ animatieCorect: checked });
           });
+
+          const vitezaRow = document.createElement("div");
+          vitezaRow.className = "control-panel-lift-field";
+          const vitezaLabel = document.createElement("label");
+          vitezaLabel.textContent = "Viteza pătrățelului";
+          const vitezaSlider = document.createElement("input");
+          vitezaSlider.type = "range";
+          vitezaSlider.min = "1";
+          vitezaSlider.max = "10";
+          vitezaSlider.step = "1";
+          vitezaSlider.value = String(getFovLiftViteza());
+          const vitezaOut = document.createElement("span");
+          vitezaOut.className = "control-panel-lift-slider-out";
+          const descrieViteza = (v) => (Number(v) <= 1 ? "viteza actuală" : `de ${v}× mai încet`);
+          vitezaOut.textContent = descrieViteza(vitezaSlider.value);
+          vitezaSlider.addEventListener("input", () => {
+            const v = Number(vitezaSlider.value);
+            global.LayoutConfig?.set(FOV_LIFT_VITEZA_KEY, v);
+            vitezaOut.textContent = descrieViteza(v);
+            mounted?.setFov({ divizorViteza: v });
+          });
+          vitezaRow.append(vitezaLabel, vitezaSlider, vitezaOut);
+          mount.appendChild(vitezaRow);
         },
 
         // Stub-uri minime pentru orice apel neguardat din HUD.
