@@ -326,6 +326,23 @@
 .rigle-fov-zburator--vizibil {
   display: flex;
 }
+/* Coborâre glorioasă — la coloana corectă, după ce pătrățelul FOV Lift și-a terminat
+   drumul (sau imediat, dacă „Pe lift" e oprit din CP), liftul coboară rapid până jos,
+   lăsând o dâră de contururi fantomă care se sting. Fiecare „urmă" e o copie a
+   marginii rotunjite a liftului (border-radius/border identice), fără fundal —
+   creată/ștearsă dinamic din JS (creeazaDaraGlorioasa), nu un element reutilizat ca
+   restul FOV Lift, fiindcă numărul de urme variază cu durata cadrului. */
+.rigle-glorie-dara {
+  position: absolute;
+  z-index: 1; /* sub .rigle-lift (2) — se vede „în urmă", nu peste el */
+  box-sizing: border-box;
+  border: 2px solid #3a4a63;
+  border-radius: 8px;
+  background: transparent;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
 /* Butoanele de sus (≡/CP/⏸) — fundal semitransparent cât e m2 activ, ca scrisul
    să se vadă peste coloanele galbene. Scoped pe m2: nu atinge motorul 1. */
 .rigle-active .butoane-sus .menu-toggle,
@@ -392,6 +409,13 @@
   const FOV_LAMBDA = 10; // rata de homing implicită, 1/s — la divizor=1 (CP „viteza actuală")
   const FOV_PRAG_SOSIRE = 8; // px — precizie de „a ajuns", nu depinde de viteză
   const FOV_DURATA_MAX_ETAPA = 1.5; // s — plasă de siguranță, fixă, nu se scalează cu viteza
+
+  // Coborâre glorioasă — la coloana corectă, după ce cursa FOV Lift s-a terminat (sau
+  // imediat, dacă „Pe lift" e oprit). Durata fixă (nu viteză constantă): liftul parcurge
+  // orice distanță rămasă până jos, exact în COBORARE_GLORIOASA_DURATA secunde.
+  const COBORARE_GLORIOASA_DURATA = 0.8; // s
+  const DARA_INTERVAL = 0.07; // s între două urme succesive ale dârei
+  const DARA_FADE_MS = 350; // ms — cât ține stingerea unei urme (CSS transition opacity)
 
   function mount(hosts, config) {
     const arenaEl = hosts && hosts.arenaEl;
@@ -508,6 +532,14 @@
     let fovBoxLeft = 0; // poziția curentă a casetei (coordonate „scenă"), recalculată per cadru
     let fovRulareId = 0; // token — o cursă veche întârziată nu mai scrie stare după ce a pornit alta
 
+    // ── Coborâre glorioasă: la coloana corectă, liftul coboară rapid până jos (0,8s),
+    // lăsând o dâră de contururi fantomă, apoi trece la fact nou. Înlocuiește incrementul
+    // normal de `y` din tick() cât timp e activă (vezi avanseazaCoborareaGlorioasa). ──
+    let coborareGlorioasaActiva = false;
+    let coborareGlorioasaTimp = 0; // secunde de la pornire
+    let coborareGlorioasaYStart = 0; // y-ul liftului în momentul pornirii
+    let coborareGlorioasaUltimaDara = 0; // coborareGlorioasaTimp la ultima urmă creată
+
     // Randare completă a conținutului variabil dintr-un fact (UI = f(state), fără
     // update parțial): întrebarea, rândul de mere, coloanele, butoanele, apoi
     // geometria. Ordinea contează — computeGeometry() citește lift.offsetHeight,
@@ -526,6 +558,11 @@
       fovVizibil = false;
       fovLiftEl.classList.remove("rigle-fov-lift--vizibila");
       fovZburatorEl.classList.remove("rigle-fov-zburator--vizibil");
+      // Reset defensiv: normal, coborareGlorioasaActiva se închide singură chiar înainte
+      // de faNouFact() (vezi avanseazaCoborareaGlorioasa); dar CP „Suma maximă" poate
+      // apela reporneste() → faNouFact() direct, ocolind acea cale — fără reset aici,
+      // flagul ar rămâne agățat pe true și ar bloca butoanele permanent.
+      coborareGlorioasaActiva = false;
 
       // 1. întrebarea — „a+b=" ca text simplu + span dedicat pt. „?" (v. comentariul CSS
       // de la .rigle-lift-raspuns).
@@ -921,10 +958,12 @@
           fovEtapa = 2;
         } else {
           terminaFovLift();
+          if (fovTip === "corect") porneșteCoborareaGlorioasa();
         }
       } else {
         dezvaluieRaspuns();
         terminaFovLift();
+        porneșteCoborareaGlorioasa(); // etapa 2 se atinge doar când fovTip === "corect"
       }
     }
 
@@ -944,6 +983,63 @@
       if (!necunoscutaEl || necunoscutaEl.classList.contains("rigle-lift-raspuns")) return;
       necunoscutaEl.textContent = String(totalMere);
       necunoscutaEl.classList.add("rigle-lift-raspuns");
+    }
+
+    // O urmă a dârei — copie a conturului liftului (border/border-radius identice, fără
+    // fundal), la poziția curentă, care se stinge singură (CSS transition) și se scoate
+    // din DOM. Creată/ștearsă dinamic (nu element reutilizat, ca fovZburatorEl) — numărul
+    // de urme dintr-o cursă variază cu durata reală a cadrelor.
+    function creeazaDaraGlorioasa() {
+      const dara = document.createElement("div");
+      dara.className = "rigle-glorie-dara";
+      dara.style.left = `${colX[colIndex]}px`;
+      dara.style.top = `${y}px`;
+      dara.style.width = `${liftW}px`;
+      dara.style.height = `${liftH}px`;
+      scene.appendChild(dara);
+      requestAnimationFrame(() => {
+        dara.style.opacity = "0"; // pornește tranziția CSS abia după primul layout (altfel nu se vede stingerea)
+      });
+      setTimeout(() => dara.remove(), DARA_FADE_MS + 60);
+    }
+
+    // Pornește coborârea glorioasă — la coloana corectă, după ce pătrățelul FOV Lift și-a
+    // terminat drumul (sau imediat, dacă „Pe lift" e oprit din CP: fără cursă FOV, nimic
+    // de așteptat). Butoanele se blochează (ca la pauză, dar fără suprapunerea „PAUZĂ" —
+    // e un moment de tranziție spre factul următor, nu o pauză cerută de utilizator).
+    // Idempotent: o cursă deja activă nu repornește (butoanele oricum sunt deja blocate,
+    // deci re-apelarea ar necesita altă cale decât interacțiunea normală).
+    function porneșteCoborareaGlorioasa() {
+      if (coborareGlorioasaActiva) return;
+      coborareGlorioasaActiva = true;
+      coborareGlorioasaTimp = 0;
+      coborareGlorioasaYStart = y;
+      coborareGlorioasaUltimaDara = 0;
+      myButtons.forEach((btn) => {
+        btn.disabled = true;
+      });
+    }
+
+    // Avansează coborârea glorioasă cu un cadru — apelată din tick() ÎN LOC de
+    // incrementul normal de `y`, cât timp e activă. Durată fixă (nu viteză constantă):
+    // parcurge orice distanță rămasă până jos exact în COBORARE_GLORIOASA_DURATA secunde,
+    // interpolare liniară. La final: y=0 + faNouFact() — exact ca la wrap-ul normal.
+    function avanseazaCoborareaGlorioasa(dt) {
+      coborareGlorioasaTimp += dt;
+      const t = Math.min(1, coborareGlorioasaTimp / COBORARE_GLORIOASA_DURATA);
+      y = coborareGlorioasaYStart + (travel - coborareGlorioasaYStart) * t;
+      lift.style.top = `${y}px`;
+
+      if (coborareGlorioasaTimp - coborareGlorioasaUltimaDara >= DARA_INTERVAL) {
+        coborareGlorioasaUltimaDara = coborareGlorioasaTimp;
+        creeazaDaraGlorioasa();
+      }
+
+      if (t >= 1) {
+        coborareGlorioasaActiva = false;
+        y = 0;
+        faNouFact();
+      }
     }
 
     // „Prea puțin"/„prea mult": compară lățimea coloanei curente cu totalMere.
@@ -1070,6 +1166,11 @@
       actualizeazaNumerotareAnimata();
       actualizeazaMismatch();
       porneșteFovLift(); // la FIECARE apăsare — corect sau greșit, mutare reală sau re-apăsare
+      // Coborâre glorioasă: dacă „Pe lift" e oprit, nu există nicio cursă FOV al cărei
+      // final s-o declanșeze (vezi avanseazaFovLift) — pornește direct aici.
+      if (!cfg.fovLift && cfg.latimiColoane[idx] === totalMere) {
+        porneșteCoborareaGlorioasa();
+      }
     }
 
     // Pauză proprie lui m2 — motorul 1 (falling-engine.js) are „if
@@ -1083,8 +1184,10 @@
       paused = val;
       if (playPauseBtn) playPauseBtn.textContent = paused ? "▶" : "⏸";
       if (gameEl) gameEl.classList.toggle("is-paused", paused);
+      // Dacă e activă coborârea glorioasă, butoanele rămân blocate chiar la unpauzare —
+      // altfel copilul ar putea schimba coloana în mijlocul tranziției spre factul nou.
       myButtons.forEach((btn) => {
-        btn.disabled = paused;
+        btn.disabled = paused || coborareGlorioasaActiva;
       });
     }
 
@@ -1211,7 +1314,7 @@
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
         return;
       }
-      if (paused) return; // fără schimbare de coloană cât timp e pauză
+      if (paused || coborareGlorioasaActiva) return; // fără schimbare de coloană cât timp e pauză/coboară glorios
       const idx = ["1", "2", "3"].indexOf(e.key);
       if (idx >= 0 && idx < colX.length) selectColumn(idx);
     };
@@ -1225,12 +1328,16 @@
       const dt = Math.min((ts - lastTs) / 1000, 0.05);
       lastTs = ts;
       if (!paused) {
-        y += cfg.vitezaCoborare * dt;
-        if (y >= travel) {
-          y = 0;
-          faNouFact();
+        if (coborareGlorioasaActiva) {
+          avanseazaCoborareaGlorioasa(dt);
+        } else {
+          y += cfg.vitezaCoborare * dt;
+          if (y >= travel) {
+            y = 0;
+            faNouFact();
+          }
+          lift.style.top = `${y}px`;
         }
-        lift.style.top = `${y}px`;
         actualizeazaNumerotareAnimata();
         if (fovVizibil) {
           actualizeazaPozitieFovLift();

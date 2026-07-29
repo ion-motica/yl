@@ -162,18 +162,25 @@ lift mai lat decât orice coloană.
   casetă cu 2 rânduri lipită deasupra liftului — „N e prea mic/mare/corect" + „N<a+b" /
   „N>a+b" / „N=a+b". La coloana corectă, continuă spre „?" din întrebare și îl înlocuiește
   cu suma, într-un div verde care pulsează continuu, dezvăluire care rămâne până la fact
-  nou. Gated de CP „Etichete FOV" → „Pe lift" / „Cu animație pt. corect".
+  nou. Gated de CP „Etichete FOV" → „Pe lift" / „Cu animație pt. corect". Viteza
+  pătrățelului (λ de homing) e reglabilă din CP „Viteza pătrățelului" (1×-10× mai încet).
+- **Coborâre glorioasă**: la coloana corectă, imediat ce cursa FOV Lift s-a terminat (sau
+  imediat la apăsare, dacă „Pe lift" e oprit din CP), liftul coboară rapid până jos în
+  0,8s (durată fixă, `COBORARE_GLORIOASA_DURATA`), lăsând o dâră de contururi fantomă
+  (`.rigle-glorie-dara`, create/șterse dinamic) care se sting rapid. Butoanele + tastele
+  1/2/3 sunt blocate cât timp durează; la final, `y=0` + fact nou, exact ca la wrap-ul
+  normal. Nu depinde de nicio bifă CP — pornește mereu la coloana corectă.
 - **Pauză proprie**, independentă de motorul 1 — buton `#play-pause` + tastele
   Space/p/P opresc bucla de coborâre (`y` înghețat), dezactivează butoanele `.rigle-btn`
   și arată „PAUZĂ" peste scenă (gotcha #12 pentru mecanismul exact).
 
 **NU e implementat** (etape viitoare, neplanificate încă în cod):
 - Validare cu scor/progres — coloana corectă e recunoscută vizual (`n === totalMere`,
-  folosit de eticheta de pe buton și de FOV Lift), dar nimic nu se scorează, nu există
-  „răspuns dat"/„încercare" înregistrată, nici avans automat la întrebarea următoare.
+  folosit de eticheta de pe buton, FOV Lift și coborârea glorioasă), dar nimic nu se
+  scorează, nu există „răspuns dat"/„încercare" înregistrată. Avansul la întrebarea
+  următoare la coloana corectă *e* implementat (coborârea glorioasă), dar fără nicio
+  urmă persistentă (scor, istoric) — e doar tranziția vizuală.
 - Mâna care se clatină (feedback fizic pe lift la coloană greșită).
-- Afișarea rezultatului în întrebare e implementată (FOV Lift, la coloana corectă), dar
-  fără coborâre glorioasă sau alt efect de succes în afară de puls.
 - Alte forme de ecuație (`?+3=5`, `21=12+?`) — geometria le suportă deja (§3), dar
   generatorul azi produce doar `a+b=?`.
 - Alt număr de coloane decât 3, alte obiecte decât 🍏.
