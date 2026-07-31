@@ -1529,6 +1529,51 @@ body {
   min-width: min(100%, 260px);
 }
 
+.sq3-field {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sq3-slider-field {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.sq3-slider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sq3-slider {
+  width: 100%;
+  min-width: min(100%, 260px);
+}
+
+.fg-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  align-items: center;
+}
+
+.fg-stack-row {
+  padding: 0.05em 0.3em;
+  border-radius: 0.3em;
+  border-bottom: 3px solid transparent;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.fg-stack-row--curent {
+  border-bottom-color: var(--win);
+}
+
+.fg-stack-row--netestat {
+  opacity: 0.45;
+}
+
 .control-panel-lift-slider-out,
 .control-panel-aam-slider-out {
   font-size: 0.78rem;

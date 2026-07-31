@@ -1227,18 +1227,4 @@
   }
 
   global.Mul1120V3TrainEffEqFormsQuiz = { create: createQuiz };
-
-  global.QuizRegistry.register({
-    id: QUIZ_ID,
-    title: QUIZ_TITLE,
-    description: "Tabelul 11-20 cu subquiz baza, EFF si forme de ecuatii.",
-    order: 2.2,
-    gestionareGreseli: { activ: false },
-    create(meta = {}) {
-      return global.Mul1120V3TrainEffEqFormsQuiz.create({
-        ...meta,
-        quizId: meta.id ?? QUIZ_ID,
-      });
-    },
-  });
 })(window);

@@ -457,6 +457,13 @@
       if (state.questionFormat === "division-eq") {
         return state.revealedQuotient == null && !String(state.promptHtml ?? "").includes("q-correct");
       }
+      if (state.questionFormat === "fg-stack") {
+        // Stack cu mai multe randuri (grup de factori); quizul isi gestioneaza
+        // singur afisarea si nu dezvaluie niciodata raspunsul, deci motorul nu
+        // trebuie sa incerce revelarea genericǎ (i-ar sparge randurile intr-o
+        // singura linie, vezi PLAN-v4-subquiz3-grupuri-factori.md §2.8).
+        return false;
+      }
       const raw = String(state.prompt ?? "");
       if (raw.includes("?")) return true;
       const html = String(state.promptHtml ?? "");

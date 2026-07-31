@@ -305,13 +305,10 @@ describe("JurnalIntrebari", () => {
     assert.equal(entries.length, 0);
   });
 
-  it("nu activeaza jurnalul in quizul original", () => {
+  it("nu activeaza jurnalul cand jurnalIntrebariActiv nu e setat", () => {
     const entries = [];
     setupQuiz(entries);
-    const originalMeta = globalThis.QuizRegistry.get(
-      "multiplication-1120-v3-train-eff-eq-forms"
-    );
-    const originalQuiz = originalMeta.create({ ...originalMeta, random: () => 0 });
+    const originalQuiz = globalThis.Mul1120V3TrainEffEqFormsQuiz.create({ random: () => 0 });
     const state = originalQuiz.beginRound();
 
     assert.equal(originalQuiz.getContextJurnal(state), null);

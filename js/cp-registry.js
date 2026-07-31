@@ -7,6 +7,7 @@
     "general",
     "subquiz",
     "sq2EffVbs",
+    "sq3FactorGroups",
     "preEquationNav",
     "equationTonomat",
     "rigle",

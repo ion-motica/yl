@@ -42,8 +42,7 @@ function setupQuiz({ shuffle = (items) => [...items], random = () => 0 } = {}) {
 
   globalThis.GameUtils.shuffle = shuffle;
 
-  const meta = globalThis.QuizRegistry.get(QUIZ_ID);
-  return meta.create({ ...meta, random });
+  return globalThis.Mul1120V3TrainEffEqFormsQuiz.create({ quizId: QUIZ_ID, random });
 }
 
 function wrongIndex(state) {
@@ -70,14 +69,6 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     delete globalThis.SubquizDefinition;
     delete globalThis.SubquizOrchestrator;
     delete globalThis.Mul1120V3TrainEffEqFormsQuiz;
-  });
-
-  it("registers as the requested v3 quiz", () => {
-    setupQuiz();
-    const meta = globalThis.QuizRegistry.get(QUIZ_ID);
-
-    assert.equal(meta.title, "T*/ 11-20 - v3 - train w eff si eq forms");
-    assert.equal(meta.order, 2.2);
   });
 
   it("starts level 1 with factor 11 and b values from 2 to 11", () => {

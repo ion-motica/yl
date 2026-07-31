@@ -111,7 +111,8 @@
       "Bash(node --check scripts/check-doc-index.mjs)",
       "Bash(npm run *)",
       "Bash(sed -i 's#<!-- INDEX-DOCUMENTE:END -->#| Test temporar | `nicaieri.md` |\\\\n<!-- INDEX-DOCUMENTE:END -->#' CLAUDE.md)",
-      "Bash(taskkill //F //IM python.exe //FI \"WINDOWTITLE eq*\")"
+      "Bash(taskkill //F //IM python.exe //FI \"WINDOWTITLE eq*\")",
+      "Bash(node --test tests/multiplication-1120-v3-train-eff-eq-forms.test.js tests/jurnal-intrebari.test.js)"
     ],
     "defaultMode": "auto"
   }

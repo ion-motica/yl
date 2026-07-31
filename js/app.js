@@ -586,6 +586,7 @@
     renderEquationTonomatPanel();
     renderPreEquationNavigationPanel();
     renderSq2EffVbsPanel();
+    renderSq3FactorGroupsPanel();
     renderRiglePanel();
     renderArenaActions();
     aamArena?.reset();
@@ -697,6 +698,19 @@
     });
   }
 
+  function renderSq3FactorGroupsPanel() {
+    const mount = cpShell?.getMountEl("sq3FactorGroups");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendSq3ControlPanel !== "function") return;
+    quiz.appendSq3ControlPanel(mount, {
+      onChange: () => {
+        renderSq3FactorGroupsPanel();
+        renderProgress();
+      },
+    });
+  }
+
   function applyRequestedQuizConfig() {
     const requestedQuizId = window.StartupQuiz?.getRequestedQuizId?.();
     if (requestedQuizId && requestedQuizId !== QuizRegistry.getActiveId()) return false;
@@ -752,6 +766,12 @@
     quizSpecific: true,
   });
   CpRegistry.register({
+    id: "sq3FactorGroups",
+    title: "CP — SQ3",
+    isEnabled: () => typeof quiz?.appendSq3ControlPanel === "function",
+    quizSpecific: true,
+  });
+  CpRegistry.register({
     id: "liftType",
     title: "CP — Tip lift",
     isEnabled: () => true,
@@ -789,6 +809,7 @@
   renderEquationTonomatPanel();
   renderPreEquationNavigationPanel();
   renderSq2EffVbsPanel();
+  renderSq3FactorGroupsPanel();
   renderRiglePanel();
 
   function syncResponseTimesInput() {
