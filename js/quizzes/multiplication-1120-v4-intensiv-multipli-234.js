@@ -176,6 +176,22 @@
       (type) => type.answerType === "number"
     );
 
+    // Sq3 (grup de factori): doar cele 4 forme cu necunoscuta = produsul (c),
+    // cu rocada a<->b, cerute explicit de user (03.08.2026):
+    //   a*b=?  (f1_initial,  STANGA, pos4)
+    //   ?=a*b  (f1_initial,  DREAPTA, pos0)
+    //   b*a=?  (f1_comutat,  STANGA, pos4)
+    //   ?=b*a  (f1_comutat,  DREAPTA, pos0)
+    // Exclude explicit formele cu necunoscuta = un factor (ex. ?*b=c, a*?=c)
+    // si formele de tip impartire din f1_complementar/f1_complementar_comutat
+    // (ex. c:b=a). Nu afecteaza sq1 (baza) sau sq2, care raman pe qfTypes complet.
+    const sq3QfTypes = qfTypes.filter(
+      (type) =>
+        (type.f1 === "f1_initial" || type.f1 === "f1_comutat") &&
+        ((type.f2 === "doua_nr_in_STANGA" && type.pos === 4) ||
+          (type.f2 === "doua_nr_in_DREAPTA" && type.pos === 0))
+    );
+
     let level = MIN_LEVEL;
     let completed = false;
     let orchestrator = null;
@@ -367,8 +383,9 @@
     }
 
     function qfTypesForSubquiz(subquizId) {
-      if (subquizId !== SQ2_VBS_ID) return qfTypes;
-      return qfTypes.slice(0, sq2EqFormCount);
+      if (subquizId === SQ2_VBS_ID) return qfTypes.slice(0, sq2EqFormCount);
+      if (subquizId === SQ3_ID) return sq3QfTypes.slice(0, sq3EqFormCount);
+      return qfTypes;
     }
 
     function buildQuestionForB(b, subquizId = "base", state = null) {
@@ -517,7 +534,7 @@
     }
 
     function eligibleStackForms(A, fg) {
-      const pool = qfTypes.slice(0, sq3EqFormCount);
+      const pool = sq3QfTypes.slice(0, sq3EqFormCount);
       return pool.filter((type) => !isDegenerateFormForFg(type, A, fg));
     }
 
