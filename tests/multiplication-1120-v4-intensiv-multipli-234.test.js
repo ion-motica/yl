@@ -14,7 +14,6 @@ const FG_LIST = [
   [2, 4, 6, 8],
   [5, 15],
   [3, 6, 9],
-  [12, 15, 18],
   [7, 11, 13, 17, 19],
   [3, 6, 12, 18],
   [3, 9, 18],
@@ -274,23 +273,27 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     assert.equal(trigger.message, "Subquiz 3: 11*5, 11*15", "castigatorul asteptat e fg [5,15], departajat lexicografic");
   });
 
-  it("criteriul 11: pe date reale, castigatorul primului sq3 e fg [12,15,18] la majoritatea nivelelor, dar [7,11,13,17,19] la nivelul 2 (A=12)", () => {
-    // fg [12,14,16,18] a fost eliminat (user, 29.07.2026); recalculat pe
-    // fixture-ul real dupa eliminare — nivelul 2 iese din tipar fiindca
-    // A=12 se intampla sa aiba date reale mai bune la factele 7,11,13,17,19
-    // decat restul nivelelor la fg-ul altfel castigator [12,15,18].
+  it("criteriul 11: pe date reale, castigatorul primului sq3 e fg [7,11,13,17,19] la toate nivelele", () => {
+    // fg [12,14,16,18] a fost eliminat (user, 29.07.2026); fg [12,15,18] a fost
+    // eliminat ulterior (user, 05.08.2026, "il avem pe fg 8 si fg 4" — elementele
+    // lui 12 si 18 sunt in [3,6,12,18], iar 15 e in [5,15]). Recalculat pe
+    // fixture-ul real dupa a doua eliminare: fara [12,15,18], fg-ul care ii lua
+    // locul la scor minim (2,0, din medie=0 la toate cele 5 facte netestate)
+    // e [7,11,13,17,19] la toate cele 10 nivele — nu mai exista variatie intre
+    // nivele, fiindca acel fg era deja castigator la nivelul 2 si acum e singurul
+    // fg cu medie=0 pe toate facte, la orice A.
     const fluentaSursa = loadRealFluentaSursa();
     const asteptat = {
-      1: [12, 15, 18],
+      1: [7, 11, 13, 17, 19],
       2: [7, 11, 13, 17, 19],
-      3: [12, 15, 18],
-      4: [12, 15, 18],
-      5: [12, 15, 18],
-      6: [12, 15, 18],
-      7: [12, 15, 18],
-      8: [12, 15, 18],
-      9: [12, 15, 18],
-      10: [12, 15, 18],
+      3: [7, 11, 13, 17, 19],
+      4: [7, 11, 13, 17, 19],
+      5: [7, 11, 13, 17, 19],
+      6: [7, 11, 13, 17, 19],
+      7: [7, 11, 13, 17, 19],
+      8: [7, 11, 13, 17, 19],
+      9: [7, 11, 13, 17, 19],
+      10: [7, 11, 13, 17, 19],
     };
 
     for (let nivel = 1; nivel <= 10; nivel += 1) {
@@ -410,10 +413,11 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
   it("FG_LIST din test reflecta exact lista din motor (santinela anti-drift)", () => {
     // Nu putem importa constanta privata direct; verificam indirect prin
     // comportamentul deja testat mai sus (criteriile 7 si 11). Aici doar
-    // confirmam ca lista locala are forma asteptata — 9 grupuri de cand a
-    // fost eliminat [12,14,16,18] (user, 29.07.2026).
-    assert.equal(FG_LIST.length, 9);
+    // confirmam ca lista locala are forma asteptata — 8 grupuri de cand au
+    // fost eliminate [12,14,16,18] (user, 29.07.2026) si [12,15,18]
+    // (user, 05.08.2026).
+    assert.equal(FG_LIST.length, 8);
     const sizes = FG_LIST.map((fg) => fg.length).sort((a, b) => a - b);
-    assert.deepEqual(sizes, [2, 3, 3, 3, 4, 4, 4, 4, 5]);
+    assert.deepEqual(sizes, [2, 3, 3, 4, 4, 4, 4, 5]);
   });
 });

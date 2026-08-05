@@ -25,13 +25,14 @@
   // fg [12,14,16,18] a fost eliminat explicit (decizie user, 29.07.2026 —
   // "nu ma ajuta"), dupa ce a produs coincidente gen "12*12=?" la nivelul 2
   // (b=12 din fg coincide cu A=12 al nivelului).
+  // fg [12,15,18] a fost eliminat explicit (decizie user, 05.08.2026) — elementele
+  // lui sunt deja acoperite impreuna de [3,6,12,18] (are 12, 18) si [5,15] (are 15).
   const FG_LIST = [
     [2, 4, 8, 16],
     [4, 8, 12, 16],
     [2, 4, 6, 8],
     [5, 15],
     [3, 6, 9],
-    [12, 15, 18],
     [7, 11, 13, 17, 19],
     [3, 6, 12, 18],
     [3, 9, 18],
