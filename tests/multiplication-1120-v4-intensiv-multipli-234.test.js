@@ -410,6 +410,114 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     );
   });
 
+  // ---- Exceptia facte fluente (user, 05.08.2026) ---------------------------
+  // "fluent" = eticheta exacta din grila Vizualizare 3 (starePtFact), nu
+  // scorul continuu (scorPtFact, folosit in continuare doar pt. alegeFG).
+  // "sesiunea curenta" = nivelul curent (shared.baseState.covered).
+
+  it("criteriul 17: fapt fluent, netestat inca in sesiune -> o singura incercare, corect sau gresit", () => {
+    // Fara custom shuffle: cu scor 0 peste tot, primul declansator (a 5-a
+    // intrebare, covered={1,2,3,4,5}) alege fg [7,11,13,17,19] (singurul
+    // complet neacoperit — vezi criteriul 11). Niciun membru nu e acoperit
+    // inca in sesiune, deci marcarea "fluent" pe unul singur (b=7) izoleaza
+    // exact cazul "once", cu restul (11,13,17,19) pe regula normala.
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (b === 7 ? "fluent" : "in_lucru"),
+    };
+    const quiz = setupQuiz({ fluentaSursa });
+    let round = quiz.beginRound();
+    for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
+    const trigger = answerCorrect(quiz, round);
+    assert.equal(trigger.metadata.subquiz, SQ3_ID);
+    assert.equal(trigger.message, "Subquiz 3: 11*7, 11*11, 11*13, 11*17, 11*19");
+
+    const seenB7 = [];
+    let r = trigger;
+    let guard = 0;
+    // Raspundem mereu gresit: b=7 (fluent, "once") trebuie sa iasa dupa
+    // exact 1 incercare; restul (nefluente, "normal") trebuie sa ajunga la
+    // plasa de 5 incercari, nu la 1.
+    while (r.metadata?.subquiz === SQ3_ID && guard < 60) {
+      guard += 1;
+      if (r.metadata.factB === 7) seenB7.push(true);
+      r = answerWrong(quiz, r);
+      r = r.nextRound ?? r;
+    }
+    assert.ok(guard < 60, "sesiunea sq3 nu trebuia sa ramana blocata");
+    assert.equal(seenB7.length, 1, "b=7 (fluent, netestat in sesiune) trebuia intrebat o singura data, indiferent de raspuns");
+  });
+
+  it("criteriul 18: fapt fluent SI deja acoperit in sesiune -> sarit complet din sq3 (dar vizibil bifat in stack)", () => {
+    // Acelasi rulaj default: al doilea declansator natural (dupa ce primul
+    // sq3 se termina si sq1 continua) alege fg [5,15], cu b=5 deja acoperit
+    // din sq1 (a fost al 5-lea fact, cel care a declansat primul sq3) si
+    // b=15 inca netestat in sesiune. Marcam ambele "fluent": b=5 trebuie
+    // sarit complet (skip), b=15 trebuie sa primeasca "once" (nu e inca
+    // acoperit) — deci sq3 tot porneste (nu e cazul "totulSarit").
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => ([5, 15].includes(b) ? "fluent" : "in_lucru"),
+    };
+    const quiz = setupQuiz({ fluentaSursa });
+    let round = quiz.beginRound();
+    let guard = 0;
+    let secondTrigger = null;
+    while (!secondTrigger && guard < 100) {
+      guard += 1;
+      const next = answerCorrect(quiz, round);
+      if (next.message === "Subquiz 3: 11*5, 11*15") secondTrigger = next;
+      round = next.nextRound ?? next;
+    }
+    assert.ok(secondTrigger, "al doilea declansator (fg [5,15]) trebuia sa apara in rulajul default");
+    assert.equal(secondTrigger.metadata.subquiz, SQ3_ID, "sq3 tot trebuia sa porneasca — nu toate factele sunt sarite (b=15 e doar \"once\")");
+
+    const seenB5 = [];
+    const seenB15 = [];
+    let r = secondTrigger;
+    guard = 0;
+    while (r.metadata?.subquiz === SQ3_ID && guard < 60) {
+      guard += 1;
+      if (r.metadata.factB === 5) seenB5.push(true);
+      if (r.metadata.factB === 15) seenB15.push(true);
+      r = answerWrong(quiz, r);
+      r = r.nextRound ?? r;
+    }
+    assert.ok(guard < 60, "sesiunea sq3 nu trebuia sa ramana blocata");
+    assert.equal(seenB5.length, 0, "b=5 (fluent + deja acoperit) nu trebuia intrebat deloc");
+    assert.equal(seenB15.length, 1, "b=15 (fluent, netestat inca) trebuia intrebat o singura data");
+  });
+
+  it("criteriul 19: daca TOATE factele fg-ului ales sunt fluente si deja acoperite, sq3 nu mai porneste deloc", () => {
+    // Penalizam scorul lui [7,11,13,17,19] ca sa castige [5,15] primul (nu
+    // fg-ul cu scor minim implicit) — izoleaza exact rulajul in care al
+    // treilea declansator natural ar alege [2,4,6,8], cu toate cele 4 facte
+    // deja acoperite prin mersul secvential al sq1 pana atunci. Marcandu-le
+    // pe toate "fluent", acel declansator nu mai trebuie sa produca sq3.
+    const fluentaSursa = {
+      scorPtFact: (a, b) => ([7, 11, 13, 17, 19].includes(b) ? 1 : 0),
+      starePtFact: (a, b) => ([2, 4, 6, 8].includes(b) ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({ fluentaSursa });
+    const triggers = [];
+    let round = quiz.beginRound();
+    let guard = 0;
+    let done = false;
+    while (!done && guard < 300) {
+      guard += 1;
+      const next = answerCorrect(quiz, round);
+      if (next.message && /^Subquiz 3: /.test(next.message)) triggers.push(next.message);
+      done = Boolean(next.levelAdvanced) || quiz.isCompleted();
+      round = next.nextRound ?? next;
+    }
+    assert.ok(done, "nivelul trebuia sa se termine normal, chiar fara al treilea sq3");
+    assert.deepEqual(
+      triggers,
+      ["Subquiz 3: 11*3, 11*6, 11*12, 11*18", "Subquiz 3: 11*5, 11*15"],
+      "doar primele doua declansatoare trebuiau sa produca sq3 — al treilea (fg [2,4,6,8], toate fluente+acoperite) trebuia sarit complet"
+    );
+  });
+
   it("FG_LIST din test reflecta exact lista din motor (santinela anti-drift)", () => {
     // Nu putem importa constanta privata direct; verificam indirect prin
     // comportamentul deja testat mai sus (criteriile 7 si 11). Aici doar

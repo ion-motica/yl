@@ -498,3 +498,52 @@ bună", fiindcă vezi tiparul construindu-se (33, 66, 99) și prinzi structura g
 A spus că **o va implementa și la tabla T\*1-10\*1-10**, deci e idee de produs, nu
 notă locală. Consemnată și în memoria de sesiune
 (`project_youlearn_stack_fg_rezultate_vizibile`).
+
+---
+
+## 10. Excepția facte fluente (05.08.2026)
+
+**Regula standard** (§2.6) rămâne: fiecare fact din fg-ul ales are nevoie de
+**≥3 răspunsuri corecte** (nu neapărat consecutive), sau iese oricum după **≥5
+încercări** (plasa de siguranță).
+
+**Excepție**, cerută de user: dacă un fact din fg e deja **fluent**, conform
+etichetei categorice **exacte din grila Vizualizare 3** (`clasificaStare` —
+precizie ≥90%, mediană ≤2s, minim 5 răspunsuri și 2 zile distincte; NU scorul
+continuu `scorPtFact` folosit de `alegeFG`, care rămâne neschimbat):
+
+- dacă factul a fost deja rulat **în sesiunea curentă** (= nivelul curent —
+  `shared.baseState.covered`, se resetează la schimbarea nivelului) → **nu mai
+  e rulat deloc** în sq3 pentru acel fg. Rămâne vizibil în stack, marcat cu
+  „✓" și tăiat (`.fg-stack-row--sarit`).
+- altfel (fluent, dar netestat încă în sesiune) → e rulat **o singură dată**,
+  indiferent dacă răspunsul e corect sau greșit.
+
+**Caz limită** (decizie user): dacă **toate** factele fg-ului ales sunt fluente
+și deja acoperite în sesiune, sq3 **nu mai pornește deloc** pentru acel
+declanșator — fg-ul rămâne neutilizat (poate fi reconsiderat la un declanșator
+viitor din același nivel, dacă `covered` se schimbă între timp). Comportamentul
+se obține gratuit din structura existentă: `maybeEnterSq3` întoarce `null`, iar
+apelantul deja tratează `null` ca „niciun declanșator", continuând normal în
+sq1 (nicio ramificație nouă de control a fost necesară acolo).
+
+**Implementare:**
+
+- `js/snapshot-fluenta.js` capătă `starePtFact(a, b)`, construit în paralel cu
+  `scorPtFact` (aceeași conductă — `selecteazaDomeniu` pe cele 200 de celule
+  ale tablei 11-20 — dar cu `calculeazaStatistici` + `clasificaStare` din
+  motor, folosind `praguri.filtru_standard_v1` + `praguri.stare`, nu
+  `interpretare_v1`). Calculat **o singură dată**, la pornirea quizului
+  (odată cu `scorPtFact`), nu recalculat per verificare.
+- `js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js`: la intrarea în
+  sq3 (`maybeEnterSq3`), se calculează `exitPolicyByB` per fact din fg-ul ales
+  (`"skip"` / `"once"` / `"normal"`), transmis prin `payload` către
+  `initialState`. `factDone(state, b)` citește politica din
+  `state.exitPolicyByB[b]` în loc de constantele fixe.
+- `fluentaSursa.starePtFact` e opțional (verificare `?.`) — o sursă care oferă
+  doar `scorPtFact` (cazuri vechi de test, surse simplificate) nu produce erori,
+  doar dezactivează excepția (toate factele rămân pe regula `"normal"`).
+
+Testat pe `tests/multiplication-1120-v4-intensiv-multipli-234.test.js`
+(criteriile 17-19) și `tests/snapshot-fluenta.test.js` (distribuția reală a
+stărilor pe fixture, ca santinelă anti-drift pt. `clasificaStare`).

@@ -473,10 +473,30 @@
       return best;
     }
 
+    function exitPolicyForB(A, b, covered) {
+      const stare = fluentaSursa.starePtFact ? fluentaSursa.starePtFact(A, b) : "netestat";
+      const fluent = stare === "fluent";
+      if (!fluent) return "normal";
+      return covered.has(b) ? "skip" : "once";
+    }
+
     function maybeEnterSq3(state, reason) {
       if (sq3Count >= SQ3_MAX_PER_LEVEL) return null;
       const picked = alegeFG();
       if (!picked) return null;
+
+      const A = factorForLevel(level);
+      const covered = shared.baseState?.covered ?? new Set();
+      const exitPolicyByB = {};
+      picked.fg.forEach((b) => {
+        exitPolicyByB[b] = exitPolicyForB(A, b, covered);
+      });
+      // Exceptie facte fluente (user, 05.08.2026): daca TOATE factele fg-ului
+      // ales sunt deja fluente si acoperite in sesiunea curenta (nivelul
+      // curent), nu mai e nimic de intrebat — nu intram deloc in sq3 pt.
+      // acest declansator (fg-ul ramane neutilizat, poate fi reconsiderat).
+      const totulSarit = picked.fg.every((b) => exitPolicyByB[b] === "skip");
+      if (totulSarit) return null;
 
       shared.usedFgIndexes.add(picked.index);
       sq3Count += 1;
@@ -485,7 +505,7 @@
       return {
         action: "push",
         targetId: SQ3_ID,
-        payload: { bs: picked.fg, reason },
+        payload: { bs: picked.fg, reason, exitPolicyByB },
         view: {
           outcome: "step-correct",
           correct: true,
@@ -497,7 +517,17 @@
 
     // ---- Subquiz 3: rulare, stack, rotatie de forme -------------------------
 
+    // Prag de iesire per fact, cu exceptia facte fluente (user, 05.08.2026):
+    //   "normal" — regula standard: >=3 corecte SAU >=5 incercari (plasa).
+    //   "once"   — fact fluent, dar netestat inca in sesiunea curenta (nivelul
+    //              curent): o singura incercare, corect sau gresit, e suficienta.
+    //   "skip"   — fact fluent SI deja testat in sesiunea curenta: nu mai e
+    //              rulat deloc (dar ramane vizibil in stack, bifat — vezi
+    //              renderStackHtml).
     function factDone(state, b) {
+      const policy = state.exitPolicyByB?.[b] ?? "normal";
+      if (policy === "skip") return true;
+      if (policy === "once") return (state.attemptsByB[b] ?? 0) >= 1;
       return (
         (state.correctCountsByB[b] ?? 0) >= SQ3_EXIT_CORRECT_COUNT ||
         (state.attemptsByB[b] ?? 0) >= SQ3_EXIT_MAX_ATTEMPTS
@@ -563,16 +593,22 @@
       return state.formPool[state.formIndex % state.formPool.length];
     }
 
-    function renderStackHtml(A, fg, type, currentB) {
+    function renderStackHtml(A, fg, type, currentB, state) {
       const rows = fg.map((b) => {
         const fact = makeFact(b);
         const rendered = QFG.renderQF(type, fact);
         const promptText = rendered?.prompt ?? `${A}*${b}=?`;
         const isCurrent = b === currentB;
+        const isSarit = (state?.exitPolicyByB?.[b] ?? "normal") === "skip";
         const classes = ["fg-stack-row"];
-        if (isCurrent && sq3HighlightCurrent) classes.push("fg-stack-row--curent");
-        if (!isCurrent && sq3DimUntested) classes.push("fg-stack-row--netestat");
-        return `<div class="${classes.join(" ")}">${promptText}</div>`;
+        if (isSarit) {
+          classes.push("fg-stack-row--sarit");
+        } else {
+          if (isCurrent && sq3HighlightCurrent) classes.push("fg-stack-row--curent");
+          if (!isCurrent && sq3DimUntested) classes.push("fg-stack-row--netestat");
+        }
+        const text = isSarit ? `\u2713 ${promptText}` : promptText;
+        return `<div class="${classes.join(" ")}">${text}</div>`;
       });
       return `<div class="fg-stack">${rows.join("")}</div>`;
     }
@@ -595,7 +631,7 @@
 
       return {
         prompt: rendered.prompt,
-        promptHtml: renderStackHtml(A, fg, type, b),
+        promptHtml: renderStackHtml(A, fg, type, b, state),
         questionFormat: "fg-stack",
         correctAnswer: correct,
         options: opt.options,
@@ -771,6 +807,7 @@
             facts,
             correctCountsByB: {},
             attemptsByB: {},
+            exitPolicyByB: { ...(payload?.exitPolicyByB ?? {}) },
             queue: [],
             lastFactB: null,
             currentFactB: null,
@@ -784,6 +821,7 @@
           facts.forEach((b) => {
             state.correctCountsByB[b] = 0;
             state.attemptsByB[b] = 0;
+            if (!(b in state.exitPolicyByB)) state.exitPolicyByB[b] = "normal";
           });
           shared.sq3State = state;
           return state;

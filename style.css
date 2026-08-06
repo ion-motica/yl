@@ -1574,6 +1574,12 @@ body {
   opacity: 0.45;
 }
 
+.fg-stack-row--sarit {
+  opacity: 0.55;
+  color: var(--win);
+  text-decoration: line-through;
+}
+
 .control-panel-lift-slider-out,
 .control-panel-aam-slider-out {
   font-size: 0.78rem;

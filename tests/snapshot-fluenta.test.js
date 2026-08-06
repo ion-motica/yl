@@ -22,14 +22,17 @@ function setupModules() {
 }
 
 describe("SnapshotFluenta", () => {
-  it("sursaGoala si construiesteDinInregistrari([]) dau scor 0 peste tot, fara exceptii", () => {
+  it("sursaGoala si construiesteDinInregistrari([]) dau scor 0 si stare netestat peste tot, fara exceptii", () => {
     setupModules();
     const goala = globalThis.SnapshotFluenta.sursaGoala();
     assert.equal(goala.scorPtFact(11, 1), 0);
     assert.equal(goala.scorPtFact(20, 20), 0);
+    assert.equal(goala.starePtFact(11, 1), "netestat");
+    assert.equal(goala.starePtFact(20, 20), "netestat");
 
     const dinGol = globalThis.SnapshotFluenta.construiesteDinInregistrari([]);
     assert.equal(dinGol.scorPtFact(12, 7), 0);
+    assert.equal(dinGol.starePtFact(12, 7), "netestat");
   });
 
   it("reproduce cifrele exacte ale conductei pe fixture-ul real (criteriul 10 din plan)", () => {
@@ -52,12 +55,15 @@ describe("SnapshotFluenta", () => {
 
     let cuDate = 0;
     let cuScor = 0;
+    const stariCount = {};
     const sursa = globalThis.SnapshotFluenta.construiesteDinInregistrari(brut);
     celule.forEach(({ cell_id }) => {
       const n = (domeniu.peCelula.get(cell_id) ?? []).length;
       if (n > 0) cuDate += 1;
       const [a, b] = cell_id.replace("mul:", "").split("x").map(Number);
       if (sursa.scorPtFact(a, b) > 0) cuScor += 1;
+      const stare = sursa.starePtFact(a, b);
+      stariCount[stare] = (stariCount[stare] ?? 0) + 1;
     });
     assert.equal(cuDate, 109);
     assert.equal(cuScor, 103);
@@ -65,6 +71,18 @@ describe("SnapshotFluenta", () => {
     assert.ok(sursa.scorPtFact(12, 7) > 0, "celula cu cel mai mare volum (51 apasari) trebuie sa aiba scor > 0");
     assert.equal(sursa.scorPtFact(11, 1), 0, "b=1 nu exista in v3, deci fara date");
     assert.equal(sursa.scorPtFact(20, 19), 0, "in interiorul domeniului v3 dar niciodata atins (fereastra nu trecea de 13)");
+
+    // starePtFact: eticheta categorica (netestat/abia_inceput/nu_il_stie/
+    // in_lucru/fluent), folosita de exceptia facte fluente din sq3 v4
+    // (user, 05.08.2026) — independenta de scorPtFact de mai sus.
+    assert.equal(sursa.starePtFact(12, 7), "in_lucru", "cel mai lucrat fact, dar sub pragul de fluent (precizie/viteza)");
+    assert.equal(sursa.starePtFact(11, 1), "netestat");
+    assert.equal(sursa.starePtFact(20, 19), "netestat");
+    assert.deepEqual(
+      stariCount,
+      { netestat: 91, in_lucru: 27, fluent: 41, abia_inceput: 22, nu_il_stie: 19 },
+      "distributia starilor pe fixture-ul real — santinela anti-drift pt. clasificaStare"
+    );
   });
 
   it("construiesteDinInregistrari e sincron si nu atinge indexedDB", () => {
@@ -80,11 +98,13 @@ describe("SnapshotFluenta", () => {
       },
     ]);
     assert.equal(typeof sursa.scorPtFact, "function");
+    assert.equal(typeof sursa.starePtFact, "function");
   });
 
   it("pregateste() rezolva cu sursa goala cand indexedDB nu exista", async () => {
     setupModules();
     const sursa = await globalThis.SnapshotFluenta.pregateste();
     assert.equal(sursa.scorPtFact(11, 1), 0);
+    assert.equal(sursa.starePtFact(11, 1), "netestat");
   });
 });

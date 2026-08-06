@@ -36,16 +36,40 @@
     return scoruri;
   }
 
-  function creazaSursaDinScoruri(scoruri) {
+  // Aceeasi conducta ca scorMapDinIntrebari, dar pt. eticheta categorica
+  // "stare" (netestat / abia_inceput / nu_il_stie / in_lucru / fluent) —
+  // exact eticheta afisata in grila 10x10 din Vizualizare 3, nu scorul
+  // continuu de mai sus. Filtrul si pragurile sunt cele pt. `stare`
+  // (`filtru_standard_v1` + `praguri.stare`), nu `interpretare_v1`.
+  function stareMapDinIntrebari(intrebari, motor, praguri) {
+    const filtru = praguri.filtru_standard_v1;
+    const pragStare = praguri.stare;
+    const celule = toateCelulele();
+    const domeniu = motor.selecteazaDomeniu(intrebari, { celule });
+    const stari = new Map();
+    celule.forEach(({ cell_id }) => {
+      const aleCelulei = domeniu.peCelula.get(cell_id) ?? [];
+      const statistici = motor.calculeazaStatistici(
+        motor.aplicaFiltre({ curent: aleCelulei, referinta: null }, filtru)
+      );
+      stari.set(cell_id, motor.clasificaStare(statistici, pragStare));
+    });
+    return stari;
+  }
+
+  function creazaSursa(scoruri, stari) {
     return {
       scorPtFact(a, b) {
         return scoruri.get(`mul:${a}x${b}`) ?? 0;
+      },
+      starePtFact(a, b) {
+        return stari.get(`mul:${a}x${b}`) ?? "netestat";
       },
     };
   }
 
   function sursaGoala() {
-    return { scorPtFact: () => 0 };
+    return { scorPtFact: () => 0, starePtFact: () => "netestat" };
   }
 
   // Sincron — primeste inregistrari deja incarcate (injectate in teste, sau
@@ -56,7 +80,8 @@
     if (!motor || !praguri) return sursaGoala();
     const intrebari = motor.grupeazaApasarilePeIntrebari(motor.normalizeaza(inregistrari ?? []));
     const scoruri = scorMapDinIntrebari(intrebari, motor, praguri);
-    return creazaSursaDinScoruri(scoruri);
+    const stari = stareMapDinIntrebari(intrebari, motor, praguri);
+    return creazaSursa(scoruri, stari);
   }
 
   // Cititor standalone de IndexedDB. NU se refoloseste cel din
