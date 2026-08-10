@@ -56,6 +56,16 @@ inclusiv la schimbarea manuală prin butoanele 1-10 (`switchLevel` → `resetLev
 
 ### 2.4 Grupurile de factori (fg)
 
+**Actualizare 05.08.2026:** fg 6 (`12 15 18`) a fost eliminat de user („îl avem pe
+fg 8 și fg 4" — membrii lui 12 și 18 sunt deja acoperiți de `3 6 12 18` (fg 8), iar
+15 e deja acoperit de `5 15` (fg 4)). Lista curentă are **8 grupuri**; tabelul de mai
+jos și numerotarea „# 1..9" rămân ca document istoric al deciziei din 29.07.2026 —
+nu se renumerotează retroactiv. Recalculat pe fixture-ul real după eliminare
+(vezi criteriul 11 actualizat, §6): fără fg 6, câștigătorul primului sq3 e
+`7 11 13 17 19` (fg 7) la **toate** cele 10 nivele, nu doar la nivelul 2 — fg 6 era
+cel care rupea tiparul la nivelul 2; eliminându-l, fg 7 rămâne singurul cu
+medie=0 pe toate facte, la orice A, deci câștigă peste tot.
+
 Listă fixă, **9 grupuri** (`[12,14,16,18]` eliminat — user, 29.07.2026, „nu mă ajută";
 motivul concret observat: la nivelul 2, A=12, unul din membrii grupului (12) coincide
 cu factorul nivelului, producând întrebări de tipul `12*12=?`):
@@ -67,7 +77,7 @@ cu factorul nivelului, producând întrebări de tipul `12*12=?`):
 | 3 | 2 4 6 8 | 4 |
 | 4 | 5 15 | 2 |
 | 5 | 3 6 9 | 3 |
-| 6 | 12 15 18 | 3 |
+| ~~6~~ | ~~12 15 18~~ (eliminat 05.08.2026) | — |
 | 7 | 7 11 13 17 19 | 5 |
 | 8 | 3 6 12 18 | 4 |
 | 9 | 3 9 18 | 3 |
@@ -421,11 +431,16 @@ Teste: `tests/multiplication-1120-v4-intensiv-multipli-234.test.js` și
     - **109/200** celule cu `n > 0`; **103/200** cu scor > 0;
     - `scorPtFact(12, 7)` > 0 (celula cu cel mai mare volum, 51 apăsări);
     - `scorPtFact(11, 1)` === 0 și `scorPtFact(20, 19)` === 0 (celule fără date).
-11. **`alegeFG` pe date reale** (recalculat după eliminarea lui `[12 14 16 18]`,
-    §2.4): la primul declanșator natural al fiecărui nivel (acoperit `{1,2,3,4,5}`),
-    câștigă `[12,15,18]` la 9 din 10 nivele; la nivelul 2 (A=12) câștigă
-    `[7,11,13,17,19]`, pentru că A coincide cu un membru al fg-ului altfel
-    câștigător. Test de regresie pentru formulă + departajare împreună.
+11. **`alegeFG` pe date reale** — **actualizat 05.08.2026** după eliminarea lui
+    `[12 15 18]` (§2.4): la primul declanșator natural al fiecărui nivel (acoperit
+    `{1,2,3,4,5}`), câștigă `[7,11,13,17,19]` la **toate** cele 10 nivele (fostul
+    câștigător `[12,15,18]` nu mai există; fg-ul care-i lua locul la scor minim
+    e singurul rămas cu medie=0 pe toate facte, la orice A, deci nu mai variază
+    de la nivel la nivel). Versiunea anterioară a criteriului (recalculat după
+    eliminarea lui `[12 14 16 18]`, 29.07.2026): câștiga `[12,15,18]` la 9 din 10
+    nivele, cu excepția nivelului 2 (A=12), unde câștiga `[7,11,13,17,19]` —
+    păstrat ca istoric al deciziei, nu mai reflectă comportamentul curent.
+    Test de regresie pentru formulă + departajare împreună.
 12. **Stack:** pentru fg `3 6 9`, `promptHtml` conține exact 3 rânduri, în ordinea
     3, 6, 9, indiferent de ordinea în care sunt întrebate.
 13. **Stack-ul supraviețuiește dezvăluirii:** după un răspuns, `promptHtml` are tot
@@ -483,3 +498,52 @@ bună", fiindcă vezi tiparul construindu-se (33, 66, 99) și prinzi structura g
 A spus că **o va implementa și la tabla T\*1-10\*1-10**, deci e idee de produs, nu
 notă locală. Consemnată și în memoria de sesiune
 (`project_youlearn_stack_fg_rezultate_vizibile`).
+
+---
+
+## 10. Excepția facte fluente (05.08.2026)
+
+**Regula standard** (§2.6) rămâne: fiecare fact din fg-ul ales are nevoie de
+**≥3 răspunsuri corecte** (nu neapărat consecutive), sau iese oricum după **≥5
+încercări** (plasa de siguranță).
+
+**Excepție**, cerută de user: dacă un fact din fg e deja **fluent**, conform
+etichetei categorice **exacte din grila Vizualizare 3** (`clasificaStare` —
+precizie ≥90%, mediană ≤2s, minim 5 răspunsuri și 2 zile distincte; NU scorul
+continuu `scorPtFact` folosit de `alegeFG`, care rămâne neschimbat):
+
+- dacă factul a fost deja rulat **în sesiunea curentă** (= nivelul curent —
+  `shared.baseState.covered`, se resetează la schimbarea nivelului) → **nu mai
+  e rulat deloc** în sq3 pentru acel fg. Rămâne vizibil în stack, marcat cu
+  „✓" și tăiat (`.fg-stack-row--sarit`).
+- altfel (fluent, dar netestat încă în sesiune) → e rulat **o singură dată**,
+  indiferent dacă răspunsul e corect sau greșit.
+
+**Caz limită** (decizie user): dacă **toate** factele fg-ului ales sunt fluente
+și deja acoperite în sesiune, sq3 **nu mai pornește deloc** pentru acel
+declanșator — fg-ul rămâne neutilizat (poate fi reconsiderat la un declanșator
+viitor din același nivel, dacă `covered` se schimbă între timp). Comportamentul
+se obține gratuit din structura existentă: `maybeEnterSq3` întoarce `null`, iar
+apelantul deja tratează `null` ca „niciun declanșator", continuând normal în
+sq1 (nicio ramificație nouă de control a fost necesară acolo).
+
+**Implementare:**
+
+- `js/snapshot-fluenta.js` capătă `starePtFact(a, b)`, construit în paralel cu
+  `scorPtFact` (aceeași conductă — `selecteazaDomeniu` pe cele 200 de celule
+  ale tablei 11-20 — dar cu `calculeazaStatistici` + `clasificaStare` din
+  motor, folosind `praguri.filtru_standard_v1` + `praguri.stare`, nu
+  `interpretare_v1`). Calculat **o singură dată**, la pornirea quizului
+  (odată cu `scorPtFact`), nu recalculat per verificare.
+- `js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js`: la intrarea în
+  sq3 (`maybeEnterSq3`), se calculează `exitPolicyByB` per fact din fg-ul ales
+  (`"skip"` / `"once"` / `"normal"`), transmis prin `payload` către
+  `initialState`. `factDone(state, b)` citește politica din
+  `state.exitPolicyByB[b]` în loc de constantele fixe.
+- `fluentaSursa.starePtFact` e opțional (verificare `?.`) — o sursă care oferă
+  doar `scorPtFact` (cazuri vechi de test, surse simplificate) nu produce erori,
+  doar dezactivează excepția (toate factele rămân pe regula `"normal"`).
+
+Testat pe `tests/multiplication-1120-v4-intensiv-multipli-234.test.js`
+(criteriile 17-19) și `tests/snapshot-fluenta.test.js` (distribuția reală a
+stărilor pe fixture, ca santinelă anti-drift pt. `clasificaStare`).

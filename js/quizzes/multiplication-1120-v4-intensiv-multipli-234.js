@@ -25,13 +25,14 @@
   // fg [12,14,16,18] a fost eliminat explicit (decizie user, 29.07.2026 —
   // "nu ma ajuta"), dupa ce a produs coincidente gen "12*12=?" la nivelul 2
   // (b=12 din fg coincide cu A=12 al nivelului).
+  // fg [12,15,18] a fost eliminat explicit (decizie user, 05.08.2026) — elementele
+  // lui sunt deja acoperite impreuna de [3,6,12,18] (are 12, 18) si [5,15] (are 15).
   const FG_LIST = [
     [2, 4, 8, 16],
     [4, 8, 12, 16],
     [2, 4, 6, 8],
     [5, 15],
     [3, 6, 9],
-    [12, 15, 18],
     [7, 11, 13, 17, 19],
     [3, 6, 12, 18],
     [3, 9, 18],
@@ -174,6 +175,22 @@
     const Sequencer = global.FactWindowSequencer;
     const qfTypes = QFG.getActiveQFTypes(QF_PROFILE).filter(
       (type) => type.answerType === "number"
+    );
+
+    // Sq3 (grup de factori): doar cele 4 forme cu necunoscuta = produsul (c),
+    // cu rocada a<->b, cerute explicit de user (03.08.2026):
+    //   a*b=?  (f1_initial,  STANGA, pos4)
+    //   ?=a*b  (f1_initial,  DREAPTA, pos0)
+    //   b*a=?  (f1_comutat,  STANGA, pos4)
+    //   ?=b*a  (f1_comutat,  DREAPTA, pos0)
+    // Exclude explicit formele cu necunoscuta = un factor (ex. ?*b=c, a*?=c)
+    // si formele de tip impartire din f1_complementar/f1_complementar_comutat
+    // (ex. c:b=a). Nu afecteaza sq1 (baza) sau sq2, care raman pe qfTypes complet.
+    const sq3QfTypes = qfTypes.filter(
+      (type) =>
+        (type.f1 === "f1_initial" || type.f1 === "f1_comutat") &&
+        ((type.f2 === "doua_nr_in_STANGA" && type.pos === 4) ||
+          (type.f2 === "doua_nr_in_DREAPTA" && type.pos === 0))
     );
 
     let level = MIN_LEVEL;
@@ -367,8 +384,9 @@
     }
 
     function qfTypesForSubquiz(subquizId) {
-      if (subquizId !== SQ2_VBS_ID) return qfTypes;
-      return qfTypes.slice(0, sq2EqFormCount);
+      if (subquizId === SQ2_VBS_ID) return qfTypes.slice(0, sq2EqFormCount);
+      if (subquizId === SQ3_ID) return sq3QfTypes.slice(0, sq3EqFormCount);
+      return qfTypes;
     }
 
     function buildQuestionForB(b, subquizId = "base", state = null) {
@@ -455,10 +473,30 @@
       return best;
     }
 
+    function exitPolicyForB(A, b, covered) {
+      const stare = fluentaSursa.starePtFact ? fluentaSursa.starePtFact(A, b) : "netestat";
+      const fluent = stare === "fluent";
+      if (!fluent) return "normal";
+      return covered.has(b) ? "skip" : "once";
+    }
+
     function maybeEnterSq3(state, reason) {
       if (sq3Count >= SQ3_MAX_PER_LEVEL) return null;
       const picked = alegeFG();
       if (!picked) return null;
+
+      const A = factorForLevel(level);
+      const covered = shared.baseState?.covered ?? new Set();
+      const exitPolicyByB = {};
+      picked.fg.forEach((b) => {
+        exitPolicyByB[b] = exitPolicyForB(A, b, covered);
+      });
+      // Exceptie facte fluente (user, 05.08.2026): daca TOATE factele fg-ului
+      // ales sunt deja fluente si acoperite in sesiunea curenta (nivelul
+      // curent), nu mai e nimic de intrebat — nu intram deloc in sq3 pt.
+      // acest declansator (fg-ul ramane neutilizat, poate fi reconsiderat).
+      const totulSarit = picked.fg.every((b) => exitPolicyByB[b] === "skip");
+      if (totulSarit) return null;
 
       shared.usedFgIndexes.add(picked.index);
       sq3Count += 1;
@@ -467,7 +505,7 @@
       return {
         action: "push",
         targetId: SQ3_ID,
-        payload: { bs: picked.fg, reason },
+        payload: { bs: picked.fg, reason, exitPolicyByB },
         view: {
           outcome: "step-correct",
           correct: true,
@@ -479,7 +517,17 @@
 
     // ---- Subquiz 3: rulare, stack, rotatie de forme -------------------------
 
+    // Prag de iesire per fact, cu exceptia facte fluente (user, 05.08.2026):
+    //   "normal" — regula standard: >=3 corecte SAU >=5 incercari (plasa).
+    //   "once"   — fact fluent, dar netestat inca in sesiunea curenta (nivelul
+    //              curent): o singura incercare, corect sau gresit, e suficienta.
+    //   "skip"   — fact fluent SI deja testat in sesiunea curenta: nu mai e
+    //              rulat deloc (dar ramane vizibil in stack, bifat — vezi
+    //              renderStackHtml).
     function factDone(state, b) {
+      const policy = state.exitPolicyByB?.[b] ?? "normal";
+      if (policy === "skip") return true;
+      if (policy === "once") return (state.attemptsByB[b] ?? 0) >= 1;
       return (
         (state.correctCountsByB[b] ?? 0) >= SQ3_EXIT_CORRECT_COUNT ||
         (state.attemptsByB[b] ?? 0) >= SQ3_EXIT_MAX_ATTEMPTS
@@ -517,7 +565,7 @@
     }
 
     function eligibleStackForms(A, fg) {
-      const pool = qfTypes.slice(0, sq3EqFormCount);
+      const pool = sq3QfTypes.slice(0, sq3EqFormCount);
       return pool.filter((type) => !isDegenerateFormForFg(type, A, fg));
     }
 
@@ -545,16 +593,22 @@
       return state.formPool[state.formIndex % state.formPool.length];
     }
 
-    function renderStackHtml(A, fg, type, currentB) {
+    function renderStackHtml(A, fg, type, currentB, state) {
       const rows = fg.map((b) => {
         const fact = makeFact(b);
         const rendered = QFG.renderQF(type, fact);
         const promptText = rendered?.prompt ?? `${A}*${b}=?`;
         const isCurrent = b === currentB;
+        const isSarit = (state?.exitPolicyByB?.[b] ?? "normal") === "skip";
         const classes = ["fg-stack-row"];
-        if (isCurrent && sq3HighlightCurrent) classes.push("fg-stack-row--curent");
-        if (!isCurrent && sq3DimUntested) classes.push("fg-stack-row--netestat");
-        return `<div class="${classes.join(" ")}">${promptText}</div>`;
+        if (isSarit) {
+          classes.push("fg-stack-row--sarit");
+        } else {
+          if (isCurrent && sq3HighlightCurrent) classes.push("fg-stack-row--curent");
+          if (!isCurrent && sq3DimUntested) classes.push("fg-stack-row--netestat");
+        }
+        const text = isSarit ? `\u2713 ${promptText}` : promptText;
+        return `<div class="${classes.join(" ")}">${text}</div>`;
       });
       return `<div class="fg-stack">${rows.join("")}</div>`;
     }
@@ -577,7 +631,7 @@
 
       return {
         prompt: rendered.prompt,
-        promptHtml: renderStackHtml(A, fg, type, b),
+        promptHtml: renderStackHtml(A, fg, type, b, state),
         questionFormat: "fg-stack",
         correctAnswer: correct,
         options: opt.options,
@@ -753,6 +807,7 @@
             facts,
             correctCountsByB: {},
             attemptsByB: {},
+            exitPolicyByB: { ...(payload?.exitPolicyByB ?? {}) },
             queue: [],
             lastFactB: null,
             currentFactB: null,
@@ -766,6 +821,7 @@
           facts.forEach((b) => {
             state.correctCountsByB[b] = 0;
             state.attemptsByB[b] = 0;
+            if (!(b in state.exitPolicyByB)) state.exitPolicyByB[b] = "normal";
           });
           shared.sq3State = state;
           return state;

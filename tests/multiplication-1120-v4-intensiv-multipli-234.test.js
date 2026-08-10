@@ -14,7 +14,6 @@ const FG_LIST = [
   [2, 4, 6, 8],
   [5, 15],
   [3, 6, 9],
-  [12, 15, 18],
   [7, 11, 13, 17, 19],
   [3, 6, 12, 18],
   [3, 9, 18],
@@ -274,23 +273,27 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     assert.equal(trigger.message, "Subquiz 3: 11*5, 11*15", "castigatorul asteptat e fg [5,15], departajat lexicografic");
   });
 
-  it("criteriul 11: pe date reale, castigatorul primului sq3 e fg [12,15,18] la majoritatea nivelelor, dar [7,11,13,17,19] la nivelul 2 (A=12)", () => {
-    // fg [12,14,16,18] a fost eliminat (user, 29.07.2026); recalculat pe
-    // fixture-ul real dupa eliminare — nivelul 2 iese din tipar fiindca
-    // A=12 se intampla sa aiba date reale mai bune la factele 7,11,13,17,19
-    // decat restul nivelelor la fg-ul altfel castigator [12,15,18].
+  it("criteriul 11: pe date reale, castigatorul primului sq3 e fg [7,11,13,17,19] la toate nivelele", () => {
+    // fg [12,14,16,18] a fost eliminat (user, 29.07.2026); fg [12,15,18] a fost
+    // eliminat ulterior (user, 05.08.2026, "il avem pe fg 8 si fg 4" — elementele
+    // lui 12 si 18 sunt in [3,6,12,18], iar 15 e in [5,15]). Recalculat pe
+    // fixture-ul real dupa a doua eliminare: fara [12,15,18], fg-ul care ii lua
+    // locul la scor minim (2,0, din medie=0 la toate cele 5 facte netestate)
+    // e [7,11,13,17,19] la toate cele 10 nivele — nu mai exista variatie intre
+    // nivele, fiindca acel fg era deja castigator la nivelul 2 si acum e singurul
+    // fg cu medie=0 pe toate facte, la orice A.
     const fluentaSursa = loadRealFluentaSursa();
     const asteptat = {
-      1: [12, 15, 18],
+      1: [7, 11, 13, 17, 19],
       2: [7, 11, 13, 17, 19],
-      3: [12, 15, 18],
-      4: [12, 15, 18],
-      5: [12, 15, 18],
-      6: [12, 15, 18],
-      7: [12, 15, 18],
-      8: [12, 15, 18],
-      9: [12, 15, 18],
-      10: [12, 15, 18],
+      3: [7, 11, 13, 17, 19],
+      4: [7, 11, 13, 17, 19],
+      5: [7, 11, 13, 17, 19],
+      6: [7, 11, 13, 17, 19],
+      7: [7, 11, 13, 17, 19],
+      8: [7, 11, 13, 17, 19],
+      9: [7, 11, 13, 17, 19],
+      10: [7, 11, 13, 17, 19],
     };
 
     for (let nivel = 1; nivel <= 10; nivel += 1) {
@@ -407,13 +410,122 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     );
   });
 
+  // ---- Exceptia facte fluente (user, 05.08.2026) ---------------------------
+  // "fluent" = eticheta exacta din grila Vizualizare 3 (starePtFact), nu
+  // scorul continuu (scorPtFact, folosit in continuare doar pt. alegeFG).
+  // "sesiunea curenta" = nivelul curent (shared.baseState.covered).
+
+  it("criteriul 17: fapt fluent, netestat inca in sesiune -> o singura incercare, corect sau gresit", () => {
+    // Fara custom shuffle: cu scor 0 peste tot, primul declansator (a 5-a
+    // intrebare, covered={1,2,3,4,5}) alege fg [7,11,13,17,19] (singurul
+    // complet neacoperit — vezi criteriul 11). Niciun membru nu e acoperit
+    // inca in sesiune, deci marcarea "fluent" pe unul singur (b=7) izoleaza
+    // exact cazul "once", cu restul (11,13,17,19) pe regula normala.
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (b === 7 ? "fluent" : "in_lucru"),
+    };
+    const quiz = setupQuiz({ fluentaSursa });
+    let round = quiz.beginRound();
+    for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
+    const trigger = answerCorrect(quiz, round);
+    assert.equal(trigger.metadata.subquiz, SQ3_ID);
+    assert.equal(trigger.message, "Subquiz 3: 11*7, 11*11, 11*13, 11*17, 11*19");
+
+    const seenB7 = [];
+    let r = trigger;
+    let guard = 0;
+    // Raspundem mereu gresit: b=7 (fluent, "once") trebuie sa iasa dupa
+    // exact 1 incercare; restul (nefluente, "normal") trebuie sa ajunga la
+    // plasa de 5 incercari, nu la 1.
+    while (r.metadata?.subquiz === SQ3_ID && guard < 60) {
+      guard += 1;
+      if (r.metadata.factB === 7) seenB7.push(true);
+      r = answerWrong(quiz, r);
+      r = r.nextRound ?? r;
+    }
+    assert.ok(guard < 60, "sesiunea sq3 nu trebuia sa ramana blocata");
+    assert.equal(seenB7.length, 1, "b=7 (fluent, netestat in sesiune) trebuia intrebat o singura data, indiferent de raspuns");
+  });
+
+  it("criteriul 18: fapt fluent SI deja acoperit in sesiune -> sarit complet din sq3 (dar vizibil bifat in stack)", () => {
+    // Acelasi rulaj default: al doilea declansator natural (dupa ce primul
+    // sq3 se termina si sq1 continua) alege fg [5,15], cu b=5 deja acoperit
+    // din sq1 (a fost al 5-lea fact, cel care a declansat primul sq3) si
+    // b=15 inca netestat in sesiune. Marcam ambele "fluent": b=5 trebuie
+    // sarit complet (skip), b=15 trebuie sa primeasca "once" (nu e inca
+    // acoperit) — deci sq3 tot porneste (nu e cazul "totulSarit").
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => ([5, 15].includes(b) ? "fluent" : "in_lucru"),
+    };
+    const quiz = setupQuiz({ fluentaSursa });
+    let round = quiz.beginRound();
+    let guard = 0;
+    let secondTrigger = null;
+    while (!secondTrigger && guard < 100) {
+      guard += 1;
+      const next = answerCorrect(quiz, round);
+      if (next.message === "Subquiz 3: 11*5, 11*15") secondTrigger = next;
+      round = next.nextRound ?? next;
+    }
+    assert.ok(secondTrigger, "al doilea declansator (fg [5,15]) trebuia sa apara in rulajul default");
+    assert.equal(secondTrigger.metadata.subquiz, SQ3_ID, "sq3 tot trebuia sa porneasca — nu toate factele sunt sarite (b=15 e doar \"once\")");
+
+    const seenB5 = [];
+    const seenB15 = [];
+    let r = secondTrigger;
+    guard = 0;
+    while (r.metadata?.subquiz === SQ3_ID && guard < 60) {
+      guard += 1;
+      if (r.metadata.factB === 5) seenB5.push(true);
+      if (r.metadata.factB === 15) seenB15.push(true);
+      r = answerWrong(quiz, r);
+      r = r.nextRound ?? r;
+    }
+    assert.ok(guard < 60, "sesiunea sq3 nu trebuia sa ramana blocata");
+    assert.equal(seenB5.length, 0, "b=5 (fluent + deja acoperit) nu trebuia intrebat deloc");
+    assert.equal(seenB15.length, 1, "b=15 (fluent, netestat inca) trebuia intrebat o singura data");
+  });
+
+  it("criteriul 19: daca TOATE factele fg-ului ales sunt fluente si deja acoperite, sq3 nu mai porneste deloc", () => {
+    // Penalizam scorul lui [7,11,13,17,19] ca sa castige [5,15] primul (nu
+    // fg-ul cu scor minim implicit) — izoleaza exact rulajul in care al
+    // treilea declansator natural ar alege [2,4,6,8], cu toate cele 4 facte
+    // deja acoperite prin mersul secvential al sq1 pana atunci. Marcandu-le
+    // pe toate "fluent", acel declansator nu mai trebuie sa produca sq3.
+    const fluentaSursa = {
+      scorPtFact: (a, b) => ([7, 11, 13, 17, 19].includes(b) ? 1 : 0),
+      starePtFact: (a, b) => ([2, 4, 6, 8].includes(b) ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({ fluentaSursa });
+    const triggers = [];
+    let round = quiz.beginRound();
+    let guard = 0;
+    let done = false;
+    while (!done && guard < 300) {
+      guard += 1;
+      const next = answerCorrect(quiz, round);
+      if (next.message && /^Subquiz 3: /.test(next.message)) triggers.push(next.message);
+      done = Boolean(next.levelAdvanced) || quiz.isCompleted();
+      round = next.nextRound ?? next;
+    }
+    assert.ok(done, "nivelul trebuia sa se termine normal, chiar fara al treilea sq3");
+    assert.deepEqual(
+      triggers,
+      ["Subquiz 3: 11*3, 11*6, 11*12, 11*18", "Subquiz 3: 11*5, 11*15"],
+      "doar primele doua declansatoare trebuiau sa produca sq3 — al treilea (fg [2,4,6,8], toate fluente+acoperite) trebuia sarit complet"
+    );
+  });
+
   it("FG_LIST din test reflecta exact lista din motor (santinela anti-drift)", () => {
     // Nu putem importa constanta privata direct; verificam indirect prin
     // comportamentul deja testat mai sus (criteriile 7 si 11). Aici doar
-    // confirmam ca lista locala are forma asteptata — 9 grupuri de cand a
-    // fost eliminat [12,14,16,18] (user, 29.07.2026).
-    assert.equal(FG_LIST.length, 9);
+    // confirmam ca lista locala are forma asteptata — 8 grupuri de cand au
+    // fost eliminate [12,14,16,18] (user, 29.07.2026) si [12,15,18]
+    // (user, 05.08.2026).
+    assert.equal(FG_LIST.length, 8);
     const sizes = FG_LIST.map((fg) => fg.length).sort((a, b) => a - b);
-    assert.deepEqual(sizes, [2, 3, 3, 3, 4, 4, 4, 4, 5]);
+    assert.deepEqual(sizes, [2, 3, 3, 4, 4, 4, 4, 5]);
   });
 });
