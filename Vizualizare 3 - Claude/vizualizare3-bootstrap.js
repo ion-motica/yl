@@ -69,6 +69,50 @@
     });
   }
 
+  // Sterge tot ce e in store si pune in loc exact `inregistrari`, in ordinea
+  // primita (ordinea = timp, vezi motor-analiza.js). Un singur loc care scrie
+  // in bloc in jurnalul real — folosit de Replace si de Merge (Merge doar
+  // calculeaza alt array de intrare, cu combinaFaraDuplicate, inainte).
+  // Deliberat NU trece prin JurnalIntrebari.inregistreazaIntrebare: acela e
+  // contractul cu o singura metoda aprobata pt. apasari reale din quiz
+  // (vezi tests/jurnal-intrebari.test.js), nu pt. rescriere in bloc dintr-un
+  // fisier extern.
+  function inlocuiesteStoreJurnal(inregistrari) {
+    return new Promise((resolve, reject) => {
+      if (!global.indexedDB) {
+        reject(new Error("IndexedDB nu este disponibil."));
+        return;
+      }
+      const cerere = global.indexedDB.open(NUME_BAZA_DATE);
+      cerere.onupgradeneeded = () => {
+        const baza = cerere.result;
+        if (!baza.objectStoreNames.contains(NUME_COLECTIE)) {
+          baza.createObjectStore(NUME_COLECTIE, { autoIncrement: true });
+        }
+      };
+      cerere.onerror = () => reject(cerere.error);
+      cerere.onsuccess = () => {
+        const baza = cerere.result;
+        const tranzactie = baza.transaction(NUME_COLECTIE, "readwrite");
+        const store = tranzactie.objectStore(NUME_COLECTIE);
+        store.clear();
+        inregistrari.forEach((inregistrare) => store.add(inregistrare));
+        tranzactie.oncomplete = () => {
+          baza.close();
+          resolve(inregistrari.length);
+        };
+        tranzactie.onerror = () => {
+          baza.close();
+          reject(tranzactie.error);
+        };
+        tranzactie.onabort = () => {
+          baza.close();
+          reject(tranzactie.error);
+        };
+      };
+    });
+  }
+
   // Un nume fix ar parea logic, dar Firefox nu suprascrie descarcarile: adauga
   // "(1)", "(2)"... la fiecare export nou, deci fisierele se aduna oricum. Mai
   // bine data+ora in nume: fiecare export ramane distinct si se intelege cand
@@ -82,6 +126,19 @@
     return `youlearn-${prefix}-${ziua}-${ora}.json`;
   }
 
+  // Descarca orice lista de inregistrari ca fisier JSON, cu numele standard
+  // (prefix + data + ora). Un singur loc: il folosesc si exportul manual, si
+  // copia de rezerva automata dinaintea unui Replace.
+  function descarcaJson(inregistrari, prefix) {
+    const json = JSON.stringify(inregistrari, null, 2);
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = numeFisierExport(prefix);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   // Buton care descarca jurnalul brut (asa cum sta in IndexedDB) ca JSON, ca
   // sa poata fi verificat in afara browserului, fara copy-paste din consola.
   function butonDescarcaJurnal() {
@@ -89,14 +146,7 @@
     buton.type = "button";
     buton.textContent = "Export log JSON in Downloads";
     buton.addEventListener("click", async () => {
-      const inregistrari = await citesteJurnalul();
-      const json = JSON.stringify(inregistrari, null, 2);
-      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = numeFisierExport("salvare-log-activitate");
-      link.click();
-      URL.revokeObjectURL(url);
+      descarcaJson(await citesteJurnalul(), "salvare-log-activitate");
     });
     return buton;
   }
@@ -134,6 +184,134 @@
     const buton = document.createElement("button");
     buton.type = "button";
     buton.textContent = "Import log JSON din Downloads";
+    buton.addEventListener("click", () => input.click());
+    fragment.append(buton, input);
+    return fragment;
+  }
+
+  // Validare minima pt. un fisier care va scrie in jurnalul REAL (Replace/
+  // Merge), nu doar pt. vizualizare: verificam ce chiar folosim noi mai
+  // departe (array, obiecte, data_ora_ro pt. sortare) — nu reinventam
+  // validarea completa pe 18 campuri din js/jurnal-intrebari.js (ramane
+  // acolo, contract cu o singura metoda aprobata).
+  function valideazaListaImportata(inregistrari) {
+    if (!Array.isArray(inregistrari)) {
+      throw new Error("fisierul nu contine o listă de apăsări");
+    }
+    inregistrari.forEach((inregistrare, index) => {
+      if (
+        !inregistrare ||
+        typeof inregistrare !== "object" ||
+        Array.isArray(inregistrare) ||
+        typeof inregistrare.data_ora_ro !== "string"
+      ) {
+        throw new Error(`înregistrarea ${index + 1} nu are „data_ora_ro" valid`);
+      }
+    });
+    return inregistrari;
+  }
+
+  // Pt. Merge: uneste ce e deja in IndexedDB cu ce vine din fisier, fara sa
+  // numere de doua ori aceeasi apasare (continut identic — nu exista niciun
+  // ID pe inregistrare), si reasaza tot setul cronologic dupa data_ora_ro.
+  // Motorul citeste ordinea array-ului ca timp real (motor-analiza.js:66),
+  // deci o simpla adaugare la coada n-ar respecta contractul daca fisierul
+  // e mai vechi decat ce e deja in baza.
+  function combinaFaraDuplicate(existente, dinFisier) {
+    const cheieDe = (inregistrare) => JSON.stringify(inregistrare);
+    const cheiExistente = new Set(existente.map(cheieDe));
+    const dinFisierUnice = dinFisier.filter((inregistrare) => !cheiExistente.has(cheieDe(inregistrare)));
+    const combinate = [...existente, ...dinFisierUnice].sort((a, b) => {
+      if (a.data_ora_ro < b.data_ora_ro) return -1;
+      if (a.data_ora_ro > b.data_ora_ro) return 1;
+      return 0;
+    });
+    return { combinate, duplicateIgnorate: dinFisier.length - dinFisierUnice.length };
+  }
+
+  // Buton distructiv: sterge tot ce e in IndexedDB si pune in loc EXACT
+  // continutul fisierului ales. De-aia, inainte sa stergem: (1) descarcam
+  // automat o copie de rezerva a starii vechi, (2) cerem confirmare cu
+  // numerele exacte, nu doar „esti sigur?". Dupa succes, comuta vizualizarea
+  // pe „jurnal" — utilizatorul tocmai a rescris jurnalul real, normal sa-l
+  // vada.
+  function butonInlocuiesteJurnal() {
+    const fragment = document.createDocumentFragment();
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.hidden = true;
+    input.addEventListener("change", async () => {
+      const fisier = input.files?.[0];
+      input.value = "";
+      if (!fisier) return;
+      try {
+        const dinFisier = valideazaListaImportata(JSON.parse(await fisier.text()));
+        const vechi = await citesteJurnalul();
+        const confirmat = global.confirm?.(
+          `Inlocuiesc jurnalul real din IndexedDB: se sterg ${vechi.length} înregistrări ` +
+            `existente și se pun ${dinFisier.length} din „${fisier.name}".\n` +
+            (vechi.length > 0
+              ? `Se descarcă automat, mai întâi, o copie de rezervă a celor ${vechi.length} vechi.\n`
+              : "") +
+            `Continui?`
+        );
+        if (!confirmat) return;
+        if (vechi.length > 0) descarcaJson(vechi, "backup-inainte-de-replace");
+        const cate = await inlocuiesteStoreJurnal(dinFisier);
+        sursaActiva = "jurnal";
+        salveazaSursaActiva();
+        reseteazaVizualizarea();
+        global.alert?.(`Gata — jurnalul real are acum ${cate} înregistrări (din „${fisier.name}").`);
+      } catch (eroare) {
+        global.alert?.(`„${fisier.name}" nu poate fi folosit: ${eroare.message}`);
+      }
+    });
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.textContent = "Replace datele din IndexedDB cu JSON din Downloads";
+    buton.addEventListener("click", () => input.click());
+    fragment.append(buton, input);
+    return fragment;
+  }
+
+  // Aditiv, nu distructiv: uneste fisierul cu ce e deja in IndexedDB
+  // (combinaFaraDuplicate), apoi rescrie store-ul cu rezultatul sortat —
+  // tehnic tot o rescriere in bloc (motorul cere ordine cronologica in
+  // array, nu doar adaugare la coada), dar nimic din ce era acolo nu se
+  // pierde. Confirmare simpla, fara backup automat (nimic nu e sters).
+  function butonMergeJurnal() {
+    const fragment = document.createDocumentFragment();
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.hidden = true;
+    input.addEventListener("change", async () => {
+      const fisier = input.files?.[0];
+      input.value = "";
+      if (!fisier) return;
+      try {
+        const dinFisier = valideazaListaImportata(JSON.parse(await fisier.text()));
+        const vechi = await citesteJurnalul();
+        const { combinate, duplicateIgnorate } = combinaFaraDuplicate(vechi, dinFisier);
+        const confirmat = global.confirm?.(
+          `Combin ${vechi.length} existente cu ${dinFisier.length} din „${fisier.name}"` +
+            (duplicateIgnorate > 0 ? ` (${duplicateIgnorate} identice, ignorate)` : "") +
+            ` → ${combinate.length} în total.\nContinui?`
+        );
+        if (!confirmat) return;
+        const cate = await inlocuiesteStoreJurnal(combinate);
+        sursaActiva = "jurnal";
+        salveazaSursaActiva();
+        reseteazaVizualizarea();
+        global.alert?.(`Gata — jurnalul real are acum ${cate} înregistrări.`);
+      } catch (eroare) {
+        global.alert?.(`„${fisier.name}" nu poate fi folosit: ${eroare.message}`);
+      }
+    });
+    const buton = document.createElement("button");
+    buton.type = "button";
+    buton.textContent = "Merge datele din IndexedDB cu JSON din Downloads";
     buton.addEventListener("click", () => input.click());
     fragment.append(buton, input);
     return fragment;
@@ -1896,7 +2074,8 @@
         butonAlegeSursa("import", "Alege log importat"),
         butonAlegeSursa("fixture", "Alege dummy log pe 8 săptămâni"),
       ]),
-      randSursa([butonDescarcaJurnal(), butonImportaJurnal()])
+      randSursa([butonDescarcaJurnal(), butonImportaJurnal()]),
+      randSursa([butonInlocuiesteJurnal(), butonMergeJurnal()])
     );
     antet.append(titlu, sursa);
     return antet;
@@ -1990,15 +2169,16 @@
     return tr;
   }
 
-  // Randul de efort brut al zilei (raspunsuri valide/zi), muted, deasupra Total.
-  function construiesteRandExercitii(numarPeZi) {
+  // Un rand de numere simple (fara procente, fara bara, fara sageti): eticheta
+  // + o celula per coloana. Folosit de "Nr. ex. lucrate /zi" si "Nr. ex cumulate".
+  function construiesteRandNumere(eticheta, numere, clasa) {
     const tr = document.createElement("tr");
-    tr.className = "viz3-tabel-exercitii";
+    tr.className = clasa;
     const cap = document.createElement("th");
     cap.scope = "row";
-    cap.textContent = "Nr. ex. lucrate";
+    cap.textContent = eticheta;
     tr.appendChild(cap);
-    numarPeZi.forEach((n) => {
+    numere.forEach((n) => {
       const td = document.createElement("td");
       td.textContent = String(n);
       tr.appendChild(td);
@@ -2006,12 +2186,106 @@
     return tr;
   }
 
+  // Efortul cumulat de la inceputul jurnalului: fiecare coloana = suma tuturor
+  // coloanelor de la ea la stanga, inclusiv. Singurul rand din tabel care nu
+  // poate scadea niciodata — de-aia nu primeste niciodata sageata.
+  function cumuleaza(numarPeZi) {
+    let total = 0;
+    return numarPeZi.map((n) => (total += n));
+  }
+
+  // Un rand din blocurile de stari: eticheta + o celula per coloana cu numarul
+  // de facts, plus sageata EXACT ca la randurile de procent — acelasi glif/
+  // culoare/pozitie, prin acelasi `adaugaSageataCelula` (§ mai jos). Compara
+  // numarul coloanei curente cu al coloanei PRECEDENTE (nu exista goluri pe
+  // randurile astea, deci referinta e mereu vecina imediata, spre deosebire de
+  // procente unde se sare peste celule nedisplayate).
+  function construiesteRandStare({ eticheta, numere, clasa }) {
+    const tr = document.createElement("tr");
+    tr.className = clasa;
+    const cap = document.createElement("th");
+    cap.scope = "row";
+    cap.textContent = eticheta;
+    tr.appendChild(cap);
+    let anterior = null;
+    numere.forEach((n) => {
+      const td = document.createElement("td");
+      td.textContent = String(n);
+      adaugaSageataCelula(td, { cc: n, cs: anterior, tipRand: "stare" });
+      anterior = n;
+      tr.appendChild(td);
+    });
+    return tr;
+  }
+
+  // Cele doua blocuri de sub tabel: Setul 1 (cele 5 categorii, pt. programator)
+  // si Setul 2 (primele trei comasate, pt. parinte si elev).
+  //
+  // Randul `suma` se calculeaza per coloana din chiar numerele afisate (nu dintr-o
+  // constanta): asa ramane self-check real — daca o coloana nu da numarul de facts
+  // din domeniu, se vede.
+  function construiesteBlocuriStari(tbody, stariPeMomente, numarColoane) {
+    if (!stariPeMomente.length) return;
+    const numere = (cheie) => stariPeMomente.map((coloana) => coloana.contor[cheie]);
+    const aduna = (...serii) => serii[0].map((_, idx) => serii.reduce((t, s) => t + s[idx], 0));
+
+    function randTitluSet(text) {
+      const tr = document.createElement("tr");
+      tr.className = "viz3-tabel-titlu-set";
+      const cap = document.createElement("th");
+      cap.scope = "row";
+      cap.colSpan = numarColoane + 1;
+      cap.textContent = text;
+      tr.appendChild(cap);
+      return tr;
+    }
+
+    function randGol() {
+      const tr = document.createElement("tr");
+      tr.className = "viz3-tabel-rand-gol";
+      const td = document.createElement("td");
+      td.colSpan = numarColoane + 1;
+      tr.appendChild(td);
+      return tr;
+    }
+
+    const netestat = numere("netestat");
+    const abiaInceput = numere("abia_inceput");
+    const nuIlStie = numere("nu_il_stie");
+    const inLucru = numere("in_lucru");
+    const fluent = numere("fluent");
+    const comasat = aduna(netestat, abiaInceput, nuIlStie);
+
+    tbody.appendChild(randGol());
+
+    tbody.appendChild(randTitluSet("Setul 1 - Pt programator"));
+    tbody.appendChild(construiesteRandStare({ eticheta: "netestat", numere: netestat, clasa: "viz3-tabel-stare" }));
+    tbody.appendChild(construiesteRandStare({ eticheta: "abia_inceput", numere: abiaInceput, clasa: "viz3-tabel-stare" }));
+    tbody.appendChild(construiesteRandStare({ eticheta: "nu_il_stie", numere: nuIlStie, clasa: "viz3-tabel-stare" }));
+    tbody.appendChild(construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" }));
+    tbody.appendChild(construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" }));
+    tbody.appendChild(
+      construiesteRandNumere("suma", aduna(netestat, abiaInceput, nuIlStie, inLucru, fluent), "viz3-tabel-suma")
+    );
+
+    tbody.appendChild(randTitluSet("Setul 2 - Pt parinte si elev"));
+    tbody.appendChild(
+      construiesteRandStare({ eticheta: "netestat + abia_inceput + nu_il_stie", numere: comasat, clasa: "viz3-tabel-stare" })
+    );
+    tbody.appendChild(construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" }));
+    tbody.appendChild(construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" }));
+    tbody.appendChild(construiesteRandNumere("suma", aduna(comasat, inLucru, fluent), "viz3-tabel-suma"));
+  }
+
   // Sageata de directie pentru O celula: compara procentul rotunjit `cc` cu
   // referinta `cs` (ultima celula AFISATA din stanga, deja sarita peste goluri de
   // apelant). `cs === null` (prima celula afisata) sau `cc === cs` -> nicio sageata.
   // Etichetele de mod (--total/--acum/--toate) decid, prin CSS, care bifa o arata;
   // celula "acum" a unei subtable primeste O SINGURA sageata cu doua etichete, deci
-  // "acum" + "toate" pornite nu dubleaza. Singurul loc unde se naste o sageata.
+  // "acum" + "toate" pornite nu dubleaza. Singurul loc unde se naste o sageata —
+  // inclusiv pentru randurile de stare (`tipRand: "stare"`), care nu au bife de
+  // afisare: eticheta lor (`--stare`) e mereu vizibila (CSS), fara sa depinda de
+  // bifele 5.2, care privesc doar randurile de procent.
   function adaugaSageataCelula(td, { cc, cs, tipRand, esteAcum }) {
     if (cs === null || cc === cs) return;
     const urca = cc > cs;
@@ -2023,6 +2297,8 @@
     } else if (tipRand === "subtabla") {
       sageata.classList.add("viz3-sageata--toate");
       if (esteAcum) sageata.classList.add("viz3-sageata--acum");
+    } else if (tipRand === "stare") {
+      sageata.classList.add("viz3-sageata--stare");
     }
     td.appendChild(sageata);
   }
@@ -2190,10 +2466,25 @@
       // Randul "Grafic bare" se insereaza chiar DEASUPRA randului Total.
       if (perechiTotal) tbody.appendChild(construiesteRandGraficBare(perechiTotal));
       tbody.appendChild(tr);
-      // Randul de efort + copia randului de date se insereaza chiar SUB Total.
+      // Sub Total: efortul zilei, efortul cumulat, copia randului de date, apoi
+      // cele doua blocuri de stari (Setul 1 / Setul 2).
       if (rand.tip === "total") {
-        tbody.appendChild(construiesteRandExercitii(model.numar_exercitii_valide_pe_zi));
+        tbody.appendChild(
+          construiesteRandNumere(
+            "Nr. ex. lucrate /zi",
+            model.numar_exercitii_valide_pe_zi,
+            "viz3-tabel-exercitii"
+          )
+        );
+        tbody.appendChild(
+          construiesteRandNumere(
+            "Nr. ex cumulate",
+            cumuleaza(model.numar_exercitii_valide_pe_zi),
+            "viz3-tabel-exercitii"
+          )
+        );
         tbody.appendChild(construiesteRandDateDuplicat(model.antete));
+        construiesteBlocuriStari(tbody, model.stari_pe_momente, model.antete.length);
       }
     });
 

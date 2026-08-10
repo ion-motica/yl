@@ -587,6 +587,67 @@
     return celula.eticheta === "incredere_mare";
   }
 
+  // Cate facts sunt in fiecare stare la fiecare moment, si cate au ajuns acolo
+  // URCAND de la o categorie inferioara fata de momentul precedent.
+  //
+  // Foloseste `filtru_standard_v1` + `stare` — ACELEASI praguri ca grila 10x10,
+  // ca acelasi fact sa nu aiba o stare in grila si alta aici. Ferestrele difera
+  // (grila segmenteaza in calupuri, tabelul se uita la ultimele `adancime`
+  // raspunsuri) — asta e asteptat, nu bug.
+  //
+  // O SINGURA trecere prin `valide`, cu un cursor per fact: `cateAjunse` tine
+  // cate raspunsuri ale fiecarui fact au intrat pana la momentul curent, deci
+  // fereastra se ia prin `slice` din lista lui, fara re-filtrarea intregii liste
+  // la fiecare moment.
+  function construiesteStariPeMomente({ valide, momente, cellIds, adancime, praguri }) {
+    const peFact = new Map();
+    const cateAjunse = new Map();
+    cellIds.forEach((cellId) => {
+      peFact.set(cellId, []);
+      cateAjunse.set(cellId, 0);
+    });
+    valide.forEach((intrebare) => {
+      const lista = peFact.get(cheieCelulaDinInregistrare(intrebare));
+      if (lista) lista.push(intrebare);
+    });
+
+    let pozitie = 0;
+    let stariAnterioare = null;
+
+    return momente.map((k) => {
+      while (pozitie < k) {
+        const cellId = cheieCelulaDinInregistrare(valide[pozitie]);
+        if (cateAjunse.has(cellId)) cateAjunse.set(cellId, cateAjunse.get(cellId) + 1);
+        pozitie += 1;
+      }
+
+      const contor = { netestat: 0, abia_inceput: 0, nu_il_stie: 0, in_lucru: 0, fluent: 0 };
+      const sosiri = { abia_inceput: 0, nu_il_stie: 0, in_lucru: 0, fluent: 0 };
+      const stariAcum = new Map();
+
+      cellIds.forEach((cellId) => {
+        const lista = peFact.get(cellId);
+        const cate = cateAjunse.get(cellId);
+        const fereastra = lista.slice(Math.max(0, cate - adancime), cate);
+        const statistici = calculeazaStatistici(
+          aplicaFiltre({ curent: fereastra }, praguri.filtru_standard_v1)
+        );
+        const stare = clasificaStare(statistici, praguri.stare);
+        contor[stare] += 1;
+        stariAcum.set(cellId, stare);
+        if (stariAnterioare) {
+          // `netestat` e treapta 0, deci nimic nu poate urca IN el — de-aia
+          // lipseste din `sosiri` si conditia de mai jos nu-l poate atinge.
+          const inainte = stariAnterioare.get(cellId);
+          if (TRASEU_STARE[stare] > TRASEU_STARE[inainte]) sosiri[stare] += 1;
+        }
+      });
+
+      stariAnterioare = stariAcum;
+      return { contor, sosiri_prin_urcare: sosiri };
+    });
+  }
+
   // Construiește modelul tabelului „% fluență per subtablă": un rând per
   // subtablă (valoare distinctă `a` din catalog) + un rând „Toată fereastra",
   // coloane = fotografii ale ferestrei, ancorate în prezent (momente comune
@@ -637,6 +698,7 @@
         numar_exercitii_valide_pe_zi: [],
         antete: [],
         randuri: ferestre.map(({ tip, eticheta }) => ({ tip, eticheta, celule: [] })),
+        stari_pe_momente: [],
       };
     }
 
@@ -683,6 +745,17 @@
       ),
     }));
 
+    // Randurile de stari (Setul 1 / Setul 2): cate facts in fiecare categorie la
+    // fiecare coloana. Se sprijina pe `valide` si `momente` deja construite aici —
+    // o functie separata chemata din bootstrap le-ar recalcula de la zero.
+    const stariPeMomente = construiesteStariPeMomente({
+      valide,
+      momente,
+      cellIds: catalog.celule.map((c) => c.cell_id),
+      adancime,
+      praguri,
+    });
+
     return {
       tip: "tabel_fluenta",
       adancime,
@@ -692,6 +765,7 @@
       numar_exercitii_valide_pe_zi: numarExercitiiValidePeZi,
       antete,
       randuri,
+      stari_pe_momente: stariPeMomente,
     };
   }
 

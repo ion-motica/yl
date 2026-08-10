@@ -22,6 +22,20 @@ afterEach(() => {
 // Pragurile de incredere sunt PARAMETRU al motorului, nu constanta — vezi
 // tests/vizualizare3-tabel-fluenta.test.js pentru pragurile reale.
 const PRAGURI = {
+  // Cerute de rândurile de stări din model (`stari_pe_momente`) — aceleași
+  // praguri ca grila 10×10. Valori exacte din config-praguri.js.
+  filtru_standard_v1: {
+    viteza_doar_corect_din_prima: true,
+    timp_minim_secunde: 0.5,
+    timp_maxim_secunde: 15,
+    exclude_timpi_extremi_din_precizie: false,
+  },
+  stare: {
+    n_minim: 5,
+    zile_distincte_minim: 2,
+    fluent: { precizie_minima: 0.9, mediana_maxima_secunde: 2.0 },
+    in_lucru: { precizie_minima: 0.8, mediana_maxima_secunde: 4.0 },
+  },
   interpretare_v1: {
     filtru: {
       viteza_doar_corect_din_prima: true,

@@ -1110,6 +1110,12 @@ body {
   display: block;
 }
 
+/* Sagetile randurilor de stare (Setul 1 / Setul 2) n-au bifa proprie de
+   afisare — spre deosebire de cele trei de mai sus, sunt mereu vizibile. */
+.viz3-tabel .viz3-sageata--stare {
+  display: block;
+}
+
 /* Doar culoarea difera intre directii; size / bold / stroke / pozitie sunt in
    regula comuna de mai sus. Font-weight urcat la maxim (900) + contur subtire,
    fiindca "mai groasa" nu e un procent continuu in CSS. */
@@ -1128,6 +1134,49 @@ body {
 .viz3-tabel-exercitii td {
   text-align: center;
   vertical-align: middle;
+}
+
+/* --- Blocurile de stari sub tabel (Setul 1 / Setul 2) --- */
+
+/* Rand gol, doar ca sa desparta tabelul de procente de blocurile de stari. */
+.viz3-tabel-rand-gol td {
+  height: 14px;
+  border: none;
+  background: none;
+}
+
+/* Titlul unui set: un singur th intins peste tot randul. Mosteneste `position:
+   sticky` de la ".viz3-tabel tbody th", deci ramane vizibil la scroll orizontal.
+   Selectorul e lung intentionat: ".viz3-tabel tbody th" (clasa + 2 elemente) are
+   specificitate mai mare decat ".viz3-tabel-titlu-set th" si i-ar impune fundalul
+   panoului - trebuie intrecut, altfel randul de titlu nu se distinge de restul. */
+.viz3-tabel tbody tr.viz3-tabel-titlu-set th {
+  background: var(--viz3-tabel-total-fundal);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Numerele CENTRATE (spre deosebire de procente, aliniate la dreapta): sageata
+   (adaugaSageataCelula) sta absolut pe muchia stanga a celulei, in afara
+   fluxului normal, deci nu impinge/muta numarul - centrarea e sigura, nu
+   sare intre coloanele cu sageata si cele fara. */
+.viz3-tabel-stare td {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Randul `suma` e self-check, nu continut - mic si gri, ca sa nu concureze cu
+   cifrele de deasupra. */
+.viz3-tabel-suma td {
+  text-align: center;
+  color: var(--viz3-text-slab);
+  font-size: 12px;
+}
+
+.viz3-tabel-suma th {
+  color: var(--viz3-text-slab);
+  font-weight: 400;
 }
 
 /* Celulele de date calendaristice (randul din thead + copia de jos): acelasi
