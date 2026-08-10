@@ -93,6 +93,21 @@
   --viz3-grafic-bare-pozitie-frac: 0.5;
   --viz3-grafic-bare-inaltime-rand: 90px;
   --viz3-grafic-bare-opacitate-rosu: 0.5;
+
+  /* Graficul stivuit (stacked) peste randurile Setul 1/Setul 2 (PLAN-grafic-
+     stacat-stari.md). Culori ROGVAIV, decise de user: Setul 1 = toate 5;
+     Setul 2 refoloseste literal primele 3 (rosu/oranj/galben) - nu sunt
+     variabile noi pt Setul 2. */
+  --viz3-stacat-rosu: #e63b2e;
+  --viz3-stacat-oranj: #f5a623;
+  --viz3-stacat-galben: #f7d038;
+  --viz3-stacat-verde: #7cb944;
+  --viz3-stacat-albastru: #2f9bd6;
+  /* Latime/pozitie/opacitate: un singur set, comun ambelor grafice (decizia
+     userului - spre deosebire de bara/grafic-bare de mai sus). */
+  --viz3-grafic-stacat-latime: 100%;
+  --viz3-grafic-stacat-pozitie-frac: 0.5;
+  --viz3-grafic-stacat-opacitate: 0.7;
 }
 
 * {
@@ -856,6 +871,13 @@ body {
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--viz3-tabel-font);
+  /* Ancora de pozitionare pt. .viz3-grafic-stacat-ancora (copil direct al
+     tabelului, nu al unei celule - traverseaza mai multe randuri). Izolat
+     intr-un context de stivuire propriu, ca z-index:-1 de pe ancora sa stea
+     in spatele continutului tabelului fara sa iasa in spatele altceva din
+     pagina (PLAN-grafic-stacat-stari.md §3). */
+  position: relative;
+  isolation: isolate;
 }
 
 .viz3-tabel th,
@@ -1192,4 +1214,63 @@ body {
    vede dintr-o privire care coloana e ziua curenta, fara sa citeasca data. */
 .viz3-antet-azi {
   background: #fff3a0;
+}
+
+/* Graficul stivuit (stacked) peste randurile Setul 1/Setul 2
+   (PLAN-grafic-stacat-stari.md). Un ".viz3-grafic-stacat-ancora" per coloana,
+   copil DIRECT al <table> (nu al unui <td> - traverseaza mai multe randuri),
+   cu geometria (top/left/width/height) masurata in JS
+   (randeazaGraficeStacate). Ramane mereu in DOM, ascuns implicit - bifele
+   "Grafic pt 1/2" (5.2) adauga viz3-arata-grafic-stacat-set1/set2 pe <table>. */
+.viz3-grafic-stacat-ancora {
+  display: none;
+  position: absolute;
+  /* Sub continutul normal al tabelului (numere, sageti) - vezi
+     "isolation: isolate" pe .viz3-tabel, care izoleaza contextul de stivuire
+     ca z-index negativ sa nu iasa in spatele altceva din pagina. */
+  z-index: -1;
+  pointer-events: none;
+}
+
+.viz3-tabel.viz3-arata-grafic-stacat-set1 .viz3-grafic-stacat-ancora[data-set="1"],
+.viz3-tabel.viz3-arata-grafic-stacat-set2 .viz3-grafic-stacat-ancora[data-set="2"] {
+  display: block;
+}
+
+/* Banda vizibila, in interiorul ancorei: latime/pozitie/opacitate din
+   variabile CSS comune ambelor seturi, exact ca la ".viz3-bara" dintr-o
+   singura celula - doar ca "100%" se raporteaza acum la ancora masurata
+   (o coloana intreaga), nu la un <td>. */
+.viz3-grafic-stacat {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  left: calc((100% - var(--viz3-grafic-stacat-latime)) * var(--viz3-grafic-stacat-pozitie-frac));
+  width: var(--viz3-grafic-stacat-latime);
+  display: flex;
+  /* Primul copil DOM (netestat / comasat) sta SUS - invers fata de
+     ".viz3-bara" (column-reverse), fiindca aici stiva porneste de sus. */
+  flex-direction: column;
+  overflow: hidden;
+  opacity: var(--viz3-grafic-stacat-opacitate);
+}
+
+.viz3-grafic-stacat-rosu {
+  background: var(--viz3-stacat-rosu);
+}
+
+.viz3-grafic-stacat-oranj {
+  background: var(--viz3-stacat-oranj);
+}
+
+.viz3-grafic-stacat-galben {
+  background: var(--viz3-stacat-galben);
+}
+
+.viz3-grafic-stacat-verde {
+  background: var(--viz3-stacat-verde);
+}
+
+.viz3-grafic-stacat-albastru {
+  background: var(--viz3-stacat-albastru);
 }

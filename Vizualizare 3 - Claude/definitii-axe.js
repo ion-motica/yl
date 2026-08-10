@@ -362,6 +362,56 @@
             },
           ],
         },
+        {
+          id: "grafic_stacat_stari",
+          eticheta: "Grafic stacked pt stări",
+          subsectiune: "tabel_optiuni",
+          // Control special, ca "progres_tabel": doua comutatoare independente
+          // (Setul 1 / Setul 2, nu se exclud) + UN SINGUR set de reglaje comun
+          // amandurora (decizia userului - spre deosebire de "Progres", unde
+          // fiecare bifa are reglajele ei). Randat de
+          // randeazaControlGraficStacat (bootstrap).
+          tip_control: "grafic_stacat_stari",
+          optiuni: [
+            { id: "set1", eticheta: "Grafic pt 1 (Setul 1)", activa: true },
+            { id: "set2", eticheta: "Grafic pt 2 (Setul 2)", activa: true },
+          ],
+          // Fara reglaj de inaltime: inaltimea benzii vine din pozitia
+          // randurilor (de la varful "netestat"/comasat pana la baza lui
+          // "fluent"), nu e un reglaj liber.
+          reglaje: [
+            {
+              id: "latime",
+              eticheta: "Lățime bandă",
+              tip: "slider",
+              min: 5,
+              max: 100,
+              pas: 1,
+              implicit: 100,
+              unitate: "%",
+            },
+            {
+              id: "pozitie",
+              eticheta: "Poziție bandă (0 stânga · 100 dreapta)",
+              tip: "slider",
+              min: 0,
+              max: 100,
+              pas: 1,
+              implicit: 50,
+              unitate: "%",
+            },
+            {
+              id: "opacitate",
+              eticheta: "Opacitate",
+              tip: "slider",
+              min: 0,
+              max: 100,
+              pas: 1,
+              implicit: 88,
+              unitate: "%",
+            },
+          ],
+        },
       ],
     },
   ];

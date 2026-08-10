@@ -1863,6 +1863,12 @@
           return;
         }
 
+        if (axa.tip_control === "grafic_stacat_stari") {
+          randeazaControlGraficStacat(grup, axa);
+          tinta.appendChild(grup);
+          return;
+        }
+
         axa.optiuni.forEach((opt) => {
           const input = document.createElement("input");
           input.type = axa.tip_selectie === "multipla" ? "checkbox" : "radio";
@@ -2224,8 +2230,12 @@
   // Randul `suma` se calculeaza per coloana din chiar numerele afisate (nu dintr-o
   // constanta): asa ramane self-check real — daca o coloana nu da numarul de facts
   // din domeniu, se vede.
+  //
+  // Intoarce { set1, set2 }: randurile <tr> de stare ale fiecarui set, in ordine
+  // (primul = varful benzii, ultimul = baza) - le foloseste randeazaGraficeStacate
+  // ca sa gaseasca celulele-ancora fara sa caute prin DOM dupa clase.
   function construiesteBlocuriStari(tbody, stariPeMomente, numarColoane) {
-    if (!stariPeMomente.length) return;
+    if (!stariPeMomente.length) return null;
     const numere = (cheie) => stariPeMomente.map((coloana) => coloana.contor[cheie]);
     const aduna = (...serii) => serii[0].map((_, idx) => serii.reduce((t, s) => t + s[idx], 0));
 
@@ -2259,23 +2269,153 @@
     tbody.appendChild(randGol());
 
     tbody.appendChild(randTitluSet("Setul 1 - Pt programator"));
-    tbody.appendChild(construiesteRandStare({ eticheta: "netestat", numere: netestat, clasa: "viz3-tabel-stare" }));
-    tbody.appendChild(construiesteRandStare({ eticheta: "abia_inceput", numere: abiaInceput, clasa: "viz3-tabel-stare" }));
-    tbody.appendChild(construiesteRandStare({ eticheta: "nu_il_stie", numere: nuIlStie, clasa: "viz3-tabel-stare" }));
-    tbody.appendChild(construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" }));
-    tbody.appendChild(construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" }));
+    const trNetestat = construiesteRandStare({ eticheta: "netestat", numere: netestat, clasa: "viz3-tabel-stare" });
+    const trAbiaInceput = construiesteRandStare({ eticheta: "abia_inceput", numere: abiaInceput, clasa: "viz3-tabel-stare" });
+    const trNuIlStie = construiesteRandStare({ eticheta: "nu_il_stie", numere: nuIlStie, clasa: "viz3-tabel-stare" });
+    const trInLucru = construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" });
+    const trFluent = construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" });
+    tbody.append(trNetestat, trAbiaInceput, trNuIlStie, trInLucru, trFluent);
     tbody.appendChild(
       construiesteRandNumere("suma", aduna(netestat, abiaInceput, nuIlStie, inLucru, fluent), "viz3-tabel-suma")
     );
 
     tbody.appendChild(randTitluSet("Setul 2 - Pt parinte si elev"));
-    tbody.appendChild(
-      construiesteRandStare({ eticheta: "netestat + abia_inceput + nu_il_stie", numere: comasat, clasa: "viz3-tabel-stare" })
-    );
-    tbody.appendChild(construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" }));
-    tbody.appendChild(construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" }));
+    const trComasat = construiesteRandStare({
+      eticheta: "netestat + abia_inceput + nu_il_stie",
+      numere: comasat,
+      clasa: "viz3-tabel-stare",
+    });
+    const trInLucru2 = construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" });
+    const trFluent2 = construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" });
+    tbody.append(trComasat, trInLucru2, trFluent2);
     tbody.appendChild(construiesteRandNumere("suma", aduna(comasat, inLucru, fluent), "viz3-tabel-suma"));
+
+    return {
+      set1: [trNetestat, trAbiaInceput, trNuIlStie, trInLucru, trFluent],
+      set2: [trComasat, trInLucru2, trFluent2],
+    };
   }
+
+  // Segmentele fiecarui set, de sus in jos (culoare = clasa CSS). Setul 2
+  // refoloseste literal primele 3 culori ale Setului 1 (ROG din ROGVA) - nu
+  // sunt culori noi (§2 PLAN-grafic-stacat-stari.md).
+  const STACAT_SEGMENTE = {
+    set1: [
+      { cheie: "netestat", clasa: "viz3-grafic-stacat-rosu" },
+      { cheie: "abia_inceput", clasa: "viz3-grafic-stacat-oranj" },
+      { cheie: "nu_il_stie", clasa: "viz3-grafic-stacat-galben" },
+      { cheie: "in_lucru", clasa: "viz3-grafic-stacat-verde" },
+      { cheie: "fluent", clasa: "viz3-grafic-stacat-albastru" },
+    ],
+    set2: [
+      { cheie: "comasat", clasa: "viz3-grafic-stacat-rosu" },
+      { cheie: "in_lucru", clasa: "viz3-grafic-stacat-oranj" },
+      { cheie: "fluent", clasa: "viz3-grafic-stacat-galben" },
+    ],
+  };
+
+  function valoareSegmentStacat(contor, cheie) {
+    if (cheie === "comasat") return contor.netestat + contor.abia_inceput + contor.nu_il_stie;
+    return contor[cheie];
+  }
+
+  // Banda propriu-zisa (culorile): flex-basis per segment = procentul din suma
+  // COLOANEI (nu o constanta) - daca suma e ruptă undeva, banda arata exact ce
+  // arata numerele, nu ascunde un bug (§7 PLAN).
+  function construiesteBandaStacata(segmenteDef, contor) {
+    const suma = segmenteDef.reduce((t, s) => t + valoareSegmentStacat(contor, s.cheie), 0);
+    const banda = document.createElement("div");
+    banda.className = "viz3-grafic-stacat";
+    segmenteDef.forEach((s) => {
+      const seg = document.createElement("div");
+      seg.className = `viz3-grafic-stacat-segment ${s.clasa}`;
+      const valoare = valoareSegmentStacat(contor, s.cheie);
+      seg.style.flexBasis = suma > 0 ? `${(valoare / suma) * 100}%` : "0%";
+      banda.appendChild(seg);
+    });
+    return banda;
+  }
+
+  // Geometria (ancora): masurata din celulele reale, nu presupusa. `getBoundingClientRect`,
+  // nu offsetTop/offsetLeft - celulele de tabel au un offsetParent istoric
+  // inconsistent intre motoare de randare; diferentele de rect sunt corecte
+  // indiferent de asta si indiferent de scroll (vezi §3 PLAN).
+  function pozitioneazaAncoraStacat(ancora, tdSus, tdJos, tabel) {
+    const rTabel = tabel.getBoundingClientRect();
+    const rSus = tdSus.getBoundingClientRect();
+    const rJos = tdJos.getBoundingClientRect();
+    ancora.style.top = `${rSus.top - rTabel.top}px`;
+    ancora.style.height = `${rJos.bottom - rSus.top}px`;
+    ancora.style.left = `${rSus.left - rTabel.left}px`;
+    ancora.style.width = `${rSus.width}px`;
+  }
+
+  // Construieste benzile unui SET (Setul 1 sau Setul 2): o ancora + o banda per
+  // coloana. Ancora = pozitia masurata (rar schimbata: doar la randare/resize);
+  // banda din interior = latime/pozitie/opacitate din variabile CSS (des
+  // schimbate, de la slidere) - aceeasi separare ca la bara existenta dintr-o
+  // singura celula, doar cu ancora explicita in loc de <td>.
+  function randeazaBenziSetStacat(tabel, randuri, stariPeMomente, segmenteDef, dataSet) {
+    if (!randuri || !randuri.length) return [];
+    const benzi = [];
+    const numarColoane = randuri[0].children.length - 1; // -1 pt. <th> eticheta
+    const tdSusToate = randuri[0].children;
+    const tdJosToate = randuri[randuri.length - 1].children;
+    for (let i = 0; i < numarColoane; i += 1) {
+      const tdSus = tdSusToate[i + 1];
+      const tdJos = tdJosToate[i + 1];
+      const contor = stariPeMomente[i].contor;
+
+      const ancora = document.createElement("div");
+      ancora.className = "viz3-grafic-stacat-ancora";
+      ancora.dataset.set = dataSet;
+      ancora.appendChild(construiesteBandaStacata(segmenteDef, contor));
+      pozitioneazaAncoraStacat(ancora, tdSus, tdJos, tabel);
+      tabel.appendChild(ancora);
+
+      benzi.push({ ancora, tdSus, tdJos });
+    }
+    return benzi;
+  }
+
+  // Starea curenta a benzilor construite (pt. repozitionare la resize, fara sa
+  // reconstruim segmentele - vezi listenerul de "resize" mai jos).
+  let benziGraficStacatAtual = { set1: [], set2: [] };
+
+  // Apelata DUPA ce tabelul e in DOM (are nevoie de layout real ca sa masoare).
+  function randeazaGraficeStacate(tabel, randuriStari, stariPeMomente) {
+    benziGraficStacatAtual = { set1: [], set2: [] };
+    if (!randuriStari) return;
+    benziGraficStacatAtual.set1 = randeazaBenziSetStacat(
+      tabel,
+      randuriStari.set1,
+      stariPeMomente,
+      STACAT_SEGMENTE.set1,
+      "1"
+    );
+    benziGraficStacatAtual.set2 = randeazaBenziSetStacat(
+      tabel,
+      randuriStari.set2,
+      stariPeMomente,
+      STACAT_SEGMENTE.set2,
+      "2"
+    );
+  }
+
+  // Plasa de siguranta: doar repozitioneaza (nu reconstruieste) benzile deja
+  // existente, in caz ca latimile coloanelor raspund la viewport. Debounce -
+  // "resize" poate trage rafale de evenimente.
+  let ceasResizeGraficStacat = null;
+  function repozitioneazaGraficeStacate() {
+    if (!tabelFluentaAtual) return;
+    [...benziGraficStacatAtual.set1, ...benziGraficStacatAtual.set2].forEach(({ ancora, tdSus, tdJos }) => {
+      pozitioneazaAncoraStacat(ancora, tdSus, tdJos, tabelFluentaAtual);
+    });
+  }
+  window.addEventListener("resize", () => {
+    clearTimeout(ceasResizeGraficStacat);
+    ceasResizeGraficStacat = setTimeout(repozitioneazaGraficeStacate, 150);
+  });
 
   // Sageata de directie pentru O celula: compara procentul rotunjit `cc` cu
   // referinta `cs` (ultima celula AFISATA din stanga, deja sarita peste goluri de
@@ -2404,6 +2544,9 @@
     thead.appendChild(randAntet);
 
     const tbody = document.createElement("tbody");
+    // Randurile <tr> ale blocurilor Setul 1/Setul 2 (daca s-au construit) - le
+    // are nevoie randeazaGraficeStacate, mai jos, dupa ce tabelul e in DOM.
+    let randuriStariAtual = null;
     model.randuri.forEach((rand) => {
       const tr = document.createElement("tr");
       if (rand.tip === "total") tr.classList.add("viz3-tabel-total");
@@ -2484,7 +2627,7 @@
           )
         );
         tbody.appendChild(construiesteRandDateDuplicat(model.antete));
-        construiesteBlocuriStari(tbody, model.stari_pe_momente, model.antete.length);
+        randuriStariAtual = construiesteBlocuriStari(tbody, model.stari_pe_momente, model.antete.length);
       }
     });
 
@@ -2496,6 +2639,10 @@
     // tabelul nou, ca userul sa nu piarda ce a bifat/tras.
     tabelFluentaAtual = tabel;
     aplicaOptiuniProgresTabel();
+    // Geometria benzilor stacate se masoara ACUM, cat tabelul e deja in DOM
+    // (layout real) - vezi randeazaGraficeStacate.
+    randeazaGraficeStacate(tabel, randuriStariAtual, model.stari_pe_momente);
+    aplicaOptiuniGraficStacat();
     // Deschide pe coloanele recente (dreapta), nu pe cele mai vechi — acolo
     // majoritatea rândurilor sunt goale. `scrollWidth` e corect abia dupa ce
     // browserul a asezat tabelul, nu in timpul randarii (ca la masoaraTitlurile).
@@ -2820,6 +2967,15 @@
   let progresTabelGraficBareOpacitateRosu = 50;
   let tabelFluentaAtual = null; // <table> curent, sau null cand nu e randat
 
+  // Comutatoarele (Setul 1 / Setul 2, independente) + UN SINGUR set de 3
+  // reglaje comune ambelor (5.2, "Grafic stacked pt stări") - vezi
+  // aplicaOptiuniGraficStacat. Implicit nebifate, ca bara verticală.
+  let graficStacatSet1Activ = true;
+  let graficStacatSet2Activ = true;
+  let graficStacatLatime = 100;
+  let graficStacatPozitie = 50;
+  let graficStacatOpacitate = 88;
+
   // Pur prezentare: clase + variabile CSS pe tabelul curent. Nu atinge modelul
   // motorului. No-op cand tabelul nu exista inca (ex. la construirea CP-ului).
   function aplicaOptiuniProgresTabel() {
@@ -2849,6 +3005,25 @@
     tabelFluentaAtual.style.setProperty(
       "--viz3-grafic-bare-opacitate-rosu",
       String(progresTabelGraficBareOpacitateRosu / 100)
+    );
+  }
+
+  // Pur prezentare, ca aplicaOptiuniProgresTabel: clase + variabile CSS pe
+  // tabelul curent. Benzile insele (geometria) sunt deja in DOM
+  // (randeazaGraficeStacate) - aici doar se arata/ascunde fiecare set si se
+  // seteaza latime/pozitie/opacitate, comune ambelor.
+  function aplicaOptiuniGraficStacat() {
+    if (!tabelFluentaAtual) return;
+    tabelFluentaAtual.classList.toggle("viz3-arata-grafic-stacat-set1", graficStacatSet1Activ);
+    tabelFluentaAtual.classList.toggle("viz3-arata-grafic-stacat-set2", graficStacatSet2Activ);
+    tabelFluentaAtual.style.setProperty("--viz3-grafic-stacat-latime", `${graficStacatLatime}%`);
+    tabelFluentaAtual.style.setProperty(
+      "--viz3-grafic-stacat-pozitie-frac",
+      String(graficStacatPozitie / 100)
+    );
+    tabelFluentaAtual.style.setProperty(
+      "--viz3-grafic-stacat-opacitate",
+      String(graficStacatOpacitate / 100)
     );
   }
 
@@ -3021,6 +3196,82 @@
       grupGraficBare.rand,
       grupGraficBare.panou
     );
+  }
+
+  // Comutatoarele "Grafic stacked pt stări" (5.2): doua bife independente
+  // (Setul 1 / Setul 2, nu se exclud) + UN SINGUR panou de 3 reglaje, comun
+  // amandurora (spre deosebire de "Progres" de mai sus, unde fiecare bifa
+  // are reglajele ei) - decizia userului, 10.08.2026.
+  function randeazaControlGraficStacat(grup, axa) {
+    const optSet1 = axa.optiuni.find((o) => o.id === "set1");
+    const optSet2 = axa.optiuni.find((o) => o.id === "set2");
+    const reglaje = axa.reglaje ?? [];
+    const gasesteReglaj = (id) => reglaje.find((r) => r.id === id);
+    const prefixPreset = "grafic_stacat_stari";
+
+    const panou = document.createElement("div");
+    panou.className = "viz3-panou-slidere";
+    panou.hidden = true;
+
+    const latime = randeazaSlider(
+      gasesteReglaj("latime"),
+      (v) => {
+        graficStacatLatime = v;
+        aplicaOptiuniGraficStacat();
+      },
+      prefixPreset
+    );
+    const pozitie = randeazaSlider(
+      gasesteReglaj("pozitie"),
+      (v) => {
+        graficStacatPozitie = v;
+        aplicaOptiuniGraficStacat();
+      },
+      prefixPreset
+    );
+    const opacitate = randeazaSlider(
+      gasesteReglaj("opacitate"),
+      (v) => {
+        graficStacatOpacitate = v;
+        aplicaOptiuniGraficStacat();
+      },
+      prefixPreset
+    );
+    panou.append(latime.rand, pozitie.rand, opacitate.rand);
+    const sliderele = [latime.slider, pozitie.slider, opacitate.slider];
+
+    // Sliderele comune raman active cat timp ORICARE bifa e pornita -
+    // dezactivate doar cand niciun grafic nu e afisat (n-ar avea ce sa regleze).
+    function actualizeazaDisabled() {
+      const vreunulActiv = graficStacatSet1Activ || graficStacatSet2Activ;
+      sliderele.forEach((el) => (el.disabled = !vreunulActiv));
+    }
+
+    function faBifaSet(opt, aplicaStare) {
+      const rand = document.createElement("label");
+      rand.className = "viz3-optiune";
+      const bifa = document.createElement("input");
+      bifa.type = "checkbox";
+      bifa.checked = opt.activa === true;
+      bifa.dataset.preset = `${prefixPreset}_${opt.id}`;
+      aplicaStare(bifa.checked);
+      const text = document.createElement("span");
+      text.textContent = opt.eticheta;
+      bifa.addEventListener("change", () => {
+        aplicaStare(bifa.checked);
+        actualizeazaDisabled();
+        aplicaOptiuniGraficStacat();
+      });
+      rand.append(bifa, text);
+      return rand;
+    }
+
+    const randSet1 = faBifaSet(optSet1, (v) => (graficStacatSet1Activ = v));
+    const randSet2 = faBifaSet(optSet2, (v) => (graficStacatSet2Activ = v));
+    actualizeazaDisabled();
+
+    const butonSlidere = construiesteButonSlidere(panou);
+    grup.append(randSet1, randSet2, butonSlidere, panou);
   }
 
   function adancimeDinOptiune(idOptiune) {
