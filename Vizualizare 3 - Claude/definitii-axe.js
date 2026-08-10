@@ -200,8 +200,16 @@
           // Casetele se vad ca un sir, inclusiv cele goale.
           titluri_incadrate_implicit: true,
           // Pline pana la titlul foliei inclusiv: se vede ce etape a parcurs
-          // folia si cate mai are de parcurs.
-          casete_colorate_implicit: true,
+          // folia si cate mai are de parcurs. Implicit OPRIT (10.08.2026):
+          // in aranjamentul "suprapus" (implicit), cele 4 bare de titluri se
+          // suprapun exact, deci fundalul translucid portocaliu se aduna de
+          // pana la 4 ori peste aceeasi caseta - la casetele din stanga (mai
+          // multe folii "dupa" ele in ordinea DOM) devine un portocaliu opac
+          // care inglobeaza rosu/oranj/galben intr-o singura nuanta,
+          // anuland exact diferentierea pe care o aduc cuvintele colorate
+          // (viz3-folie-titlu-cuvant). Bifa ramane disponibila (utila mai
+          // ales in aranjamente desfacute, unde barele nu se suprapun).
+          casete_colorate_implicit: false,
           // Alinierea textului in caseta: verticala si orizontala,
           // independente una de alta. Implicit jos + stanga, ca sa nu schimbe
           // aspectul deja stabilit (bara ancorata de jos, scris la stanga).

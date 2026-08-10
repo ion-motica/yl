@@ -2012,7 +2012,17 @@
       if (i === index) {
         const titlu = document.createElement("span");
         titlu.className = "viz3-folie-titlu";
-        titlu.textContent = folie.eticheta;
+        // Un cuvant colorat per stare (data-stare), nu text simplu: la folia
+        // "Netestat + Abia inceput" (2 stari in aceeasi caseta) altfel n-ar
+        // fi cum sa distingem rosu de oranj. Separatorul "+" ramane necolorat.
+        folie.stari.forEach((stare, idxStare) => {
+          if (idxStare > 0) titlu.appendChild(document.createTextNode(" + "));
+          const cuvant = document.createElement("span");
+          cuvant.className = "viz3-folie-titlu-cuvant";
+          cuvant.dataset.stare = stare;
+          cuvant.textContent = ETICHETE_STARE[stare];
+          titlu.appendChild(cuvant);
+        });
         caseta.appendChild(titlu);
       }
       bara.appendChild(caseta);

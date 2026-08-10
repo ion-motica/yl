@@ -541,6 +541,37 @@ body {
   transition: font-size var(--viz3-durata);
 }
 
+/* Fundal per cuvant, DOAR sub textul starii (nu toata caseta) - ca la folia
+   "Netestat + Abia inceput" (2 stari in aceeasi caseta) sa se distinga clar
+   rosu de oranj. Culorile ROGVA, aceleasi variabile ca la graficul stacat si
+   la fundalul celulelor. */
+.viz3-folie-titlu-cuvant {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.viz3-folie-titlu-cuvant[data-stare="netestat"] {
+  background: var(--viz3-stacat-rosu);
+  color: #fff;
+}
+.viz3-folie-titlu-cuvant[data-stare="abia_inceput"] {
+  background: var(--viz3-stacat-oranj);
+  color: #1c1c1c;
+}
+.viz3-folie-titlu-cuvant[data-stare="nu_il_stie"] {
+  background: var(--viz3-stacat-galben);
+  color: #1c1c1c;
+}
+.viz3-folie-titlu-cuvant[data-stare="in_lucru"] {
+  background: var(--viz3-stacat-verde);
+  color: #1c1c1c;
+}
+.viz3-folie-titlu-cuvant[data-stare="fluent"] {
+  background: var(--viz3-stacat-albastru);
+  color: #fff;
+}
+
 /* Casute fixe: fiecare titlu sta in sfertul lui, se rupe la cuvinte si are
    MEREU aceeasi marime. Nu se mai adapteaza dupa cine e langa cine, deci nu
    mai zvacneste cand foliile se plimba sau se suprapun. `balance` egaleaza
@@ -806,18 +837,23 @@ body {
 }
 
 /* Stari, in ordinea progresiei:
-   netestat -> abia_inceput -> nu_il_stie -> in_lucru -> fluent */
+   netestat -> abia_inceput -> nu_il_stie -> in_lucru -> fluent
+   Fundalul celulelor: culorile ROGVA (aceleasi variabile ca la graficul
+   stacat de pe randurile Setul 1/Setul 2 - o singura sursa a paletei). */
 .viz3-celula[data-stare="netestat"] {
-  background: #f7f8fa;
+  background: var(--viz3-stacat-rosu);
 }
 
+.viz3-celula[data-stare="abia_inceput"] {
+  background: var(--viz3-stacat-oranj);
+}
 .viz3-celula[data-stare="abia_inceput"] .viz3-patratel--plin {
   background: #6b7480;
   border-color: #6b7480;
 }
 
 .viz3-celula[data-stare="nu_il_stie"] {
-  background: #fbf1dd;
+  background: var(--viz3-stacat-galben);
   border-color: #e0b877;
 }
 .viz3-celula[data-stare="nu_il_stie"] .viz3-celula-stare {
@@ -829,7 +865,7 @@ body {
 }
 
 .viz3-celula[data-stare="in_lucru"] {
-  background: #fdf6e3;
+  background: var(--viz3-stacat-verde);
   border-color: #e8c85a;
 }
 .viz3-celula[data-stare="in_lucru"] .viz3-celula-stare {
@@ -841,7 +877,7 @@ body {
 }
 
 .viz3-celula[data-stare="fluent"] {
-  background: #e6f4ea;
+  background: var(--viz3-stacat-albastru);
   border-color: #7bbf94;
 }
 .viz3-celula[data-stare="fluent"] .viz3-celula-stare {
