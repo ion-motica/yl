@@ -140,6 +140,80 @@ body {
   background: var(--viz3-panou);
 }
 
+/* Butonul "Meniu": vizibil doar in portret (vezi media query de mai jos),
+   fix in coltul stanga-sus, ca sa fie mereu la indemana pe telefon. */
+.viz3-meniu-toggle {
+  display: none;
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 30;
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
+  color: var(--viz3-text);
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+.viz3-cp-backdrop {
+  display: none;
+}
+
+/* Ecran mai inalt decat lat = telefon (ori orice fereastra in portret): CP-ul
+   nu mai ocupa o coloana fixa a grilei — devine un sertar ascuns, deschis din
+   butonul "Meniu". Fara asta, coloana fixa de 320px lasa prea putin loc
+   vizualizarii pe un telefon ingust. */
+@media (orientation: portrait) {
+  .viz3-meniu-toggle {
+    display: block;
+  }
+
+  .viz3-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .viz3-cp {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 25;
+    width: min(85vw, 320px);
+    height: 100vh;
+    /* overflow-x explicit (nu doar mostenit din overflow-y): continutul care
+       nu se ingusteaza (randuri de butoane cu flex-wrap:nowrap) trebuie sa
+       ramana accesibil prin derulare spre dreapta, chiar in sertarul ingust. */
+    overflow-x: auto;
+    border-right: none;
+    box-shadow: 2px 0 14px rgba(0, 0, 0, 0.25);
+    transform: translateX(-100%);
+    transition: transform var(--viz3-durata);
+  }
+
+  body.viz3-meniu-deschis .viz3-cp {
+    transform: translateX(0);
+  }
+
+  .viz3-cp-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(20, 24, 30, 0.4);
+  }
+
+  .viz3-cp-backdrop[hidden] {
+    display: none;
+  }
+
+  /* Loc pentru butonul "Meniu" fix, ca sa nu calce peste antetul vizualizarii. */
+  .viz3-viz {
+    padding-top: 56px;
+  }
+}
+
 /* --- Control panel --- */
 .viz3-cp h1 {
   font-size: 16px;

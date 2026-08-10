@@ -2767,6 +2767,27 @@
   const cpEl = document.getElementById("viz3-cp");
   const vizEl = document.getElementById("viz3-viz");
 
+  // Meniu mobil: pe ecran in portret (mai inalt decat lat = telefon), CP-ul e
+  // un sertar ascuns; butonul "Meniu" si fundalul intunecat il deschid/inchid.
+  // Pe ecran lat (desktop), clasa n-are efect — CSS-ul de portret nu se aplica.
+  const meniuToggleEl = document.getElementById("viz3-meniu-toggle");
+  const meniuBackdropEl = document.getElementById("viz3-cp-backdrop");
+  const interogarePortret = global.matchMedia?.("(orientation: portrait)");
+
+  function seteazaMeniuDeschis(deschis) {
+    document.body.classList.toggle("viz3-meniu-deschis", deschis);
+    meniuToggleEl?.setAttribute("aria-expanded", deschis ? "true" : "false");
+    if (meniuBackdropEl) meniuBackdropEl.hidden = !deschis;
+  }
+
+  meniuToggleEl?.addEventListener("click", () => {
+    seteazaMeniuDeschis(!document.body.classList.contains("viz3-meniu-deschis"));
+  });
+  meniuBackdropEl?.addEventListener("click", () => seteazaMeniuDeschis(false));
+  // La rotire (portret -> landscape sau invers), sertarul se inchide — pe
+  // landscape CP-ul revine oricum vizibil dintr-o coloana fixa, nu ca sertar.
+  interogarePortret?.addEventListener?.("change", () => seteazaMeniuDeschis(false));
+
   // Domeniul ales tine minte peste refresh, ca importul. Altfel fiecare Ctrl+R
   // te intoarce la tabla implicita, iar datele de pe alt interval par disparute
   // (grila iese goala desi jurnalul e acolo).
