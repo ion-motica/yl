@@ -524,18 +524,51 @@
   // Fereastra unui fact la momentul `k` (indexul din `valide` până la care se
   // uită înapoi, exclusiv): ultimele `adancime` răspunsuri valide ale
   // factului, oricât de vechi. Fără redistribuire între facts (decis).
-  function fereastraFactLaMoment(valide, cellId, k, adancime) {
-    const aleFactului = valide
-      .slice(0, k)
-      .filter((intrebare) => cheieCelulaDinInregistrare(intrebare) === cellId);
-    return aleFactului.slice(Math.max(0, aleFactului.length - adancime));
+  // Index construit O SINGURA DATA per model: raspunsurile fiecarui fact, in
+  // ordine, plus pozitiile lor GLOBALE in `valide` (crescatoare). Inlocuieste
+  // rescanarea intregului istoric la fiecare (fact x moment x fereastra) —
+  // aceeasi idee pe care construiesteStariPeMomente o foloseste deja mai jos.
+  function construiesteIndexPeFact(valide) {
+    const listaPeFact = new Map();
+    const pozitiiPeFact = new Map();
+    valide.forEach((intrebare, index) => {
+      const cellId = cheieCelulaDinInregistrare(intrebare);
+      if (cellId === null) return;
+      if (!listaPeFact.has(cellId)) {
+        listaPeFact.set(cellId, []);
+        pozitiiPeFact.set(cellId, []);
+      }
+      listaPeFact.get(cellId).push(intrebare);
+      pozitiiPeFact.get(cellId).push(index);
+    });
+    return { listaPeFact, pozitiiPeFact };
+  }
+
+  // Cate elemente din `pozitii` (sortat crescator) sunt strict mai mici decat `k`.
+  // Strict `<`, ca `valide.slice(0, k)` de dinainte: momentul k e exclusiv.
+  function cateInainteDe(pozitii, k) {
+    let jos = 0;
+    let sus = pozitii.length;
+    while (jos < sus) {
+      const mijloc = (jos + sus) >> 1;
+      if (pozitii[mijloc] < k) jos = mijloc + 1;
+      else sus = mijloc;
+    }
+    return jos;
+  }
+
+  function fereastraFactLaMoment(index, cellId, k, adancime) {
+    const lista = index.listaPeFact.get(cellId);
+    if (!lista) return [];
+    const cate = cateInainteDe(index.pozitiiPeFact.get(cellId), k);
+    return lista.slice(Math.max(0, cate - adancime), cate);
   }
 
   // O celulă a tabelului = o fotografie a stării ferestrei (`cellIds`) la
   // momentul `k`, prin eșantionare stratificată per fact (SPECIFICATIE.md
   // §13, „Fotografii — v2"). Scorul brut se calculează ÎNTOTDEAUNA — eticheta
   // de încredere decide doar afișarea, nu calculul.
-  function construiesteCelulaFoto({ valide, cellIds, k, kAnterior, adancime, praguriV1 }) {
+  function construiesteCelulaFoto({ index, cellIds, k, kAnterior, adancime, praguriV1 }) {
     let sumaScoruri = 0;
     let nTotal = 0;
     let factsTestate = 0;
@@ -543,7 +576,7 @@
     const zileContribuite = [];
 
     cellIds.forEach((cellId) => {
-      const fereastra = fereastraFactLaMoment(valide, cellId, k, adancime);
+      const fereastra = fereastraFactLaMoment(index, cellId, k, adancime);
       const statistici = calculeazaStatistici(aplicaFiltre({ curent: fereastra }, praguriV1.filtru));
       const { scor } = calculeazaScorFact(statistici, praguriV1);
 
@@ -551,9 +584,12 @@
       nTotal += statistici.n;
       if (statistici.n > 0) factsTestate += 1;
 
-      const areRaspunsNou = valide
-        .slice(kAnterior, k)
-        .some((intrebare) => cheieCelulaDinInregistrare(intrebare) === cellId);
+      // „A primit raspuns nou in aceasta coloana?" = are vreo pozitie in
+      // [kAnterior, k). Din pozitiile sortate, fara sa rescanam felia.
+      const pozitii = index.pozitiiPeFact.get(cellId);
+      const areRaspunsNou = pozitii
+        ? cateInainteDe(pozitii, k) > cateInainteDe(pozitii, kAnterior)
+        : false;
       if (areRaspunsNou) factsNoi += 1;
 
       fereastra.forEach((intrebare) => {
@@ -730,12 +766,13 @@
       };
     });
 
+    const index = construiesteIndexPeFact(valide);
     const randuri = ferestre.map(({ tip, eticheta, cellIds }) => ({
       tip,
       eticheta,
       celule: momente.map((k, idx) =>
         construiesteCelulaFoto({
-          valide,
+          index,
           cellIds,
           k,
           kAnterior: idx === 0 ? 0 : momente[idx - 1],
