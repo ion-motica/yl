@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Vizualizare 3 - Claude</title>
-    <link rel="stylesheet" href="vizualizare3.css?v=64" />
+    <link rel="stylesheet" href="vizualizare3.css?v=65" />
   </head>
   <body>
     <button
@@ -17,6 +17,10 @@
       Meniu
     </button>
     <div id="viz3-cp-backdrop" class="viz3-cp-backdrop" hidden></div>
+    <div id="viz3-incarcare" class="viz3-incarcare" hidden aria-live="polite">
+      <span class="viz3-incarcare-cerc"></span>
+      <span>Se lucrează…</span>
+    </div>
     <div id="vizualizare3-layout" class="viz3-layout">
       <aside id="viz3-cp" class="viz3-cp" aria-label="Control panel"></aside>
       <main id="viz3-viz" class="viz3-viz" aria-label="Vizualizare"></main>
@@ -27,7 +31,7 @@
     <script src="definitii-axe.js?v=48"></script>
     <script src="presete-vizualizare.js?v=42"></script>
     <script src="fixture-loguri-dummy.js?v=42"></script>
-    <script src="motor-analiza.js?v=44"></script>
-    <script src="vizualizare3-bootstrap.js?v=62"></script>
+    <script src="motor-analiza.js?v=45"></script>
+    <script src="vizualizare3-bootstrap.js?v=64"></script>
   </body>
 </html>

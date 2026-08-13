@@ -162,6 +162,45 @@ body {
   display: none;
 }
 
+/* Cerculetul „se lucreaza": fix in coltul dreapta-sus, vizibil pe orice
+   dimensiune de ecran (nu doar portret, spre deosebire de butonul Meniu) -
+   feedback imediat ca apasarea a fost primita, cat motorul (re)calculeaza. */
+.viz3-incarcare {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
+  color: var(--viz3-text-slab);
+  font-size: 13px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+.viz3-incarcare[hidden] {
+  display: none;
+}
+
+.viz3-incarcare-cerc {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--viz3-bordura);
+  border-top-color: var(--viz3-albastru);
+  border-radius: 50%;
+  animation: viz3-invartire 0.7s linear infinite;
+}
+
+@keyframes viz3-invartire {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Ecran mai inalt decat lat = telefon (ori orice fereastra in portret): CP-ul
    nu mai ocupa o coloana fixa a grilei — devine un sertar ascuns, deschis din
    butonul "Meniu". Fara asta, coloana fixa de 320px lasa prea putin loc

@@ -800,6 +800,9 @@
         celule_total: total,
         contor,
         procent_bazate: total ? contor.incredere_mare / total : 0,
+        // Modelul complet, ca apelantul sa-l poata refolosi pt. adancimea
+        // activa in loc sa recalculeze a 5-a oara acelasi lucru.
+        model,
       };
     });
 

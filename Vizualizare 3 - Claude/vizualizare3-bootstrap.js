@@ -2774,6 +2774,10 @@
   const meniuBackdropEl = document.getElementById("viz3-cp-backdrop");
   const interogarePortret = global.matchMedia?.("(orientation: portrait)");
 
+  // Cerculetul „se lucreaza": feedback imediat ca apasarea a fost primita, cat
+  // motorul (re)calculeaza modelul si tabelul se randeaza. Vezi analizeazaSiRandeaza.
+  const incarcareEl = document.getElementById("viz3-incarcare");
+
   function seteazaMeniuDeschis(deschis) {
     document.body.classList.toggle("viz3-meniu-deschis", deschis);
     meniuToggleEl?.setAttribute("aria-expanded", deschis ? "true" : "false");
@@ -3322,45 +3326,88 @@
     });
   }
 
-  function analizeazaSiRandeaza(inregistrari, info) {
-    ultimaAnaliza = { inregistrari, info };
-    if (reprezentareActiva === "tabel_fluenta") {
-      const recomandare = motor.construiesteRecomandareAdancime({
-        inregistrari,
-        catalog,
-        adancimi: axaAdancime.optiuni.map((o) => o.adancime),
-        praguri,
-      });
-      if (
-        !adancimeAlesaManual &&
-        recomandare.adancime_recomandata !== null &&
-        recomandare.adancime_recomandata !== adancimeActiva
-      ) {
-        adancimeActiva = recomandare.adancime_recomandata;
-        const optiuneRecomandata = axaAdancime.optiuni.find((o) => o.adancime === adancimeActiva);
-        const inputRecomandat = optiuneRecomandata
-          ? cpEl.querySelector(`input[data-preset="adancime_foto_${optiuneRecomandata.id}"]`)
-          : null;
-        if (inputRecomandat) inputRecomandat.checked = true;
-      }
-      const model = motor.construiesteModelTabelFluenta({
-        inregistrari,
-        catalog,
-        adancime: adancimeActiva,
-        praguri,
-      });
-      randeazaTabelFluenta(vizEl, model, info);
-      actualizeazaMarcajeRecomandareAdancime(recomandare);
-      if (model.antete.length > 0) randeazaTabelRecomandareAdancime(vizEl, recomandare, axaAdancime);
-      return;
+  // Cache-ul sweep-ului de adancimi candidate (4 rulari complete ale motorului):
+  // se recalculeaza doar cand se schimba efectiv sursa de date sau domeniul
+  // (referinte diferite), nu la fiecare rerandare din CP — sagetile, barele
+  // sau graficul stacat nu ating deloc datele, deci n-au de ce sa retriggerui-e
+  // acelasi calcul greu.
+  let cacheRecomandare = null;
+  function obtineRecomandareAdancime(inregistrari, catalogCurent) {
+    if (
+      cacheRecomandare &&
+      cacheRecomandare.inregistrari === inregistrari &&
+      cacheRecomandare.catalog === catalogCurent
+    ) {
+      return cacheRecomandare.recomandare;
     }
-    const model = motor.ruleazaAnaliza({
+    const recomandare = motor.construiesteRecomandareAdancime({
       inregistrari,
-      catalog,
-      configuratie: CONFIGURATIE,
+      catalog: catalogCurent,
+      adancimi: axaAdancime.optiuni.map((o) => o.adancime),
       praguri,
     });
-    randeazaVizualizarea(vizEl, model, info);
+    cacheRecomandare = { inregistrari, catalog: catalogCurent, recomandare };
+    return recomandare;
+  }
+
+  // Lasa browserul sa picteze cerculetul de incarcare inainte sa porneasca un
+  // calcul sincron lung. Deliberat setTimeout, nu requestAnimationFrame: rAF e
+  // suspendat cat timp tab-ul nu e vizibil/activ (ex. userul comuta pe alt tab
+  // chiar dupa click) - randarea ar ramane blocata pana revine, in loc sa
+  // continue in fundal ca inainte de acest fix.
+  function asteaptaRandareaIncarcarii() {
+    return new Promise((rezolva) => setTimeout(rezolva, 30));
+  }
+
+  function arataIncarcare() {
+    if (incarcareEl) incarcareEl.hidden = false;
+  }
+  function ascundeIncarcare() {
+    if (incarcareEl) incarcareEl.hidden = true;
+  }
+
+  async function analizeazaSiRandeaza(inregistrari, info) {
+    ultimaAnaliza = { inregistrari, info };
+    arataIncarcare();
+    await asteaptaRandareaIncarcarii();
+    try {
+      if (reprezentareActiva === "tabel_fluenta") {
+        const recomandare = obtineRecomandareAdancime(inregistrari, catalog);
+        if (
+          !adancimeAlesaManual &&
+          recomandare.adancime_recomandata !== null &&
+          recomandare.adancime_recomandata !== adancimeActiva
+        ) {
+          adancimeActiva = recomandare.adancime_recomandata;
+          const optiuneRecomandata = axaAdancime.optiuni.find((o) => o.adancime === adancimeActiva);
+          const inputRecomandat = optiuneRecomandata
+            ? cpEl.querySelector(`input[data-preset="adancime_foto_${optiuneRecomandata.id}"]`)
+            : null;
+          if (inputRecomandat) inputRecomandat.checked = true;
+        }
+        // Modelul adancimii active a fost deja calculat in sweep-ul de mai sus
+        // (e unul dintre candidati) — il refolosim in loc sa-l recalculam a 5-a
+        // oara. Fallback defensiv daca vreodata adancimeActiva n-ar fi printre
+        // candidati (nu se intampla azi, dar recalculul direct ramane corect).
+        const candidatActiv = recomandare.candidati.find((c) => c.adancime === adancimeActiva);
+        const model = candidatActiv
+          ? candidatActiv.model
+          : motor.construiesteModelTabelFluenta({ inregistrari, catalog, adancime: adancimeActiva, praguri });
+        randeazaTabelFluenta(vizEl, model, info);
+        actualizeazaMarcajeRecomandareAdancime(recomandare);
+        if (model.antete.length > 0) randeazaTabelRecomandareAdancime(vizEl, recomandare, axaAdancime);
+        return;
+      }
+      const model = motor.ruleazaAnaliza({
+        inregistrari,
+        catalog,
+        configuratie: CONFIGURATIE,
+        praguri,
+      });
+      randeazaVizualizarea(vizEl, model, info);
+    } finally {
+      ascundeIncarcare();
+    }
   }
 
   function rerandeaza() {
@@ -3373,13 +3420,13 @@
     adancimeAlesaManual = false;
     if (sursaActiva === "fixture") {
       sursaAfisata = "fixture";
-      analizeazaSiRandeaza(fixture.construiesteFixture(), "Sursă: dummy log pe 8 săptămâni.");
+      await analizeazaSiRandeaza(fixture.construiesteFixture(), "Sursă: dummy log pe 8 săptămâni.");
       return;
     }
     if (sursaActiva === "import" && importSalvat) {
       sursaAfisata = "import";
       const cate = importSalvat.inregistrari.length;
-      analizeazaSiRandeaza(importSalvat.inregistrari, `Sursă: „${importSalvat.nume}" (${cate} apăsări).`);
+      await analizeazaSiRandeaza(importSalvat.inregistrari, `Sursă: „${importSalvat.nume}" (${cate} apăsări).`);
       return;
     }
     // „jurnal" (si, defensiv, un „import" ramas fara fisier — nu se poate
@@ -3387,11 +3434,11 @@
     const reale = await citesteJurnalul();
     if (reale.length > 0) {
       sursaAfisata = "jurnal";
-      analizeazaSiRandeaza(reale, `Sursă: jurnal real din IndexedDB (${reale.length} apăsări).`);
+      await analizeazaSiRandeaza(reale, `Sursă: jurnal real din IndexedDB (${reale.length} apăsări).`);
       return;
     }
     sursaAfisata = "fixture";
-    analizeazaSiRandeaza(
+    await analizeazaSiRandeaza(
       fixture.construiesteFixture(),
       "Sursă: dummy log pe 8 săptămâni (jurnalul real din IndexedDB e gol)."
     );
