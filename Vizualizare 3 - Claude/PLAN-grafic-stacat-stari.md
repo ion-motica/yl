@@ -29,13 +29,19 @@ până la marginea de JOS a ultimului rând (`fluent`) — **fără rândul `sum
 | Setul 1 | `nu_il_stie` | Galben |
 | Setul 1 | `in_lucru` | Verde |
 | Setul 1 | `fluent` | Albastru |
-| Setul 2 | comasat (`netestat+abia_inceput+nu_il_stie`) | Roșu |
-| Setul 2 | `in_lucru` | Oranj |
-| Setul 2 | `fluent` | Galben |
+| Setul 2 | comasat (`netestat+abia_inceput+nu_il_stie`) | Ruginiu |
+| Setul 2 | `in_lucru` | Verde |
+| Setul 2 | `fluent` | Albastru |
 
-Setul 2 refolosește literal primele 3 variabile CSS ale Setului 1 (Roșu/Oranj/
-Galben) — nu sunt culori noi, doar aceleași 3 variabile aplicate la alte segmente.
-5 variabile noi în total: `--viz3-stacat-rosu/oranj/galben/verde/albastru`.
+**Schimbat 13.08.2026** (varianta inițială de mai jos, istoric): Setul 2 refolosea
+literal primele 3 variabile ale Setului 1 (Roșu/Oranj/Galben), aplicate altor
+segmente decât starea lor originală — `in_lucru` ieșea oranj, `fluent` ieșea
+galben, fără legătură cu culoarea aceleiași stări din Setul 1. Userul a cerut
+consistență de sens: `fluent`/`in_lucru` țin ACEEAȘI culoare ca în Setul 1
+(albastru/verde), iar categoria comasată primește o culoare proprie — **ruginiu**
+(`#f1902e`), media aritmetică a Roșu+Oranj+Galben (`#e63b2e`+`#f5a623`+`#f7d038`),
+nu doar Roșu-ul reluat. 6 variabile în total:
+`--viz3-stacat-rosu/oranj/galben/verde/albastru/ruginiu`.
 
 ## 3. Geometria (partea tehnică — de ce nu e o simplă extindere a barei existente)
 

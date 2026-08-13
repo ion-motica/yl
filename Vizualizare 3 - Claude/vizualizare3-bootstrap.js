@@ -2307,8 +2307,9 @@
   }
 
   // Segmentele fiecarui set, de sus in jos (culoare = clasa CSS). Setul 2
-  // refoloseste literal primele 3 culori ale Setului 1 (ROG din ROGVA) - nu
-  // sunt culori noi (§2 PLAN-grafic-stacat-stari.md).
+  // (13.08.2026): fluent/in_lucru au ACEEASI culoare ca starea lor din Setul 1
+  // (albastru/verde - acelasi sens); comasat (netestat+abia_inceput+nu_il_stie)
+  // are o culoare proprie, ruginiu, nu mai reia rosu-ul lui netestat.
   const STACAT_SEGMENTE = {
     set1: [
       { cheie: "netestat", clasa: "viz3-grafic-stacat-rosu" },
@@ -2318,9 +2319,9 @@
       { cheie: "fluent", clasa: "viz3-grafic-stacat-albastru" },
     ],
     set2: [
-      { cheie: "comasat", clasa: "viz3-grafic-stacat-rosu" },
-      { cheie: "in_lucru", clasa: "viz3-grafic-stacat-oranj" },
-      { cheie: "fluent", clasa: "viz3-grafic-stacat-galben" },
+      { cheie: "comasat", clasa: "viz3-grafic-stacat-ruginiu" },
+      { cheie: "in_lucru", clasa: "viz3-grafic-stacat-verde" },
+      { cheie: "fluent", clasa: "viz3-grafic-stacat-albastru" },
     ],
   };
 

@@ -95,14 +95,17 @@
   --viz3-grafic-bare-opacitate-rosu: 0.5;
 
   /* Graficul stivuit (stacked) peste randurile Setul 1/Setul 2 (PLAN-grafic-
-     stacat-stari.md). Culori ROGVAIV, decise de user: Setul 1 = toate 5;
-     Setul 2 refoloseste literal primele 3 (rosu/oranj/galben) - nu sunt
-     variabile noi pt Setul 2. */
+     stacat-stari.md). Culori ROGVAIV, decise de user: Setul 1 = toate 5.
+     Setul 2 (13.08.2026): fluent/in_lucru refolosesc culoarea starii lor din
+     Setul 1 (albastru/verde - acelasi sens, acelasi loc in progresie); pt.
+     comasat (netestat+abia_inceput+nu_il_stie) e o culoare noua, ruginiu -
+     media rosu+oranj+galben, nu doar rosu-ul reluat. */
   --viz3-stacat-rosu: #e63b2e;
   --viz3-stacat-oranj: #f5a623;
   --viz3-stacat-galben: #f7d038;
   --viz3-stacat-verde: #7cb944;
   --viz3-stacat-albastru: #2f9bd6;
+  --viz3-stacat-ruginiu: #f1902e;
   /* Latime/pozitie/opacitate: un singur set, comun ambelor grafice (decizia
      userului - spre deosebire de bara/grafic-bare de mai sus). */
   --viz3-grafic-stacat-latime: 100%;
@@ -1422,4 +1425,8 @@ body {
 
 .viz3-grafic-stacat-albastru {
   background: var(--viz3-stacat-albastru);
+}
+
+.viz3-grafic-stacat-ruginiu {
+  background: var(--viz3-stacat-ruginiu);
 }
