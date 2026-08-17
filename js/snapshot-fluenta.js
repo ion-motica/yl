@@ -138,9 +138,38 @@
     }
   }
 
+  let promisiuneSingleton = null;
+  let sursaCache = null;
+
+  // Promisiune singleton, pornita la INCARCAREA scriptului (nu la cererea
+  // quizului) — P1 din PLAN-v4-sq5-fluent-party.md: quizul cere prima runda
+  // sincron, inainte ca citirea din IndexedDB sa se termine daca ar porni abia
+  // atunci. Pornind-o aici, are tot timpul pana userul alege quizul si apasa
+  // play sa se rezolve (calculul propriu-zis costa ~10ms; asteptarea reala e
+  // deschiderea bazei, nu procesarea).
+  function pregatesteOData(optiuni = {}) {
+    if (!promisiuneSingleton) {
+      promisiuneSingleton = pregateste(optiuni).then((sursa) => {
+        sursaCache = sursa;
+        return sursa;
+      });
+    }
+    return promisiuneSingleton;
+  }
+
+  // Sincron — sursa deja rezolvata, sau null cat pregatesteOData() inca n-a
+  // terminat. Nu porneste nimic singura; doar citeste cache-ul.
+  function iaSincron() {
+    return sursaCache;
+  }
+
   global.SnapshotFluenta = {
     construiesteDinInregistrari,
     pregateste,
     sursaGoala,
+    pregatesteOData,
+    iaSincron,
   };
+
+  pregatesteOData();
 })(typeof window !== "undefined" ? window : globalThis);

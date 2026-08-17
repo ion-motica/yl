@@ -8,6 +8,7 @@
     "subquiz",
     "sq2EffVbs",
     "sq3FactorGroups",
+    "sq5FluentParty",
     "preEquationNav",
     "equationTonomat",
     "rigle",

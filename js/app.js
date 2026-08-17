@@ -580,6 +580,7 @@
     const meta = QuizRegistry.get(id);
     applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
+    quiz.setOnFluentaReady?.(() => restartActiveRound());
     resetResponseTimesSession();
     applyRequestedQuizConfig();
     cpShell?.refreshEnabledStates?.();
@@ -587,6 +588,7 @@
     renderPreEquationNavigationPanel();
     renderSq2EffVbsPanel();
     renderSq3FactorGroupsPanel();
+    renderSq5FluentPartyPanel();
     renderRiglePanel();
     renderArenaActions();
     aamArena?.reset();
@@ -711,6 +713,26 @@
     });
   }
 
+  function renderSq5FluentPartyPanel() {
+    const mount = cpShell?.getMountEl("sq5FluentParty");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendSq5ControlPanel !== "function") return;
+    quiz.appendSq5ControlPanel(mount, {
+      onChange: () => {
+        renderSq5FluentPartyPanel();
+        renderProgress();
+      },
+      // Mod A/B si intrarea decid CE subquiz porneste — spre deosebire de
+      // celelalte campuri sq5, care doar regleaza un subquiz deja pornit,
+      // au nevoie de o repornire reala ca sa se vada efectul imediat.
+      onRouteChange: () => {
+        restartActiveRound();
+        renderSq5FluentPartyPanel();
+      },
+    });
+  }
+
   function applyRequestedQuizConfig() {
     const requestedQuizId = window.StartupQuiz?.getRequestedQuizId?.();
     if (requestedQuizId && requestedQuizId !== QuizRegistry.getActiveId()) return false;
@@ -726,6 +748,7 @@
   const startupQuizId = resolveStartupQuizId();
   if (startupQuizId) QuizRegistry.setActive(startupQuizId);
   quiz = QuizRegistry.createActive();
+  quiz.setOnFluentaReady?.(() => restartActiveRound());
   applyRequestedQuizConfig();
 
   let aamCpEnabled = false;
@@ -772,6 +795,12 @@
     quizSpecific: true,
   });
   CpRegistry.register({
+    id: "sq5FluentParty",
+    title: "CP — SQ5 Fluent party",
+    isEnabled: () => typeof quiz?.appendSq5ControlPanel === "function",
+    quizSpecific: true,
+  });
+  CpRegistry.register({
     id: "liftType",
     title: "CP — Tip lift",
     isEnabled: () => true,
@@ -810,6 +839,7 @@
   renderPreEquationNavigationPanel();
   renderSq2EffVbsPanel();
   renderSq3FactorGroupsPanel();
+  renderSq5FluentPartyPanel();
   renderRiglePanel();
 
   function syncResponseTimesInput() {

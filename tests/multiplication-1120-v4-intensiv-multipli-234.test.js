@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 const rootDir = "C:/Users/I/Projects/Youlearn.com";
 const SQ3_ID = "sq3FactorGroup";
+const SQ5_ID = "sq5FluentParty";
 // Copie a listei din motor (js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js).
 // Duplicare deliberata: testul verifica ca formula produce castigatorul asteptat
 // pe datele reale, nu doar ca lista exista.
@@ -423,9 +424,19 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     // exact cazul "once", cu restul (11,13,17,19) pe regula normala.
     const fluentaSursa = {
       scorPtFact: () => 0,
-      starePtFact: (a, b) => (b === 7 ? "fluent" : "in_lucru"),
+      starePtFact: (a, b) => (a === 11 && b === 7 ? "fluent" : "in_lucru"),
     };
-    const quiz = setupQuiz({ fluentaSursa });
+    // sq5Mode "B" + entry "random": testul verifica exceptia facte-fluente a
+    // lui sq3, nu sq5 — orice fact fluent la nivelul 1 ar activa si level 0
+    // al lui sq5 (mod A, default), care cuprinde prin definitie si subtabla
+    // nivelului curent; iar entry "levelStart" (default in mod B) ar porni
+    // sq5 inaintea lui sq1 in interiorul nivelului. Cu "random", sq5 nu intra
+    // in lista ordonata deloc — iar la singurul punct eligibil din test (a
+    // 5-a intrebare), sq3 are prioritate si il consuma primul.
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "random" },
+    });
     let round = quiz.beginRound();
     for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
     const trigger = answerCorrect(quiz, round);
@@ -459,7 +470,12 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
       scorPtFact: () => 0,
       starePtFact: (a, b) => ([5, 15].includes(b) ? "fluent" : "in_lucru"),
     };
-    const quiz = setupQuiz({ fluentaSursa });
+    // sq5Mode "B" + entry "random": izoleaza testul de sq5 — vezi comentariul
+    // din criteriul 17.
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "random" },
+    });
     let round = quiz.beginRound();
     let guard = 0;
     let secondTrigger = null;
@@ -498,7 +514,12 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
       scorPtFact: (a, b) => ([7, 11, 13, 17, 19].includes(b) ? 1 : 0),
       starePtFact: (a, b) => ([2, 4, 6, 8].includes(b) ? "fluent" : "netestat"),
     };
-    const quiz = setupQuiz({ fluentaSursa });
+    // sq5Mode "B" + entry "random": izoleaza testul de sq5 — vezi comentariul
+    // din criteriul 17.
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "random" },
+    });
     const triggers = [];
     let round = quiz.beginRound();
     let guard = 0;
@@ -527,5 +548,369 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     assert.equal(FG_LIST.length, 8);
     const sizes = FG_LIST.map((fg) => fg.length).sort((a, b) => a - b);
     assert.deepEqual(sizes, [2, 3, 3, 4, 4, 4, 4, 5]);
+  });
+});
+
+describe("subquiz 5: Fluent party", () => {
+  beforeEach(() => {
+    delete globalThis.QuizRegistry;
+    delete globalThis.GameUtils;
+    delete globalThis.ProgressDisplay;
+    delete globalThis.FactCatalog;
+    delete globalThis.FactWindowSequencer;
+    delete globalThis.QFGenerator;
+    delete globalThis.ItemGenerator;
+    delete globalThis.SubquizDefinition;
+    delete globalThis.SubquizOrchestrator;
+    delete globalThis.Mul1120V4IntensivMultipli234Quiz;
+    delete globalThis.SnapshotFluenta;
+  });
+
+  it("domeniu mod B: sq5 ruleaza exact factele fluente din subtabla nivelului curent", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && [2, 3, 4].includes(b) ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "levelStart" },
+    });
+    const round = quiz.beginRound();
+    assert.equal(round.metadata.subquiz, SQ5_ID);
+    assert.equal(round.metadata.factA, 11);
+    assert.ok([2, 3, 4].includes(round.metadata.factB), `factB=${round.metadata.factB} ar trebui sa fie 2, 3 sau 4`);
+  });
+
+  it("level 0: un fact fluent din alta subtabla decat cea a nivelului curent porneste level 0, iar jurnalul ramane canonic", () => {
+    // Cea mai importanta verificare de siguranta a datelor din tot planul
+    // (P3/B3): level e 1 (A=11) tot timpul level-ului 0, dar factul ales e
+    // din tabla lui 17 — campul `fact` NU trebuie sa foloseasca A-ul
+    // nivelului (11), ci A-ul real al factului (17), altfel s-ar scrie
+    // "11*8=88" in loc de "17*8=136", corupand celula reala din jurnal.
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 17 && b === 8 ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({ fluentaSursa }); // mod A e default (D4)
+    const round = quiz.beginRound();
+    assert.equal(round.metadata.subquiz, SQ5_ID, "cu un singur fact fluent (17*8), level 0 trebuia sa porneasca");
+    assert.equal(round.metadata.factA, 17, "factorul logat trebuie sa fie cel al FACTULUI (17), nu al nivelului (11)");
+    assert.equal(round.metadata.factB, 8);
+    assert.equal(round.metadata.fact, "17*8=136", "campul fact trebuie sa fie canonic, cu A-ul real al factului");
+    assert.ok(round.metadata.factId, "factId trebuie sa existe");
+  });
+
+  it("zero facte fluente: level 0 nu porneste, nivelul 1 incepe normal, fara nicio eroare", () => {
+    const quiz = setupQuiz(); // default: scorPtFact 0, fara starePtFact -> netestat mereu
+    const round = quiz.beginRound();
+    assert.equal(round.metadata.subquiz, "base");
+    assert.equal(round.metadata.factA, 11);
+  });
+
+  it('"Se pregateste quizul...": ramane pe runda de asteptare pana se rezolva sursa, apoi repornesc o singura data', async () => {
+    globalThis.window = globalThis;
+    globalThis.alert = () => {};
+    setupLocalStorage({});
+    [
+      "js/utils.js",
+      "js/progress-display.js",
+      "js/quiz-registry.js",
+      "js/fact-catalog.js",
+      "js/fact-window-sequencer.js",
+      "js/eff/qf-generator.js",
+      "js/subquiz/item-generator.js",
+      "js/subquiz/subquiz-definition.js",
+      "js/subquiz/subquiz-orchestrator.js",
+    ].forEach(loadScript);
+    globalThis.GameUtils.shuffle = (items) => [...items];
+
+    let rezolva;
+    const promisiune = new Promise((resolve) => {
+      rezolva = resolve;
+    });
+    globalThis.SnapshotFluenta = {
+      iaSincron: () => null,
+      pregatesteOData: () => promisiune,
+    };
+    loadScript("js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js");
+    const quiz = globalThis.Mul1120V4IntensivMultipli234Quiz.create({ random: () => 0 });
+
+    const round1 = quiz.pickNextRound();
+    assert.equal(round1.metadata.loading, true, "cat timp sursa nu e gata, runda trebuie sa fie cea de asteptare");
+    assert.equal(round1.prompt, "Se pregătește quizul…");
+
+    let callbackApelat = 0;
+    quiz.setOnFluentaReady(() => {
+      callbackApelat += 1;
+    });
+
+    globalThis.SnapshotFluenta.iaSincron = () => ({ scorPtFact: () => 0, starePtFact: () => "netestat" });
+    rezolva();
+    await promisiune;
+
+    assert.equal(callbackApelat, 1, "callback-ul de repornire trebuia apelat o singura data, dupa ce sursa s-a rezolvat");
+    const round2 = quiz.pickNextRound();
+    assert.notEqual(round2.metadata.loading, true, "dupa ce sursa e gata, runda nu mai trebuie sa fie cea de asteptare");
+    assert.equal(round2.metadata.subquiz, "base");
+  });
+
+  it("regresie: cursa la construire (sursa inca nerezolvata) nu blocheaza level 0 permanent dupa ce sursa devine gata", () => {
+    // Bug real, gasit dupa implementare (nu in planul initial): quizul cheama
+    // eager resetLevelState()->createOrchestrator() la construire, INAINTE
+    // sa se stie daca IndexedDB a raspuns. Fara garda pe fluentaEsteGata(),
+    // acel apel vedea "0 facte fluente" (sursa inca goala) si seta
+    // level0Done=true PERMANENT — chiar daca datele reale (cu facte fluente)
+    // deveneau disponibile imediat dupa, level 0 nu mai pornea niciodata in
+    // acea sesiune. Aici simulam exact secventa: sursa e null la constructie
+    // (`config.fluentaSursa` nefolosit), devine gata abia dupa aceea, cu
+    // facte fluente reale.
+    globalThis.window = globalThis;
+    globalThis.alert = () => {};
+    setupLocalStorage({});
+    [
+      "js/utils.js",
+      "js/progress-display.js",
+      "js/quiz-registry.js",
+      "js/fact-catalog.js",
+      "js/fact-window-sequencer.js",
+      "js/eff/qf-generator.js",
+      "js/subquiz/item-generator.js",
+      "js/subquiz/subquiz-definition.js",
+      "js/subquiz/subquiz-orchestrator.js",
+    ].forEach(loadScript);
+    globalThis.GameUtils.shuffle = (items) => [...items];
+
+    // La constructia quizului (Mul1120V4IntensivMultipli234Quiz.create, mai
+    // jos), iaSincron() intoarce inca null — exact cursa din P1.
+    globalThis.SnapshotFluenta = {
+      iaSincron: () => null,
+      pregatesteOData: () => new Promise(() => {}), // nu se rezolva in acest test
+    };
+    loadScript("js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js");
+    const quiz = globalThis.Mul1120V4IntensivMultipli234Quiz.create({ random: () => 0 });
+
+    // Sursa devine gata DUPA constructie, cu un fact fluent real (17*8).
+    globalThis.SnapshotFluenta.iaSincron = () => ({
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 17 && b === 8 ? "fluent" : "netestat"),
+    });
+
+    const round = quiz.pickNextRound();
+    assert.equal(
+      round.metadata.subquiz,
+      SQ5_ID,
+      "level 0 trebuia sa porneasca — sursa are un fact fluent, indiferent ca la constructie era inca nerezolvata"
+    );
+    assert.equal(round.metadata.factA, 17);
+  });
+
+  it("level 0 nu se reia dupa o schimbare manuala de nivel (R7)", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 17 && b === 8 ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({ fluentaSursa });
+    quiz.switchLevel(3);
+    const round = quiz.beginRound();
+    assert.equal(round.metadata.subquiz, "base", "dupa switchLevel, sq5 nu mai trebuie sa apara ca level 0");
+    assert.equal(round.metadata.factA, 13);
+  });
+
+  it("random: sq3 are prioritate — cand sq3 se declanseaza, sq5-random nu il intrerupe", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && b === 6 ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({
+      random: () => 0,
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "random" },
+    });
+    let round = quiz.beginRound();
+    for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
+    const trigger = answerCorrect(quiz, round);
+    assert.equal(trigger.metadata.subquiz, SQ3_ID, "la a 5-a intrebare, sq3 trebuia sa castige, nu sq5");
+  });
+
+  it("eq forms: +1 la o zi noua de folosire, nu de doua ori in aceeasi zi, se opreste dupa interventie manuala", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && b === 5 ? "fluent" : "netestat"),
+    };
+    const baseSeed = { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "levelStart" };
+
+    const quiz1 = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: {
+        ...baseSeed,
+        "yl:mul1120v4:sq5EqFormCount": "4",
+        "yl:mul1120v4:sq5EqFormLastDay": "2000-01-01",
+      },
+    });
+    quiz1.beginRound();
+    const dupaZiNoua = globalThis.localStorage.getItem("yl:mul1120v4:sq5EqFormCount");
+    const aziScris = globalThis.localStorage.getItem("yl:mul1120v4:sq5EqFormLastDay");
+    assert.equal(dupaZiNoua, "5", "zi noua fata de ultima inregistrata -> +1");
+    assert.notEqual(aziScris, "2000-01-01", "ziua trebuia actualizata la cea curenta");
+
+    delete globalThis.SnapshotFluenta;
+    const quiz2 = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: {
+        ...baseSeed,
+        "yl:mul1120v4:sq5EqFormCount": dupaZiNoua,
+        "yl:mul1120v4:sq5EqFormLastDay": aziScris,
+      },
+    });
+    quiz2.beginRound();
+    assert.equal(
+      globalThis.localStorage.getItem("yl:mul1120v4:sq5EqFormCount"),
+      "5",
+      "aceeasi zi ca ultima inregistrare -> nu creste a doua oara"
+    );
+
+    delete globalThis.SnapshotFluenta;
+    const quiz3 = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: {
+        ...baseSeed,
+        "yl:mul1120v4:sq5EqFormCount": "6",
+        "yl:mul1120v4:sq5EqFormLastDay": "2000-01-01",
+        "yl:mul1120v4:sq5EqFormManual": "true",
+      },
+    });
+    quiz3.beginRound();
+    assert.equal(
+      globalThis.localStorage.getItem("yl:mul1120v4:sq5EqFormCount"),
+      "6",
+      "dupa interventia manuala, nu mai creste, chiar daca ziua e diferita"
+    );
+  });
+
+  it("P2: cu o singura forma de ecuatie activa, sesiunea sq5 nu ramane blocata la infinit", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && [2, 3].includes(b) ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: {
+        "yl:mul1120v4:sq5Mode": "B",
+        "yl:mul1120v4:sq5Entry": "levelStart",
+        "yl:mul1120v4:sq5EqFormCount": "1",
+        "yl:mul1120v4:sq5SbsPct": "100",
+      },
+    });
+    let round = quiz.beginRound();
+    let guard = 0;
+    while (round.metadata?.subquiz === SQ5_ID && guard < 200) {
+      guard += 1;
+      round = answerCorrect(quiz, round);
+      round = round.nextRound ?? round;
+    }
+    assert.ok(guard < 200, "sq5 nu trebuia sa ramana blocat la infinit cu o singura forma activa");
+    assert.equal(round.metadata.subquiz, "base", "dupa sq5, trebuie sa continue normal in baza");
+  });
+
+  it("blocul inceput se duce pana la capat: 1 singur fact fluent tot primeste lungimea blocului, nu doar TURNS", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && b === 9 ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: {
+        "yl:mul1120v4:sq5Mode": "B",
+        "yl:mul1120v4:sq5Entry": "levelStart",
+        "yl:mul1120v4:sq5TurnsPerFact": "3",
+        "yl:mul1120v4:sq5BlocLen": "12",
+        "yl:mul1120v4:sq5SbsPct": "100",
+      },
+    });
+    let round = quiz.beginRound();
+    let count = 0;
+    let guard = 0;
+    while (round.metadata?.subquiz === SQ5_ID && guard < 40) {
+      guard += 1;
+      count += 1;
+      round = answerCorrect(quiz, round);
+      round = round.nextRound ?? round;
+    }
+    assert.equal(count, 12, "cu un singur fact fluent si bloc de 12, sq5 trebuia sa puna exact 12 intrebari, nu doar 3");
+  });
+
+  it("sq5 nu marcheaza facte ca acoperite in subquiz 1 (baza)", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && b === 9 ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "levelStart" },
+    });
+    let round = quiz.beginRound();
+    let guard = 0;
+    while (round.metadata?.subquiz === SQ5_ID && guard < 40) {
+      guard += 1;
+      round = answerCorrect(quiz, round);
+      round = round.nextRound ?? round;
+    }
+    assert.equal(round.metadata.subquiz, "base");
+    const info = quiz.getInfo11_20();
+    assert.equal(info.answeredText, "0 / 20 acoperite", "sq5 nu trebuia sa marcheze niciun fact ca acoperit in sq1");
+  });
+
+  it("iesirea din sq5 functioneaza si cand toate raspunsurile sunt gresite (allowOnWrong)", () => {
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && b === 9 ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: {
+        "yl:mul1120v4:sq5Mode": "B",
+        "yl:mul1120v4:sq5Entry": "levelStart",
+        "yl:mul1120v4:sq5BlocLen": "3",
+        "yl:mul1120v4:sq5TurnsPerFact": "3",
+      },
+    });
+    let round = quiz.beginRound();
+    let guard = 0;
+    while (round.metadata?.subquiz === SQ5_ID && guard < 20) {
+      guard += 1;
+      round = answerWrong(quiz, round);
+      round = round.nextRound ?? round;
+    }
+    assert.ok(guard < 20, "sq5 nu trebuia sa ramana blocat la raspunsuri gresite");
+    assert.equal(
+      round.metadata.subquiz,
+      "base",
+      "sq5 trebuia sa iasa normal spre baza, chiar daca toate raspunsurile au fost gresite"
+    );
+  });
+
+  it("subquiz_id separabil in jurnal: toate randurile sq5 au subquiz_id si subquiz_name", () => {
+    // jurnalIntrebariActiv nu e expus prin setupQuiz() (setupQuiz apeleaza
+    // .create() direct, fara wrapper-ul din QuizRegistry.register care il
+    // seteaza true) — creat manual aici, ca sa testam contractul real al
+    // getContextJurnal, nu doar metadata brute.
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && b === 9 ? "fluent" : "netestat"),
+    };
+    setupQuiz({
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "levelStart" },
+    }); // doar ca sa incarce scripturile pe globalThis
+    const quiz = globalThis.Mul1120V4IntensivMultipli234Quiz.create({
+      random: () => 0,
+      fluentaSursa,
+      jurnalIntrebariActiv: true,
+    });
+    const round = quiz.beginRound();
+    assert.equal(round.metadata.subquiz, SQ5_ID);
+    const contextJurnal = quiz.getContextJurnal(round);
+    assert.equal(contextJurnal.subquiz_id, SQ5_ID);
+    assert.ok(contextJurnal.subquiz_name, "subquiz_name nu trebuie sa fie null pentru sq5");
   });
 });

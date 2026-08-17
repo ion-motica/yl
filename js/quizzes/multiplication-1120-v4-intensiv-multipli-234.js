@@ -65,6 +65,42 @@
   const SQ2_VBS_ID = "sq2EffVbs";
   const SQ2_SBS_ID = "sq2EffSbs";
 
+  // --- Subquiz 5 (Fluent party): genereaza fluenta deja castigata (de regula
+  // pe 1-2 forme de ecuatie) catre toate cele 24 — vezi
+  // documente de referinta/PLAN-v4-sq5-fluent-party.md.
+  const SQ5_ID = "sq5FluentParty";
+  const SQ5_MODE_KEY = "yl:mul1120v4:sq5Mode";
+  const SQ5_ENTRY_KEY = "yl:mul1120v4:sq5Entry";
+  const SQ5_TURNS_KEY = "yl:mul1120v4:sq5TurnsPerFact";
+  const SQ5_EQ_FORM_COUNT_KEY = "yl:mul1120v4:sq5EqFormCount";
+  const SQ5_EQ_FORM_LAST_DAY_KEY = "yl:mul1120v4:sq5EqFormLastDay";
+  const SQ5_EQ_FORM_MANUAL_KEY = "yl:mul1120v4:sq5EqFormManual";
+  const SQ5_SBS_PCT_KEY = "yl:mul1120v4:sq5SbsPct";
+  const SQ5_BLOC_LEN_KEY = "yl:mul1120v4:sq5BlocLen";
+  const SQ5_ROL_CONST_PCT_KEY = "yl:mul1120v4:sq5RolConstPct";
+
+  const SQ5_MODES = ["A", "B"];
+  const SQ5_ENTRIES = ["levelStart", "levelEnd", "random"];
+  const SQ5_TURNS_MIN = 1;
+  const SQ5_TURNS_MAX = 10;
+  const SQ5_TURNS_DEFAULT = 3;
+  const SQ5_EQ_FORM_MIN = 1;
+  const SQ5_EQ_FORM_MAX = 24;
+  const SQ5_EQ_FORM_DEFAULT = 4;
+  const SQ5_PCT_MIN = 0;
+  const SQ5_PCT_MAX = 100;
+  const SQ5_PCT_STEP = 5;
+  const SQ5_SBS_PCT_DEFAULT = 50;
+  const SQ5_ROL_CONST_PCT_DEFAULT = 50;
+  const SQ5_BLOC_LEN_MIN = 3;
+  const SQ5_BLOC_LEN_MAX = 30;
+  const SQ5_BLOC_LEN_DEFAULT = 12;
+  // D14: best-of-10, nu "primul care trece" — masurat si validat cu userul
+  // (PLAN §0): la N=4 eq forms (default), 53% din triplete reusesc oricum;
+  // 10 incercari sunt suficiente ca sa gaseasca varianta cu cele mai variate
+  // facte nesatisfacute, fara sa coste vizibil (sub 1ms/bloc).
+  const SQ5_TRIPLET_ATTEMPTS = 10;
+
   const QF_PROFILE = {
     f1_initial: true,
     f1_comutat: true,
@@ -93,8 +129,30 @@
     }
   }
 
-  function rangeChoices(min, max) {
-    return Array.from({ length: max - min + 1 }, (_, index) => min + index);
+  function rangeChoices(min, max, step = 1) {
+    return Array.from({ length: Math.floor((max - min) / step) + 1 }, (_, index) => min + index * step);
+  }
+
+  // `readNumberSetting` foloseste `Number(localStorage.getItem(key))` ca sa
+  // decida daca valoarea salvata e "valida" — dar `Number(null) === 0`, deci
+  // o cheie NICIODATA salvata pica pe 0, nu pe fallback, de fiecare data cand
+  // 0 e chiar el o alegere valida (exact cazul procentelor, min=0). Sq3/sq2
+  // nu au lovit asta (rangeChoices-urile lor pornesc de la valori diferite de
+  // fallback-ul implicit), dar sq5SbsPct/sq5RolConstPct (default 50, min 0)
+  // l-ar lovi direct — cheie nescrisa inca ar citi 0%, nu 50%. Citire proprie,
+  // separata, ca sa nu schimbam comportamentul existent al lui readNumberSetting.
+  function readPercentSetting(key, fallback) {
+    let stored = null;
+    try {
+      stored = global.localStorage?.getItem?.(key) ?? null;
+    } catch (err) {
+      stored = null;
+    }
+    if (stored === null) return fallback;
+    const num = Number(stored);
+    if (!Number.isFinite(num)) return fallback;
+    const pasificat = Math.round(num / SQ5_PCT_STEP) * SQ5_PCT_STEP;
+    return Math.max(SQ5_PCT_MIN, Math.min(SQ5_PCT_MAX, pasificat));
   }
 
   function writeSetting(key, value) {
@@ -199,20 +257,44 @@
     let sq3Count = 0;
 
     // Sursa de fluenta (snapshot din jurnal). Cusatura de test: config.fluentaSursa
-    // injecteaza direct o sursa sincrona, ocolind IndexedDB. In productie, se
-    // calculeaza o singura data, la pornirea quizului, pentru toate nivelele
-    // (SnapshotFluenta.pregateste e asincron; pana se rezolva, sursa goala ->
-    // medie = 0 peste tot, decizia ramane pe acoperire).
-    let fluentaSursa =
-      config.fluentaSursa ??
-      (global.SnapshotFluenta ? global.SnapshotFluenta.sursaGoala() : { scorPtFact: () => 0 });
-    if (!config.fluentaSursa && global.SnapshotFluenta?.pregateste) {
+    // injecteaza direct o sursa sincrona, ocolind IndexedDB si SnapshotFluenta in
+    // intregime (R9 din plan). In productie, SnapshotFluenta.pregatesteOData()
+    // porneste la INCARCAREA SCRIPTULUI (js/snapshot-fluenta.js), nu aici —
+    // pana se rezolva, pickNextRound() intoarce runda "Se pregateste quizul...",
+    // nu porneste orchestratorul pe o sursa goala (P1 din plan).
+    const SURSA_FLUENTA_GOALA = { scorPtFact: () => 0, starePtFact: () => "netestat" };
+    let mostratRundaIncarcare = false;
+    let onFluentaReadyCallback = null;
+
+    function getFluentaSursa() {
+      return config.fluentaSursa ?? global.SnapshotFluenta?.iaSincron?.() ?? SURSA_FLUENTA_GOALA;
+    }
+
+    function fluentaEsteGata() {
+      return Boolean(config.fluentaSursa) || Boolean(global.SnapshotFluenta?.iaSincron?.());
+    }
+
+    if (!config.fluentaSursa && global.SnapshotFluenta?.pregatesteOData) {
       global.SnapshotFluenta
-        .pregateste()
-        .then((sursa) => {
-          fluentaSursa = sursa;
+        .pregatesteOData()
+        .then(() => {
+          // Repornim runda doar daca userul a apucat sa vada ecranul de
+          // asteptare — altfel am intrerupe inutil o runda care oricum a
+          // pornit deja pe date reale (criteriul 11 din plan).
+          if (mostratRundaIncarcare) onFluentaReadyCallback?.();
         })
         .catch(() => {});
+    }
+
+    function loadingRound() {
+      mostratRundaIncarcare = true;
+      return {
+        prompt: "Se pregătește quizul…",
+        options: ["", "", ""],
+        correctIndex: 0,
+        metadata: { subquiz: null, loading: true },
+        hintMessage: "",
+      };
     }
 
     // CP SQ3 — setari persistate simplu (fara butoane "md", decizie user 29.07.2026).
@@ -241,10 +323,38 @@
     let sbsAnswerFromProduct = readBoolSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, false);
     ensureSbsAnswerSource();
 
+    // CP SQ5 — setari persistate simplu (fara butoane "md", ca la sq3).
+    let sq5Mode = readChoiceSetting(SQ5_MODE_KEY, SQ5_MODES, "A");
+    let sq5Entry = readChoiceSetting(SQ5_ENTRY_KEY, SQ5_ENTRIES, "levelStart");
+    let sq5TurnsPerFact = readNumberSetting(SQ5_TURNS_KEY, rangeChoices(SQ5_TURNS_MIN, SQ5_TURNS_MAX), SQ5_TURNS_DEFAULT);
+    let sq5EqFormCount = readNumberSetting(
+      SQ5_EQ_FORM_COUNT_KEY,
+      rangeChoices(SQ5_EQ_FORM_MIN, SQ5_EQ_FORM_MAX),
+      SQ5_EQ_FORM_DEFAULT
+    );
+    let sq5EqFormManual = readBoolSetting(SQ5_EQ_FORM_MANUAL_KEY, false);
+    let sq5SbsPct = readPercentSetting(SQ5_SBS_PCT_KEY, SQ5_SBS_PCT_DEFAULT);
+    let sq5BlocLen = readNumberSetting(SQ5_BLOC_LEN_KEY, rangeChoices(SQ5_BLOC_LEN_MIN, SQ5_BLOC_LEN_MAX), SQ5_BLOC_LEN_DEFAULT);
+    let sq5RolConstPct = readPercentSetting(SQ5_ROL_CONST_PCT_KEY, SQ5_ROL_CONST_PCT_DEFAULT);
+
+    // Level 0 (mod A) — traiesc IN AFARA lui `shared` si nu se ating de
+    // `resetLevelState()`, ca sa supravietuiasca schimbarii de nivel (R7 din
+    // plan): altfel fiecare click pe butoanele 1-10 ar reporni o runda de
+    // ~150 de intrebari.
+    let level0Done = false;
+    let inLevel0 = false;
+
+    // Declansatorul "random" al lui sq5 (mod B) — acelasi tipar ca sq3Count:
+    // se reseteaza la fiecare nivel, in `resetLevelState()`.
+    let sq5RandomFired = false;
+    let sq5RandomTargetK = 1;
+    let sq5RandomEligibleCount = 0;
+
     const shared = {
       baseState: null,
       sq3State: null,
       sq2State: null,
+      sq5State: null,
       usedFgIndexes: new Set(),
       levelFactorAnswerHistory: [],
     };
@@ -263,6 +373,7 @@
       if (subquizId === SQ3_ID) return "Subquiz 3: grup de factori";
       if (subquizId === SQ2_VBS_ID) return "Subquiz 2: Intensiv cu eff VBS";
       if (subquizId === SQ2_SBS_ID) return "Subquiz 2: Intensiv SBS";
+      if (subquizId === SQ5_ID) return "Subquiz 5: Fluent party";
       return subquizId === "base" ? "Subquiz 1: baza" : null;
     }
 
@@ -315,10 +426,10 @@
       mount.appendChild(row);
     }
 
-    function makeFact(b) {
+    function makeFact(b, a = factorForLevel(level)) {
       return Catalog.createFact({
         operation: "mul",
-        values: { a: factorForLevel(level), b },
+        values: { a, b },
       });
     }
 
@@ -339,9 +450,20 @@
       }
     }
 
-    function questionItem(prompt, correct, b, product, subquizId, extraMetadata = {}) {
-      const A = factorForLevel(level);
-      const fact = makeFact(b);
+    // `opts.a` — factorul REAL al factului, cu default cel al nivelului curent.
+    // Diferă doar in level 0 al lui sq5 (§4, problema P3 din plan): acolo o
+    // intrebare poate fi despre o alta subtabla decat cea a nivelului curent
+    // (care ramane pe 1 tot timpul level-ului 0), si `a` trebuie sa fie al
+    // factului, nu al nivelului — altfel jurnalul scrie o celula gresita,
+    // tacut (ex. "17*8" logat ca "11*8").
+    // `opts.ignoreLevelFactorGuard` — dezactiveaza `canUseLevelFactorAnswer`
+    // fara sa schimbe contractul pt. sq1/sq2/sq3: in level 0 nu exista un
+    // "factor al nivelului" comun peste multe subtable diferite, deci regula
+    // anti-ghicit n-are obiect (R8 din plan) — istoricul comun ramane
+    // neatins, doar nu e consultat pt. aceste intrebari.
+    function questionItem(prompt, correct, b, product, subquizId, extraMetadata = {}, opts = {}) {
+      const a = opts.a ?? factorForLevel(level);
+      const fact = makeFact(b, a);
       const opt = buildMulDivEqFormOptions(correct, product, shuffle);
       return {
         prompt,
@@ -351,10 +473,10 @@
         metadata: {
           questionInstanceId: `${quizId}:${++questionInstanceSequence}`,
           subquiz: subquizId,
-          factA: A,
+          factA: a,
           factB: b,
           product,
-          fact: `${A}*${b}=${product}`,
+          fact: `${a}*${b}=${product}`,
           factId: fact.factId,
           eqForm: prompt,
           ...extraMetadata,
@@ -362,25 +484,28 @@
       };
     }
 
-    function fallbackQuestionForB(b, subquizId, state) {
-      const A = factorForLevel(level);
-      const product = A * b;
-      const shouldAvoidLevelFactor = !canUseLevelFactorAnswer(state);
+    function fallbackQuestionForB(b, subquizId, state, opts = {}) {
+      const a = opts.a ?? factorForLevel(level);
+      const product = a * b;
+      const shouldAvoidLevelFactor = !opts.ignoreLevelFactorGuard && !canUseLevelFactorAnswer(state);
 
-      if (shouldAvoidLevelFactor && product === A) {
+      if (shouldAvoidLevelFactor && product === a) {
         const correct = b;
-        noteLevelFactorAnswer(state, correct === A);
-        return questionItem(`${A}*?=${product}`, correct, b, product, subquizId, {
-          fallback: true,
-          avoidedLevelFactorAnswer: true,
-        });
+        if (!opts.ignoreLevelFactorGuard) noteLevelFactorAnswer(state, correct === a);
+        return questionItem(
+          `${a}*?=${product}`,
+          correct,
+          b,
+          product,
+          subquizId,
+          { fallback: true, avoidedLevelFactorAnswer: true },
+          opts
+        );
       }
 
       const correct = product;
-      noteLevelFactorAnswer(state, correct === A);
-      return questionItem(`${A}*${b}=?`, correct, b, product, subquizId, {
-        fallback: true,
-      });
+      if (!opts.ignoreLevelFactorGuard) noteLevelFactorAnswer(state, correct === a);
+      return questionItem(`${a}*${b}=?`, correct, b, product, subquizId, { fallback: true }, opts);
     }
 
     function qfTypesForSubquiz(subquizId) {
@@ -389,29 +514,27 @@
       return qfTypes;
     }
 
-    function buildQuestionForB(b, subquizId = "base", state = null) {
-      const A = factorForLevel(level);
-      const product = A * b;
-      const fact = makeFact(b);
-      const allowLevelFactorAnswer = canUseLevelFactorAnswer(state);
+    function buildQuestionForB(b, subquizId = "base", state = null, opts = {}) {
+      const a = opts.a ?? factorForLevel(level);
+      const product = a * b;
+      const fact = makeFact(b, a);
+      const allowLevelFactorAnswer = opts.ignoreLevelFactorGuard || canUseLevelFactorAnswer(state);
 
       for (const type of shuffle(qfTypesForSubquiz(subquizId))) {
         const rendered = QFG.renderQF(type, fact);
         if (!rendered || rendered.answerType !== "number") continue;
         const correct = Number(rendered.correctAnswer);
         if (!Number.isFinite(correct)) continue;
-        if (correct === A && !allowLevelFactorAnswer) continue;
-        noteLevelFactorAnswer(state, correct === A);
-        return questionItem(rendered.prompt, correct, b, product, subquizId, {
-          qfTypeId: type.id,
-        });
+        if (correct === a && !allowLevelFactorAnswer) continue;
+        if (!opts.ignoreLevelFactorGuard) noteLevelFactorAnswer(state, correct === a);
+        return questionItem(rendered.prompt, correct, b, product, subquizId, { qfTypeId: type.id }, opts);
       }
 
-      return fallbackQuestionForB(b, subquizId, state);
+      return fallbackQuestionForB(b, subquizId, state, opts);
     }
 
-    function factLabel(b) {
-      return `${factorForLevel(level)}*${b}`;
+    function factLabel(b, a = factorForLevel(level)) {
+      return `${a}*${b}`;
     }
 
     function roundViewFrom(runtime, extra = {}) {
@@ -455,7 +578,7 @@
 
       FG_LIST.forEach((fg, index) => {
         if (shared.usedFgIndexes.has(index)) return;
-        const scoruri = fg.map((b) => fluentaSursa.scorPtFact(A, b));
+        const scoruri = fg.map((b) => getFluentaSursa().scorPtFact(A, b));
         const medie = scoruri.reduce((sum, v) => sum + v, 0) / fg.length;
         const acoperiteNr = fg.filter((b) => covered.has(b)).length;
         const acoperire = acoperiteNr / fg.length;
@@ -474,7 +597,8 @@
     }
 
     function exitPolicyForB(A, b, covered) {
-      const stare = fluentaSursa.starePtFact ? fluentaSursa.starePtFact(A, b) : "netestat";
+      const sursa = getFluentaSursa();
+      const stare = sursa.starePtFact ? sursa.starePtFact(A, b) : "netestat";
       const fluent = stare === "fluent";
       if (!fluent) return "normal";
       return covered.has(b) ? "skip" : "once";
@@ -720,11 +844,15 @@
           if (state.wrongFacts.length >= 2) {
             const command = maybeEnterSq3(state, "twoWrongFacts");
             if (command) return { ...command, allowOnWrong: true };
+            const sq5Command = maybeEnterSq5Random(state);
+            if (sq5Command) return { ...sq5Command, allowOnWrong: true };
           }
 
           if (state.questionCount % SQ3_TRIGGER_EVERY_BASE_ANSWERS === 0) {
             const command = maybeEnterSq3(state, "baseFiveFacts");
             if (command) return { ...command, allowOnWrong: true };
+            const sq5Command = maybeEnterSq5Random(state);
+            if (sq5Command) return { ...sq5Command, allowOnWrong: true };
           }
 
           if (!isCorrect) {
@@ -1177,6 +1305,312 @@
       });
     }
 
+    // ---- Subquiz 5 (Fluent party): fluenta deja castigata -> toate 24 forme -
+
+    function toateSubtabelele() {
+      return Array.from({ length: MAX_LEVEL }, (_, index) => factorForLevel(index + 1));
+    }
+
+    function esteFluent(a, b) {
+      const sursa = getFluentaSursa();
+      return (sursa.starePtFact ? sursa.starePtFact(a, b) : "netestat") === "fluent";
+    }
+
+    function facteFluenteDomeniu(subtabele) {
+      const facte = [];
+      subtabele.forEach((a) => {
+        for (let b = B_MIN; b <= B_MAX; b += 1) {
+          if (esteFluent(a, b)) facte.push({ a, b });
+        }
+      });
+      return facte;
+    }
+
+    // D15: doua roluri, prin echivalenta matematica — nu 5 (factor / produs /
+    // deimpartit / impartitor / cat). Fiecare rol contine si forme cu "*", si
+    // forme cu ":" (rol1: 8+8; rol2: 4+4), deci un bloc cu rol constant nu
+    // fixeaza si operatia — cerinta explicita a userului (17.08.2026).
+    function rolRaspuns(raspuns, a, b) {
+      return Number(raspuns) === a * b ? "rol2" : "rol1";
+    }
+
+    function perechiSq5(facts, qfTypesActive) {
+      const perechi = [];
+      facts.forEach((f) => {
+        const fact = makeFact(f.b, f.a);
+        qfTypesActive.forEach((type) => {
+          const rendered = QFG.renderQF(type, fact);
+          if (!rendered || rendered.answerType !== "number") return;
+          const raspuns = Number(rendered.correctAnswer);
+          if (!Number.isFinite(raspuns)) return;
+          perechi.push({
+            a: f.a,
+            b: f.b,
+            key: `${f.a}*${f.b}`,
+            prompt: rendered.prompt,
+            raspuns,
+            qfTypeId: type.id,
+            rol: rolRaspuns(raspuns, f.a, f.b),
+          });
+        });
+      });
+      return perechi;
+    }
+
+    // D14: best-of-10 — 10 triplete random, se pastreaza cel cu cele mai
+    // variate facte nesatisfacute atinse si cu deficitul cel mai mare de
+    // turns. Un triplet extras din `spectru` (constrans la facte
+    // nesatisfacute) atinge garantat >=1 fact nesatisfacut, deci `best` nu
+    // ramane niciodata null cand spectrul are >=3 valori (masurat, PLAN §0).
+    function alegeTripletSq5(perechiSursa, nesatKeys, turnsByKey, turnsTarget) {
+      const spectru = [...new Set(perechiSursa.filter((p) => nesatKeys.has(p.key)).map((p) => p.raspuns))];
+      if (spectru.length < 3) return null;
+
+      let best = null;
+      for (let incercare = 0; incercare < SQ5_TRIPLET_ATTEMPTS; incercare += 1) {
+        const rest = [...spectru];
+        const trio = [];
+        for (let i = 0; i < 3; i += 1) {
+          trio.push(...rest.splice(Math.floor(random() * rest.length), 1));
+        }
+        const trioSet = new Set(trio);
+        const pool = perechiSursa.filter((p) => trioSet.has(p.raspuns));
+        const facteAtinse = new Set(pool.filter((p) => nesatKeys.has(p.key)).map((p) => p.key));
+        const deficit = [...facteAtinse].reduce(
+          (suma, key) => suma + Math.max(0, turnsTarget - (turnsByKey[key] ?? 0)),
+          0
+        );
+        const scor = facteAtinse.size * 1000 + deficit;
+        if (!best || scor > best.scor) best = { pool, trio, scor };
+      }
+      return best && best.pool.length ? best : null;
+    }
+
+    // Un bloc SBS "cu rol constant" (D15) se formeaza doar daca rolul ales
+    // are >=2 valori distincte de raspuns — garda anti-forma-unica (D16):
+    // "niciodata un bloc SBS cu o singura formă de ecuatie, decat daca
+    // userul o cere explicit". Altfel cade pe SBS liber (fara rol constant).
+    // Si daca nu se gaseste niciun triplet valid (P2 — prea putine forme
+    // active), blocul cade pe VBS.
+    function alegeBlocSq5(state) {
+      const perechiToate = perechiSq5(state.facts, state.qfTypesActive);
+      const esteSbs = random() < state.sbsPct / 100;
+      if (!esteSbs) return { tip: "vbs", pool: perechiToate, butoane: null };
+
+      const nesatKeys = new Set(
+        state.facts
+          .filter((f) => (state.turnsByKey[`${f.a}*${f.b}`] ?? 0) < state.turnsTarget)
+          .map((f) => `${f.a}*${f.b}`)
+      );
+
+      let sursaTriplet = perechiToate;
+      if (random() < state.rolConstPct / 100) {
+        const rolAles = random() < 0.5 ? "rol1" : "rol2";
+        const dinRol = perechiToate.filter((p) => p.rol === rolAles);
+        if (new Set(dinRol.map((p) => p.raspuns)).size >= 2) sursaTriplet = dinRol;
+      }
+
+      const rezultat = alegeTripletSq5(sursaTriplet, nesatKeys, state.turnsByKey, state.turnsTarget);
+      if (!rezultat) return { tip: "vbs", pool: perechiToate, butoane: null };
+
+      return {
+        tip: "sbs",
+        pool: rezultat.pool,
+        butoane: rezultat.trio.map(String).sort((x, y) => Number(x) - Number(y)),
+      };
+    }
+
+    // D1: repetitia e ok, "preferabil diferita" — mai intai facte inca
+    // nesatisfacute, apoi (in cadrul lor, sau al intregului pool daca toate
+    // sunt deja satisfacute — "blocul inceput se duce pana la capat", §3.4)
+    // forme inca nefolosite pt. factul respectiv.
+    function trageSq5(pool, state) {
+      const nesatisfacute = pool.filter((p) => (state.turnsByKey[p.key] ?? 0) < state.turnsTarget);
+      const candidati = nesatisfacute.length ? nesatisfacute : pool;
+      const formeNoi = candidati.filter((p) => !state.formsUsedByKey[p.key]?.has(p.prompt));
+      const sursa = formeNoi.length ? formeNoi : candidati;
+      return sursa[Math.floor(random() * sursa.length)];
+    }
+
+    function sq5TermIsComplete(state) {
+      return state.facts.every((f) => (state.turnsByKey[`${f.a}*${f.b}`] ?? 0) >= state.turnsTarget);
+    }
+
+    function sq5QuestionItem(pereche, state) {
+      const product = pereche.a * pereche.b;
+      const fact = makeFact(pereche.b, pereche.a);
+      const bloc = state.currentBloc;
+      let options;
+      let correctIndex;
+      if (bloc?.tip === "sbs" && bloc.butoane) {
+        options = bloc.butoane;
+        correctIndex = options.indexOf(String(pereche.raspuns));
+      } else {
+        const opt = buildMulDivEqFormOptions(pereche.raspuns, product, shuffle);
+        options = opt.options;
+        correctIndex = opt.correctIndex;
+      }
+      return {
+        prompt: pereche.prompt,
+        correctAnswer: pereche.raspuns,
+        options,
+        correctIndex,
+        metadata: {
+          questionInstanceId: `${quizId}:${++questionInstanceSequence}`,
+          subquiz: SQ5_ID,
+          factA: pereche.a,
+          factB: pereche.b,
+          product,
+          fact: `${pereche.a}*${pereche.b}=${product}`,
+          factId: fact.factId,
+          eqForm: pereche.prompt,
+          qfTypeId: pereche.qfTypeId,
+          rol: pereche.rol,
+          sameButtonSet: bloc?.tip === "sbs" || undefined,
+        },
+      };
+    }
+
+    function ziCurentaLocala() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    // +1/zi de utilizare a lui sq5 (§3.5), in ora LOCALA (nu UTC — altfel
+    // ziua s-ar muta seara si ar da un +1 fantoma). Prima zi de folosire nu
+    // incrementeaza. Se opreste definitiv daca userul a mutat manual
+    // sliderul ("ramane acolo" — flag separat in localStorage).
+    function aplicaCrestereZilnicaEqForms() {
+      if (sq5EqFormManual) return;
+      const azi = ziCurentaLocala();
+      let ultimaZi = null;
+      try {
+        ultimaZi = global.localStorage?.getItem?.(SQ5_EQ_FORM_LAST_DAY_KEY) ?? null;
+      } catch (err) {
+        ultimaZi = null;
+      }
+      if (ultimaZi === null) {
+        writeSetting(SQ5_EQ_FORM_LAST_DAY_KEY, azi);
+        return;
+      }
+      if (ultimaZi === azi) return;
+      sq5EqFormCount = Math.min(SQ5_EQ_FORM_MAX, sq5EqFormCount + 1);
+      writeSetting(SQ5_EQ_FORM_COUNT_KEY, sq5EqFormCount);
+      writeSetting(SQ5_EQ_FORM_LAST_DAY_KEY, azi);
+    }
+
+    function sq5Definition() {
+      return global.SubquizDefinition.define({
+        id: SQ5_ID,
+        title: "Fluent party",
+        hintMessage: HINT,
+        initialState({ payload }) {
+          aplicaCrestereZilnicaEqForms();
+          const facts =
+            payload?.facts ?? facteFluenteDomeniu(inLevel0 ? toateSubtabelele() : [factorForLevel(level)]);
+          const state = {
+            facts,
+            turnsByKey: {},
+            formsUsedByKey: {},
+            qfTypesActive: shuffle([...qfTypes]).slice(0, sq5EqFormCount),
+            turnsTarget: sq5TurnsPerFact,
+            blocLen: sq5BlocLen,
+            sbsPct: sq5SbsPct,
+            rolConstPct: sq5RolConstPct,
+            entryMode: payload?.entryMode ?? "list",
+            currentBloc: null,
+            blocQuestionsLeft: 0,
+            currentPereche: null,
+            questionCount: 0,
+          };
+          facts.forEach((f) => {
+            const key = `${f.a}*${f.b}`;
+            state.turnsByKey[key] = 0;
+            state.formsUsedByKey[key] = new Set();
+          });
+          shared.sq5State = state;
+          return state;
+        },
+        generator({ state }) {
+          shared.sq5State = state;
+          if (state.blocQuestionsLeft <= 0) {
+            state.currentBloc = alegeBlocSq5(state);
+            state.blocQuestionsLeft = state.blocLen;
+          }
+          const pereche = trageSq5(state.currentBloc.pool, state);
+          state.blocQuestionsLeft -= 1;
+          state.currentPereche = pereche;
+          return sq5QuestionItem(pereche, state);
+        },
+        onAnswer(event) {
+          const { item, index, state, runtime } = event;
+          shared.sq5State = state;
+          const chosen = item.options[index];
+          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const pereche = state.currentPereche;
+          const key = pereche.key;
+
+          state.questionCount += 1;
+          state.turnsByKey[key] = (state.turnsByKey[key] ?? 0) + 1;
+          if (!state.formsUsedByKey[key]) state.formsUsedByKey[key] = new Set();
+          state.formsUsedByKey[key].add(pereche.prompt);
+
+          // Ca la sq3: raspuns gresit nu reia aceeasi intrebare — sq5 numara
+          // turns "corecte sau nu" (§3.4), nu cere reusita, deci se avanseaza
+          // mereu. `allowOnWrong` e obligatoriu (subquiz-definition.js), altfel
+          // motorul comun ar anula si "exit"/"pop" de mai jos, si "continue"-ul
+          // de dedesubt, pe orice raspuns gresit.
+          if (state.blocQuestionsLeft <= 0 && sq5TermIsComplete(state)) {
+            const iesire = { reason: "sq5Complete", allowOnWrong: true, payload: { sq5Completed: true } };
+            return state.entryMode === "push" ? { action: "pop", ...iesire } : { action: "exit", ...iesire };
+          }
+
+          runtime.nextItem({ reason: "sq5Next" });
+          return {
+            action: "continue",
+            allowOnWrong: true,
+            view: roundViewFrom(runtime, {
+              outcome: isCorrect ? "step-correct" : "wrong-answer",
+              correct: isCorrect,
+              bounce: isCorrect,
+              flash: isCorrect ? undefined : "wrong",
+              message: isCorrect ? "Corect!" : `${chosen} nu e bun. Trecem mai departe.`,
+            }),
+          };
+        },
+        onTimeout: handleIntensiveTimeout,
+      });
+    }
+
+    // Declansatorul "random" (§3.3): aceleasi doua puncte ca sq3
+    // (twoWrongFacts / baseFiveFacts, in baseDefinition().onAnswer), incercat
+    // DOAR daca sq3 nu s-a declansat la acelasi punct ("random are prioritate
+    // mai mica decat regula determinata"). O singura data per nivel, la a
+    // k-a verificare eligibila (k ales uniform din {1,2,3} in resetLevelState,
+    // ca pozitia sa fie random dar aparitia garantata).
+    function maybeEnterSq5Random(state) {
+      if (sq5Mode !== "B" || sq5Entry !== "random" || sq5RandomFired) return null;
+      const A = factorForLevel(level);
+      const facts = facteFluenteDomeniu([A]);
+      if (!facts.length) return null;
+
+      sq5RandomEligibleCount += 1;
+      if (sq5RandomEligibleCount < sq5RandomTargetK) return null;
+
+      sq5RandomFired = true;
+      return {
+        action: "push",
+        targetId: SQ5_ID,
+        payload: { facts, entryMode: "push" },
+        view: {
+          outcome: "step-correct",
+          correct: true,
+          bounce: true,
+          message: "Subquiz 5: Fluent party",
+        },
+      };
+    }
+
     // Panoul CP al lui sq2 ramane definit (cod pastrat), dar nu mai e expus pe
     // obiectul quizului -> CpRegistry il considera dezactivat, deci nu se
     // afiseaza. Decizie user, 29.07.2026 ("ramane ascuns integral").
@@ -1430,12 +1864,238 @@
       mount.append(stackRow, highlightRow, dimRow, rotateRow, eqFormRow);
     }
 
+    // ---- CP SQ5 (Fluent party) -----------------------------------------------
+
+    function sq5SliderRow(labelText, getValue, min, max, onInput) {
+      const row = document.createElement("div");
+      row.className = "control-panel-lift-field sq3-slider-field";
+      const head = document.createElement("div");
+      head.className = "sq3-slider-head";
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      const out = document.createElement("span");
+      out.className = "control-panel-lift-slider-out";
+      out.textContent = String(getValue());
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = String(min);
+      slider.max = String(max);
+      slider.step = "1";
+      slider.value = String(getValue());
+      slider.className = "sq3-slider";
+      slider.addEventListener("input", () => {
+        const value = clampChoice(slider.value, rangeChoices(min, max), getValue());
+        onInput(value);
+        out.textContent = String(value);
+      });
+      head.append(label, out);
+      row.append(head, slider);
+      return row;
+    }
+
+    // Steppere cu sageti -/+ (D13) — tiparul "pre-eq-stepper" exista deja in
+    // proiect (js/quizzes/rigle-cl1.js), refolosit ca atare, fara CSS nou.
+    function sq5StepperRow(labelText, getValue, { min, max, step = 1 }, onApply) {
+      const field = document.createElement("div");
+      field.className = "control-panel-lift-field pre-eq-stepper-field";
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      const controls = document.createElement("div");
+      controls.className = "pre-eq-stepper";
+      const minus = document.createElement("button");
+      minus.type = "button";
+      minus.textContent = "-";
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = String(min);
+      input.max = String(max);
+      input.step = String(step);
+      input.value = String(getValue());
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.textContent = "+";
+
+      const apply = (raw) => {
+        const num = Math.round(Number(raw) / step) * step;
+        const clamped = Number.isFinite(num) ? Math.max(min, Math.min(max, num)) : getValue();
+        onApply(clamped);
+        input.value = String(getValue());
+      };
+
+      minus.addEventListener("click", () => apply(getValue() - step));
+      plus.addEventListener("click", () => apply(getValue() + step));
+      input.addEventListener("change", () => apply(input.value));
+
+      controls.append(minus, input, plus);
+      field.append(label, controls);
+      return field;
+    }
+
+    function appendSq5ControlPanel(mount, hooks = {}) {
+      if (!mount) return;
+      appendJurnalButtons(mount);
+
+      const modeRow = document.createElement("div");
+      modeRow.className = "control-panel-lift-field sq3-field";
+      const modeLabel = document.createElement("span");
+      modeLabel.textContent = "Ruleaza sq5 Fluent party:";
+      modeRow.appendChild(modeLabel);
+      [
+        ["A", "Level 0, inaintea tuturor nivelurilor, cu toate subtablele"],
+        ["B", "in interiorul fiecarui nivel"],
+      ].forEach(([mode, text]) => {
+        const label = document.createElement("label");
+        label.className = "control-panel-lift-row";
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = "sq5-mode";
+        input.value = mode;
+        input.checked = sq5Mode === mode;
+        input.addEventListener("change", () => {
+          sq5Mode = mode;
+          writeSetting(SQ5_MODE_KEY, sq5Mode);
+          entryRow.style.display = sq5Mode === "B" ? "" : "none";
+          // Mod A/B decide CE se ruleaza (structural), spre deosebire de
+          // sliderele de mai jos care doar regleaza cum ruleaza sq5 odata
+          // intrat — de-aia foloseste onRouteChange (repornire), nu
+          // onChange (doar re-randare CP), altfel bifa n-are efect vizibil
+          // pana la urmatoarea schimbare naturala de nivel.
+          (hooks.onRouteChange ?? hooks.onChange)?.();
+        });
+        label.append(input, document.createTextNode(text));
+        modeRow.appendChild(label);
+      });
+
+      const entryRow = document.createElement("div");
+      entryRow.className = "control-panel-lift-field sq3-field";
+      const entryLabel = document.createElement("span");
+      entryLabel.textContent = "Intrare in sq5 (doar mod B):";
+      entryRow.appendChild(entryLabel);
+      [
+        ["levelStart", "La inceputul nivelului"],
+        ["random", "Random intre alte subquizuri"],
+        ["levelEnd", "La finalul nivelului"],
+      ].forEach(([entry, text]) => {
+        const label = document.createElement("label");
+        label.className = "control-panel-lift-row";
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = "sq5-entry";
+        input.value = entry;
+        input.checked = sq5Entry === entry;
+        input.addEventListener("change", () => {
+          sq5Entry = entry;
+          writeSetting(SQ5_ENTRY_KEY, sq5Entry);
+          (hooks.onRouteChange ?? hooks.onChange)?.();
+        });
+        label.append(input, document.createTextNode(text));
+        entryRow.appendChild(label);
+      });
+      entryRow.style.display = sq5Mode === "B" ? "" : "none";
+
+      const turnsRow = sq5SliderRow(
+        "Nr. de turns per fact:",
+        () => sq5TurnsPerFact,
+        SQ5_TURNS_MIN,
+        SQ5_TURNS_MAX,
+        (value) => {
+          sq5TurnsPerFact = value;
+          writeSetting(SQ5_TURNS_KEY, sq5TurnsPerFact);
+        }
+      );
+
+      const eqFormRow = sq5SliderRow(
+        "Nr. de eq forms (creste +1 la fiecare zi noua de folosire; se opreste daca muti manual sliderul):",
+        () => sq5EqFormCount,
+        SQ5_EQ_FORM_MIN,
+        SQ5_EQ_FORM_MAX,
+        (value) => {
+          sq5EqFormCount = value;
+          sq5EqFormManual = true;
+          writeSetting(SQ5_EQ_FORM_COUNT_KEY, sq5EqFormCount);
+          writeSetting(SQ5_EQ_FORM_MANUAL_KEY, true);
+        }
+      );
+
+      const sbsPctRow = sq5StepperRow(
+        "SBS % (aproximativ — restul intrebarilor sunt o intrebare pe rand, buton diferit de fiecare data):",
+        () => sq5SbsPct,
+        { min: SQ5_PCT_MIN, max: SQ5_PCT_MAX, step: SQ5_PCT_STEP },
+        (value) => {
+          sq5SbsPct = value;
+          writeSetting(SQ5_SBS_PCT_KEY, sq5SbsPct);
+          hooks.onChange?.();
+        }
+      );
+
+      const blocLenRow = sq5StepperRow(
+        "Lungime sir (guverneaza si blocurile SBS, si cele fara SBS — ca procentul de mai sus sa fie corect):",
+        () => sq5BlocLen,
+        { min: SQ5_BLOC_LEN_MIN, max: SQ5_BLOC_LEN_MAX, step: 1 },
+        (value) => {
+          sq5BlocLen = value;
+          writeSetting(SQ5_BLOC_LEN_KEY, sq5BlocLen);
+          hooks.onChange?.();
+        }
+      );
+
+      const rolConstRow = sq5StepperRow(
+        "Din blocurile SBS, cate cu rol constant % (rol1 = factor/impartitor/cat; rol2 = produs/deimpartit):",
+        () => sq5RolConstPct,
+        { min: SQ5_PCT_MIN, max: SQ5_PCT_MAX, step: SQ5_PCT_STEP },
+        (value) => {
+          sq5RolConstPct = value;
+          writeSetting(SQ5_ROL_CONST_PCT_KEY, sq5RolConstPct);
+          hooks.onChange?.();
+        }
+      );
+
+      mount.append(modeRow, entryRow, turnsRow, eqFormRow, sbsPctRow, blocLenRow, rolConstRow);
+    }
+
     // ---- orchestrare + nivele --------------------------------------------
 
+    // Mod B: unde intra sq5 in lista ordonata a orchestratorului (§3.3).
+    // "random" nu apare in lista — intra prin push/pop din baseDefinition,
+    // ca sq3 (maybeEnterSq5Random). Daca nivelul curent n-are niciun fact
+    // fluent, sq5 nu intra deloc in lista (echivalent cu "nu porneste").
+    function normalActiveIds() {
+      if (sq5Mode !== "B") return ["base"];
+      if (sq5Entry === "random") return ["base"];
+      const A = factorForLevel(level);
+      if (!facteFluenteDomeniu([A]).length) return ["base"];
+      return sq5Entry === "levelEnd" ? ["base", SQ5_ID] : [SQ5_ID, "base"];
+    }
+
+    // Level 0 (mod A): o singura data, inainte de nivelul 1, cu facte din
+    // toate subtablele — vezi beginLevel1AfterLevel0(). Daca n-are niciun
+    // fact fluent (cont nou), se marcheaza direct "facut" si nu se afiseaza
+    // niciun ecran — criteriul 10 din plan.
     function createOrchestrator() {
+      // Decizia despre level 0 se ia DEFINITIV (inclusiv marcarea level0Done
+      // la domeniu gol) doar cu sursa de fluenta gata (fluentaEsteGata()).
+      // createOrchestrator() se cheama si eager, la construirea quizului
+      // (mai jos), inainte sa se stie daca IndexedDB a raspuns — fara garda
+      // asta, o citire inca nerezolvata s-ar vedea ca "0 facte fluente" si
+      // ar bloca level 0 PERMANENT pentru tot restul sesiunii, chiar si dupa
+      // ce datele reale devin disponibile (bug real, gasit dupa implementare
+      // — vezi nota din plan). Cand sursa nu e gata, nu se decide nimic acum:
+      // inLevel0 ramane fals pt. constructia asta (oricum aruncata — beginRoute()
+      // reconstruieste mereu, iar pickNextRound() nu porneste o runda reala
+      // pana sursa nu e gata), dar level0Done nu se atinge, deci se
+      // re-evalueaza corect la urmatoarea reconstructie.
+      let domeniuLevel0 = [];
+      if (sq5Mode === "A" && !level0Done && fluentaEsteGata()) {
+        domeniuLevel0 = facteFluenteDomeniu(toateSubtabelele());
+        if (domeniuLevel0.length === 0) level0Done = true;
+      }
+      inLevel0 = sq5Mode === "A" && !level0Done && domeniuLevel0.length > 0;
+
+      const activeIds = inLevel0 ? [SQ5_ID] : normalActiveIds();
+
       orchestrator = global.SubquizOrchestrator.create({
-        definitions: [baseDefinition(), sq3Definition(), sq2Definition(), sq2SbsDefinition()],
-        activeSubquizIds: ["base"],
+        definitions: [baseDefinition(), sq3Definition(), sq2Definition(), sq2SbsDefinition(), sq5Definition()],
+        activeSubquizIds: activeIds,
         context: {
           quizId,
           getLevel: () => level,
@@ -1448,15 +2108,34 @@
       shared.baseState = null;
       shared.sq3State = null;
       shared.sq2State = null;
+      shared.sq5State = null;
       shared.usedFgIndexes = new Set();
       shared.levelFactorAnswerHistory = [];
       sq3Count = 0;
+      sq5RandomFired = false;
+      sq5RandomTargetK = 1 + Math.floor(random() * 3);
+      sq5RandomEligibleCount = 0;
       createOrchestrator();
     }
 
+    // Reconstruieste orchestratorul chiar inainte de a porni o ruta — nu doar
+    // daca lipseste. E ieftin (fara I/O) si elimina o cursa reala: la crearea
+    // quizului, resetLevelState() ruleaza inainte sa se stie daca sursa de
+    // fluenta e gata (pickNextRound() garanteaza asta abia mai tarziu), deci
+    // orchestratorul construit atunci ar putea decide gresit "level 0 gol".
     function beginRoute() {
-      if (!orchestrator) createOrchestrator();
+      createOrchestrator();
       return orchestrator.startFirst();
+    }
+
+    // Level 0 s-a terminat -> nivelul 1 normal, FARA sa incrementeze `level`
+    // (spre deosebire de advanceLevel(), care e pt. sfarsitul unui nivel
+    // obisnuit). Daca userul a schimbat manual nivelul cat timp level 0 inca
+    // rula, ramane pe nivelul ales — nu se forteaza inapoi pe nivelul 1.
+    function beginLevel1AfterLevel0() {
+      level0Done = true;
+      resetLevelState();
+      return beginRoute();
     }
 
     function advanceLevel() {
@@ -1495,7 +2174,21 @@
     }
 
     function handleOrchestratorResult(result) {
-      if (result?.subquizEvent?.routeComplete) return advanceLevel();
+      if (result?.subquizEvent?.routeComplete) {
+        if (inLevel0) {
+          return {
+            outcome: "run-complete",
+            correct: true,
+            runComplete: true,
+            runDelayMs: 0,
+            flash: "win",
+            banner: "Fluent party terminat — Nivel 1",
+            message: `Nivel ${level}`,
+            nextRound: beginLevel1AfterLevel0(),
+          };
+        }
+        return advanceLevel();
+      }
       return result;
     }
 
@@ -1509,8 +2202,12 @@
       getMinLevel: () => MIN_LEVEL,
       getLevelLabel: () => {
         const currentId = orchestrator?.getCurrentId?.();
+        if (inLevel0) return "Nivel 0 - Subquiz 5 - Fluent party";
         if (currentId === SQ3_ID) {
           return `Nivel ${level} - Subquiz 3 - grup de factori`;
+        }
+        if (currentId === SQ5_ID) {
+          return `Nivel ${level} - Subquiz 5 - Fluent party`;
         }
         return `Nivel ${level} - Subquiz 1 - baza (${factorForLevel(level)}x)`;
       },
@@ -1521,12 +2218,22 @@
       switchLevel(nextLevel) {
         level = Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, nextLevel));
         completed = false;
+        // Alegere manuala de nivel = renuntare la level 0, daca nu rulase
+        // deja (nu doar "nu se reia dupa" — R7 din plan — ci nici nu incepe
+        // acum): userul a cerut explicit un nivel anume, nu turul de
+        // deschidere prin toate subtablele.
+        level0Done = true;
         resetLevelState();
         return null;
       },
 
       pickNextRound() {
+        if (!fluentaEsteGata()) return loadingRound();
         return beginRoute();
+      },
+
+      setOnFluentaReady(callback) {
+        onFluentaReadyCallback = typeof callback === "function" ? callback : null;
       },
 
       beginRound(next) {
@@ -1546,6 +2253,7 @@
         const A = factorForLevel(level);
         const baseState = shared.baseState;
         const sq3State = shared.sq3State;
+        const sq5State = shared.sq5State;
         const currentId = orchestrator?.getCurrentId?.() ?? "base";
         const coveredCount = baseState?.covered?.size ?? 0;
         const sq3Progress = sq3State
@@ -1553,6 +2261,29 @@
               .map((b) => `${A}*${b} ${sq3State.correctCountsByB[b] ?? 0}/${SQ3_EXIT_CORRECT_COUNT}`)
               .join(", ")
           : "-";
+
+        if (currentId === SQ5_ID) {
+          const gata = sq5State
+            ? sq5State.facts.filter((f) => (sq5State.turnsByKey[`${f.a}*${f.b}`] ?? 0) >= sq5State.turnsTarget)
+                .length
+            : 0;
+          const total = sq5State?.facts.length ?? 0;
+          return {
+            visible: true,
+            mode: inLevel0 ? "Nivel 0: Fluent party" : "Subquiz 5: Fluent party",
+            theme: "sq2-eff-vbs",
+            wrongFactsText: "-",
+            intensivText: `${gata} / ${total} facte gata`,
+            answeredText: `${sq5State?.questionCount ?? 0} intrebari SQ5`,
+            intensivSessionsText: "-",
+            facts: (sq5State?.facts ?? []).map((f) => ({
+              label: `${f.a}*${f.b}`,
+              timeText: "-",
+              fast: false,
+            })),
+          };
+        }
+
         return {
           visible: true,
           mode: currentId === SQ3_ID ? "Subquiz 3: grup de factori" : "Subquiz 1: baza",
@@ -1583,6 +2314,7 @@
       },
 
       appendSq3ControlPanel,
+      appendSq5ControlPanel,
 
       setSq2Config(config = {}) {
         if (SQ2_INTENSIVE_MODES.includes(config.intensiveMode)) {
