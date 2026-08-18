@@ -483,3 +483,35 @@ reordonarea loturilor — planul nu e mai important decât folosirea reală a ap
 - **Nu edita fișiere cu diacritice prin PowerShell** (`Get-Content|Set-Content` le strică în
   mojibake). Folosește uneltele de editare directă.
 - Comenzile se rulează **din rădăcina proiectului**, fără prefix `cd`.
+
+## 12. Decizie de scop: orice quiz trece prin orchestrator, cu minim o bucată
+
+Descoperit 18.08.2026, în timpul discuției despre contractul modulului de răspuns — nu rămâne
+risc separat pentru mai târziu, ci intră direct în scopul lucrării curente (decizie user).
+
+`js/subquiz/subquiz-orchestrator.js` (mecanismul comun `push`/`pop`/`exit`/`jump`) e folosit azi
+identic de toate cele 3 fișiere cu subquizuri (`v2-modular`, `v3`, `v4`) — dar prin convenție, nu
+prin impunere. Verificat: nu apare menționat în `AGENTS.md`; `falling-engine.js` nu are nicio
+legătură reală cu el (grep confirmă); `QuizRegistry.register` nu cere nimic legat de subquizuri
+la înregistrare. Nimic n-ar opri un quiz viitor să-și scrie propria rutare, separată, fără să-l
+folosească deloc — exact riscul deja descris la §1.1 pentru `genericOnAnswer`.
+
+**Decizie:** orice quiz — cele 15 de sine stătătoare de azi, cele 3 cu subquizuri, și orice quiz
+viitor — se definește ca trecând prin `SubquizOrchestrator`, cu minim o bucată activă. Un quiz
+azi „simplu" (fără nicio rutare reală între etape, ex. `equations-e3-e6.js`) primește o singură
+bucată, numită convențional „bază" — orchestratorul e prezent structural, dar
+`push`/`pop`/`exit`/`jump` nu se folosesc, pentru că nu e nevoie. Rezultat: **o singură formă
+arhitecturală pentru toate cele 18 fișiere și pentru orice viitor**, nu două paralele ca azi.
+
+**Consecință directă pentru Faza E (§5):** pasul care face `SubquizDefinition.define({onAnswer})`
+să arunce trebuie completat cu un al doilea gard, la același nivel — orice quiz înregistrat prin
+`QuizRegistry.register` trebuie să fie construit intern prin `SubquizOrchestrator.create(...)`,
+altfel motorul refuză să-l pornească. Mecanismul exact de verificare se detaliază la scrierea
+Fazei E, nu acum.
+
+**Notă de consistență, de rezolvat la implementare, nu acum:** §3 (inventarul) etichetează azi
+cele 15 fișiere ca „de sine stătătoare", categorie separată de cele „cu subquizuri" — sub decizia
+de mai sus devin toate „cu o singură bucată", nu o categorie arhitecturală diferită. §9 (criterii
+de succes) ar trebui să primească un criteriu nou: toate cele 18 (și orice viitor) trec prin
+`SubquizOrchestrator`, verificabil. Nu se rescriu acum — se văd la implementare, când se ajunge
+efectiv acolo.

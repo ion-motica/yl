@@ -41,11 +41,11 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 
 ## Faza A — inventar + contract
 
-- [ ] Citit `onAnswer`-ul tuturor celor 18 fișiere în scop
-- [ ] Citit cele 17 subquizuri (9 în `v2-modular`, 3 în `v3`, 5 în `v4`)
-- [ ] Tabel al variației reale (ce face fiecare la corect / la greșit / ce pauze / ce cazuri speciale)
-- [ ] Contract propus, cu toate cele ~30 de cazuri exprimate prin el
-- [ ] **OPRIRE** — prezentat userului, aprobat
+- [x] Citit `onAnswer`-ul tuturor celor 18 fișiere în scop
+- [x] Citit cele 17 subquizuri (9 în `v2-modular`, 3 în `v3`, 5 în `v4`)
+- [x] Tabel al variației reale — vezi `FAZA-A-inventar-contract.md`
+- [x] Contract propus — vezi `FAZA-A-inventar-contract.md` §2
+- [ ] **OPRIRE** — prezentat userului, 3 întrebări deschise (§4 din anexă), în așteptare
 
 ## Faza B — modulul comun
 
@@ -124,6 +124,15 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
   `js/succesive-quiz/engine.js`), care alimentează **9** intrări de meniu prin fișiere-helper ce
   doar înregistrează și deleagă. Verifică numărul de intrări de meniu (25 cu tot cu `rigle-cl1`)
   înainte de Faza C.
+- **18.08.2026** — Semnalat, verificat, ÎNCHIS, nu era scop nou: `recordAttempt`/`FactStore` din
+  interiorul quizurilor (ex. `addition-table.js`) se cheamă la fiecare apăsare, nu o dată per tură
+  — la prima vedere părea o gaură separată, care ar corupe statisticile de fluență din Vizualizare 3.
+  Verificat: `motor-analiza.js` + `SPECIFICATIE.md` au deja mecanismul corect, dintr-o sesiune
+  anterioară — `a_cata_apasare_pe_buton` (calculat în `falling-engine.js` din `roundSignature`
+  neschimbat) + `grupeazaApasarilePeIntrebari` + `corect_din_prima` (strict din prima apăsare).
+  Depinde de motorul comun de răspuns (Faza B-E din plan) să funcționeze peste tot — nu e o
+  lucrare separată. Definiția completă e consemnată în `QUIZ-SPEC-SABLON.md` (de citit la orice
+  lucru viitor pe un quiz/subquiz).
 - **Teste preexistente picate, fără legătură cu lucrarea:** 3 teste din
   `tests/vizualizare3-tabel-fluenta.test.js` (sensibile la dată) picau deja la 18.08.2026,
   verificat prin `git stash`. Nu le confunda cu regresii de-ale tale.

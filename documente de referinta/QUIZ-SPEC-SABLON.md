@@ -7,6 +7,18 @@ definim termeni:
 	- q1=quiz mare q2=subquiz/subquizuri
 	- q form e distinct de subquiz
 
+**definiție obligatorie — ce înseamnă „userul a răspuns la întrebare" (18.08.2026, de citit de fiecare dată când mai facem un quiz sau subquiz):
+
+Când spui că userul „a răspuns la întrebare", sunt două lucruri separate, nu unul singur:
+
+A) Din perspectiva apăsărilor: copilul apasă pe cele 3 butoane de câte ori e nevoie — una, două, un milion de apăsări — până nimerește butonul corect. Toate apăsările alea la un loc formează „răspunsul" la acea întrebare.
+
+B) Din perspectiva corectitudinii — și asta e complet separat de A: dacă prima apăsare a fost pe butonul corect, întrebarea aia se consideră răspunsă corect. Dacă prima apăsare a fost greșită, indiferent câte apăsări a mai luat până a nimerit butonul corect, întreaga tură se consideră răspunsă greșit. Apăsările de după prima greșeală nu sunt încercări noi de răspuns care se evaluează separat — sunt șanse de corectare, oferite prin feedback imediat (butonul greșit marcat, rămâi pe loc). Ele schimbă ce apasă copilul mai departe, dar nu schimbă verdictul de corectitudine al turei respective.
+
+Consecința pe care o văd: variabila isCorrect, calculată la fiecare apăsare — pe care am întâlnit-o peste tot în codul citit azi — nu poate servi simultan la două lucruri diferite. Poate decide mecanica ecranului (rămâi sau avansezi — care oricum e mereu aceeași regulă: rămâi până apeși corect). Dar nu poate fi folosită direct și pentru scor, jurnal, sau statistici de fluență — acolo trebuie păstrată doar corectitudinea primei apăsări din tură, fixată din primul moment, neschimbată de câte apăsări greșite au urmat.
+
+**precizare — asta e deja rezolvat corect în jurnal/Vizualizare 3, nu e scop nou:** la un tur se poate apăsa de multe ori pe butoanele cu variantele de răspuns; fiecare apăsare e consemnată în jurnal, dar corectitudinea acelui tur e dată doar de primul răspuns. Deci un tur poate fi compus din multe apăsări pe butoanele de răspuns, până se apasă în sfârșit pe butonul corect. În logul mare se specifică: fiecare apăsare din jurnal are un câmp `a_cata_apasare_pe_buton` — `1` înseamnă „prima apăsare a unei întrebări noi", `2`, `3` etc. înseamnă „continuare pe aceeași întrebare". `motor-analiza.js` grupează apăsările în întrebări pe baza acestui câmp (`grupeazaApasarilePeIntrebari`), și calculează `corect_din_prima` strict din prima apăsare a grupului. Mecanismul ăsta există deja și e corect — depinde doar de motorul comun de răspuns (rămâi pe aceeași întrebare la greșit) să funcționeze peste tot, ca `a_cata_apasare_pe_buton` să numere corect. Nu e treabă separată de Vizualizare 3/statistici.
+
 
 **nivel alegere subquiz q2 in cadrul quizului mare q1
 	lista de nume q2s din q1
