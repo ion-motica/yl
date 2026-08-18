@@ -627,3 +627,45 @@ ca **valori și rutare**, nu topite în logică.
 
 **Serviciul comun de analiză a logului** — rămâne amânat, ca în §8 din planul sq3. sq5 adaugă un
 consumator al aceleiași citiri, ceea ce întărește argumentul, dar nu-l schimbă.
+
+---
+
+## 11. Status final — verificat live, 17.08.2026
+
+Implementat, testat, **verificat live de user pe serverul lui real** (`127.0.0.1:8770`, nu doar în
+mediul de test) — level 0 pornește corect. Totul — planul, cele 4 bug-uri de mai sus și fix-urile
+lor, testele — e într-un singur commit, `4fc4722` (7 fișiere, +1867/−61).
+
+### Falsul pozitiv care a consumat cea mai mare parte a sesiunii de debug live
+
+Nu era bug de cod. Userul raporta „nu pornește sq5"; am verificat riguros (inclusiv un test de
+regresie care chiar prinde bug-ul #4 de mai sus, dovedit revenind temporar la logica veche), am
+reparat 2 bug-uri reale — dar sq5 tot nu pornea. Cauza reală: **Vizualizare 3 arăta 64 facte fluente
+dintr-un fișier JSON importat** (`youlearn-jurnal-merged-2026-08-09.json`, buton „Alege log
+importat"), **nu din IndexedDB live** (butonul „Citește din IndexedDB"). IndexedDB-ul live al
+userului avea, la momentul respectiv, mult mai puține date decât fișierul — deci `sq5` (care citește
+mereu IndexedDB live, corect) vedea 0 facte fluente, pe bună dreptate. Odată ce userul a apăsat
+„Replace datele din IndexedDB cu JSON din Downloads" în Vizualizare 3, IndexedDB-ul live a ajuns să
+aibă aceleași date, și sq5 a pornit corect.
+
+**Lecție pentru diagnostic viitor, în orice feature care citește IndexedDB:** dacă Vizualizare 3 (sau
+orice altă unealtă) arată date care nu se reflectă în comportamentul live, verifică ÎNTÂI care sursă
+e activă acolo (fișier importat vs. IndexedDB live) — sunt vizual identice ca tabel, dar pot fi două
+seturi de date complet diferite. Nu presupune cod stricat înainte de asta.
+
+### Acoperire de teste — onest, nu toate cele 17 criterii din §9 au test dedicat
+
+Cele 32 de teste (`tests/multiplication-1120-v4-intensiv-multipli-234.test.js`, describe „subquiz 5:
+Fluent party") acoperă direct: 1, 4c, 5, 7, 8, 9, 10, 11 (+ regresia bug #4), 12, 14, 17, și
+non-regresia celor 19 preexistente (16, cu 3 dintre ele ajustate — vezi §0 mai sus). **Nu au test
+dedicat**: 2/3/4/4b/4d/4e/4f (exact numerele de volum/mix pe fixture-ul real — verificate manual, în
+scripturi de scratch, în timpul proiectării, nu ca teste commise), 6 (matematica de bază a
+tripletelor), 13 (plafonul „cel mult o dată per nivel" la random — doar prioritatea față de sq3 e
+testată), 15 (preferința pt. formă nefolosită într-o serie). Dacă apare vreodată un bug în zonele
+astea, de-acolo se pornește.
+
+### Neatins, rămas din alte sesiuni — tot în working tree, nu s-a cerut să fie tratat
+
+`.claude/launch.json`, `.claude/settings.local.json`, „Documentatie - Pornire server YouLearn din
+PowerShell pt. PC.txt" (modificate), „! youlearn documents - Shortcut.lnk" și „Documentatie -
+Pornire server YouLearn din PowerShell pt. PC.bat" (netracked). Nelegate de sq5.

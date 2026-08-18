@@ -18,6 +18,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8771", "--bind", "127.0.0.1"],
       "port": 8771
+    },
+    {
+      "name": "citybreak-local",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8772", "--bind", "127.0.0.1", "--directory", "C:\\Users\\I\\Projects\\City Break - Flights"],
+      "port": 8772
     }
   ]
 }
