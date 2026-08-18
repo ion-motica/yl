@@ -143,6 +143,34 @@ Când adăugăm funcționalități noi în YouLearn, folosim preferabil un contr
 
 Dacă experimentăm un feature structural: propune un quiz evaluat ca fiind potrivit pentru testare; după aprobare, clonează-l și fă modificările pe acea clonă.
 
+## Contractul de răspuns la quiz/subquiz
+
+> Regulă fără excepție implicită, valabilă pentru **orice** quiz sau subquiz din proiect,
+> indiferent cât de „special" pare cazul lui: **răspuns corect → avansează la întrebarea
+> următoare. Răspuns greșit → rămâi pe aceeași întrebare, marchezi greșeala, aștepți răspunsul
+> corect.** Nu există o a treia formă „default". Diferența dintre quizuri/subquizuri stă STRICT
+> în (a) ce întrebare/fapt se alege următor și (b) cum se construiesc variantele de răspuns —
+> niciodată în ce se întâmplă la apăsarea unui răspuns.
+
+Mecanismul comun există deja în motor, nu se reinventează per quiz:
+`js/subquiz/subquiz-definition.js` (`blockWrongTransition` reia automat aceeași întrebare pe
+răspuns greșit, decât dacă comanda întoarsă are explicit `allowOnWrong: true`) și
+`js/falling-engine.js` (`applyAnswerResult`, ~linia 852: `outcome === "wrong-answer"` înseamnă
+literal „nu randa, rămâi pe intrebarea veche" — nu doar „a fost gresit"). Un subquiz care își
+scrie propriul `onAnswer` și reimplementează „corect avansează, greșit reia" duplică o regulă pe
+care motorul o impune deja — și fiecare copie e o șansă nouă de bug: găsit independent, de două
+ori, în sq3 și sq5 (17.08.2026) — un răspuns care avansa itemul intern dar rămânea etichetat
+`"wrong-answer"` → ecranul rămânea desincronizat de starea reală a quizului (butoane „moarte",
+răspunsuri corecte notate greșit în jurnal, contaminând exact datele pe care se bazează analiza
+de fluență).
+
+O „plasă de siguranță" (ex. sq3: avansează forțat după 5 încercări greșite pe același fapt, ca
+un fapt pe care copilul nu-l știe deloc să nu blocheze tot subquiz-ul) e singura excepție
+acceptată — dar rămâne **explicită și rară**, nu o formă alternativă pe care fiecare subquiz o
+alege liber. Și chiar și ea trebuie să respecte eticheta corectă (`outcome: "step-correct"`,
+niciodată `"wrong-answer"`, din clipa în care a avansat efectiv itemul) — altfel reapare exact
+bug-ul de mai sus.
+
 ## Butoane „default" pe opțiuni (md / make default)
 
 > Când userul cere un **default** pe un set de opțiuni (radio/bife) cu buton „make default",

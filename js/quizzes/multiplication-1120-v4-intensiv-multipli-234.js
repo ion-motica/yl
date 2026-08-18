@@ -1014,10 +1014,15 @@
             action: "continue",
             allowOnWrong: true,
             view: roundViewFrom(runtime, {
-              outcome: isCorrect ? "step-correct" : "wrong-answer",
+              // outcome ramane "step-correct" si pe raspunsul gresit care
+              // declanseaza plasa de siguranta: am avansat deja itemul, iar
+              // falling-engine.js trateaza literal "wrong-answer" ca "nu
+              // randa" — vezi explicatia identica in sq5Definition().onAnswer.
+              outcome: "step-correct",
               correct: isCorrect,
               bounce: isCorrect,
               flash: isCorrect ? undefined : "wrong",
+              answerRevealed: isCorrect ? undefined : true,
               message: isCorrect ? "Corect!" : `${chosen} nu e bun. Trecem mai departe.`,
             }),
           };
@@ -1570,10 +1575,20 @@
             action: "continue",
             allowOnWrong: true,
             view: roundViewFrom(runtime, {
-              outcome: isCorrect ? "step-correct" : "wrong-answer",
+              // outcome ramane "step-correct" chiar pe raspuns gresit: am
+              // avansat deja itemul (nextItem mai sus), iar falling-engine.js
+              // (wrongPick, linia ~852) trateaza literal "wrong-answer" ca
+              // "nu randa, ramai pe intrebarea veche" — etichetat gresit,
+              // ecranul ramane in urma starii reale a quizului (butoane
+              // "moarte", raspunsuri notate pe intrebarea nevazuta).
+              outcome: "step-correct",
               correct: isCorrect,
               bounce: isCorrect,
               flash: isCorrect ? undefined : "wrong",
+              // Fara asta, animatia de "revelare la contact" ar umple
+              // intrebarea veche cu raspunsul gresit ales, stilizat ca fiind
+              // cel corect (buildRevealedState nu verifica isCorrect).
+              answerRevealed: isCorrect ? undefined : true,
               message: isCorrect ? "Corect!" : `${chosen} nu e bun. Trecem mai departe.`,
             }),
           };

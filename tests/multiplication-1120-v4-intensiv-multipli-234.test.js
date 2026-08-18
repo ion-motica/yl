@@ -255,6 +255,33 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     );
   });
 
+  it("contract de randare: raspunsul care declanseaza plasa de siguranta la sq3 nu se eticheteaza \"wrong-answer\"", () => {
+    // falling-engine.js (applyAnswerResult, wrongPick) trateaza literal
+    // outcome === "wrong-answer" ca "nu randa, ramai pe intrebarea veche". Cand
+    // sq3 a avansat deja itemul (nextItem, dupa plasa de 5 incercari) dar
+    // raspunsul care a declansat-o era gresit, eticheta trebuie sa ramana
+    // "step-correct" — altfel ecranul ramane desincronizat de starea reala a
+    // quizului (butoane "moarte", raspunsuri notate pe intrebarea nevazuta).
+    // Regresie pt bug-ul raportat de user la sq5 (acelasi tipar, aici in sq3).
+    const quiz = setupQuiz({ fluentaSursa: { scorPtFact: () => 0 } });
+    let round = quiz.beginRound();
+    for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
+    round = answerCorrect(quiz, round);
+    assert.equal(round.metadata.subquiz, SQ3_ID);
+
+    const targetB = round.metadata.factB;
+    for (let i = 0; i < 4; i += 1) {
+      round = answerWrong(quiz, round);
+      assert.equal(round.outcome, "wrong-answer", `incercarea ${i + 1}: motorul trebuia sa reia aceeasi intrebare`);
+      assert.equal(round.metadata.factB, targetB, `incercarea ${i + 1}: intrebarea nu trebuia sa avanseze`);
+    }
+
+    const safetyNet = answerWrong(quiz, round); // a 5-a incercare gresita -> plasa de siguranta forteaza avansul
+    assert.equal(safetyNet.outcome, "step-correct", "raspunsul avanseaza itemul, deci nu poate fi etichetat wrong-answer");
+    assert.equal(safetyNet.correct, false, "raspunsul tot trebuie notat ca incorect pt jurnal/scor, desi eticheta e step-correct");
+    assert.notEqual(safetyNet.metadata.factB, targetB, "plasa de siguranta trebuia sa fi avansat la urmatorul fact");
+  });
+
   it("criteriul 7: alegeFG pe cazul numeric din plan (nivel 1, fluenta 0 peste tot, acoperit {1,2,3,4,7})", () => {
     // Shuffle special: batch-ul 2 [5,6,7,8] devine [7,5,6,8], ca al 5-lea raspuns
     // sa acopere b=7 (nu b=5), reproducand exact covered={1,2,3,4,7} din plan.
@@ -886,6 +913,34 @@ describe("subquiz 5: Fluent party", () => {
       round.metadata.subquiz,
       "base",
       "sq5 trebuia sa iasa normal spre baza, chiar daca toate raspunsurile au fost gresite"
+    );
+  });
+
+  it("contract de randare: raspunsul gresit in sq5 care avanseaza (D1, §3.4 — turn consumat corect sau nu) nu se eticheteaza \"wrong-answer\"", () => {
+    // Bug raportat de user (17.08.2026): primul raspuns gresit facea quizul sa
+    // avanseze itemul intern, dar eticheta ramanea "wrong-answer" -> falling-engine.js
+    // (wrongPick) sarea randarea, ecranul ramanea pe intrebarea veche, iar
+    // apasarile urmatoare erau notate fata de intrebarea nevazuta (butoane
+    // "moarte", raspuns corect taiat ca gresit).
+    const fluentaSursa = {
+      scorPtFact: () => 0,
+      starePtFact: (a, b) => (a === 11 && [2, 3, 4].includes(b) ? "fluent" : "netestat"),
+    };
+    const quiz = setupQuiz({
+      fluentaSursa,
+      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "levelStart" },
+    });
+    const round = quiz.beginRound();
+    assert.equal(round.metadata.subquiz, SQ5_ID);
+
+    const wrong = answerWrong(quiz, round);
+    assert.equal(wrong.metadata.subquiz, SQ5_ID, "blocul (implicit 12) nu se termina dupa o singura intrebare");
+    assert.equal(wrong.outcome, "step-correct", "sq5 avanseaza mereu — eticheta trebuia sa ramana step-correct, nu wrong-answer");
+    assert.equal(wrong.correct, false, "raspunsul tot trebuie notat ca incorect pt jurnal/scor, desi eticheta e step-correct");
+    assert.notEqual(
+      `${wrong.metadata.factA}*${wrong.metadata.factB}=${wrong.metadata.eqForm}`,
+      `${round.metadata.factA}*${round.metadata.factB}=${round.metadata.eqForm}`,
+      "itemul trebuia sa fi avansat efectiv (fact sau forma diferita)"
     );
   });
 
