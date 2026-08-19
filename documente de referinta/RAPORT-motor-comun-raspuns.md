@@ -23,7 +23,7 @@ v2-modular, 3 în v3, 5 în v4) migrate la contractul declarativ „CE nu CUM". 
 `addition-table.js`, `addition-table-range.js`) — vezi mai jos. Rămân 12.
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
 Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`. Faza E, v2-modular: `d70c544`.
-Faza E, v4: `7a0f012`. Faza E, §12: `848b871`, `7b0cf98`, addition-table-range: în lucru.
+Faza E, v4: `7a0f012`. Faza E, §12: `848b871`, `7b0cf98`, `1d1c50d`.
 **Toate pushate pe `origin/master` — confirmat.**
 
 **Faza E, §12 — equations-e3-e6.js învelit (20.08.2026), PRIMUL quiz „simplu":** o singură bucată
