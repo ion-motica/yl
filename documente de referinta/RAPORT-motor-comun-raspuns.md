@@ -12,11 +12,22 @@
 
 ## Stare curentă
 
-**Faza:** D COMPLETĂ — toate cele 18 fișiere/motoare migrate la Motor3Butoane (Lot 1: commit
-`f0ded97`; Lot 2: commit `7ed8cc1`; Lot 3: commit `5c08b54`; Lot 4: commit în curs de pregătire
-— vezi jurnal). **Zero titluri „NEFUNCTIONAL" rămase în meniu.** 498 teste, 495 trec (3 pică,
-toate preexistente, sensibile la dată).
-**Următorul pas:** Faza E — „subquizul dă CE, nu CUM": (1) `SubquizDefinition.define()` aruncă
+> **Pornești într-un chat nou? Citește doar acest bloc + „Scop, pe scurt" de mai jos — nu ai
+> nevoie de restul fișierului decât dacă lucrezi direct pe Faza D (închisă) sau vrei istoricul
+> exact al deciziilor. Planul complet e în `PLAN-motor-comun-raspuns.md`, dar NU trebuie recitit
+> de la zero — tot ce contează practic e rezumat aici.**
+
+**Faza:** D COMPLETĂ (toate cele 4 loturi) — toate cele 18 fișiere/motoare migrate la Motor3Butoane.
+Commit-uri, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
+**Toate patru pushate pe `origin/master` — confirmat.** Working tree curat (doar
+`.claude/settings.local.json` și `.claude/worktrees/` rămân neurmărite, deliberat, nu se
+commit — vezi memoria `project_home_dir_este_repo_git`/practica din sesiune). **Zero titluri
+„NEFUNCTIONAL" rămase în meniu.** Ultima rulare a suitei complete: 498 teste, 495 trec (3 pică,
+toate preexistente în `vizualizare3-tabel-fluenta.test.js`, sensibile la dată — neafectate de
+lucrarea asta, verificat separat prin `git stash`).
+**Următorul pas:** Faza E — „subquizul dă CE, nu CUM", NEÎNCEPUTĂ ÎNCĂ (decizie deliberată de
+oprire aici, vezi „De ce s-a oprit sesiunea anterioară" mai jos), nu doar următorul item dintr-o
+listă: (1) `SubquizDefinition.define()` aruncă
 dacă definiția conține `onAnswer` (impunere structurală, ca la Faza C); (2) toate cele 15 quizuri
 azi „simple" (fără subquiz) trebuie învelite în `SubquizOrchestrator`, cu o singură definiție de
 bază — decizie confirmată a userului, §12 din plan; (3) cei 17 subquizuri reali (9 în v2-modular,
@@ -35,6 +46,32 @@ la fiecare OPRIRE, "conform planului" — comit si implementez in continuare aut
 e in vigoare, neschimbata.
 **Aplicația:** funcțională; toate quizurile migrate, meniul complet fără sufixe.
 **Ultima actualizare:** 19.08.2026
+
+### De ce s-a oprit sesiunea anterioară exact aici
+
+Autorizarea din 18.08.2026 („continuă fără să aștepți input, e noapte") era generală, pe tot
+planul — nu doar pe Faza D. Sesiunea anterioară a ales totuși să se oprească la finalul Fazei D
+(nu în mijlocul Fazei E), din judecată proprie, pe motivele astea:
+
+1. **Faza D era un punct de oprire complet și sigur**: toate cele 18 fișiere migrate, testate,
+   verificate live, commise, pushate — nimic pe jumătate făcut, aplicația 100% funcțională.
+2. **Faza E e calitativ diferită, nu doar „mai mult din același lucru"**: atinge fișierele
+   PARTAJATE `subquiz-definition.js`/`subquiz-orchestrator.js` (neatinse deliberat în toată
+   Faza D) și extinde scopul la toate cele 15 quizuri azi „simple" (niciodată atinse de vreun
+   mecanism de subquiz) — o rază de acțiune calitativ mai largă decât orice s-a făcut până acum.
+3. **Planul însuși tratează Faza E mai atent**: granularitatea lui de OPRIRE e „după fiecare
+   fișier", nu „după fiecare lot" ca la Faza D — semn că autorul planului (tot userul, într-o
+   sesiune anterioară) o considera mai delicată.
+4. **Asimetria riscului la o întrerupere**: o Fază D neterminată tot ar lăsa restul aplicației
+   funcțional (fișierele nemigrate rămân „NEFUNCȚIONAL" vizibil, nu ascuns). O Fază E întreruptă
+   la mijloc ar putea lăsa fișiere re-suffixate „NEFUNCȚIONAL" fără să apuce să fie reparate la
+   loc, dacă sesiunea s-ar întrerupe înainte de capăt — un risc care nu exista la Faza D.
+
+**Nu e o respingere a autorizării** — dacă utilizatorul confirmă (sau dacă instrucțiunea din
+chat-ul nou repetă „continuă autonom, fără să aștepți") poți relua direct Faza E, în aceeași
+manieră riguroasă (test întâi, migrare, verificare live, commit/push per fișier — respectând
+granularitatea proprie a Fazei E, adică raportează/oprește-te după FIECARE fișier, nu după tot
+lotul de 3, dacă nu ai o autorizare explicită și pentru asta).
 
 ---
 
