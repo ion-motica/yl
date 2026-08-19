@@ -329,28 +329,61 @@
       };
     }
 
-    function onStepCorrect() {
-      const label = historyLine(currentFact);
-      historyLines.push(label);
-      activeQueue.shift();
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Fara pasi intermediari de tip "lant": fiecare raspuns corect fie trece la
+    // urmatorul fapt din coada turului curent, fie incheie turul (nivel nou /
+    // faza retry / joc complet), cu pauzele `promptHoldMs`+`continueStep` EXACT
+    // ca inainte de migrare — M3B le lasa sa treaca neatinse.
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => options[index] === correctAnswer(currentFact, currentMissingSide),
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) =>
+          `La ${promptLabel(currentFact, currentMissingSide)}, ${ctx.alesul} nu e corect. Încearcă din nou!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+          if (!ctx.corect) {
+            hadMistakeThisTurn = true;
+            if (
+              !wrongFactIds.some(
+                (item) =>
+                  item.factId === currentFact.factId && item.missingSide === currentMissingSide
+              )
+            ) {
+              wrongFactIds.push(queueItem(currentFact.factId, currentMissingSide));
+            }
+          }
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          const label = historyLine(currentFact);
+          historyLines.push(label);
+          activeQueue.shift();
 
-      if (activeQueue.length) {
-        const nextView = beginCurrentStep();
-        return {
-          outcome: "step-correct",
-          correct: true,
-          bounce: true,
-          message: `Corect! ${label}`,
-          ...nextView,
-        };
-      }
+          if (activeQueue.length) {
+            const nextView = beginCurrentStep();
+            return {
+              action: "continue",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                message: `Corect! ${label}`,
+                ...nextView,
+              },
+            };
+          }
 
-      if (phase === "retry") {
-        hadMistakeThisTurn = false;
-      }
+          if (phase === "retry") {
+            hadMistakeThisTurn = false;
+          }
 
-      return buildTurnCompleteStep(label);
-    }
+          return { action: "continue", view: buildTurnCompleteStep(label) };
+        },
+      },
+    });
 
     return {
       getLevel: () => level,
@@ -411,33 +444,16 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, lotul 2). Regula corect/gresit era deja
+      // conforma (gresit ramane pe aceeasi intrebare) — migrarea NU schimba
+      // comportamentul vizibil, doar muta logica in `actiuni` de mai sus.
       onAnswer(index, meta = {}) {
-        const chosen = options[index];
-        const correctLabel = correctAnswer(currentFact, currentMissingSide);
-        const isCorrect = chosen === correctLabel;
-
-        recordAttempt(isCorrect, chosen, meta);
-
-        if (!isCorrect) {
-          hadMistakeThisTurn = true;
-          if (
-            !wrongFactIds.some(
-              (item) =>
-                item.factId === currentFact.factId && item.missingSide === currentMissingSide
-            )
-          ) {
-            wrongFactIds.push(queueItem(currentFact.factId, currentMissingSide));
-          }
-          return {
-            outcome: "wrong-answer",
-            correct: false,
-            flash: "wrong",
-            message: `La ${promptLabel(currentFact, currentMissingSide)}, ${chosen} nu e corect. Încearcă din nou!`,
-            ...roundView(),
-          };
-        }
-
-        return onStepCorrect();
+        return m3b.laApasareButon({
+          item: { options },
+          index,
+          meta,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
 
       pickNextRound: () => startTurn(),
@@ -446,7 +462,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Tabla adunarii Singapore 6=?+3 - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Tabla adunarii Singapore 6=?+3",
     description:
       "Completează ? în N=?+k sau N=k+? (ex. 6=?+3, 6=2+?). Reluare după greșeli. Nivel 3–10.",
     order: -7,

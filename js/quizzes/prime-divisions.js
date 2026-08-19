@@ -233,6 +233,9 @@
       correctIndex = options.indexOf(currentQuotient);
     }
 
+    // Motor3Butoane apeleaza actiunile ca functii simple, fara `this` legat de
+    // obiectul quizului — de-asta foloseste `quizApi` (setat imediat dupa ce
+    // obiectul e construit, mai jos) in loc de `this.beginRound(...)`.
     function finishSeriesRun(reachedOne, finalView) {
       const snapshot = { ...finalView, divisionHistory: [...finalView.divisionHistory] };
       mistakes.noteRunFlawless();
@@ -264,7 +267,7 @@
           flash: "win",
           banner: "Felicitări! Next level!",
           message: reachedOne ? "Felicitări! Ai ajuns la 1." : "Rundă completă.",
-          nextRound: this.beginRound(next),
+          nextRound: quizApi.beginRound(next),
         };
       }
 
@@ -281,7 +284,7 @@
           : reachedOne
             ? "Felicitări! Ai ajuns la 1."
             : "Rundă completă.",
-        nextRound: this.beginRound(next),
+        nextRound: quizApi.beginRound(next),
       };
     }
 
@@ -298,7 +301,88 @@
       return { startNum: pickCompositeStart(lastRoundStartNum), combo: null };
     }
 
-    return {
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Ca la prime-divisors.js: exista un pas intermediar real (lantul de
+    // impartiri succesive), de-asta mutatia de stare + decizia terminal/continua
+    // se fac in `dupaRaspunsCorect`. Spre deosebire de prime-divisors.js, aici
+    // pasul intermediar avea deja `promptHoldMs`+`continueStep` (o pauza de
+    // 160ms care arata rezultatul impartirii curente inainte de urmatoarea) —
+    // M3B le lasa sa treaca neatinse, sunt citite direct de falling-engine.js.
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => options[index] === currentQuotient,
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `La ${currentDividend}:${currentDivisor}=?, ${ctx.alesul} nu e corect. Încearcă din nou!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (!ctx.corect) {
+            mistakes.recordMistake(
+              buildMistakePayload({
+                dividend: currentDividend,
+                divisor: currentDivisor,
+                correct: currentQuotient,
+                wrong: ctx.alesul,
+              })
+            );
+          }
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          const dividendBefore = currentDividend;
+          const divisorBefore = currentDivisor;
+          const quotientBefore = currentQuotient;
+
+          if (isResolvedCombo(activeComboTrap, dividendBefore, divisorBefore, quotientBefore, quotientBefore)) {
+            mistakes.resolveCombo(activeComboTrap);
+          }
+
+          solvedFactors.push(divisorBefore);
+          divisionHistory.push(buildFactorizationLine(quotientBefore));
+
+          if (quotientBefore === 1) {
+            const result = finishSeriesRun(true, solvedStepView(dividendBefore, divisorBefore));
+            return {
+              action: "continue",
+              view: applyCorrectRevealToResult(result, dividendBefore, divisorBefore, quotientBefore),
+            };
+          }
+
+          if (shouldSkipFinalPrimeStep(quotientBefore) || isBelowLevelFloor(quotientBefore)) {
+            const result = finishSeriesRun(false, solvedStepView(dividendBefore, divisorBefore));
+            return {
+              action: "continue",
+              view: applyCorrectRevealToResult(result, dividendBefore, divisorBefore, quotientBefore),
+            };
+          }
+
+          const answeredStep = {
+            prompt: `${dividendBefore}:${divisorBefore}=${quotientBefore}`,
+            promptHtml: divisionPromptHtml(dividendBefore, divisorBefore, quotientBefore),
+            options: formatOptionsForView(),
+            correctIndex,
+            divisionHistory: [...divisionHistory],
+            hintMessage: "",
+          };
+
+          buildStep(quotientBefore);
+          return {
+            action: "continue",
+            view: {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              promptHoldMs: CORRECT_PROMPT_HOLD_MS,
+              message: `Corect! ${dividendBefore}:${divisorBefore}=${quotientBefore}`,
+              ...answeredStep,
+              continueStep: roundView({ hintMessage: "" }),
+            },
+          };
+        },
+      },
+    });
+
+    const quizApi = {
       getLevel: () => level,
       getMaxLevel: () => MAX_LEVEL,
       isCompleted: () => gameCompleted,
@@ -323,7 +407,7 @@
       switchLevel(lv) {
         level = lv;
         gameCompleted = false;
-        this.resetLevelState();
+        quizApi.resetLevelState();
       },
 
       getLevelLabel: () => levelLabel(level),
@@ -335,7 +419,7 @@
 
       beginRound({ startNum, combo } = pickRoundStart()) {
         if (isBelowLevelFloor(startNum)) {
-          return this.beginRound(pickRoundStart());
+          return quizApi.beginRound(pickRoundStart());
         }
 
         lastRoundStartNum = startNum;
@@ -365,93 +449,25 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, lotul 2). Regula corect/gresit, mesajele
+      // si rezultatul complet raman EXACT cele de dinainte de migrare — vezi
+      // `actiuni` la construirea lui `m3b`, mai sus.
       onAnswer(index) {
-        const dividendBefore = currentDividend;
-        const divisorBefore = currentDivisor;
-        const quotientBefore = currentQuotient;
-        const chosen = options[index];
-
-        if (chosen !== quotientBefore) {
-          mistakes.recordMistake(
-            buildMistakePayload({
-              dividend: dividendBefore,
-              divisor: divisorBefore,
-              correct: quotientBefore,
-              wrong: chosen,
-            })
-          );
-          return {
-            outcome: "wrong-answer",
-            correct: false,
-            flash: "wrong",
-            message: `La ${dividendBefore}:${divisorBefore}=?, ${chosen} nu e corect. Încearcă din nou!`,
-            ...roundView(),
-          };
-        }
-
-        if (isResolvedCombo(activeComboTrap, dividendBefore, divisorBefore, chosen, quotientBefore)) {
-          mistakes.resolveCombo(activeComboTrap);
-        }
-
-        solvedFactors.push(divisorBefore);
-        divisionHistory.push(buildFactorizationLine(quotientBefore));
-
-        if (quotientBefore === 1) {
-          const result = finishSeriesRun.call(
-            this,
-            true,
-            solvedStepView(dividendBefore, divisorBefore)
-          );
-          return applyCorrectRevealToResult(
-            result,
-            dividendBefore,
-            divisorBefore,
-            quotientBefore
-          );
-        }
-
-        if (shouldSkipFinalPrimeStep(quotientBefore) || isBelowLevelFloor(quotientBefore)) {
-          const result = finishSeriesRun.call(
-            this,
-            false,
-            solvedStepView(dividendBefore, divisorBefore)
-          );
-          return applyCorrectRevealToResult(
-            result,
-            dividendBefore,
-            divisorBefore,
-            quotientBefore
-          );
-        }
-
-        const answeredStep = {
-          prompt: `${dividendBefore}:${divisorBefore}=${quotientBefore}`,
-          promptHtml: divisionPromptHtml(dividendBefore, divisorBefore, quotientBefore),
-          options: formatOptionsForView(),
-          correctIndex,
-          divisionHistory: [...divisionHistory],
-          hintMessage: "",
-        };
-
-        buildStep(quotientBefore);
-        return {
-          outcome: "step-correct",
-          correct: true,
-          bounce: true,
-          promptHoldMs: CORRECT_PROMPT_HOLD_MS,
-          message: `Corect! ${dividendBefore}:${divisorBefore}=${quotientBefore}`,
-          ...answeredStep,
-          continueStep: roundView({ hintMessage: "" }),
-        };
+        return m3b.laApasareButon({
+          item: { options },
+          index,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
 
       pickNextRound: () => pickRoundStart(),
     };
+    return quizApi;
   }
 
   global.QuizRegistry.register({
     id: "prime-divisions",
-    title: "Împărțiri la numere prime - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Împărțiri la numere prime",
     description: "Alege câtul corect pentru împărțiri succesive cu divizori primi.",
     order: 1,
     gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },

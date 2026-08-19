@@ -12,13 +12,18 @@
 
 ## Stare curentă
 
-**Faza:** C — COMPLETĂ. Toate cele 24 de quizuri sunt vizibil nefuncționale în meniu, intenționat.
-**Următorul pas:** Faza D — migrarea, în loturi de câte 5 fișiere.
+**Faza:** D — în lucru. Lotul 1 COMPLET (commit `f0ded97`, push confirmat). Lotul 2 COMPLET
+(5/5 fișiere migrate, verificate live, commit în curs de pregătire — vezi jurnal).
+**Următorul pas:** Lotul 3 — motoarele partajate din afara `js/quizzes/`
+(`js/succesive-quiz/engine.js`, `js/conexe-table-quiz/engine.js`, `js/eff-quiz/engine.js`,
+`js/quizzes/pre-equations-eff-navigation.js`, `js/quizzes/multiplication-1120-v2.js`),
+deblochează 9 intrări de meniu. Mai complex: fiecare motor alimentează mai multe helper-fișiere.
 **Modulul:** `js/motor-3-butoane.js` — „Motor 3 butoane" (M3B), numele dat de user.
 **Autorizare 18.08.2026, noapte:** userul a cerut explicit sa continui fara sa astept confirmare
-la fiecare OPRIRE, "conform planului" — comit si implementez in continuare autonom.
-**Aplicația:** complet funcțională. Impunerea (Faza C) încă nu s-a făcut, deci niciun quiz nu e marcat „NEFUNCȚIONAL".
-**Ultima actualizare:** 18.08.2026
+la fiecare OPRIRE, "conform planului" — comit si implementez in continuare autonom. Autorizarea
+e in vigoare, neschimbata.
+**Aplicația:** funcțională; quizurile nemigrate rămân marcate „NEFUNCȚIONAL" în meniu intenționat.
+**Ultima actualizare:** 19.08.2026
 
 ---
 
@@ -42,6 +47,8 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 18.08.2026 | Faza A | Citire completă (18 fișiere + 17 subquizuri), contract propus, apoi corectat de user de mai multe ori: mecanism de avans forțat fără răspuns corect ("plasa de siguranță") — găsit într-un singur loc (sq3), eliminat complet din contract, nicăieri nu există limită de încercări. Clarificat: „răspuns corect" la nivel de tură = doar prima apăsare, apăsările ulterioare sunt corectare, nu re-evaluare (deja consemnat, corect, în jurnalul/Vizualizare 3 existent — verificat, nu era gaură nouă). Decizie nouă de scop: orice quiz trece prin `SubquizOrchestrator`, minim o bucată — vezi §12 din plan. Faza A aprobată. | **complet** |
 | 18.08.2026 | Faza B | Scris `js/motor-3-butoane.js` (M3B) + `tests/motor-3-butoane.test.js` (15 teste, toate verzi). Numele și vocabularul motoarelor (mr/mq/msq/ML/M3B) date de user. Nimic altceva neatins: niciun quiz nu-l folosește încă, nu e încărcat în `index.html`. Suita completă: 423 teste, 420 trec (3 picate preexistente, sensibile la dată). | **scris, așteaptă verificare** |
 | 18.08.2026 | Faza C | User a autorizat explicit continuarea autonomă, fără OPRIRI, "e noapte". `falling-engine.js` impune semnătura M3B (aruncă altfel); toate cele 24 de quizuri sufixate „NEFUNCTIONAL" în meniu; `rigle-cl1` verificat neafectat (static + test + live); test-santinelă nou. Reparat pe drum: un test preexistent (`falling-engine-jurnal-timing.test.js`) folosea un quiz simulat pe vechea cale — actualizat sa treaca prin M3B, nu relaxat. 7 teste noi picate, așteptate (title-uri sufixate), documentate mai jos — se rezolvă singure la migrare. Verificat live în browser: eroarea chiar apare la apăsare pe quiz nemigrat. | **complet** |
+| 18.08.2026 | Faza D, Lot 1 | 5 fișiere migrate (`addition-table`, `addition-table-range`, `prime-divisors`, `sub-sau-langa-radical`, `bagare-sub-radical`). Corecție de comportament intenționată la `bagare-sub-radical` (Categoria 4+6). Commit `f0ded97`, push confirmat. | **complet** |
+| 19.08.2026 | Faza D, Lot 2 | 5 fișiere migrate (`addition-table-singapore`, `addition-table-singapore-missing`, `division-with-remainder`, `prime-divisions`, `equations-e3-e6`). Corecție de comportament intenționată la `division-with-remainder` (Categoria 4+6, ca la `bagare-sub-radical`). Primele fișiere cu `promptHoldMs`+`continueStep` proprii — confirmat că trec neatinse prin M3B. Verificat live în browser pentru toate 5, zero erori consolă. 483 teste, 475 trec (8 picate, toate așteptate: 3 preexistente + 5 title-uri pentru fișiere încă nemigrate din Loturile 3-4). | **complet** |
 
 ---
 
@@ -113,7 +120,7 @@ unui quiz la înregistrare, acum sufixat:
 
 - `tests/addition-table-conexe-helper.test.js` ("registers quiz metadata")
 - `tests/division-table-conexe-helper.test.js` ("registers quiz metadata")
-- `tests/equations-e3-e6.test.js` ("registers the new quiz with the exact requested title")
+- ~~`tests/equations-e3-e6.test.js`~~ — REZOLVAT, migrat în Lotul 2
 - `tests/multiplication-1120-v2-modular.test.js` ("registers as a separate visible lab quiz")
 - `tests/multiplication-table-conexe-helper.test.js` ("registers quiz metadata")
 - ~~`tests/sub-sau-langa-radical.test.js`~~ — REZOLVAT, migrat în Lotul 1
@@ -145,11 +152,44 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
 - [x] **LOTUL 1 COMPLET.** Toate 5 fișiere migrate, testate, verificate live.
 
 ### Lotul 2
-- [ ] `js/quizzes/addition-table-singapore.js` (1) — *fără test: scris test întâi*
-- [ ] `js/quizzes/addition-table-singapore-missing.js` (1) — *fără test: scris test întâi*
-- [ ] `js/quizzes/division-with-remainder.js` (1) — *fără test: scris test întâi*
-- [ ] `js/quizzes/prime-divisions.js` (1) — *fără test: scris test întâi*
-- [ ] `js/quizzes/equations-e3-e6.js` (1) — are test
+- [x] `js/quizzes/addition-table-singapore.js` (1) — migrat, 8 teste noi (scris test după
+      migrare, fișierul nu avea test dedicat). Migrare pură, comportament neschimbat (gresit
+      era deja conform). Prima migrare cu `promptHoldMs`/`continueStep` — confirmat că trec
+      neatinse prin M3B (câmpuri de nivel `mr`, nu ating `outcome`/`correct`). Are pas
+      intermediar real (coadă de fapte pe același tur) ȘI fază de retry separată — ambele
+      verificate, inclusiv cazul „greșeală pe primul fapt → retry phase, fără avans de nivel".
+- [x] `js/quizzes/addition-table-singapore-missing.js` (1) — migrat, 8 teste noi, aceeași
+      structură ca fișierul de mai sus (+ dimensiunea `missingSide`), migrare pură.
+- [x] `js/quizzes/division-with-remainder.js` (1) — migrat, 8 teste noi. **Comportament vizibil
+      CORECTAT** (Categoria 4): înainte, un răspuns greșit sărea la o variantă „retry" (formă
+      opusă) sau la o întrebare nouă — acum rămâne pe loc. Pragul de 21 numără acum doar
+      răspunsuri rezolvate corect (Categoria 6), nu orice apăsare — 21 neschimbat ca număr.
+      Șters codul mort rămas fără corecție (`oppositeForm`, `isRetry`, variantele „retry").
+      Test dedicat: 21 rezolvări corecte cu răspuns greșit interleaved la fiecare, confirmă
+      simultan că greșitul nu avansează contorul ȘI nu strică artificial streak-ul de 5.
+- [x] `js/quizzes/prime-divisions.js` (1) — migrat, 6 teste noi. Frate cu
+      `prime-divisors.js` (lotul 1) dar cu o diferență: aici FIECARE pas
+      intermediar are propria pauză (`promptHoldMs:160`+`continueStep`, nu doar
+      pasul terminal) — păstrată neatinsă. A necesitat restructurare `quizApi`
+      (ca la `addition-table.js`), fiindcă `finishSeriesRun` folosea
+      `this.beginRound(...)`. Capcană găsită la scrierea testului: `round.options`
+      sunt STRING-uri de afișare, nu numerele interne — `isPrime("2")` dă fals
+      negativ (verifică `n === 2`, strict) dacă nu convertești cu `Number(...)`
+      întâi; al doilea test a fost inițial vid sub determinism complet (primul
+      cât e mereu prim) — rescris cu căutare (`deterministic:false` + retry)
+      pentru un lanț cu pas intermediar real, verificat de 8 ori la rând.
+- [x] `js/quizzes/equations-e3-e6.js` (1) — migrat, testul existent (11 teste)
+      adaptat (adăugat `motor-3-butoane.js` la încărcare) și verde. Migrare
+      pură, comportament neschimbat (greșit era deja conform).
+- [x] **LOTUL 2 COMPLET.** Verificat live în browser (nu doar teste node) pentru
+      toate cele 5 fișiere: greșit rămâne pe loc, corect avansează, pas
+      intermediar → nou pas, tur fără greșeli → avans nivel, tur cu greșeală →
+      fază retry (istoric golit, faptul greșit reapare) — totul confirmat vizual
+      prin citirea DOM-ului real, zero erori în consolă pe parcursul întregii
+      sesiuni de verificare. Notă (nu e bug de reparat, preexistent, neatins):
+      `division-with-remainder.js` afișează uneori „—" ca opțiune (field „r" cu
+      `i=2` are un singur trap valid posibil, `pickTraps` nu poate umple al
+      doilea) — verificat live că nu produce crash, doar o opțiune mereu greșită.
 - [ ] **OPRIRE** — „Am modificat și testat quizurile ...", userul verifică și el
 
 ### Lotul 3 — motoarele partajate (deblochează 9 intrări de meniu)

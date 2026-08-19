@@ -746,6 +746,35 @@
       };
     }
 
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Migrare pura: regula corect/gresit era deja conforma (gresit nu atinge
+    // `current`, ramane pe aceeasi intrebare). `dupaApasare` inregistreaza
+    // FIECARE apasare (ca inainte), `dupaRaspunsCorect` muta starea si pastreaza
+    // dezvaluirea raspunsului (`revealedPrompt`/`revealedPromptHtml`) exact ca
+    // inainte de migrare, la finalul unei ture.
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => Boolean(current) && Number(current.options?.[index]) === current.correct,
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          recordAttempt(ctx.corect, Number(ctx.alesul), ctx.meta);
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          const solved = current;
+          const result = nextAfterCorrect();
+          if (result.runComplete) {
+            result.prompt = revealedPrompt(solved);
+            result.promptHtml = revealedPromptHtml(solved);
+          }
+          return { action: "continue", view: result };
+        },
+      },
+    });
+
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
       getLevel: () => level,
@@ -789,28 +818,15 @@
           ...roundView(),
         };
       },
+      // Migrat la Motor3Butoane (Faza D, lotul 2) — vezi `actiuni` la
+      // construirea lui `m3b`, mai sus.
       onAnswer(index, meta = {}) {
-        const chosen = Number(current?.options?.[index]);
-        const isCorrect = current && chosen === current.correct;
-        const solved = current;
-        recordAttempt(isCorrect, chosen, meta);
-
-        if (!isCorrect) {
-          return {
-            outcome: "wrong-answer",
-            correct: false,
-            flash: "wrong",
-            message: `${chosen} nu e bun. Mai incearca.`,
-            ...roundView(),
-          };
-        }
-
-        const result = nextAfterCorrect();
-        if (result.runComplete) {
-          result.prompt = revealedPrompt(solved);
-          result.promptHtml = revealedPromptHtml(solved);
-        }
-        return result;
+        return m3b.laApasareButon({
+          item: { options: current?.options },
+          index,
+          meta,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
       getTonomatConfig: () => ({
         ...quizConfig,
@@ -1042,7 +1058,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: QUIZ_TITLE,
     description:
       "Tonomat combinatoric E3/E4/E5/E6, etapa 1: acelasi semn, necunoscuta in orice slot numeric.",
     order: -3,

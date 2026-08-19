@@ -20,10 +20,6 @@
     return level + 1;
   }
 
-  function oppositeForm(form) {
-    return form === FORM_COLON ? FORM_STAR : FORM_COLON;
-  }
-
   function isValidRemainder(r, i) {
     return Number.isInteger(r) && r >= 0 && r < i;
   }
@@ -141,7 +137,7 @@
     return traps.slice(0, 2);
   }
 
-  function buildQuestion(fact, form, field, isRetry) {
+  function buildQuestion(fact, form, field) {
     const { shuffle } = global.GameUtils;
     const correct = fact[field];
     const traps = pickTraps(correct, field, fact);
@@ -151,7 +147,6 @@
       fact,
       form,
       field,
-      isRetry: Boolean(isRetry),
       prompt: buildPrompt(fact, form, field),
       correct,
       options,
@@ -197,7 +192,7 @@
       const fact = generateFact(level);
       const form = randomInt(0, 1) === 0 ? FORM_COLON : FORM_STAR;
       const field = FIELDS[randomInt(0, FIELDS.length - 1)];
-      return buildQuestion(fact, form, field, false);
+      return buildQuestion(fact, form, field);
     }
 
     function advanceLevel(via) {
@@ -236,60 +231,56 @@
       };
     }
 
-    function afterAnswer(isCorrect) {
-      questionCount += 1;
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // CORECTIE INTENTIONATA fata de comportamentul dinainte de migrare
+    // (Categoria 4 din FAZA-A-inventar-contract.md, la fel ca la
+    // bagare-sub-radical.js): inainte, un raspuns gresit sarea la o intrebare
+    // noua (varianta "retry" cu forma opusa, apoi o intrebare complet noua) —
+    // asta incalca regula universala. Acum gresit ramane pe ACEEASI intrebare
+    // (comportamentul implicit din M3B), fara variante "retry" separate.
+    // A doua corectie (Categoria 6): `questionCount` (pragul de 21) numara azi
+    // la FIECARE apasare, inclusiv gresite — dupa migrare numara doar la
+    // raspunsuri REZOLVATE (corecte), pragul de 21 ramane neschimbat.
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: () => "Nu e corect. Mai încearcă!",
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (!ctx.corect) {
+            consecutiveCorrect = 0;
+          }
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          questionCount += 1;
 
-      if (questionCount >= QUESTIONS_PER_LEVEL) {
-        return advanceLevel("count");
-      }
+          if (questionCount >= QUESTIONS_PER_LEVEL) {
+            return { action: "continue", view: advanceLevel("count") };
+          }
 
-      if (!isCorrect) {
-        consecutiveCorrect = 0;
+          consecutiveCorrect += 1;
 
-        if (!current.isRetry) {
-          const retry = buildQuestion(
-            current.fact,
-            oppositeForm(current.form),
-            current.field,
-            true
-          );
-          current = retry;
+          if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
+            return { action: "continue", view: advanceLevel("streak") };
+          }
+
+          current = pickNewQuestion();
           return {
-            outcome: "step-correct",
-            correct: false,
-            flash: "wrong",
-            resetFall: true,
-            message: "Nu e corect. Mai încearcă!",
-            ...roundView(),
+            action: "continue",
+            view: {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Corect!",
+              ...roundView(),
+            },
           };
-        }
-
-        current = pickNewQuestion();
-        return {
-          outcome: "step-correct",
-          correct: false,
-          flash: "wrong",
-          resetFall: true,
-          message: "Nu e corect.",
-          ...roundView(),
-        };
-      }
-
-      consecutiveCorrect += 1;
-
-      if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
-        return advanceLevel("streak");
-      }
-
-      current = pickNewQuestion();
-      return {
-        outcome: "step-correct",
-        correct: true,
-        bounce: true,
-        message: "Corect!",
-        ...roundView(),
-      };
-    }
+        },
+      },
+    });
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -338,10 +329,14 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, lotul 2) — vezi corectiile de
+      // comportament (Categoria 4 si 6) la constructia lui `m3b`, mai sus.
       onAnswer(index) {
-        const chosen = Number(current.options[index]);
-        const isCorrect = chosen === current.correct;
-        return afterAnswer(isCorrect);
+        return m3b.laApasareButon({
+          item: { options: current.options },
+          index,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
     };
   }
@@ -350,7 +345,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Impartiri cu rest 1-10 - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Impartiri cu rest 1-10",
     description:
       "Împărțiri cu rest: d:i=c rest r și d=i*c+r. Niveluri 2–10, 21 răspunsuri sau 5 corecte la rând.",
     order: -4,
