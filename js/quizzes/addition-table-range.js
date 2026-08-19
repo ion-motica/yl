@@ -32,8 +32,23 @@
     let activeComboTrap = null;
     let lastFactId = null;
     let gameCompleted = false;
+    let orchestrator = null;
     const recentQuestionIds = [];
     const learnedByLevel = new Map();
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js / addition-table.js pt.
+    // explicatia completa). Orchestratorul porneste O SINGURA DATA, la
+    // construirea quiz-ului, cu un `generator` gol care nu se mai cheama
+    // niciodata dupa aia — de-acolo incolo, un singur apel neconditionat
+    // tine sincronizat itemul lui cu `currentFact`/`options`.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: currentFact?.prompt ?? "—",
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     function learnedSetForLevel(targetLevel = level) {
       if (!learnedByLevel.has(targetLevel)) learnedByLevel.set(targetLevel, new Set());
@@ -247,7 +262,7 @@
       buildOptionsForFact(currentFact, combo);
       lastFactId = currentFact.factId;
       pushRecent(recentQuestionIds, currentFact.factId);
-      m3b.laAfisareaIntrebarii({ item: currentFact });
+      sincronizeazaOrchestratorul();
       return roundView({
         hintMessage: combo ? "Exersează combinația greșită!" : "Alege suma corectă.",
       });
@@ -321,41 +336,60 @@
     // Fiecare fapt rezolvat e propriul lui "run" (outcome mereu "run-complete"),
     // de-asta rezultatul complet vine din `dupaRaspunsCorect`, nu din
     // `intrebareUrmatoare` (neatinsa, nu se cheama niciodata aici).
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => options[index] === currentFact.correctAnswer,
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `${currentFact.prompt.replace("=?", "")} nu este ${ctx.alesul}. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
-          return {};
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `options` proprii sunt NUMERE, dar motorul comun
+    // normalizeaza la STRING-uri — `dupaApasare`/`mesaje.gresit` citesc
+    // `options[ctx.index]` direct din closure, NU `ctx.alesul`, ca la
+    // addition-table.js (acelasi tipar, aceeasi capcana).
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: "Alege suma corectă.",
+        esteCorect: (_item, index) => options[index] === currentFact.correctAnswer,
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) =>
+            `${currentFact.prompt.replace("=?", "")} nu este ${options[ctx.index]}. Încearcă din nou!`,
         },
-        dupaRaspunsCorect: (ctx) => {
-          learnedSetForLevel(level).add(currentFact.factId);
+        actiuni: {
+          dupaApasare: (ctx) => {
+            recordAttempt(ctx.corect, options[ctx.index], ctx.meta);
+            return { divisionHistory: [] };
+          },
+          dupaRaspunsCorect: () => {
+            learnedSetForLevel(level).add(currentFact.factId);
 
-          const correctAnswer = currentFact.correctAnswer;
-          const promptWithAnswerText = currentFact.prompt.includes("=?")
-            ? currentFact.prompt.replace("=?", `=${correctAnswer}`)
-            : currentFact.prompt.replace("?", String(correctAnswer));
-          const promptWithAnswerHtml = currentFact.prompt.includes("=?")
-            ? currentFact.prompt.replace("=?", `=<span class="q-correct">${correctAnswer}</span>`)
-            : currentFact.prompt.replace("?", `<span class="q-correct">${correctAnswer}</span>`);
+            const correctAnswer = currentFact.correctAnswer;
+            const promptWithAnswerText = currentFact.prompt.includes("=?")
+              ? currentFact.prompt.replace("=?", `=${correctAnswer}`)
+              : currentFact.prompt.replace("?", String(correctAnswer));
+            const promptWithAnswerHtml = currentFact.prompt.includes("=?")
+              ? currentFact.prompt.replace("=?", `=<span class="q-correct">${correctAnswer}</span>`)
+              : currentFact.prompt.replace("?", `<span class="q-correct">${correctAnswer}</span>`);
 
-          const rezultat = finishSolvedFact();
-          rezultat.prompt = promptWithAnswerText;
-          rezultat.promptHtml = promptWithAnswerHtml;
-          rezultat.options = options;
-          rezultat.correctIndex = correctIndex;
-          rezultat.hintMessage = "";
-          rezultat.levelAdvanced = false;
-          rezultat.runDelayMs = CORRECT_PROMPT_HOLD_MS;
+            const rezultat = finishSolvedFact();
+            rezultat.prompt = promptWithAnswerText;
+            rezultat.promptHtml = promptWithAnswerHtml;
+            rezultat.options = options;
+            rezultat.correctIndex = correctIndex;
+            rezultat.hintMessage = "";
+            rezultat.levelAdvanced = false;
+            rezultat.runDelayMs = CORRECT_PROMPT_HOLD_MS;
 
-          return { action: "continue", view: rezultat };
+            return { action: "continue", view: rezultat };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: { quizId: QUIZ_ID },
     });
+    orchestrator.startFirst();
 
     const quizApi = {
       getLevel: () => level,
@@ -415,16 +449,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md). Regula
-      // corect/gresit, mesajele si rezultatul complet raman EXACT cele de
-      // dinainte de migrare — vezi `actiuni` la construirea lui `m3b`, mai sus.
+      // Migrat la Motor3Butoane (Faza D), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
       onAnswer(index, meta = {}) {
-        return m3b.laApasareButon({
-          item: { options },
-          index,
-          meta,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+        return orchestrator.onAnswer(index, meta);
       },
 
       pickNextRound: () => pickRoundStart(),

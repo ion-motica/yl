@@ -21,6 +21,9 @@ function setupQuiz({ deterministic = true } = {}) {
     "js/fact-store.js",
     "js/fact-stats.js",
     "js/quiz-registry.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
     "js/quizzes/addition-table-range.js",
   ].forEach(loadScript);
@@ -46,6 +49,9 @@ describe("addition-table-range (Faza D lot 1)", () => {
     delete globalThis.FactCatalog;
     delete globalThis.FactStore;
     delete globalThis.FactStats;
+    delete globalThis.ItemGenerator;
+    delete globalThis.SubquizDefinition;
+    delete globalThis.SubquizOrchestrator;
     delete globalThis.Motor3Butoane;
   });
 
