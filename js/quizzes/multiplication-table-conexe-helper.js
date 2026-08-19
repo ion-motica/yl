@@ -3,7 +3,7 @@
 
   global.QuizRegistry.register({
     id: "multiplication-table-conexe-helper",
-    title: "Tabla inmultirii - intrebari ajutatoare 5*?=15 - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Tabla inmultirii - intrebari ajutatoare 5*?=15",
     description:
       "Conexe pentru tabla înmulțirii (?*b, a*?, c=?*b, c=a*?). Alternanță M1/M2, nivel 1–20.",
     order: -13,

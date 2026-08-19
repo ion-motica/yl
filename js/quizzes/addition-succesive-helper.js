@@ -3,7 +3,7 @@
 
   global.QuizRegistry.register({
     id: "addition-succesive",
-    title: "Adunări succesive - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Adunări succesive",
     description:
       "Lift cu adunări în lanț: 20+5, 25+5, 30+5... Serii de 3/5/7 întrebări. Nivel N = adunare cu N (1..20). Avansezi după o serie fără greșeli.",
     order: -100,

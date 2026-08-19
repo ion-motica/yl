@@ -557,6 +557,46 @@
       return true;
     }
 
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Migrare pura: regula corect/gresit era deja conforma (gresit nu atinge
+    // `current`/`currentStep`, ramane pe acelasi pas). Exista un pas
+    // intermediar real (3 pasi per triunghi, Categoria 7): `dupaRaspunsCorect`
+    // fie trece la pasul urmator (step-correct), fie incheie ciclul triunghiului
+    // (`completeCycle()`, care poate incheia si nivelul intreg, prin `completeLevel()`).
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => isCorrectChoice(index),
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (!ctx.corect) {
+            currentCycleHadMistake = true;
+          }
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          if (currentStep < 2) {
+            currentStep += 1;
+            buildQuestion();
+            return {
+              action: "continue",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                message: "Corect!",
+                ...roundView(),
+              },
+            };
+          }
+
+          return { action: "continue", view: completeCycle() };
+        },
+      },
+    });
+
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
       getLevel: () => level,
@@ -607,32 +647,14 @@
           ...roundView(),
         };
       },
+      // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
+      // construirea lui `m3b`, mai sus.
       onAnswer(index) {
-        const chosen = current?.options?.[index];
-        if (!isCorrectChoice(index)) {
-          currentCycleHadMistake = true;
-          return {
-            outcome: "wrong-answer",
-            correct: false,
-            flash: "wrong",
-            message: `${chosen} nu e bun. Mai incearca.`,
-            ...roundView(),
-          };
-        }
-
-        if (currentStep < 2) {
-          currentStep += 1;
-          buildQuestion();
-          return {
-            outcome: "step-correct",
-            correct: true,
-            bounce: true,
-            message: "Corect!",
-            ...roundView(),
-          };
-        }
-
-        return completeCycle();
+        return m3b.laApasareButon({
+          item: { options: current?.options },
+          index,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
       getPreEquationNavigationConfig() {
         return {
@@ -849,7 +871,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: QUIZ_TITLE,
     description:
       "Quiz izolat: lanturi pre-ecuatii EFF pe triunghiuri aditive.",
     order: -2,

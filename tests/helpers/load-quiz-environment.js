@@ -12,6 +12,7 @@ const CORE_SCRIPTS = [
   "js/fact-store.js",
   "js/progress-display.js",
   "js/quiz-registry.js",
+  "js/motor-3-butoane.js",
   "js/conexe-table-quiz/constants.js",
   "js/conexe-table-quiz/engine.js",
   "js/conexe-table-quiz/adapters/addition.js",

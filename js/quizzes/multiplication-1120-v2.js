@@ -936,10 +936,38 @@
       };
     }
 
-    function onAnchorSumAnswer(isCorrect, chosen) {
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    //
+    // CORECTIE INTENTIONATA majora (Categoriile 3, 4 si 6 din
+    // FAZA-A-inventar-contract.md — cel mai mare numar de incalcari gasite
+    // intr-un singur fisier pana acum):
+    //   - `anchorSumValues`: pe gresit, sarea la o intrebare NOUA (Cat. 3/4) —
+    //     acum ramane pe loc, ca peste tot.
+    //   - modul „intensiv" (10 intrebari de antrenament) si sub-modurile lui
+    //     surori (`effectiveIntensiv`, `nonAnchorProductsIntensiv`): comentariul
+    //     original spunea explicit „Greșelile sunt IGNORATE — avansăm
+    //     indiferent de corect/greșit" — asta incalca regula universala fara
+    //     nicio exceptie posibila (user, verbatim: „indiferent de quiz sau
+    //     subquiz"). Acum gresit ramane pe loc si aici, ca peste tot.
+    //   - starea placeholder „fara candidati" la rapidAnchorAdditions avansa
+    //     necondiționat la orice apasare; acum doar apasarea pe indexul
+    //     „corect" al placeholder-ului avanseaza.
+    //   - `productQuestionCount`/`subquizQuestionCount`/`answeredCount`/
+    //     `intensivCount` numarau la FIECARE apasare, inclusiv gresite
+    //     (Categoria 6) — acum numara doar la raspunsuri REZOLVATE (corecte),
+    //     pragurile (12, 7, 21, 10, 3, 10) raman neschimbate ca numere.
+    //   - `onProductAnswer` avansa nivelul (`advanceLevel`) direct pe un
+    //     raspuns GRESIT daca `productQuestionCount>=21` — eliminat complet,
+    //     acel prag se verifica azi doar dupa raspunsuri corecte.
+    //
+    // Fiecare functie `on...Correct()` de mai jos e versiunea CORECTATA a
+    // fostei `on...Answer(isCorrect, chosen)`: ramura de „gresit" a disparut de
+    // aici (M3B o gestioneaza implicit, prin `mesaje.gresit`), iar efectele ei
+    // secundare (marcarea faptului gresit) traiesc acum in `dupaApasare`.
+
+    function onAnchorSumCorrect() {
       subquizQuestionCount++;
-      if (isCorrect) subquizCorrectStreak++;
-      else subquizCorrectStreak = 0;
+      subquizCorrectStreak++;
 
       if (subquizQuestionCount >= 12 || subquizCorrectStreak >= 7) {
         return completeAnchorSum();
@@ -947,23 +975,21 @@
 
       buildAnchorSumQuestion();
       return {
-        outcome: isCorrect ? "step-correct" : "wrong-answer",
-        correct: isCorrect,
-        bounce: isCorrect,
-        flash: isCorrect ? undefined : "wrong",
-        message: isCorrect ? "Corect!" : `${chosen} nu e bun. Mai încearcă!`,
+        outcome: "step-correct",
+        correct: true,
+        bounce: true,
+        message: "Corect!",
         ...roundView(),
       };
     }
 
-    function onRapidAnchorAdditionAnswer(isCorrect, chosen) {
+    function onRapidAnchorAdditionCorrect() {
       if (current?.type === "rapidAnchorAdditionsNoCandidates") {
         return completeRapidAnchorAdditions("rapidAnchorAdditionsNoCandidates");
       }
 
       subquizQuestionCount++;
-      if (isCorrect) subquizCorrectStreak++;
-      else subquizCorrectStreak = 0;
+      subquizCorrectStreak++;
 
       const candidateCount = getRapidCandidates().length;
       const multipleCandidateLimit = Math.min(12, candidateCount * 3);
@@ -971,17 +997,7 @@
         return completeRapidAnchorAdditions("rapidAnchorAdditions");
       }
 
-      if (!isCorrect) {
-        return {
-          outcome: "wrong-answer",
-          correct: false,
-          flash: "wrong",
-          message: `${chosen} nu e bun. Mai încearcă!`,
-          ...roundView(),
-        };
-      }
-
-      if (candidateCount === 1 && isCorrect) {
+      if (candidateCount === 1) {
         return completeRapidAnchorAdditions("rapidAnchorAdditions");
       }
 
@@ -995,7 +1011,7 @@
       };
     }
 
-    function onEffectiveAnchorAdditionAnswer(isCorrect, chosen) {
+    function onEffectiveAnchorAdditionCorrect() {
       if (mode === "effectiveIntensiv") {
         effectiveIntensiveCount++;
         if (effectiveIntensiveCount >= effectiveIntensiveQueue.length) {
@@ -1022,22 +1038,10 @@
       }
 
       subquizQuestionCount++;
-      if (isCorrect) subquizCorrectStreak++;
-      else subquizCorrectStreak = 0;
+      subquizCorrectStreak++;
 
       if (subquizQuestionCount >= 21 || subquizCorrectStreak >= 10) {
         return completeEffectiveAnchorAddition();
-      }
-
-      if (!isCorrect) {
-        noteEffectiveMistake(current.factB);
-        return {
-          outcome: "wrong-answer",
-          correct: false,
-          flash: "wrong",
-          message: `${chosen} nu e bun. Mai încearcă!`,
-          ...roundView(),
-        };
       }
 
       if (effectiveProblemBs.length >= 2) {
@@ -1061,7 +1065,7 @@
       };
     }
 
-    function onProductAnswer(isCorrect, chosen) {
+    function onProductCorrect() {
       if (mode === "nonAnchorProductsIntensiv") {
         productIntensiveCount++;
         if (productIntensiveCount >= productIntensiveQueue.length) {
@@ -1088,20 +1092,7 @@
       }
 
       productQuestionCount++;
-      if (isCorrect) productCorrectStreak++;
-      else productCorrectStreak = 0;
-
-      if (!isCorrect) {
-        if (!productWrongBs.includes(current.factB)) productWrongBs.push(current.factB);
-        if (productQuestionCount >= 21) return advanceLevel("nonAnchorProducts");
-        return {
-          outcome: "wrong-answer",
-          correct: false,
-          flash: "wrong",
-          message: `${chosen} nu e bun. Mai încearcă!`,
-          ...roundView(),
-        };
-      }
+      productCorrectStreak++;
 
       if (productWrongBs.length >= 2) {
         startProductIntensive();
@@ -1128,80 +1119,41 @@
       };
     }
 
-    function onAnswer(index, meta = {}) {
-      const cur = current;
-      const chosen = cur.options[index];
-      const isCorrect = Number(chosen) === Number(cur.correct);
-
-      if (stage === "anchorSumValues") {
-        return onAnchorSumAnswer(isCorrect, chosen);
-      }
-
-      if (stage === "rapidAnchorAdditions") {
-        return onRapidAnchorAdditionAnswer(isCorrect, chosen);
-      }
-
-      if (stage === "effectiveAnchorAddition") {
-        return onEffectiveAnchorAdditionAnswer(isCorrect, chosen);
-      }
-
-      if (stage === "nonAnchorProducts") {
-        return onProductAnswer(isCorrect, chosen);
-      }
-
-      // ── MOD INTENSIV ───────────────────────────────────────────────────────
-      // Instrument de antrenament (NU mastery): 10 întrebări pe cele 2 facts
-      // greșite (5+5, ordine aleatoare). Greșelile sunt IGNORATE — avansăm indiferent de
-      // corect/greșit. La final revenim la anchor (sau nivel următor la 2 sesiuni).
-      if (mode === "intensiv") {
-        intensivCount++;
-        if (intensivCount >= INTENSIV_QUESTIONS) {
-          if (isDirectTestModeFor("intensivOnly")) return advanceLevel("intensiv");
-          intensivSessionsDone++;
-          mode = "anchor";
-          if (intensivSessionsDone >= INTENSIV_SESSIONS_PER_LEVEL) {
-            return completeNormal("intensiv");
-          }
-          return {
-            outcome: "step-correct",
-            correct: true,
-            bounce: true,
-            message: "Înapoi la test anchors.",
-            ...nextAnchorQuestion(),
-          };
+    // ── MOD INTENSIV ───────────────────────────────────────────────────────
+    // Instrument de antrenament (NU mastery): 10 întrebări pe cele 2 facts
+    // greșite (5+5, ordine aleatoare). La final revenim la anchor (sau nivel
+    // următor la 2 sesiuni).
+    function onIntensivCorrect() {
+      intensivCount++;
+      if (intensivCount >= INTENSIV_QUESTIONS) {
+        if (isDirectTestModeFor("intensivOnly")) return advanceLevel("intensiv");
+        intensivSessionsDone++;
+        mode = "anchor";
+        if (intensivSessionsDone >= INTENSIV_SESSIONS_PER_LEVEL) {
+          return completeNormal("intensiv");
         }
-        buildIntensivQuestion();
         return {
           outcome: "step-correct",
           correct: true,
           bounce: true,
-          message: `Intensiv ${intensivCount + 1}/${INTENSIV_QUESTIONS}`,
-          ...roundView(),
+          message: "Înapoi la test anchors.",
+          ...nextAnchorQuestion(),
         };
       }
+      buildIntensivQuestion();
+      return {
+        outcome: "step-correct",
+        correct: true,
+        bounce: true,
+        message: `Intensiv ${intensivCount + 1}/${INTENSIV_QUESTIONS}`,
+        ...roundView(),
+      };
+    }
 
-      // ── ANCHOR TEST ────────────────────────────────────────────────────────
+    // ── ANCHOR TEST ────────────────────────────────────────────────────────
+    function onAnchorCorrect(meta) {
       answeredCount++;
-
-      if (!isCorrect) {
-        if (!wrongFacts.some((w) => w.b === cur.factB)) {
-          wrongFacts.push({ b: cur.factB, label: factLabel(cur.factB) });
-        }
-
-        if (answeredCount >= QUESTIONS_PER_LEVEL) return completeNormal();
-
-        // 2 facts distincte greșite → rămânem pe aceeași întrebare până la
-        // răspuns corect; abia atunci intrăm în modul intensiv.
-        return {
-          outcome: "wrong-answer",
-          correct: false,
-          flash: "wrong",
-          message: `${chosen} nu e bun. Mai încearcă!`,
-          ...roundView(),
-        };
-      }
-
-      lastCorrectByB[cur.factB] = meta.responseMs ?? null;
+      lastCorrectByB[current.factB] = meta.responseMs ?? null;
 
       // 2 facts DISTINCTE greșite + răspuns corect pe întrebarea curentă → intensiv.
       if (wrongFacts.length >= 2 && !isDirectTestModeFor("anchorsOnly")) {
@@ -1233,6 +1185,68 @@
         message: "Corect!",
         ...nextAnchorQuestion(),
       };
+    }
+
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => Number(current.options[index]) === Number(current.correct),
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `${ctx.alesul} nu e bun. Mai încearcă!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (ctx.corect) return {};
+
+          if (mode === "intensiv" || mode === "effectiveIntensiv" || mode === "nonAnchorProductsIntensiv") {
+            return {};
+          }
+          if (stage === "anchorSumValues") {
+            subquizCorrectStreak = 0;
+            return {};
+          }
+          if (stage === "rapidAnchorAdditions") {
+            subquizCorrectStreak = 0;
+            return {};
+          }
+          if (stage === "effectiveAnchorAddition") {
+            subquizCorrectStreak = 0;
+            noteEffectiveMistake(current.factB);
+            return {};
+          }
+          if (stage === "nonAnchorProducts") {
+            productCorrectStreak = 0;
+            if (!productWrongBs.includes(current.factB)) productWrongBs.push(current.factB);
+            return {};
+          }
+
+          // ── ANCHOR TEST (stage "normal", mode "anchor") ──────────────────
+          if (!wrongFacts.some((w) => w.b === current.factB)) {
+            wrongFacts.push({ b: current.factB, label: factLabel(current.factB) });
+          }
+          return {};
+        },
+        dupaRaspunsCorect: (ctx) => {
+          let view;
+          if (stage === "anchorSumValues") view = onAnchorSumCorrect();
+          else if (stage === "rapidAnchorAdditions") view = onRapidAnchorAdditionCorrect();
+          else if (stage === "effectiveAnchorAddition") view = onEffectiveAnchorAdditionCorrect();
+          else if (stage === "nonAnchorProducts") view = onProductCorrect();
+          else if (mode === "intensiv") view = onIntensivCorrect();
+          else view = onAnchorCorrect(ctx.meta);
+          return { action: "continue", view };
+        },
+      },
+    });
+
+    // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
+    // construirea lui `m3b`, mai sus.
+    function onAnswer(index, meta = {}) {
+      return m3b.laApasareButon({
+        item: { options: current.options },
+        index,
+        meta,
+        construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+      }).view;
     }
 
     // Bară cade / timeout → IGNORAT complet: reset bară, aceeași întrebare,
@@ -1386,7 +1400,7 @@
 
   global.QuizRegistry.register({
     id: "multiplication-1120-v2",
-    title: "T*/ 11-20 v2 - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "T*/ 11-20 v2",
     description: "Înmulțirea 11–20: BUCATA 1 — doar test ancore.",
     order: 2,
     gestionareGreseli: { activ: false },

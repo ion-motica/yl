@@ -299,58 +299,75 @@
       };
     }
 
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Migrare pura: regula corect/gresit era deja conforma (gresit nu atinge
+    // starea, ramane pe acelasi pas). Exista un pas intermediar real (seria
+    // succesiva): `dupaRaspunsCorect` muta starea si decide daca seria continua
+    // (step-correct) sau s-a incheiat (`completeSeries()`, care poate purta la
+    // randul ei o serie noua deja pregatita in `nextRound`).
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => Number(options[index]) === Number(currentStep.correctAnswer),
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `${String(currentStep.prompt).replace("=?", "")} nu este ${ctx.alesul}. Încearcă din nou!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+          if (!ctx.corect) {
+            seriesFlawless = false;
+            if (!currentStepWrongRecorded) {
+              reg()?.addWrong(level, currentStep.a);
+              currentStepWrongRecorded = true;
+            }
+            // SpeedManager — apelat la fiecare greșeală (inclusiv repetiții pe același pas).
+            global.SpeedManager?.recordWrong(quizId, level, currentStep.a);
+          }
+          return {};
+        },
+        dupaRaspunsCorect: (ctx) => {
+          // Notează dacă pasul era o restanță activă. SDP per zi = corect din
+          // prima în această serie ȘI nu a mai fost greșit azi.
+          const isRestanta = activeMistakeAs.has(currentStep.a);
+          if (isRestanta) {
+            reg()?.addCorrect(level, currentStep.a);
+          }
+          const isSDP = !currentStepWrongRecorded && !(reg()?.isFromToday(level, currentStep.a) ?? false);
+          global.SpeedManager?.recordCorrect(quizId, level, currentStep.a, ctx.meta.responseMs, isRestanta && isSDP);
+
+          const solvedPrompt = currentStep.prompt;
+          const solvedAnswer = currentStep.correctAnswer;
+
+          seriesHistory.push({ prompt: solvedPrompt, answer: solvedAnswer });
+          stepIndex += 1;
+          currentValue = solvedAnswer;
+
+          if (stepIndex >= seriesLength) {
+            return { action: "continue", view: completeSeries() };
+          }
+
+          prepareStep();
+          return {
+            action: "continue",
+            view: {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Corect!",
+              ...roundView(),
+            },
+          };
+        },
+      },
+    });
+
     function onAnswer(index, meta = {}) {
-      const chosen = options[index];
-      const correctVal = Number(currentStep.correctAnswer);
-      const isCorrect = Number(chosen) === correctVal;
-
-      recordAttempt(isCorrect, chosen, meta);
-
-      if (!isCorrect) {
-        seriesFlawless = false;
-        if (!currentStepWrongRecorded) {
-          reg()?.addWrong(level, currentStep.a);
-          currentStepWrongRecorded = true;
-        }
-        // SpeedManager — apelat la fiecare greșeală (inclusiv repetiții pe același pas).
-        global.SpeedManager?.recordWrong(quizId, level, currentStep.a);
-        return {
-          outcome: "wrong-answer",
-          correct: false,
-          flash: "wrong",
-          message: `${String(currentStep.prompt).replace("=?", "")} nu este ${chosen}. Încearcă din nou!`,
-          ...roundView(),
-        };
-      }
-
-      // Răspuns corect — notează dacă pasul era o restanță activă.
-      // SDP per zi = corect din prima în această serie ȘI nu a mai fost greșit azi.
-      const isRestanta = activeMistakeAs.has(currentStep.a);
-      if (isRestanta) {
-        reg()?.addCorrect(level, currentStep.a);
-      }
-      const isSDP = !currentStepWrongRecorded && !(reg()?.isFromToday(level, currentStep.a) ?? false);
-      global.SpeedManager?.recordCorrect(quizId, level, currentStep.a, meta.responseMs, isRestanta && isSDP);
-
-      const solvedPrompt = currentStep.prompt;
-      const solvedAnswer = currentStep.correctAnswer;
-
-      seriesHistory.push({ prompt: solvedPrompt, answer: solvedAnswer });
-      stepIndex += 1;
-      currentValue = solvedAnswer;
-
-      if (stepIndex >= seriesLength) {
-        return completeSeries();
-      }
-
-      prepareStep();
-      return {
-        outcome: "step-correct",
-        correct: true,
-        bounce: true,
-        message: "Corect!",
-        ...roundView(),
-      };
+      return m3b.laApasareButon({
+        item: { options },
+        index,
+        meta,
+        construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+      }).view;
     }
 
     return {

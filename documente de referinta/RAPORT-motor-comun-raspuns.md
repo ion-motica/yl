@@ -12,12 +12,13 @@
 
 ## Stare curentă
 
-**Faza:** D — în lucru. Lotul 1 COMPLET (commit `f0ded97`, push confirmat). Lotul 2 COMPLET
-(5/5 fișiere migrate, verificate live, commit în curs de pregătire — vezi jurnal).
-**Următorul pas:** Lotul 3 — motoarele partajate din afara `js/quizzes/`
-(`js/succesive-quiz/engine.js`, `js/conexe-table-quiz/engine.js`, `js/eff-quiz/engine.js`,
-`js/quizzes/pre-equations-eff-navigation.js`, `js/quizzes/multiplication-1120-v2.js`),
-deblochează 9 intrări de meniu. Mai complex: fiecare motor alimentează mai multe helper-fișiere.
+**Faza:** D — în lucru. Loturile 1, 2 și 3 COMPLETE (Lotul 1: commit `f0ded97`; Lotul 2: commit
+`7ed8cc1`; Lotul 3: commit în curs de pregătire — vezi jurnal). 16/18 fișiere migrate.
+**Următorul pas:** Lotul 4 — ultimele 3 fișiere, cele cu subquizuri reale
+(`multiplication-1120-v2-modular.js` — 9 subquizuri, `multiplication-1120-v3-train-eff-eq-forms.js`
+— 3 subquizuri, `multiplication-1120-v4-intensiv-multipli-234.js` — 5 subquizuri, aici se repară
+și `sq5` din bug-ul original care a pornit tot refactorul). După Lotul 4 urmează Faza E
+(`SubquizDefinition.define()` aruncă pe `onAnswer`, orchestrator impus la toate quizurile).
 **Modulul:** `js/motor-3-butoane.js` — „Motor 3 butoane" (M3B), numele dat de user.
 **Autorizare 18.08.2026, noapte:** userul a cerut explicit sa continui fara sa astept confirmare
 la fiecare OPRIRE, "conform planului" — comit si implementez in continuare autonom. Autorizarea
@@ -48,7 +49,8 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 18.08.2026 | Faza B | Scris `js/motor-3-butoane.js` (M3B) + `tests/motor-3-butoane.test.js` (15 teste, toate verzi). Numele și vocabularul motoarelor (mr/mq/msq/ML/M3B) date de user. Nimic altceva neatins: niciun quiz nu-l folosește încă, nu e încărcat în `index.html`. Suita completă: 423 teste, 420 trec (3 picate preexistente, sensibile la dată). | **scris, așteaptă verificare** |
 | 18.08.2026 | Faza C | User a autorizat explicit continuarea autonomă, fără OPRIRI, "e noapte". `falling-engine.js` impune semnătura M3B (aruncă altfel); toate cele 24 de quizuri sufixate „NEFUNCTIONAL" în meniu; `rigle-cl1` verificat neafectat (static + test + live); test-santinelă nou. Reparat pe drum: un test preexistent (`falling-engine-jurnal-timing.test.js`) folosea un quiz simulat pe vechea cale — actualizat sa treaca prin M3B, nu relaxat. 7 teste noi picate, așteptate (title-uri sufixate), documentate mai jos — se rezolvă singure la migrare. Verificat live în browser: eroarea chiar apare la apăsare pe quiz nemigrat. | **complet** |
 | 18.08.2026 | Faza D, Lot 1 | 5 fișiere migrate (`addition-table`, `addition-table-range`, `prime-divisors`, `sub-sau-langa-radical`, `bagare-sub-radical`). Corecție de comportament intenționată la `bagare-sub-radical` (Categoria 4+6). Commit `f0ded97`, push confirmat. | **complet** |
-| 19.08.2026 | Faza D, Lot 2 | 5 fișiere migrate (`addition-table-singapore`, `addition-table-singapore-missing`, `division-with-remainder`, `prime-divisions`, `equations-e3-e6`). Corecție de comportament intenționată la `division-with-remainder` (Categoria 4+6, ca la `bagare-sub-radical`). Primele fișiere cu `promptHoldMs`+`continueStep` proprii — confirmat că trec neatinse prin M3B. Verificat live în browser pentru toate 5, zero erori consolă. 483 teste, 475 trec (8 picate, toate așteptate: 3 preexistente + 5 title-uri pentru fișiere încă nemigrate din Loturile 3-4). | **complet** |
+| 19.08.2026 | Faza D, Lot 2 | 5 fișiere migrate (`addition-table-singapore`, `addition-table-singapore-missing`, `division-with-remainder`, `prime-divisions`, `equations-e3-e6`). Corecție de comportament intenționată la `division-with-remainder` (Categoria 4+6, ca la `bagare-sub-radical`). Primele fișiere cu `promptHoldMs`+`continueStep` proprii — confirmat că trec neatinse prin M3B. Verificat live în browser pentru toate 5, zero erori consolă. 483 teste, 475 trec (8 picate, toate așteptate: 3 preexistente + 5 title-uri pentru fișiere încă nemigrate din Loturile 3-4). Commit `7ed8cc1`, push confirmat. | **complet** |
+| 19.08.2026 | Faza D, Lot 3 | 5 fișiere/motoare migrate, 9 intrări de meniu deblocate (`succesive-quiz/engine.js`, `conexe-table-quiz/engine.js` ×4, `eff-quiz/engine.js` ×4, `pre-equations-eff-navigation.js`, `multiplication-1120-v2.js`). Cel mai mare volum de corecții de comportament din tot refactorul, concentrat în `multiplication-1120-v2.js` (6 subquiz-uri interne, comentariul sursă spunea explicit „greșelile sunt ignorate" la modul intensiv — corectat, fără excepție). Suita existentă a acelui fișier avea 10 teste care testau bug-urile ca feature, rescrise. 499 teste, 495 trec (4 picate, toate așteptate: 3 preexistente + 1 title pentru `multiplication-1120-v2-modular`, Lotul 4). Verificat live în browser. | **complet** |
 
 ---
 
@@ -193,12 +195,60 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
 - [ ] **OPRIRE** — „Am modificat și testat quizurile ...", userul verifică și el
 
 ### Lotul 3 — motoarele partajate (deblochează 9 intrări de meniu)
-- [ ] `js/succesive-quiz/engine.js` (1) — *fără test: scris test întâi*
-- [ ] `js/conexe-table-quiz/engine.js` (**4**) — are teste prin cele 4 fișiere helper
-- [ ] `js/eff-quiz/engine.js` (**4**) — *fără test: scris test întâi*
-- [ ] `js/quizzes/pre-equations-eff-navigation.js` (1) — are test
-- [ ] `js/quizzes/multiplication-1120-v2.js` (1) — are test
-- [ ] **OPRIRE** — „Am modificat și testat quizurile ...", userul verifică și el
+- [x] `js/succesive-quiz/engine.js` (1) — migrat, 7 teste noi. Migrare pură
+      (gresit era deja conform). Pas intermediar real (serie de N pași în lanț,
+      Categoria 7) — analog cu `prime-divisors.js`. Nu a necesitat restructurare
+      `quizApi` (nicio funcție internă nu folosea `this`).
+- [x] `js/conexe-table-quiz/engine.js` (**4**) — migrat. Cel mai complex fișier
+      din refactor pana acum (M1/M2 block-mode, cozi de retry, faza de
+      recovery, macro-pasi peste MAI MULTE blocuri). Migrare pură (gresit era
+      deja conform). `dupaRaspunsCorect` cheamă direct `onStepCorrect(meta)`
+      existentă, neschimbată; `onStepWrong` ramane neatinsa (tot folosita de
+      `onTimeout`), doar efectele ei secundare mutate in `dupaApasare`. Nu a
+      necesitat restructurare `quizApi`. Cele 4 fișiere helper
+      (`addition-table-conexe-helper.js` etc.) — suita EXISTENTA, extinsa,
+      **49 de teste, toate verzi din prima incercare** (acoperă alternanța
+      M1/M2, retry, recovery, avans de nivel dupa 4 blocuri perfecte, grading,
+      timeout). Adăugat `js/motor-3-butoane.js` în `tests/helpers/load-quiz-
+      environment.js` (fișier comun celor 4 suite).
+- [x] `js/eff-quiz/engine.js` (**4**) — migrat, 7 teste noi (nu avea test
+      dedicat). Migrare pură (gresit era deja conform). Pas intermediar real
+      (Seria A, pana la 5 fapte, Categoria 7). Șters cod mort creat de migrare:
+      fosta `onStepWrong` nu mai avea niciun apelant (spre deosebire de sora ei
+      din `conexe-table-quiz/engine.js`, aici `onTimeout` avea logică proprie
+      inline, nu o chema). Descoperire utilă la scrierea testului: cu registrul
+      de greșeli gol, o serie A perfectă (5 corecte) avansează nivelul IMEDIAT
+      (`allMastered` e vid-adevărat cand nu exista nicio greseala inregistrata
+      vreodata) — o greșeală pe drum întârzie avansul (verificat, > 4 pași).
+- [x] `js/quizzes/pre-equations-eff-navigation.js` (1) — migrat, testul existent
+      (13 teste, acoperire foarte buna: retry, triunghi legat, moduri
+      numeric/formula/alternat, simbol necunoscuta) adaptat (adăugat
+      `motor-3-butoane.js` la încărcare) și verde din prima. Migrare pură
+      (gresit era deja conform). Pas intermediar real (3 pași per triunghi).
+- [x] `js/quizzes/multiplication-1120-v2.js` (1) — migrat. **Cel mai mare
+      numar de incalcari Categoria 3/4/6 gasite intr-un singur fisier**: 6
+      „subquiz"-uri interne (anchor/intensiv/anchorSumValues/rapidAnchorAdditions/
+      effectiveAnchorAddition/nonAnchorProducts), fiecare cu propriul bug.
+      Cel mai grav: modul „intensiv" (si surorile lui, `effectiveIntensiv`,
+      `nonAnchorProductsIntensiv`) avea in cod comentariul explicit „Greșelile
+      sunt IGNORATE — avansăm indiferent de corect/greșit" — corectat, fara
+      exceptie, conform regulii userului. `onProductAnswer` avansa nivelul
+      direct pe un raspuns GRESIT daca pragul de 21 apasari era atins —
+      eliminat. Toate pragurile (12, 7, 21, 10, 3, 10) numara azi doar
+      raspunsuri REZOLVATE (corecte), neschimbate ca numere. Suita existenta
+      (519 linii, 31 teste) avea 10 teste care testau EXPLICIT bug-urile ca
+      „feature" (titluri ca „even if wrong", „regardless of mistakes") —
+      rescrise sa testeze comportamentul corectat; 4 din ele repurpozate ca
+      teste directe „raspunsul gresit repetat nu avanseaza niciodata"
+      (Categoria 6), fiindcă scenariul original (avans prin praguri de tip
+      count in timp ce streak-ul mai mic concurează) a devenit structural
+      inatins sub regula noua — pragul de „siguranță" pe count e in continuare
+      viu in cod, dar calea realistă spre el trece acum prin recuperarea
+      intensivă țintită, un rezultat mai bun. **33/33 teste verzi**, verificat
+      live in browser (gresit ramane pe loc, corect avanseaza, zero erori
+      consolă). Suita completă: 499 teste, 495 trec (4 pică, toate așteptate).
+- [x] **LOTUL 3 COMPLET.** Toate 5 fișiere/motoare migrate, cele 9 intrări de
+      meniu deblocate, verificate live, commis (vezi jurnal).
 
 ### Lotul 4 — cele cu subquizuri
 - [ ] `js/quizzes/multiplication-1120-v2-modular.js` (1) — are test, **9 subquizuri**

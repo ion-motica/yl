@@ -391,26 +391,40 @@
       };
     }
 
-    function onStepWrong(chosen) {
-      if (seriesType === "A") {
-        seriesHadMistakes = true;
-        reg.addWrong(quizId, level, currentFact.factId);
-      }
-
-      const item = activeQueue[0];
-      const dup  = wrongQueue.some(
-        (w) => w.factId === item?.factId && w.qfTypeId === item?.qfTypeId
-      );
-      if (!dup && item) wrongQueue.push(item);
-
-      return {
-        outcome: "wrong-answer",
-        correct: false,
-        flash: "wrong",
-        message: `${chosen ?? "?"} nu e corect. Încearcă din nou!`,
-        ...roundView(),
-      };
-    }
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Migrare pura: regula corect/gresit era deja conforma (gresit nu atinge
+    // `currentFact`/`options`, ramane pe acelasi pas). Fosta `onStepWrong` a
+    // fost stearsa — nu mai avea niciun apelant (nici `onTimeout`, spre
+    // deosebire de conexe-table-quiz/engine.js, nu o folosea); efectele ei
+    // secundare traiesc acum in `dupaApasare`, iar rezultatul vizual il
+    // construieste M3B, prin `mesaje.gresit`. `dupaRaspunsCorect` cheama
+    // direct `onStepCorrect` existenta, neschimbata.
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => index === correctIndex,
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (!ctx.corect) {
+            if (seriesType === "A") {
+              seriesHadMistakes = true;
+              reg.addWrong(quizId, level, currentFact.factId);
+            }
+            const item = activeQueue[0];
+            const dup = wrongQueue.some(
+              (w) => w.factId === item?.factId && w.qfTypeId === item?.qfTypeId
+            );
+            if (!dup && item) wrongQueue.push(item);
+          }
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          return { action: "continue", view: onStepCorrect() };
+        },
+      },
+    });
 
     // ── Init ────────────────────────────────────────────────────────────────────
 
@@ -506,11 +520,14 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
+      // construirea lui `m3b`, mai sus.
       onAnswer(index) {
-        const chosen    = options[index];
-        const isCorrect = index === correctIndex;
-        if (!isCorrect) return onStepWrong(chosen);
-        return onStepCorrect();
+        return m3b.laApasareButon({
+          item: { options },
+          index,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
 
       getAamIllustration,

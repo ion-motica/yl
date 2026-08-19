@@ -3,7 +3,7 @@
 
   global.QuizRegistry.register({
     id: "multiplication-eff",
-    title: "T× EFF — Înmulțire extended fact family - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "T× EFF — Înmulțire extended fact family",
     description: "Înmulțire: serii {same QF, diff facts} și {same fact, diff QF}. Niveluri 1–20.",
     order: -200,
     gestionareGreseli: { activ: false },

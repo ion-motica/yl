@@ -20,6 +20,7 @@ function setupQuiz() {
     "js/utils.js",
     "js/progress-display.js",
     "js/quiz-registry.js",
+    "js/motor-3-butoane.js",
     "js/quizzes/pre-equations-eff-navigation.js",
   ].forEach(loadScript);
 
@@ -45,6 +46,7 @@ describe("pre-equations EFF navigation quiz", () => {
     delete globalThis.ProgressDisplay;
     delete globalThis.QuizRegistry;
     delete globalThis.PreEquationNavigationQuiz;
+    delete globalThis.Motor3Butoane;
   });
 
   it("starts with the fixed three-step chain for the first additive triangle", () => {

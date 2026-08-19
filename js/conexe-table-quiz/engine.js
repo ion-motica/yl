@@ -522,6 +522,42 @@
       };
     }
 
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Migrare pura: regula corect/gresit era deja conforma (gresit nu atinge
+    // `currentFact`/`options`, ramane pe acelasi pas — `onStepWrong` doar
+    // inregistreaza). `dupaApasare` preia efectele secundare ale lui
+    // `onStepWrong` (fara sa mai construiasca ea insasi rezultatul — asta face
+    // M3B, prin `mesaje.gresit`); `onStepWrong` ramane neatinsa, tot folosita
+    // de `onTimeout`. `dupaRaspunsCorect` cheama direct `onStepCorrect`
+    // existenta, care deja produce fie un pas intermediar (step-correct), fie
+    // un rezultat complet de bloc/nivel (run-complete, prin `completeCurrentBlock`
+    // -> `finishBlock` -> `advanceLevel`).
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => options[index] === adapter.correctAnswer(currentFact, currentConexeType),
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) =>
+          `La ${adapter.promptLabel(currentFact, currentConexeType)}, ${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+          if (!ctx.corect) {
+            currentBlockHadMistake = true;
+            trackM1Result(false, ctx.meta);
+            pushWrongStep(stepItem(currentFact.factId, currentConexeType));
+            if (blockMode === "m2") {
+              m2WrongFactIds.add(currentFact.factId);
+            }
+          }
+          return {};
+        },
+        dupaRaspunsCorect: (ctx) => {
+          return { action: "continue", view: onStepCorrect(ctx.meta) };
+        },
+      },
+    });
+
     return {
       getLevel: () => level,
       getMaxLevel: () => MAX_LEVEL,
@@ -573,15 +609,15 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
+      // construirea lui `m3b`, mai sus.
       onAnswer(index, meta = {}) {
-        const chosen = options[index];
-        const correctLabel = adapter.correctAnswer(currentFact, currentConexeType);
-        const isCorrect = chosen === correctLabel;
-
-        recordAttempt(isCorrect, chosen, meta);
-
-        if (!isCorrect) return onStepWrong(chosen, meta);
-        return onStepCorrect(meta);
+        return m3b.laApasareButon({
+          item: { options },
+          index,
+          meta,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
 
       getFallSpeedFactor() {

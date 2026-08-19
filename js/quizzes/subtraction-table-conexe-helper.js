@@ -3,7 +3,7 @@
 
   global.QuizRegistry.register({
     id: "subtraction-table-conexe-helper",
-    title: "Tabla scaderii - intrebari ajutatoare 5-?=3 - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Tabla scaderii - intrebari ajutatoare 5-?=3",
     description:
       "Conexe pentru tabla scăderii (?-b, a-?, c=?-b, c=a-?). Alternanță M1/M2, nivel 1–20.",
     order: -12,
