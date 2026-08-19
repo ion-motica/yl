@@ -17,35 +17,75 @@
 > exact al deciziilor. Planul complet e în `PLAN-motor-comun-raspuns.md`, dar NU trebuie recitit
 > de la zero — tot ce contează practic e rezumat aici.**
 
-**Faza:** D COMPLETĂ (toate cele 4 loturi) — toate cele 18 fișiere/motoare migrate la Motor3Butoane.
-Commit-uri, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
-**Toate patru pushate pe `origin/master` — confirmat.** Working tree curat (doar
-`.claude/settings.local.json` și `.claude/worktrees/` rămân neurmărite, deliberat, nu se
-commit — vezi memoria `project_home_dir_este_repo_git`/practica din sesiune). **Zero titluri
-„NEFUNCTIONAL" rămase în meniu.** Ultima rulare a suitei complete: 498 teste, 495 trec (3 pică,
-toate preexistente în `vizualizare3-tabel-fluenta.test.js`, sensibile la dată — neafectate de
-lucrarea asta, verificat separat prin `git stash`).
-**Următorul pas:** Faza E — „subquizul dă CE, nu CUM", NEÎNCEPUTĂ ÎNCĂ (decizie deliberată de
-oprire aici, vezi „De ce s-a oprit sesiunea anterioară" mai jos), nu doar următorul item dintr-o
-listă: (1) `SubquizDefinition.define()` aruncă
-dacă definiția conține `onAnswer` (impunere structurală, ca la Faza C); (2) toate cele 15 quizuri
-azi „simple" (fără subquiz) trebuie învelite în `SubquizOrchestrator`, cu o singură definiție de
-bază — decizie confirmată a userului, §12 din plan; (3) cei 17 subquizuri reali (9 în v2-modular,
-3 în v3, 5 în v4) migrați ACUM la contractul M3B trebuie re-migrați la contractul „CE nu CUM" al
-lui Faza E (azi fiecare are propriul `onAnswer` care cheamă M3B direct — Faza E mută asta în
-`esteCorect`/`intrebareUrmatoare`/`laIntrebareRezolvata`, fără `onAnswer` propriu-zis).
-**Tipar găsit la Lotul 4, relevant pt. Faza E**: subquiz-definition.js/subquiz-orchestrator.js NU
-s-au atins în Faza D (rezervate Fazei E) — fiecare subquiz primește propria instanță M3B creată la
-fiecare apăsare, `def.onAnswer` întoarce rezultatul COMPLET al lui M3B (nu `.view`), iar
-orchestratorul tratează `command.view ?? resumed.view` la „pop" ca alternative EXCLUSIVE —
-`raspundeSubquiz` (dublat identic în v2-modular/v3/v4) șterge explicit `view`-ul când acțiunea
-finală e „pop". Faza E va înlocui acest tipar cu ceva centralizat în orchestrator.
+**Faza:** D COMPLETĂ. **Faza E ÎNCEPUTĂ** — primul pas (impunerea „CE nu CUM") gata; migrarea
+efectivă a celor 17 subquizuri NU a început încă.
+Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
+**Toate patru pushate pe `origin/master` — confirmat.**
+
+**Faza E, pasul 1 — impunerea „CE nu CUM" (19.08.2026, sesiune nouă):**
+- `js/subquiz/subquiz-definition.js` rescris: `define()` aruncă dacă definiția conține `onAnswer`
+  (verificare `definition.onAnswer !== undefined`, mesaj explicit cu numele subquiz-ului).
+  `createRuntime` nu mai are cale generică proprie (fostele `defaultGrade`/`objectExitRule`/
+  `blockWrongTransition`/`genericOnAnswer` — șterse) — construiește UN SINGUR
+  `Motor3Butoane.creeaza(...)` per runtime (nu per apăsare, spre deosebire de tiparul ad-hoc din
+  Lotul 4) și deleagă orice apăsare la `motor.laApasareButon(...)`. Câmpurile declarative noi ale
+  unui subquiz: `esteCorect(item,index)`, `actiuni.{inainteDeAfisareaIntrebarii,
+  dupaAfisareaIntrebarii, inainteDeApasare, dupaApasare, dupaRaspunsCorect}`, `mesaje.{corect,
+  gresit}` — **numele lui M3B însuși**, nu un vocabular nou (contractul din
+  `FAZA-A-inventar-contract.md` §2, cu `esteCorect`/`intrebareUrmatoare`/`laIntrebareRezolvata`,
+  era marcat explicit „nu aprobat" la 18.08.2026 — M3B, construit ulterior în Faza B, a devenit
+  DE FACTO acel contract, generalizat la orice quiz; Faza E doar branșează subquiz-definition.js
+  la el, nu inventează un al doilea modul). `generator` (deja CE, neatins) rămâne calea prin care
+  un subquiz produce itemul următor; intern e branșat la `intrebareUrmatoare` al lui M3B.
+  Starea (`createState`) nu mai pre-seamănă câmpuri generice (`questionCount` etc.) — s-a verificat
+  (grep) că niciunul dintre cele 3 fișiere reale nu depindea de auto-incrementarea veche (fiecare
+  își ținea singur contoarele, în propriul `onAnswer`, cu nume coincidente, nu prin ea); subquizul
+  își ține în continuare singur contoarele, acum din `actiuni.dupaRaspunsCorect`/`dupaApasare`.
+  Mesajul implicit de greșit (`"${alesul} nu e bun. Mai incearca!"`) păstrat ca default în
+  `mesajeImplicite`, ca niciun subquiz existent să nu-și schimbe textul dacă nu-l suprascrie.
+- **Descoperire importantă:** calea generică veche (folosită cand un subquiz NU definea `onAnswer`)
+  era ea însăși neconformă — pe răspuns greșit, dacă `wrongAnswerRule?.mode !== "retrySame"`,
+  cădea prin la `nextItem()`+`action:"continue"`, adică **avansa pe greșit by default**. Era cod
+  mort (toate cele 3 fișiere reale definesc azi `onAnswer`, deci calea asta nu rula niciodată în
+  producție), dar ar fi devenit calea UNICĂ, vie, sub gate-ul nou — trebuia reparată, nu doar
+  păzită. Rescrierea de mai sus o repară prin construcție (M3B nu are nicio cale de avans pe
+  greșit, hardcodat, fără parametru de bypass — spre deosebire de vechiul `blockWrongTransition`,
+  care păstra mereu o portiță `allowOnWrong`/`allowTransitionOnWrong`; portița a fost eliminată
+  complet, nu doar nefolosită).
+- Sufixul „NEFUNCTIONAL" pus pe cele 3 quizuri cu subquizuri (singurii consumatori azi ai
+  `SubquizOrchestrator`): `multiplication-1120-v2-modular.js`,
+  `multiplication-1120-v3-train-eff-eq-forms-jurnal.js`, `multiplication-1120-v4-intensiv-
+  multipli-234.js`. `index.html` — 4 cache-bust bumps (`subquiz-definition.js` v3→v4, cele 3
+  fișiere de quiz +1 fiecare).
+- Test-santinelă nou: `tests/subquiz-definition-faza-e-ce-nu-cum.test.js`, 7 teste — gate-ul chiar
+  aruncă (direct din `define()` ȘI din `SubquizOrchestrator.create()`), un subquiz fără `onAnswer`
+  rămâne pe loc la greșit (5 încercări la rând, fără limită) și avansează la corect, `esteCorect`
+  implicit face comparație numerică (ca vechiul `defaultGrade`), `actiuni.dupaRaspunsCorect` poate
+  cere rutare (push/pop/exit), mesajul implicit de greșit e neschimbat. Toate 7 verzi.
+- Verificat live în browser (`youlearn-verify`): cele 3 quizuri apar sufixate în meniu; selectarea
+  oricăruia aruncă imediat eroarea așteptată (la construcția orchestratorului, nu abia la prima
+  apăsare — mai devreme decât gate-ul din Faza C, care arunca la `onAnswer`); un quiz nemodificat
+  (`addition-table.js`, „Tabla adunarii - Clasic") funcționează normal, inclusiv un răspuns corect
+  care avansează întrebarea. Zero erori neașteptate în consolă.
+- Suita completă: 505 teste, 406 trec, 99 pică — **exact** cele așteptate: 96 = toate testele din
+  cele 3 fișiere + `jurnal-intrebari.test.js` (integrare cu v3, cade odată cu el) care ating un
+  subquiz cu `onAnswer` propriu, + 3 preexistente (`vizualizare3-tabel-fluenta.test.js`, sensibile
+  la dată, neafectate). Zero eșecuri neașteptate în afara acestui set — verificat explicit
+  (`grep` pe fișierele din stack traces).
+- **NEATINS încă, deliberat:** cele 17 subquizuri reale (migrarea lor, §5 pas 3 din plan — următorul
+  pas, cu OPRIRE după FIECARE fișier, nu după tot lotul) și §12 (al doilea gard: orice quiz —
+  inclusiv cele 15 „simple" de azi — trebuie construit prin `SubquizOrchestrator`, cu minim o
+  bucată „bază"). Ordinea aleasă pentru ce urmează: întâi cele 3 fișiere reale (deja sufixate,
+  deja sparte — la fel ca Faza C→D), abia apoi §12 (fără fereastră de spargere: se învelesc cele
+  15 quizuri simple ÎNTÂI, verificat că nu li se schimbă comportamentul, gate-ul „trebuie construit
+  prin orchestrator" se pune ABIA la final, când nimic nu mai are ce sparge).
 **Modulul:** `js/motor-3-butoane.js` — „Motor 3 butoane" (M3B), numele dat de user.
 **Autorizare 18.08.2026, noapte:** userul a cerut explicit sa continui fara sa astept confirmare
 la fiecare OPRIRE, "conform planului" — comit si implementez in continuare autonom. Autorizarea
-e in vigoare, neschimbata.
-**Aplicația:** funcțională; toate quizurile migrate, meniul complet fără sufixe.
-**Ultima actualizare:** 19.08.2026
+e in vigoare, neschimbata; reconfirmată explicit 19.08.2026 („continua aplicarea planului").
+**Aplicația:** funcțională, cu excepția celor 3 quizuri cu subquizuri (sufixate „NEFUNCTIONAL",
+intenționat — vezi mai sus).
+**Ultima actualizare:** 19.08.2026, sesiune Faza E
 
 ### De ce s-a oprit sesiunea anterioară exact aici
 
@@ -99,6 +139,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 19.08.2026 | Faza D, Lot 2 | 5 fișiere migrate (`addition-table-singapore`, `addition-table-singapore-missing`, `division-with-remainder`, `prime-divisions`, `equations-e3-e6`). Corecție de comportament intenționată la `division-with-remainder` (Categoria 4+6, ca la `bagare-sub-radical`). Primele fișiere cu `promptHoldMs`+`continueStep` proprii — confirmat că trec neatinse prin M3B. Verificat live în browser pentru toate 5, zero erori consolă. 483 teste, 475 trec (8 picate, toate așteptate: 3 preexistente + 5 title-uri pentru fișiere încă nemigrate din Loturile 3-4). Commit `7ed8cc1`, push confirmat. | **complet** |
 | 19.08.2026 | Faza D, Lot 3 | 5 fișiere/motoare migrate, 9 intrări de meniu deblocate (`succesive-quiz/engine.js`, `conexe-table-quiz/engine.js` ×4, `eff-quiz/engine.js` ×4, `pre-equations-eff-navigation.js`, `multiplication-1120-v2.js`). Cel mai mare volum de corecții de comportament din tot refactorul, concentrat în `multiplication-1120-v2.js` (6 subquiz-uri interne, comentariul sursă spunea explicit „greșelile sunt ignorate" la modul intensiv — corectat, fără excepție). Suita existentă a acelui fișier avea 10 teste care testau bug-urile ca feature, rescrise. 499 teste, 495 trec (4 picate, toate așteptate: 3 preexistente + 1 title pentru `multiplication-1120-v2-modular`, Lotul 4). Verificat live în browser. Commit `5c08b54`, push confirmat. | **complet** |
 | 19.08.2026 | Faza D, Lot 4 | Ultimele 3 fișiere cu subquizuri reale migrate: `multiplication-1120-v2-modular.js` (9 subquizuri — toate 9 aveau bug ascuns, nu doar cele 3 marcate în inventar; gasit si reparat bug real de „pop fără view"), `multiplication-1120-v3-train-eff-eq-forms.js` (3 subquizuri, toate Categoria 2, exact ca prezis în inventar), `multiplication-1120-v4-intensiv-multipli-234.js` (5 subquizuri — **fișierul bug-ului ORIGINAL**: `sq5FluentParty` reparat definitiv, Categoria 5 de la `sq3FactorGroup` — plasa de siguranță de 5 încercări — ELIMINATĂ complet, plus un `allowOnWrong` prost-folosit descoperit la `baseDefinition`, ratat de inventarul din Faza A). **Faza D COMPLETĂ — toate 18 fișiere migrate, zero titluri NEFUNCTIONAL rămase.** 498 teste, 495 trec (3 pică, toate preexistente). Verificat live în browser, inclusiv 8 răspunsuri greșite la rând în sq3 (peste fostul plafon de 5) rămânând pe aceeași întrebare cu butoane complet funcționale. | **complet** |
+| 19.08.2026 | Faza E, pas 1 | `subquiz-definition.js` rescris: `onAnswer` interzis structural (aruncă), calea generică deleagă integral la Motor3Butoane (un `esteCorect`/`actiuni`/`mesaje` per runtime). Cele 3 quizuri cu subquizuri sufixate „NEFUNCTIONAL". Descoperit și reparat un bug latent (cod mort, nu rula în producție): calea generică veche avansa pe răspuns greșit by default cand `wrongAnswerRule` nu era „retrySame". 7 teste noi (`subquiz-definition-faza-e-ce-nu-cum.test.js`), toate verzi. Suită completă: 505 teste, 406 trec, 99 pică (96 așteptate — cele 3 fișiere + jurnal-intrebari — + 3 preexistente, nimic neașteptat). Verificat live: sufix vizibil, eroare la selectarea oricăruia din cele 3, quiz nemodificat funcționează normal. | **pas 1 complet** |
 
 ---
 
@@ -398,13 +439,21 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
 
 ## Faza E — Pasul 2: subquizul dă CE, nu CUM
 
-- [ ] `SubquizDefinition.define()` aruncă dacă definiția conține `onAnswer`
-- [ ] Sufixul „NEFUNCȚIONAL" pus pe cele 3 quizuri cu subquizuri
+- [x] `SubquizDefinition.define()` aruncă dacă definiția conține `onAnswer` — 19.08.2026,
+      `js/subquiz/subquiz-definition.js` rescris integral (vezi „Stare curentă" pt. detalii:
+      calea generică nouă deleagă la Motor3Butoane, un singur `esteCorect`/`actiuni`/`mesaje`
+      per runtime, nu per apăsare)
+- [x] Sufixul „NEFUNCȚIONAL" pus pe cele 3 quizuri cu subquizuri — 19.08.2026
 - [ ] `multiplication-1120-v2-modular.js` — 9 subquizuri migrate, sufix scos
 - [ ] `multiplication-1120-v3-train-eff-eq-forms.js` — 3 subquizuri migrate, sufix scos
 - [ ] `multiplication-1120-v4-intensiv-multipli-234.js` — 5 subquizuri migrate, sufix scos
-- [ ] Test-santinelă: `define({ onAnswer })` chiar aruncă
-- [ ] **OPRIRE** — raportat
+- [x] Test-santinelă: `define({ onAnswer })` chiar aruncă — 19.08.2026,
+      `tests/subquiz-definition-faza-e-ce-nu-cum.test.js` (7 teste, toate verzi; include și
+      `SubquizOrchestrator.create()` cu o definiție cu `onAnswer`, nu doar `define()` direct)
+- [ ] §12: al doilea gard — orice quiz (inclusiv cele 15 „simple" de azi) construit prin
+      `SubquizOrchestrator`, minim o bucată „bază"; NEÎNCEPUT, planificat DUPĂ migrarea celor
+      17 subquizuri reali (vezi „Stare curentă" pt. ordinea aleasă și motivul)
+- [ ] **OPRIRE** — raportat (acest punct: pasul 1 complet, gata de pasul 3 — migrarea per fișier)
 
 ## Faza F — verificare finală
 

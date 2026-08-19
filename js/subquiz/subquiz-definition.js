@@ -7,6 +7,18 @@
     }
     if (!definition.id) throw new Error("SubquizDefinition requires id.");
     if (!definition.title) throw new Error("SubquizDefinition requires title.");
+    if (definition.onAnswer !== undefined) {
+      // Faza E din documente de referinta/PLAN-motor-comun-raspuns.md: subquizul
+      // da doar CE (esteCorect/generator/actiuni/mesaje), niciodata CUM. Calea
+      // comuna de mai jos (vezi createRuntime) e singura care raspunde la o
+      // apasare, delegand integral catre Motor3Butoane.
+      throw new Error(
+        `SubquizDefinition "${definition.id}": "onAnswer" nu mai e permis — ` +
+          `foloseste esteCorect/generator/actiuni/mesaje. CUM raspunde la o apasare ` +
+          `e treaba exclusiva a Motor3Butoane (js/motor-3-butoane.js), vezi ` +
+          `documente de referinta/PLAN-motor-comun-raspuns.md, Faza E.`
+      );
+    }
 
     return {
       enabled: true,
@@ -16,50 +28,23 @@
   }
 
   function createState(definition, context, payload) {
-    const base = {
-      questionCount: 0,
-      correctCount: 0,
-      wrongCount: 0,
-      consecutiveCorrect: 0,
-      mistakesByKey: {},
-    };
-    const custom =
-      typeof definition.initialState === "function"
-        ? definition.initialState({ context, payload }) || {}
-        : {};
-    return { ...base, ...custom };
+    return typeof definition.initialState === "function"
+      ? definition.initialState({ context, payload }) || {}
+      : {};
   }
 
-  function defaultGrade(item, index) {
+  function defaultEsteCorect(item, index) {
     const chosen = item?.options?.[index];
     const correct = item?.correctAnswer ?? item?.options?.[item?.correctIndex ?? -1];
     const chosenNum = Number(chosen);
     const correctNum = Number(correct);
     const bothNumeric = Number.isFinite(chosenNum) && Number.isFinite(correctNum);
-    return {
-      chosen,
-      isCorrect: bothNumeric
-        ? chosenNum === correctNum
-        : String(chosen) === String(correct),
-    };
+    return bothNumeric ? chosenNum === correctNum : String(chosen) === String(correct);
   }
 
-  function objectExitRule(exitRule, state) {
-    if (!exitRule || typeof exitRule !== "object") return null;
-    if (
-      Number.isFinite(exitRule.maxQuestions) &&
-      state.questionCount >= exitRule.maxQuestions
-    ) {
-      return { reason: "maxQuestions" };
-    }
-    if (
-      Number.isFinite(exitRule.consecutiveCorrect) &&
-      state.consecutiveCorrect >= exitRule.consecutiveCorrect
-    ) {
-      return { reason: "consecutiveCorrect" };
-    }
-    return null;
-  }
+  const mesajeImplicite = {
+    gresit: (context) => `${context.alesul} nu e bun. Mai incearca!`,
+  };
 
   function normalizeCommand(command, fallbackView) {
     if (!command) return { action: "continue", view: fallbackView };
@@ -72,27 +57,6 @@
       return { action: "continue", view: command };
     }
     return { action: "continue", view: fallbackView, ...command };
-  }
-
-  function blockWrongTransition(command, event, view) {
-    if (event.isCorrect) return command;
-    if (command?.allowOnWrong === true) return command;
-    if (event.runtime?.definition?.allowTransitionOnWrong === true) return command;
-    if (command?.action === "stay") return command;
-
-    event.runtime?.setCurrentItem?.(event.item);
-
-    return {
-      action: "stay",
-      blockedTransition: command,
-      view: view({
-        outcome: "wrong-answer",
-        correct: false,
-        flash: "wrong",
-        message: `${event.chosen} nu e bun. Mai incearca!`,
-      }),
-      event,
-    };
   }
 
   function createRuntime(definition, context = {}, payload = {}) {
@@ -124,6 +88,17 @@
       };
     }
 
+    // Singura cale prin care un subquiz raspunde la o apasare (Faza E). Subquizul
+    // da doar date declarative (esteCorect/generator/actiuni/mesaje); CUM se
+    // avanseaza sau se ramane pe intrebare e in intregime treaba lui Motor3Butoane
+    // — vezi js/motor-3-butoane.js.
+    const motor = global.Motor3Butoane.creeaza({
+      esteCorect: def.esteCorect ?? defaultEsteCorect,
+      intrebareUrmatoare: (m3bContext) => nextItem({ reason: "afterAnswer", m3bContext }),
+      actiuni: def.actiuni,
+      mesaje: { ...mesajeImplicite, ...(def.mesaje || {}) },
+    });
+
     function begin(nextPayload = payload) {
       payload = nextPayload ?? {};
       state = createState(def, context, payload);
@@ -131,77 +106,19 @@
         def.onEnter({ context, state, payload, runtime: api });
       }
       nextItem({ reason: "begin" });
-      return view();
+      return view(
+        motor.laAfisareaIntrebarii({ item: currentItem, stare: state, itemAnterior: null })
+      );
     }
 
-    function genericOnAnswer(index, meta = {}) {
-      const graded =
-        typeof def.grade === "function"
-          ? def.grade({ item: currentItem, index, state, context, meta })
-          : defaultGrade(currentItem, index);
-
-      const event = {
+    function onAnswer(index, meta = {}) {
+      return motor.laApasareButon({
         item: currentItem,
         index,
+        stare: state,
         meta,
-        chosen: graded.chosen,
-        isCorrect: graded.isCorrect,
-        state,
-        context,
-        payload,
-        runtime: api,
-      };
-
-      if (typeof def.onAnswer === "function") {
-        const command = normalizeCommand(def.onAnswer(event), view());
-        return blockWrongTransition(command, event, view);
-      }
-
-      state.questionCount += 1;
-      if (graded.isCorrect) {
-        state.correctCount += 1;
-        state.consecutiveCorrect += 1;
-      } else {
-        state.wrongCount += 1;
-        state.consecutiveCorrect = 0;
-      }
-
-      const exit =
-        typeof def.exitRule === "function"
-          ? def.exitRule(event)
-          : objectExitRule(def.exitRule, state);
-      if (exit) {
-        return blockWrongTransition(
-          { action: "exit", reason: exit.reason ?? "exit", event },
-          event,
-          view
-        );
-      }
-
-      if (!graded.isCorrect && def.wrongAnswerRule?.mode === "retrySame") {
-        return {
-          action: "stay",
-          view: view({
-            outcome: "wrong-answer",
-            correct: false,
-            flash: "wrong",
-            message: `${graded.chosen} nu e bun. Mai incearca!`,
-          }),
-          event,
-        };
-      }
-
-      nextItem({ reason: "afterAnswer", event });
-      return {
-        action: "continue",
-        view: view({
-          outcome: graded.isCorrect ? "step-correct" : "wrong-answer",
-          correct: graded.isCorrect,
-          bounce: graded.isCorrect,
-          flash: graded.isCorrect ? undefined : "wrong",
-        }),
-        event,
-      };
+        construiesteVedere: view,
+      });
     }
 
     function onTimeout(meta = {}) {
@@ -242,7 +159,7 @@
       view,
       begin,
       resume,
-      onAnswer: genericOnAnswer,
+      onAnswer,
       onTimeout,
     };
 

@@ -2381,7 +2381,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE,
+    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Clona v4 de la v3: subquiz 1 pe acoperire completa (1-20), subquiz 3 intensiv pe grupuri de factori, jurnalizare activa din start.",
     order: 2.3,
     gestionareGreseli: { activ: false },
