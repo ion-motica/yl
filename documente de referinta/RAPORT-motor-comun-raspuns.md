@@ -20,7 +20,7 @@
 **Faza:** D COMPLETĂ. **Faza E ÎNCEPUTĂ** — primul pas (impunerea „CE nu CUM") gata; migrarea
 efectivă a celor 17 subquizuri NU a început încă.
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
-**Toate patru pushate pe `origin/master` — confirmat.**
+Faza E, pas 1: `15d8bdb`. **Toate pushate pe `origin/master` — confirmat.**
 
 **Faza E, pasul 1 — impunerea „CE nu CUM" (19.08.2026, sesiune nouă):**
 - `js/subquiz/subquiz-definition.js` rescris: `define()` aruncă dacă definiția conține `onAnswer`
