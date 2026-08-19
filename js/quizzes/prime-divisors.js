@@ -16,6 +16,21 @@
     const divisionHistory = [];
     let lastRoundStartNum = null;
     let gameCompleted = false;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa).
+    // Orchestratorul porneste O SINGURA DATA, la construirea quiz-ului, cu un
+    // `generator` gol care nu se mai cheama niciodata dupa aia — de-acolo
+    // incolo, un singur apel neconditionat tine sincronizat itemul lui cu
+    // `currentNumber`/`options`.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: String(currentNumber),
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     const mistakes = global.QuizMistakes.create(config, {
       comboTitle: (c) => {
@@ -174,54 +189,73 @@
     // lant, nu incepe o intrebare noua independenta — de-asta mutatia de stare
     // (istoricul, noul numar curent) se face in `dupaRaspunsCorect`, care
     // decide si daca lantul s-a incheiat (intoarce rezultatul complet) sau
-    // continua (intoarce `{}`, iar M3B trece mai departe la `intrebareUrmatoare`,
-    // aici neatinsa — starea a fost deja actualizata).
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => currentNumber % options[index] === 0,
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `${ctx.alesul} nu divide ${currentNumber}. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (!ctx.corect) {
-            mistakes.recordMistake(buildMistakePayload(currentNumber, options[correctIndex], ctx.alesul));
-          }
-          return {};
+    // continua.
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `options` proprii sunt NUMERE, dar motorul comun
+    // normalizeaza la STRING-uri — `dupaApasare`/`dupaRaspunsCorect`/
+    // `mesaje.gresit` citesc `options[ctx.index]` direct din closure, NU
+    // `ctx.alesul`, ca la addition-table.js (acelasi tipar, aceeasi capcana —
+    // aici `isResolvedCombo` ar fi picat tacut, comparatie stricta cu numar).
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: "Alege divizorul prim corect.",
+        esteCorect: (_item, index) => currentNumber % options[index] === 0,
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) => `${options[ctx.index]} nu divide ${currentNumber}. Încearcă din nou!`,
         },
-        dupaRaspunsCorect: (ctx) => {
-          const numberBefore = currentNumber;
-          const chosen = ctx.alesul;
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (!ctx.corect) {
+              mistakes.recordMistake(buildMistakePayload(currentNumber, options[correctIndex], options[ctx.index]));
+            }
+            return { divisionHistory: [...divisionHistory] };
+          },
+          dupaRaspunsCorect: (ctx) => {
+            const numberBefore = currentNumber;
+            const chosen = options[ctx.index];
 
-          if (isResolvedCombo(activeComboTrap, numberBefore, chosen)) {
-            mistakes.resolveCombo(activeComboTrap);
-          }
+            if (isResolvedCombo(activeComboTrap, numberBefore, chosen)) {
+              mistakes.resolveCombo(activeComboTrap);
+            }
 
-          const quotient = Math.floor(numberBefore / chosen);
-          divisionHistory.push(`${numberBefore}:${chosen}=${quotient}`);
-          currentNumber = quotient;
+            const quotient = Math.floor(numberBefore / chosen);
+            divisionHistory.push(`${numberBefore}:${chosen}=${quotient}`);
+            currentNumber = quotient;
 
-          if (currentNumber === 1) {
-            return { action: "continue", view: finishSeriesRun(true) };
-          }
-          if (isBelowLevelFloor(currentNumber)) {
-            return { action: "continue", view: finishSeriesRun(false) };
-          }
+            if (currentNumber === 1) {
+              return { action: "continue", view: finishSeriesRun(true) };
+            }
+            if (isBelowLevelFloor(currentNumber)) {
+              return { action: "continue", view: finishSeriesRun(false) };
+            }
 
-          buildOptions(currentNumber);
-          return {
-            action: "continue",
-            view: {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: `${chosen} divide! Noul număr: ${currentNumber}`,
-              ...roundView(),
-            },
-          };
+            buildOptions(currentNumber);
+            sincronizeazaOrchestratorul();
+            return {
+              action: "continue",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                message: `${chosen} divide! Noul număr: ${currentNumber}`,
+                ...roundView(),
+              },
+            };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     function pickCompositeStart(exclude) {
       const { min, max } = levelRange(level);
@@ -298,6 +332,7 @@
         activeComboTrap = null;
         if (combo) buildOptionsFromCombo(combo);
         else buildOptions(currentNumber);
+        sincronizeazaOrchestratorul();
         return roundView({
           hintMessage: combo ? "Exersează combinația greșită!" : undefined,
         });
@@ -314,15 +349,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md). Regula
-      // corect/gresit, mesajele si rezultatul complet raman EXACT cele de
-      // dinainte de migrare — vezi `actiuni` la construirea lui `m3b`, mai sus.
-      onAnswer(index) {
-        return m3b.laApasareButon({
-          item: { options },
-          index,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+      // Migrat la Motor3Butoane (Faza D), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
+      onAnswer(index, meta = {}) {
+        return orchestrator.onAnswer(index, meta);
       },
 
       pickNextRound: () => pickRoundStart(),

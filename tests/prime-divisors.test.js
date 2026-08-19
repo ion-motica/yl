@@ -22,6 +22,9 @@ function setupQuiz({ deterministic = true } = {}) {
     "js/quiz-math.js",
     "js/progress.js",
     "js/quiz-registry.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
     "js/quizzes/prime-divisors.js",
   ].forEach(loadScript);
@@ -45,6 +48,9 @@ describe("prime-divisors (Faza D lot 1, quiz cu pasi intermediari)", () => {
     delete globalThis.GameUtils;
     delete globalThis.QuizMath;
     delete globalThis.QuizMistakes;
+    delete globalThis.ItemGenerator;
+    delete globalThis.SubquizDefinition;
+    delete globalThis.SubquizOrchestrator;
     delete globalThis.Motor3Butoane;
   });
 
