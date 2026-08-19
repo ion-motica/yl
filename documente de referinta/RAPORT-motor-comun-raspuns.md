@@ -23,7 +23,7 @@ plan (al doilea gard: orice quiz, inclusiv cele 15 „simple" de azi, construit 
 `SubquizOrchestrator`) — vezi „Ce urmează" mai jos.
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
 Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`. Faza E, v2-modular: `d70c544`.
-Faza E, v4: în lucru (commit imediat după actualizarea asta).
+Faza E, v4: `7a0f012`.
 **Toate pushate pe `origin/master` — confirmat.**
 
 **Faza E — v4 migrat (20.08.2026), ULTIMUL fișier cu subquizuri reale:** toate 5 subquizuri din
