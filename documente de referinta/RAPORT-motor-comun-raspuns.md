@@ -22,7 +22,8 @@ cu subquizuri reale migrat (`multiplication-1120-v3-train-eff-eq-forms.js`, 3/3 
 Rămân `multiplication-1120-v2-modular.js` (9 subquizuri) și
 `multiplication-1120-v4-intensiv-multipli-234.js` (5 subquizuri).
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
-Faza E, pas 1: `15d8bdb`, `c7f0047`. **Toate pushate pe `origin/master` — confirmat.**
+Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`.
+**Toate pushate pe `origin/master` — confirmat.**
 
 **Faza E — v3 migrat (20.08.2026):** cele 3 subquizuri (`base`, `sq2EffVbs`, `sq2EffSbs`) din
 `js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js` migrate de la `onAnswer` propriu
