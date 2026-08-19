@@ -543,55 +543,27 @@
       });
     }
 
-    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
-    // Ca la v2-modular.js si v3: fiecare subquiz primeste propria instanta
-    // M3B, creata la fiecare apasare; `def.onAnswer(event)` intoarce
-    // rezultatul COMPLET al lui M3B; un "pop" fara `view` propriu are nevoie
-    // de `view`-ul minimal adaugat automat sters, ca `command.view ??
-    // resumed.view` din orchestrator sa treaca la vederea completa produsa de
-    // `onResume`.
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md, Faza E.
+    // Fiecare subquiz de mai jos da doar date (esteCorect/generator/actiuni/mesaje);
+    // subquiz-definition.js construieste UN SINGUR Motor3Butoane per subquiz activ (nu unul
+    // nou la fiecare apasare, ca in tiparul dinainte de Faza E) si deleaga orice apasare la
+    // el. Fixul de "pop fara view" (necesar ca `onResume` sa nu fie ingropat de view-ul
+    // automat al M3B) e centralizat acum in subquiz-definition.js.
     //
-    // CORECTIE INTENTIONATA majora — acest fisier e locul unde a trait bug-ul
-    // ORIGINAL sq3/sq5 care a pornit tot refactorul (eticheta reparata deja,
-    // la inceputul acestei lucrari, dar politica de avans NU). La o recitire
-    // atenta, dincolo de sq3/sq5, `baseDefinition` folosea `allowOnWrong:true`
-    // ca sa lase declansatoarele (sq3 la "2 facte gresite" / "la fiecare a 5-a
-    // intrebare", finalul de nivel) sa treaca CHIAR pe un raspuns gresit —
-    // insemnand ca apasarea gresita putea ea insasi schimba intrebarea afisata
-    // (push in sq3, sau chiar avans de nivel). Corectat: toate declansatoarele
-    // se muta in `dupaRaspunsCorect`, deci nu se mai declanseaza NICIODATA pe
-    // un raspuns gresit — `allowOnWrong` devine inutil peste tot in acest
-    // fisier si e scos.
+    // `esteCorect` pastrat identic cu vechiul cod (Number(...) === Number(...), fara fallback
+    // pe string). Mesajul de gresit ("${alesul} nu e bun.", FARA "Mai incearca!" — diferit de
+    // v2-modular) pastrat identic.
     //
-    // Categoria 5 (plasa de siguranta la sq3, `SQ3_EXIT_MAX_ATTEMPTS=5`)
-    // ELIMINATA complet — decizie fermă a userului, consemnata deja in
-    // FAZA-A-inventar-contract.md: "O întrebare rămâne pe ecran oricât de
-    // multe răspunsuri greșite ia — fără limită, fără excepție". O data
-    // eliminata, `attemptsByB` devine redundant cu `correctCountsByB` (ambele
-    // ar creste doar la raspunsuri corecte) — sters, impreuna cu constanta.
-    function creeazaM3BSubquiz(hooks) {
-      return global.Motor3Butoane.creeaza({
-        esteCorect: (it, idx) => Number(it.options[idx]) === Number(it.correctAnswer),
-        intrebareUrmatoare: () => null,
-        mesaje: {
-          gresit: (ctx) => `${ctx.alesul} nu e bun.`,
-        },
-        actiuni: hooks,
-      });
-    }
-
-    function raspundeSubquiz(event, hooks) {
-      const { item, index, meta, runtime } = event;
-      const m3b = creeazaM3BSubquiz(hooks);
-      const rezultat = m3b.laApasareButon({
-        item,
-        index,
-        meta,
-        construiesteVedere: (extra) => roundViewFrom(runtime, extra),
-      });
-      if (rezultat.action === "pop") delete rezultat.view;
-      return rezultat;
-    }
+    // CORECTIE INTENTIONATA majora, mostenita din migrarea la Motor3Butoane (Faza D, Lotul 4)
+    // — acest fisier e locul unde a trait bug-ul ORIGINAL sq3/sq5 care a pornit tot refactorul.
+    // Politica de avans (nu doar eticheta) reparata atunci: toate declansatoarele numara doar
+    // raspunsuri REZOLVATE, niciun exit/push/pop nu se declanseaza pe gresit, plasa de
+    // siguranta la sq3 (`SQ3_EXIT_MAX_ATTEMPTS`) eliminata complet. Nu se re-repara acum.
+    const esteCorectV4 = (it, idx) => Number(it.options[idx]) === Number(it.correctAnswer);
+    const mesajeStandard = {
+      corect: "Corect!",
+      gresit: (ctx) => `${ctx.alesul} nu e bun.`,
+    };
 
     // ---- Subquiz 1 (baza): acoperire, fara repetitii -----------------------
 
@@ -693,8 +665,7 @@
     // Prag de iesire per fact, cu exceptia facte fluente (user, 05.08.2026):
     //   "normal" — regula standard: >=3 corecte. CORECTAT: plasa de siguranta
     //              (>=5 incercari, indiferent de corectitudine) a fost
-    //              ELIMINATA — decizie fermă a userului, vezi comentariul de
-    //              la `raspundeSubquiz`, mai sus.
+    //              ELIMINATA — decizie fermă a userului (Faza D, Lotul 4).
     //   "once"   — fact fluent, dar netestat inca in sesiunea curenta (nivelul
     //              curent): un singur raspuns CORECT e suficient (nu mai
     //              "corect sau gresit" — CORECTAT, acelasi motiv).
@@ -839,6 +810,8 @@
         id: "base",
         title: "baza",
         hintMessage: HINT,
+        esteCorect: esteCorectV4,
+        mesaje: mesajeStandard,
         initialState() {
           const state = {
             covered: new Set(),
@@ -859,63 +832,43 @@
           state.currentFactB = item.metadata.factB;
           return item;
         },
-        onAnswer(event) {
-          const { item, state, runtime } = event;
-          shared.baseState = state;
-          const factB = item.metadata.factB;
+        actiuni: {
+          dupaApasare(ctx) {
+            if (!ctx.corect) {
+              const factB = ctx.item.metadata.factB;
+              if (!ctx.stare.wrongFacts.includes(factB)) ctx.stare.wrongFacts.push(factB);
+            }
+          },
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            const factB = ctx.item.metadata.factB;
+            state.questionCount += 1;
+            state.correctCount += 1;
+            state.covered.add(factB);
 
-          return raspundeSubquiz(event, {
-            dupaApasare: (ctx) => {
-              if (!ctx.corect && !state.wrongFacts.includes(factB)) {
-                state.wrongFacts.push(factB);
-              }
-              return {};
-            },
-            dupaRaspunsCorect: () => {
-              state.questionCount += 1;
-              state.correctCount += 1;
-              state.covered.add(factB);
-
-              if (state.covered.size >= TOTAL_FACTS_PER_LEVEL) {
-                return {
-                  action: "exit",
-                  reason: "levelCovered",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "Subquiz 1 baza terminat, next level",
-                  },
-                };
-              }
-
-              if (state.wrongFacts.length >= 2) {
-                const command = maybeEnterSq3(state, "twoWrongFacts");
-                if (command) return command;
-                const sq5Command = maybeEnterSq5Random(state);
-                if (sq5Command) return sq5Command;
-              }
-
-              if (state.questionCount % SQ3_TRIGGER_EVERY_BASE_ANSWERS === 0) {
-                const command = maybeEnterSq3(state, "baseFiveFacts");
-                if (command) return command;
-                const sq5Command = maybeEnterSq5Random(state);
-                if (sq5Command) return sq5Command;
-              }
-
-              runtime.nextItem({ reason: "afterAnswer" });
+            if (state.covered.size >= TOTAL_FACTS_PER_LEVEL) {
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
+                action: "exit",
+                reason: "levelCovered",
+                view: { flash: "win", message: "Subquiz 1 baza terminat, next level" },
               };
-            },
-          });
+            }
+
+            if (state.wrongFacts.length >= 2) {
+              const command = maybeEnterSq3(state, "twoWrongFacts");
+              if (command) return command;
+              const sq5Command = maybeEnterSq5Random(state);
+              if (sq5Command) return sq5Command;
+            }
+
+            if (state.questionCount % SQ3_TRIGGER_EVERY_BASE_ANSWERS === 0) {
+              const command = maybeEnterSq3(state, "baseFiveFacts");
+              if (command) return command;
+              const sq5Command = maybeEnterSq5Random(state);
+              if (sq5Command) return sq5Command;
+            }
+            // altfel: ramane in "base" — Motor3Butoane cere generator-ul automat.
+          },
         },
         onResume({ runtime }) {
           if (runtime?.getState) shared.baseState = runtime.getState();
@@ -963,6 +916,8 @@
         id: SQ3_ID,
         title: "Intensiv grup de factori",
         hintMessage: HINT,
+        esteCorect: esteCorectV4,
+        mesaje: mesajeStandard,
         initialState({ payload }) {
           const bs = [...new Set((payload?.bs ?? []).map(Number))].filter(isValidB).sort((a, b) => a - b);
           const facts = bs.length ? bs : [B_MIN];
@@ -994,41 +949,27 @@
           state.lastFactB = b;
           return sq3ShowStack ? buildStackQuestion(b, state) : buildQuestionForB(b, SQ3_ID, state);
         },
-        onAnswer(event) {
-          const { item, state, runtime } = event;
-          shared.sq3State = state;
-          const factB = item.metadata.factB;
+        actiuni: {
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            const factB = ctx.item.metadata.factB;
+            state.questionCount += 1;
+            state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
 
-          return raspundeSubquiz(event, {
-            dupaRaspunsCorect: () => {
-              state.questionCount += 1;
-              state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
+            const thisFactJustDone = factDone(state, factB);
+            if (thisFactJustDone && shared.baseState) {
+              shared.baseState.covered.add(factB);
+            }
 
-              const thisFactJustDone = factDone(state, factB);
-              if (thisFactJustDone && shared.baseState) {
-                shared.baseState.covered.add(factB);
+            const complete = state.facts.every((b) => factDone(state, b));
+            if (complete) {
+              if (shared.baseState) {
+                state.facts.forEach((b) => shared.baseState.covered.add(b));
               }
-
-              const complete = state.facts.every((b) => factDone(state, b));
-              if (complete) {
-                if (shared.baseState) {
-                  state.facts.forEach((b) => shared.baseState.covered.add(b));
-                }
-                return { action: "pop", reason: "sq3Complete", payload: { sq3Completed: true } };
-              }
-
-              runtime.nextItem({ reason: "sq3Next" });
-              return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
-              };
-            },
-          });
+              return { action: "pop", reason: "sq3Complete", payload: { sq3Completed: true } };
+            }
+            // altfel: ramane in sq3 — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout: handleIntensiveTimeout,
       });
@@ -1177,45 +1118,29 @@
       return buildSbsFallbackQuestion(entry, state);
     }
 
-    function handleIntensiveAnswer(event) {
-      const { item, state, runtime } = event;
-      shared.sq2State = state;
-      const factB = item.metadata.factB;
+    // Descoperire mostenita de la migrarea v3 (aceeasi forma exacta aici): `sq2ExitMode`
+    // ("correct" vs "any") se mapeaza pe `turCorect` din M3B — vezi comentariul din
+    // multiplication-1120-v3-train-eff-eq-forms.js. Sq2/sq2Sbs raman nedeclansate automat
+    // in acest fisier (decizie user, 29.07.2026) — migrarea nu schimba asta.
+    function intensiveDupaRaspunsCorect(ctx) {
+      const state = ctx.stare;
+      const factB = ctx.item.metadata.factB;
+      state.questionCount += 1;
+      state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
+      if (ctx.turCorect) {
+        state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
+      }
 
-      return raspundeSubquiz(event, {
-        dupaRaspunsCorect: (ctx) => {
-          state.questionCount += 1;
-          state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
-          if (ctx.turCorect) {
-            state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
-          }
-
-          const complete = state.facts.every((b) => {
-            const value =
-              sq2ExitMode === "any" ? state.countsByB[b] ?? 0 : state.correctCountsByB[b] ?? 0;
-            return value >= sq2ExitCount;
-          });
-
-          if (complete) {
-            return {
-              action: "pop",
-              reason: "sq2Complete",
-              payload: { sq2Completed: true },
-            };
-          }
-
-          runtime.nextItem({ reason: "sq2Next" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-            }),
-          };
-        },
+      const complete = state.facts.every((b) => {
+        const value =
+          sq2ExitMode === "any" ? state.countsByB[b] ?? 0 : state.correctCountsByB[b] ?? 0;
+        return value >= sq2ExitCount;
       });
+
+      if (complete) {
+        return { action: "pop", reason: "sq2Complete", payload: { sq2Completed: true } };
+      }
+      // altfel: ramane — Motor3Butoane cere generator-ul automat.
     }
 
     function sq2Definition() {
@@ -1223,6 +1148,8 @@
         id: SQ2_VBS_ID,
         title: "Intensiv cu eff VBS",
         hintMessage: HINT,
+        esteCorect: esteCorectV4,
+        mesaje: mesajeStandard,
         initialState({ payload }) {
           const facts = validLevelFacts(payload?.facts).slice(0, 4);
           const state = {
@@ -1252,7 +1179,7 @@
           state.lastFactB = b;
           return buildQuestionForB(b, SQ2_VBS_ID, state);
         },
-        onAnswer: handleIntensiveAnswer,
+        actiuni: { dupaRaspunsCorect: intensiveDupaRaspunsCorect },
         onTimeout: handleIntensiveTimeout,
       });
     }
@@ -1262,6 +1189,8 @@
         id: SQ2_SBS_ID,
         title: "Intensiv SBS",
         hintMessage: HINT,
+        esteCorect: esteCorectV4,
+        mesaje: mesajeStandard,
         initialState({ payload }) {
           const facts = validLevelFacts(payload?.facts).slice(0, SQ2_SBS_FACT_COUNT);
           const entries = buildSbsEntries(facts.length ? facts : getLevelFactBs().slice(0, SQ2_SBS_FACT_COUNT));
@@ -1311,7 +1240,7 @@
           state.lastFactB = fallbackEntry.b;
           return buildSbsQuestionForEntry(fallbackEntry, state, { ignoreLevelFactorCap: true });
         },
-        onAnswer: handleIntensiveAnswer,
+        actiuni: { dupaRaspunsCorect: intensiveDupaRaspunsCorect },
         onTimeout: handleIntensiveTimeout,
       });
     }
@@ -1515,6 +1444,8 @@
         id: SQ5_ID,
         title: "Fluent party",
         hintMessage: HINT,
+        esteCorect: esteCorectV4,
+        mesaje: mesajeStandard,
         initialState({ payload }) {
           aplicaCrestereZilnicaEqForms();
           const facts =
@@ -1565,37 +1496,33 @@
         // pana la raspunsul corect; `turnsByKey`/`formsUsedByKey` numara doar
         // la rezolvare (Categoria 6), `answerRevealed` nu mai e nevoie
         // (nu mai exista reveal pe gresit, motorul comun ramane pe intrebare).
-        onAnswer(event) {
-          const { state, runtime } = event;
-          shared.sq5State = state;
+        actiuni: {
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            const pereche = state.currentPereche;
+            const key = pereche.key;
 
-          return raspundeSubquiz(event, {
-            dupaRaspunsCorect: () => {
-              const pereche = state.currentPereche;
-              const key = pereche.key;
+            state.questionCount += 1;
+            state.turnsByKey[key] = (state.turnsByKey[key] ?? 0) + 1;
+            if (!state.formsUsedByKey[key]) state.formsUsedByKey[key] = new Set();
+            state.formsUsedByKey[key].add(pereche.prompt);
 
-              state.questionCount += 1;
-              state.turnsByKey[key] = (state.turnsByKey[key] ?? 0) + 1;
-              if (!state.formsUsedByKey[key]) state.formsUsedByKey[key] = new Set();
-              state.formsUsedByKey[key].add(pereche.prompt);
-
-              if (state.blocQuestionsLeft <= 0 && sq5TermIsComplete(state)) {
-                const iesire = { reason: "sq5Complete", payload: { sq5Completed: true } };
-                return state.entryMode === "push" ? { action: "pop", ...iesire } : { action: "exit", ...iesire };
-              }
-
-              runtime.nextItem({ reason: "sq5Next" });
-              return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
+            if (state.blocQuestionsLeft <= 0 && sq5TermIsComplete(state)) {
+              // Fara `view` propriu in codul vechi. Cand entryMode !== "push" (mod B,
+              // ruta statica — ex. sq5Entry="levelStart", ruta [SQ5_ID,"base"]), exit-ul
+              // e urmat de "base" in ACEEASI ruta — un `message` implicit ar supravietui
+              // pe prima lui intrebare. Pastram exact ce se vedea inainte (nimic), pt.
+              // ambele ramuri (pop isi sterge view-ul central oricum, deci suprascrierea
+              // e sigura si acolo).
+              const iesire = {
+                reason: "sq5Complete",
+                payload: { sq5Completed: true },
+                view: { message: undefined },
               };
-            },
-          });
+              return state.entryMode === "push" ? { action: "pop", ...iesire } : { action: "exit", ...iesire };
+            }
+            // altfel: ramane in sq5 — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout: handleIntensiveTimeout,
       });
@@ -2381,7 +2308,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: QUIZ_TITLE,
     description: "Clona v4 de la v3: subquiz 1 pe acoperire completa (1-20), subquiz 3 intensiv pe grupuri de factori, jurnalizare activa din start.",
     order: 2.3,
     gestionareGreseli: { activ: false },

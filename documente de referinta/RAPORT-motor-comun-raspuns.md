@@ -17,13 +17,36 @@
 > exact al deciziilor. Planul complet e în `PLAN-motor-comun-raspuns.md`, dar NU trebuie recitit
 > de la zero — tot ce contează practic e rezumat aici.**
 
-**Faza:** D COMPLETĂ. **Faza E ÎN LUCRU** — pasul 1 (impunerea „CE nu CUM") gata; 2 din 3 fișiere
-cu subquizuri reale migrate (`multiplication-1120-v3-train-eff-eq-forms.js` 3/3,
-`multiplication-1120-v2-modular.js` 9/9). Rămâne doar
-`multiplication-1120-v4-intensiv-multipli-234.js` (5 subquizuri).
+**Faza:** D COMPLETĂ. **Faza E, pașii 1-3 COMPLEȚI** — toate cele 17 subquizuri reale (9 în
+v2-modular, 3 în v3, 5 în v4) migrate la contractul declarativ „CE nu CUM". Rămâne doar §12 din
+plan (al doilea gard: orice quiz, inclusiv cele 15 „simple" de azi, construit prin
+`SubquizOrchestrator`) — vezi „Ce urmează" mai jos.
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
-Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`.
+Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`. Faza E, v2-modular: `d70c544`.
+Faza E, v4: în lucru (commit imediat după actualizarea asta).
 **Toate pushate pe `origin/master` — confirmat.**
+
+**Faza E — v4 migrat (20.08.2026), ULTIMUL fișier cu subquizuri reale:** toate 5 subquizuri din
+`js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` (`base`, `sq3FactorGroup`,
+`sq2EffVbs`, `sq2EffSbs`, `sq5FluentParty` — **fișierul bug-ului ORIGINAL**) migrate identic ca la
+celelalte două. `sq2EffVbs`/`sq2EffSbs` foloseau `turCorect` (ca la v3) — migrarea le repară la
+fel, dar practic sunt cod mort azi (nu se mai declanșează automat, decizie user 29.07.2026), deci
+fără efect observabil pe nicio rută reală. **Găsit din nou, verificat explicit, corectat pe loc**
+(nu o corecție nouă — aceeași capcană structurală identificată deja la v2-modular): `sq5Definition`
+avea o ramură de `exit` fără `view` propriu (finalul unei sesiuni sq5 în mod B, `entryMode!=="push"`)
+— în ruta implicită (`sq5Entry="levelStart"`, valoarea din `readChoiceSetting`), sq5 e PRIMUL
+subquiz din rută, nu ultimul, deci un mesaj implicit ar fi supraviețuit pe prima întrebare din
+„base". Corectat cu `view:{message:undefined}` explicit, verificat cu script dedicat (nu doar
+suita existentă) — confirmat `undefined`, fără scurgere.
+Teste: `multiplication-1120-v4-intensiv-multipli-234.test.js` — **28/28 verzi din prima încercare**
+(nimic rescris), inclusiv testul de regresie exact pe bug-ul original („raspunsul gresit in sq5
+ramane pe aceeasi intrebare"). Suită completă: 506 teste, 503 trec, 3 pică — **exact cele 3
+preexistente** (`vizualizare3-tabel-fluenta`, sensibile la dată) — **zero eșecuri legate de
+lucrarea asta, pentru prima dată din Faza C încoace**. Verificat live în browser: greșit rămâne +
+`wrongFacts`, corect avansează, zero erori consolă. Sufixul „NEFUNCTIONAL" scos — acesta a fost
+ultimul. `index.html`: `multiplication-1120-v4-intensiv-multipli-234.js` v8→v9.
+**Cu asta, pașii 1-3 din §5 (plan) sunt COMPLEȚI — toate cele 17 subquizuri reale, în toate cele
+3 fișiere, trec prin contractul declarativ „CE nu CUM". Rămâne doar §12.**
 
 **Faza E — v3 migrat (20.08.2026):** cele 3 subquizuri (`base`, `sq2EffVbs`, `sq2EffSbs`) din
 `js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js` migrate de la `onAnswer` propriu
@@ -216,6 +239,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 19.08.2026 | Faza D, Lot 2 | 5 fișiere migrate (`addition-table-singapore`, `addition-table-singapore-missing`, `division-with-remainder`, `prime-divisions`, `equations-e3-e6`). Corecție de comportament intenționată la `division-with-remainder` (Categoria 4+6, ca la `bagare-sub-radical`). Primele fișiere cu `promptHoldMs`+`continueStep` proprii — confirmat că trec neatinse prin M3B. Verificat live în browser pentru toate 5, zero erori consolă. 483 teste, 475 trec (8 picate, toate așteptate: 3 preexistente + 5 title-uri pentru fișiere încă nemigrate din Loturile 3-4). Commit `7ed8cc1`, push confirmat. | **complet** |
 | 19.08.2026 | Faza D, Lot 3 | 5 fișiere/motoare migrate, 9 intrări de meniu deblocate (`succesive-quiz/engine.js`, `conexe-table-quiz/engine.js` ×4, `eff-quiz/engine.js` ×4, `pre-equations-eff-navigation.js`, `multiplication-1120-v2.js`). Cel mai mare volum de corecții de comportament din tot refactorul, concentrat în `multiplication-1120-v2.js` (6 subquiz-uri interne, comentariul sursă spunea explicit „greșelile sunt ignorate" la modul intensiv — corectat, fără excepție). Suita existentă a acelui fișier avea 10 teste care testau bug-urile ca feature, rescrise. 499 teste, 495 trec (4 picate, toate așteptate: 3 preexistente + 1 title pentru `multiplication-1120-v2-modular`, Lotul 4). Verificat live în browser. Commit `5c08b54`, push confirmat. | **complet** |
 | 19.08.2026 | Faza D, Lot 4 | Ultimele 3 fișiere cu subquizuri reale migrate: `multiplication-1120-v2-modular.js` (9 subquizuri — toate 9 aveau bug ascuns, nu doar cele 3 marcate în inventar; gasit si reparat bug real de „pop fără view"), `multiplication-1120-v3-train-eff-eq-forms.js` (3 subquizuri, toate Categoria 2, exact ca prezis în inventar), `multiplication-1120-v4-intensiv-multipli-234.js` (5 subquizuri — **fișierul bug-ului ORIGINAL**: `sq5FluentParty` reparat definitiv, Categoria 5 de la `sq3FactorGroup` — plasa de siguranță de 5 încercări — ELIMINATĂ complet, plus un `allowOnWrong` prost-folosit descoperit la `baseDefinition`, ratat de inventarul din Faza A). **Faza D COMPLETĂ — toate 18 fișiere migrate, zero titluri NEFUNCTIONAL rămase.** 498 teste, 495 trec (3 pică, toate preexistente). Verificat live în browser, inclusiv 8 răspunsuri greșite la rând în sq3 (peste fostul plafon de 5) rămânând pe aceeași întrebare cu butoane complet funcționale. | **complet** |
+| 20.08.2026 | Faza E, v4 | ULTIMUL fișier cu subquizuri reale: toate 5 subquizuri migrate din `multiplication-1120-v4-intensiv-multipli-234.js` (fișierul bug-ului ORIGINAL) la contractul declarativ. `sq2EffVbs`/`sq2EffSbs` foloseau `turCorect` (ca v3) — reparate la fel, dar cod mort azi (nedeclanșate automat). Găsită și tratată aceeași capcană de „mesaj scurs" ca la v2-modular, de data asta la `sq5Definition` (exit spre "base" în mod B/levelStart, sq5 fiind primul din rută) — corectat cu `view:{message:undefined}`, verificat cu script dedicat. Suita fișierului: 28/28 din prima încercare, inclusiv testul de regresie exact pe bug-ul original. Suită completă: 506 teste, 503 trec, 3 pică — exact cele 3 preexistente, zero eșecuri legate de lucrare pentru prima dată din Faza C încoace. Verificat live: greșit rămâne + `wrongFacts`, corect avansează, zero erori consolă. **Cu asta, toate cele 17 subquizuri reale sunt migrate — pașii 1-3 din §5 (plan) COMPLEȚI.** | **complet** |
 | 20.08.2026 | Faza E, v2-modular | 9/9 subquizuri migrate din `multiplication-1120-v2-modular.js` la contractul declarativ, `raspundeSubquiz`/`creeazaM3BSubquiz` șterse. Niciun hook nu folosea `turCorect` (verificat prin grep) — migrare fără corecție de comportament ascunsă, spre deosebire de v3. Capcană structurală găsită și tratată: `actiuni.*` nu au acces la `runtime` (deci nu pot chema `nextItem()` manual), iar `mesaje.corect` implicit s-ar fi scurs pe ramuri de exit fără `view` propriu — verificat ramură cu ramură, un singur caz real (`anchorSumValues`→`rapidAnchorAdditions`), corectat cu `view:{message:undefined}` explicit. `domainProducts`: mesajul de tranziție de domeniu recreat ca `mesaje.corect` dinamic (detectează `currentDomainCount===0`). Verificat cu script dedicat: mesaj neconfirmat scurs, tranziție de domeniu exact la a 15-a întrebare. Suita fișierului: 43/43 din prima încercare, nimic rescris. Suită completă: 506 teste, 476 trec, 30 pică (exact v4 nemigrat + 3 preexistente). Verificat live: greșit rămâne + `wrongFacts`, corect avansează, zero erori consolă. Sufix scos, commit în lucru. | **complet** |
 | 20.08.2026 | Faza E, v3 | 3/3 subquizuri migrate din `multiplication-1120-v3-train-eff-eq-forms.js` (`base`, `sq2EffVbs`, `sq2EffSbs`) la contractul declarativ, `onAnswer`/`raspundeSubquiz`/`creeazaM3BSubquiz` șterse din fișier. Găsit și reparat: tiparul vechi „M3B nou la fiecare apăsare" rupea `turCorect` (o corectare arăta mereu ca „prima apăsare"); reparat ca efect direct al migrării (o instanță M3B per activare, nu per apăsare) — a scos la iveală un al doilea bug, separat, în afara scopului (`setSq2Config` respinge `exitCount:2`, doar `[3,4,5]` acceptate ca panoul de control) — testul corectat să folosească o valoare validă, validarea neatinsă. Fix „pop fără view" centralizat în `subquiz-definition.js` (dinainte duplicat local în cele 3 fișiere), cu test nou dedicat. Suita fișierului: 20/20 (1 test corectat). `jurnal-intrebari.test.js`: 8/8, neatins. Suită completă: 506 teste, 433 trec, 73 pică (exact v2-modular+v4 nemigrate + 3 preexistente). Verificat live în tab curat: corect avansează, greșit rămâne și înregistrează `wrongFacts`, push/pop SQ2 funcționează cu numărul de întrebări păstrat la revenire. Sufix scos, commit în lucru. | **complet** |
 | 19.08.2026 | Faza E, pas 1 | `subquiz-definition.js` rescris: `onAnswer` interzis structural (aruncă), calea generică deleagă integral la Motor3Butoane (un `esteCorect`/`actiuni`/`mesaje` per runtime). Cele 3 quizuri cu subquizuri sufixate „NEFUNCTIONAL". Descoperit și reparat un bug latent (cod mort, nu rula în producție): calea generică veche avansa pe răspuns greșit by default cand `wrongAnswerRule` nu era „retrySame". 7 teste noi (`subquiz-definition-faza-e-ce-nu-cum.test.js`), toate verzi. Suită completă: 505 teste, 406 trec, 99 pică (96 așteptate — cele 3 fișiere + jurnal-intrebari — + 3 preexistente, nimic neașteptat). Verificat live: sufix vizibil, eroare la selectarea oricăruia din cele 3, quiz nemodificat funcționează normal. | **pas 1 complet** |
@@ -530,7 +554,10 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
 - [x] `multiplication-1120-v3-train-eff-eq-forms.js` — 3/3 subquizuri migrate, sufix scos —
       20.08.2026 (vezi „Stare curentă" pt. detalii: bug real de `turCorect` reparat ca efect
       direct al migrării, fix „pop fără view" centralizat în `subquiz-definition.js`)
-- [ ] `multiplication-1120-v4-intensiv-multipli-234.js` — 5 subquizuri migrate, sufix scos
+- [x] `multiplication-1120-v4-intensiv-multipli-234.js` — 5/5 subquizuri migrate, sufix scos —
+      20.08.2026 (ULTIMUL fișier — vezi „Stare curentă": 28/28 teste din prima încercare,
+      inclusiv testul de regresie pe bug-ul original din sq5; aceeași capcană de „mesaj scurs"
+      ca la v2-modular, găsită și tratată la fel)
 - [x] Test-santinelă: `define({ onAnswer })` chiar aruncă — 19.08.2026,
       `tests/subquiz-definition-faza-e-ce-nu-cum.test.js` (7 teste, toate verzi; include și
       `SubquizOrchestrator.create()` cu o definiție cu `onAnswer`, nu doar `define()` direct)
