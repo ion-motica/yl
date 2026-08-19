@@ -12,8 +12,9 @@
 
 ## Stare curentă
 
-**Faza:** nicio fază începută — planul tocmai a fost scris.
-**Următorul pas:** Faza A (inventarul variației reale + propunerea contractului), conform §5 din plan.
+**Faza:** B — modulul scris și testat (15 teste verzi). Așteaptă verificarea userului.
+**Următorul pas:** Faza C — IMPUNEREA (aici se sparge totul, intenționat), după aprobare.
+**Modulul:** `js/motor-3-butoane.js` — „Motor 3 butoane" (M3B), numele dat de user.
 **Aplicația:** complet funcțională. Impunerea (Faza C) încă nu s-a făcut, deci niciun quiz nu e marcat „NEFUNCȚIONAL".
 **Ultima actualizare:** 18.08.2026
 
@@ -36,6 +37,8 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 |---|---|---|---|
 | 18.08.2026 | — | Plan scris (Opus 5), pus pe GitHub. Nicio modificare de cod. | plan gata |
 | 18.08.2026 | — | Plan corectat: scop extins (3 motoare din afara `js/quizzes/`, ratate la prima numărare) + ordine schimbată (impunerea ÎNAINTE de migrare, decizia userului). | plan gata |
+| 18.08.2026 | Faza A | Citire completă (18 fișiere + 17 subquizuri), contract propus, apoi corectat de user de mai multe ori: mecanism de avans forțat fără răspuns corect ("plasa de siguranță") — găsit într-un singur loc (sq3), eliminat complet din contract, nicăieri nu există limită de încercări. Clarificat: „răspuns corect" la nivel de tură = doar prima apăsare, apăsările ulterioare sunt corectare, nu re-evaluare (deja consemnat, corect, în jurnalul/Vizualizare 3 existent — verificat, nu era gaură nouă). Decizie nouă de scop: orice quiz trece prin `SubquizOrchestrator`, minim o bucată — vezi §12 din plan. Faza A aprobată. | **complet** |
+| 18.08.2026 | Faza B | Scris `js/motor-3-butoane.js` (M3B) + `tests/motor-3-butoane.test.js` (15 teste, toate verzi). Numele și vocabularul motoarelor (mr/mq/msq/ML/M3B) date de user. Nimic altceva neatins: niciun quiz nu-l folosește încă, nu e încărcat în `index.html`. Suita completă: 423 teste, 420 trec (3 picate preexistente, sensibile la dată). | **scris, așteaptă verificare** |
 
 ---
 
@@ -44,15 +47,45 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 - [x] Citit `onAnswer`-ul tuturor celor 18 fișiere în scop
 - [x] Citit cele 17 subquizuri (9 în `v2-modular`, 3 în `v3`, 5 în `v4`)
 - [x] Tabel al variației reale — vezi `FAZA-A-inventar-contract.md`
-- [x] Contract propus — vezi `FAZA-A-inventar-contract.md` §2
-- [ ] **OPRIRE** — prezentat userului, 3 întrebări deschise (§4 din anexă), în așteptare
+- [x] Contract propus — vezi `FAZA-A-inventar-contract.md` §2 (corectat pe parcurs, vezi jurnal)
+- [x] **OPRIRE** — prezentat userului, toate întrebările rezolvate, **aprobat**
 
-## Faza B — modulul comun
+## Faza B — modulul comun = „Motor 3 butoane" (M3B)
 
-- [ ] Modul scris
-- [ ] Teste proprii, pe contract
-- [ ] Toate testele existente încă verzi (aplicația funcționează normal la acest punct)
-- [ ] **OPRIRE** — raportat
+- [x] Modul scris — `js/motor-3-butoane.js`, global `Motor3Butoane`
+- [x] Teste proprii, pe contract — `tests/motor-3-butoane.test.js`, **15 teste, toate verzi**
+- [x] Toate testele existente încă verzi (423 total, 420 trec; cele 3 picate sunt preexistente,
+      din `vizualizare3-tabel-fluenta.test.js`, sensibile la dată — verificat prin `git stash`)
+- [x] Aplicația funcționează normal — modulul există, dar nu e încă impus și nu e încă folosit
+      de niciun quiz; nu e nici măcar încărcat în `index.html` (se face la Faza C)
+- [ ] **OPRIRE** — raportat, așteaptă verificarea userului
+
+### Vocabularul motoarelor (dat de user, 18.08.2026)
+
+| Prescurtare | Ce e | Fișier | Global |
+|---|---|---|---|
+| **mr** | motor randare | `js/falling-engine.js` | `FallingEngine` |
+| **mq** | motor quizuri | `js/quiz-registry.js` | `QuizRegistry` |
+| **msq** | motor subquizuri (orchestrator) | `js/subquiz/subquiz-orchestrator.js` | `SubquizOrchestrator` |
+| **ML** | motor logare | `js/jurnal-intrebari.js` | `JurnalIntrebari` |
+| **M3B** | motor 3 butoane | `js/motor-3-butoane.js` | `Motor3Butoane` |
+
+### Ce face M3B, pe scurt
+
+- **Regula unică:** corect → treci; greșit → rămâi pe aceeași întrebare, fără limită de încercări.
+- **Turul** e noțiune de sine stătătoare în cod: M3B numără apăsările din turul curent și expune
+  `numarApasare`, `estePrimaApasare`, `turCorect` — ca fiecare quiz să NU-și recalculeze singur
+  „corect din prima" (de-acolo ar diverge implementările).
+- **Cele 4 momente** în care un quiz poate cere acțiuni (pauze/animații, ca date, nu efecte):
+  `inainteDeAfisareaIntrebarii`, `dupaAfisareaIntrebarii`, `inainteDeApasare`, `dupaApasare` —
+  ultimele două la **fiecare** apăsare, corectă sau nu.
+- **Rutarea** (push/pop/exit prin msq) se cere prin `dupaRaspunsCorect` — se evaluează **exclusiv**
+  după o apăsare corectă, niciodată în timp ce se așteaptă răspunsul corect.
+- **Nu logează nimic** — face logarea corectă prin construcție: ținând întrebarea neschimbată pe
+  greșit, `roundSignature` din mr rămâne același, deci `a_cata_apasare_pe_buton` numără 1, 2, 3…
+  în același tur, exact cum se așteaptă `motor-analiza.js`.
+- **Semnătura** `motor-3-butoane-v1` pe fiecare rezultat + `esteRezultatValid()` — unealta cu care
+  mr va refuza, în Faza C, orice rezultat care nu vine din M3B.
 
 ## Faza C — IMPUNEREA (aici se sparge totul, intenționat)
 
