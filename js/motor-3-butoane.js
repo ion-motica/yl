@@ -120,7 +120,7 @@
     // `(extra) => runtime.view(extra)`. O primim ca parametru (nu o cautam
     // singuri) ca M3B sa ramana pur si testabil fara DOM.
     function laApasareButon(contextApel = {}) {
-      const { item, index, stare, construiesteVedere } = contextApel;
+      const { item, index, stare, meta = {}, construiesteVedere } = contextApel;
 
       if (typeof construiesteVedere !== "function") {
         throw new Error("Motor3Butoane: lipseste `construiesteVedere(extra)`.");
@@ -134,6 +134,7 @@
         item,
         index,
         stare,
+        meta,
         corect,
         alesul: item?.options?.[index],
         numarApasare: apasariInTur,

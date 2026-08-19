@@ -303,80 +303,68 @@
       };
     }
 
-    function finishPhase4Step(isCorrect) {
-      mixedQuestionCount += 1;
-
-      if (mixedQuestionCount >= MIXED_QUESTIONS) {
-        goToPhase(PHASE.FIVE);
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    //
+    // CORECTARE DE COMPORTAMENT, intentionata (Categoria 4 din FAZA-A-inventar-
+    // contract.md): inainte de migrare, un raspuns gresit sarea direct la altă
+    // intrebare (`finishPhase4Step`/`afterAnswer`, ramura `!isCorrect`, apela
+    // `pickNewQuestion` si necondiționat). Asta incalca regula universala
+    // (gresit ramane pe loc) — exact ca la sq5 in v4, reparat mai devreme in
+    // aceeasi lucrare. M3B elimina posibilitatea: pe gresit, ramane singur pe
+    // aceeasi intrebare (`outcome:"wrong-answer"`), fara nicio ramura de cod
+    // care sa poata avansa. `questionCount` (pragul de 21) se muta din a numara
+    // orice apasare (Categoria 6) la a numara doar raspunsuri REZOLVATE
+    // (corecte) — pragul de 21 ramane neschimbat, doar sensul lui.
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
+      intrebareUrmatoare: () => {
         current = pickNewQuestion();
-      } else {
-        const excludeN = isCorrect ? undefined : current?.n;
-        current = pickNewQuestion(excludeN);
-      }
+        return current;
+      },
+      mesaje: {
+        gresit: "Nu e corect.",
+        corect: "Corect!",
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (!ctx.corect) consecutiveCorrect = 0;
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          questionCount += 1;
 
-      return {
-        outcome: "step-correct",
-        correct: isCorrect,
-        flash: isCorrect ? undefined : "wrong",
-        resetFall: !isCorrect,
-        bounce: isCorrect,
-        message: isCorrect ? "Corect!" : "Nu e corect.",
-        ...roundView(),
-      };
-    }
+          if (questionCount >= QUESTIONS_PER_LEVEL) {
+            return { action: "continue", view: advanceLevel("count") };
+          }
 
-    function afterAnswer(isCorrect) {
-      questionCount += 1;
+          if (currentPhase === PHASE.FOUR) {
+            mixedQuestionCount += 1;
+            if (mixedQuestionCount >= MIXED_QUESTIONS) goToPhase(PHASE.FIVE);
+            current = pickNewQuestion();
+            return {
+              action: "continue",
+              view: { outcome: "step-correct", correct: true, bounce: true, message: "Corect!", ...roundView() },
+            };
+          }
 
-      if (questionCount >= QUESTIONS_PER_LEVEL) {
-        return advanceLevel("count");
-      }
+          consecutiveCorrect += 1;
 
-      if (currentPhase === PHASE.FOUR) {
-        if (!isCorrect) consecutiveCorrect = 0;
-        return finishPhase4Step(isCorrect);
-      }
+          if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
+            if (currentPhase === PHASE.SIX) {
+              return { action: "continue", view: advanceLevel("streak") };
+            }
+            advanceToNextPhase();
+            current = pickNewQuestion();
+            return {
+              action: "continue",
+              view: { outcome: "step-correct", correct: true, bounce: true, message: "Corect!", ...roundView() },
+            };
+          }
 
-      if (!isCorrect) {
-        consecutiveCorrect = 0;
-        current = pickNewQuestion(current?.n);
-        return {
-          outcome: "step-correct",
-          correct: false,
-          flash: "wrong",
-          resetFall: true,
-          message: "Nu e corect.",
-          ...roundView(),
-        };
-      }
-
-      consecutiveCorrect += 1;
-
-      if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
-        if (currentPhase === PHASE.SIX) {
-          return advanceLevel("streak");
-        }
-
-        advanceToNextPhase();
-        current = pickNewQuestion();
-        return {
-          outcome: "step-correct",
-          correct: true,
-          bounce: true,
-          message: "Corect!",
-          ...roundView(),
-        };
-      }
-
-      current = pickNewQuestion();
-      return {
-        outcome: "step-correct",
-        correct: true,
-        bounce: true,
-        message: "Corect!",
-        ...roundView(),
-      };
-    }
+          return {}; // caz normal: M3B cheama `intrebareUrmatoare` si foloseste `mesaje.corect`
+        },
+      },
+    });
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -425,10 +413,13 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md).
       onAnswer(index) {
-        const chosen = Number(current.options[index]);
-        const isCorrect = chosen === current.correct;
-        return afterAnswer(isCorrect);
+        return m3b.laApasareButon({
+          item: current,
+          index,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
     };
   }
@@ -436,8 +427,8 @@
   global.BagareSubRadicalQuiz = { create: createQuiz };
 
   global.QuizRegistry.register({
-    id: QUIZ_ID,
-    title: "Bagare sub radical - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    id: "bagare-sub-radical",
+    title: "Bagare sub radical",
     description:
       "k · √n = √(n · k²). Niveluri k=2..9, 6 faze progresive, 21 răspunsuri sau final de level.",
     order: -3,

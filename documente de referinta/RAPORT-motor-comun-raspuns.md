@@ -116,7 +116,7 @@ unui quiz la înregistrare, acum sufixat:
 - `tests/equations-e3-e6.test.js` ("registers the new quiz with the exact requested title")
 - `tests/multiplication-1120-v2-modular.test.js` ("registers as a separate visible lab quiz")
 - `tests/multiplication-table-conexe-helper.test.js` ("registers quiz metadata")
-- `tests/sub-sau-langa-radical.test.js` ("registers as a separate radical v1 quiz")
+- ~~`tests/sub-sau-langa-radical.test.js`~~ — REZOLVAT, migrat în Lotul 1
 - `tests/subtraction-table-conexe-helper.test.js` ("registers quiz metadata")
 
 **Nu se repară acum** — se rezolvă de la sine, per fișier, pe măsură ce fiecare e migrat în
@@ -128,12 +128,21 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
 > meniu pe care le deblochează. Numărul din paranteză = câte intrări de meniu deblochează.
 
 ### Lotul 1
-- [ ] `js/quizzes/addition-table.js` (1) — *fără test: scris test întâi*
-- [ ] `js/quizzes/addition-table-range.js` (1) — *fără test: scris test întâi*
-- [ ] `js/quizzes/prime-divisors.js` (1) — *fără test: scris test întâi*
-- [ ] `js/quizzes/sub-sau-langa-radical.js` (1) — are test
-- [ ] `js/quizzes/bagare-sub-radical.js` (1) — *fără test: scris test întâi*
-- [ ] **OPRIRE** — „Am modificat și testat quizurile ...", userul verifică și el
+- [x] `js/quizzes/addition-table.js` (1) — migrat, 7 teste (scrise întâi, pe comportamentul
+      vechi, apoi verificate identice după migrare). Găsit pe drum, neatins (comportament
+      preexistent): `onAnswer` forțează `levelAdvanced:false` necondiționat pe ramura corectă,
+      chiar și când nivelul chiar avansează — semnalul real e `quiz.getLevel()`.
+- [x] `js/quizzes/addition-table-range.js` (1) — migrat, 6 teste, verificat live
+- [x] `js/quizzes/prime-divisors.js` (1) — migrat, 6 teste, verificat live (lanț complet 8→4→2→1,
+      3 pași intermediari + run-complete). Primul fișier cu pas intermediar real (Categoria 7):
+      mutația de stare stă în `dupaRaspunsCorect`, `intrebareUrmatoare` rămâne stub neatins.
+- [x] `js/quizzes/sub-sau-langa-radical.js` (1) — migrat, testul existent (11 teste) adaptat
+      (adăugat `motor-3-butoane.js` la încărcare) și verde, verificat live
+- [x] `js/quizzes/bagare-sub-radical.js` (1) — migrat, 8 teste, verificat live. **Comportament
+      vizibil CORECTAT** (Categoria 4): înainte de migrare, un răspuns greșit sărea direct la
+      altă întrebare — acum rămâne pe loc, ca peste tot. Pragul de 21 numără acum doar
+      răspunsuri rezolvate (corecte), nu orice apăsare (Categoria 6) — 21 neschimbat ca număr.
+- [x] **LOTUL 1 COMPLET.** Toate 5 fișiere migrate, testate, verificate live.
 
 ### Lotul 2
 - [ ] `js/quizzes/addition-table-singapore.js` (1) — *fără test: scris test întâi*

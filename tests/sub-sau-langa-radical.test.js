@@ -16,6 +16,7 @@ function loadQuiz() {
   loadScript("js/utils.js");
   loadScript("js/progress-display.js");
   loadScript("js/quiz-registry.js");
+  loadScript("js/motor-3-butoane.js");
   loadScript("js/quizzes/sub-sau-langa-radical.js");
 }
 
@@ -32,6 +33,7 @@ beforeEach(() => {
   delete globalThis.ProgressDisplay;
   delete globalThis.QuizRegistry;
   delete globalThis.SubSauLangaRadicalQuiz;
+  delete globalThis.Motor3Butoane;
   globalThis.Math.random = () => 0;
 });
 

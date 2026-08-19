@@ -302,6 +302,34 @@ describe("Motor 3 butoane (M3B)", () => {
     assert.equal(cereriDeIntrebareNoua, 0, "ruta preia controlul; intrebarea vine din alta bucata");
   });
 
+  // ---- meta (timp de raspuns etc, necesar quizurilor cu FactStore propriu) -
+
+  it("meta ajunge in context, la fiecare apasare, cu default {} daca lipseste", () => {
+    const q1 = item("2+3=?", ["4", "5", "6"], 1);
+    const primite = [];
+
+    const m3b = globalThis.Motor3Butoane.creeaza({
+      esteCorect: (it, idx) => idx === it.correctIndex,
+      intrebareUrmatoare: () => item("urmatoarea", ["1", "2", "3"], 0),
+      actiuni: {
+        dupaApasare: (ctx) => {
+          primite.push(ctx.meta);
+          return {};
+        },
+      },
+    });
+
+    m3b.laApasareButon({
+      item: q1,
+      index: 0,
+      meta: { responseMs: 1234 },
+      construiesteVedere: vedereDin(q1),
+    });
+    m3b.laApasareButon({ item: q1, index: 1, construiesteVedere: vedereDin(q1) });
+
+    assert.deepEqual(primite, [{ responseMs: 1234 }, {}]);
+  });
+
   // ---- mesaje -------------------------------------------------------------
 
   it("mesajele pot fi text fix sau functie care primeste contextul", () => {

@@ -405,6 +405,7 @@
         );
         pushRecent(recentChosenBuckets, getFactBucket(currentFact, summary), ACTIVE_POOL_SIZE);
       }
+      m3b.laAfisareaIntrebarii({ item: currentFact });
       return roundView({
         hintMessage: combo ? "Exersează combinația greșită!" : "Alege suma corectă.",
       });
@@ -429,6 +430,10 @@
       );
     }
 
+    // Motor3Butoane apeleaza actiunile ca functii simple, fara `this` legat de
+    // obiectul quizului — de-asta `finishSolvedFact` foloseste `quizApi`
+    // (setat imediat dupa ce obiectul e construit, mai jos) in loc de
+    // `this.beginRound(...)`, cum era in versiunea dinainte de migrare.
     function finishSolvedFact() {
       mistakes.noteRunFlawless();
 
@@ -457,7 +462,7 @@
           flash: "win",
           banner: "Felicitări! Next level!",
           message: `Corect! ${currentFact.values.a}+${currentFact.values.b}=${currentFact.correctAnswer}`,
-          nextRound: this.beginRound(next),
+          nextRound: quizApi.beginRound(next),
         };
       }
 
@@ -468,11 +473,58 @@
         runComplete: true,
         runDelayMs: RUN_DELAY_MS,
         message: `Corect! ${currentFact.values.a}+${currentFact.values.b}=${currentFact.correctAnswer}`,
-        nextRound: this.beginRound(next),
+        nextRound: quizApi.beginRound(next),
       };
     }
 
-    return {
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Regula unica: corect avanseaza, gresit ramane pe aceeasi intrebare, fara
+    // limita de incercari. Fapt important pt acest quiz: fiecare fapt rezolvat
+    // e propriul lui "run" (outcome mereu "run-complete", niciodata simplul
+    // "step-correct") — de-asta rezultatul complet vine din `dupaRaspunsCorect`,
+    // nu din `intrebareUrmatoare` (neatinsa aici, nu se cheama niciodata).
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => options[index] === currentFact.correctAnswer,
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `${currentFact.prompt.replace("=?", "")} nu este ${ctx.alesul}. Încearcă din nou!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+          if (!ctx.corect) {
+            mistakes.recordMistake(buildMistakePayload(currentFact, ctx.alesul));
+          }
+          return {};
+        },
+        dupaRaspunsCorect: (ctx) => {
+          if (isResolvedCombo(activeComboTrap, currentFact, ctx.alesul)) {
+            mistakes.resolveCombo(activeComboTrap);
+          }
+
+          const correctAnswer = currentFact.correctAnswer;
+          const promptWithAnswerText = currentFact.prompt.includes("=?")
+            ? currentFact.prompt.replace("=?", `=${correctAnswer}`)
+            : currentFact.prompt.replace("?", String(correctAnswer));
+          const promptWithAnswerHtml = currentFact.prompt.includes("=?")
+            ? currentFact.prompt.replace("=?", `=<span class="q-correct">${correctAnswer}</span>`)
+            : currentFact.prompt.replace("?", `<span class="q-correct">${correctAnswer}</span>`);
+
+          const rezultat = finishSolvedFact();
+          rezultat.prompt = promptWithAnswerText;
+          rezultat.promptHtml = promptWithAnswerHtml;
+          rezultat.options = options;
+          rezultat.correctIndex = correctIndex;
+          rezultat.hintMessage = "";
+          rezultat.levelAdvanced = false;
+          rezultat.runDelayMs = CORRECT_PROMPT_HOLD_MS;
+
+          return { action: "continue", view: rezultat };
+        },
+      },
+    });
+
+    const quizApi = {
       getLevel: () => level,
       getMaxLevel: () => MAX_LEVEL,
       getLevelLabel: () => getLevelLabel(level),
@@ -521,60 +573,26 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md). Regula
+      // corect/gresit, mesajele si rezultatul complet raman EXACT cele de
+      // dinainte de migrare — vezi `actiuni` la construirea lui `m3b`, mai sus.
       onAnswer(index, meta = {}) {
-        const chosen = options[index];
-        const correctAnswer = currentFact.correctAnswer;
-        const isCorrect = chosen === correctAnswer;
-
-        recordAttempt(isCorrect, chosen, meta);
-
-        if (!isCorrect) {
-          mistakes.recordMistake(buildMistakePayload(currentFact, chosen));
-          return {
-            outcome: "wrong-answer",
-            correct: false,
-            flash: "wrong",
-            message: `${currentFact.prompt.replace("=?", "")} nu este ${chosen}. Încearcă din nou!`,
-            ...roundView(),
-          };
-        }
-
-        if (isResolvedCombo(activeComboTrap, currentFact, chosen)) {
-          mistakes.resolveCombo(activeComboTrap);
-        }
-
-        const promptWithAnswerText = currentFact.prompt.includes("=?")
-          ? currentFact.prompt.replace("=?", `=${correctAnswer}`)
-          : currentFact.prompt.replace("?", String(correctAnswer));
-
-        const promptWithAnswerHtml = currentFact.prompt.includes("=?")
-          ? currentFact.prompt.replace(
-              "=?",
-              `=<span class="q-correct">${correctAnswer}</span>`
-            )
-          : currentFact.prompt.replace(
-              "?",
-              `<span class="q-correct">${correctAnswer}</span>`
-            );
-
-        const result = finishSolvedFact.call(this);
-        result.prompt = promptWithAnswerText;
-        result.promptHtml = promptWithAnswerHtml;
-        result.options = options;
-        result.correctIndex = correctIndex;
-        result.hintMessage = "";
-        result.levelAdvanced = false;
-        result.runDelayMs = CORRECT_PROMPT_HOLD_MS;
-        return result;
+        return m3b.laApasareButon({
+          item: { options },
+          index,
+          meta,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
 
       pickNextRound: () => pickRoundStart(),
     };
+    return quizApi;
   }
 
   global.QuizRegistry.register({
     id: "addition-table",
-    title: "Tabla adunarii - Clasic - 1_10+1_10 - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Tabla adunarii - Clasic - 1_10+1_10",
     description: "Alege suma corectă pentru adunările din tabla 1..10.",
     order: -10,
     gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },

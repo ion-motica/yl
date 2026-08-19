@@ -116,6 +116,10 @@
       return mistakes.canAdvanceLevel(progressOpts());
     }
 
+    // Motor3Butoane apeleaza actiunile ca functii simple, fara `this` legat de
+    // obiectul quizului — de-asta `finishSeriesRun` foloseste `quizApi` (setat
+    // imediat dupa ce obiectul e construit, mai jos) in loc de
+    // `this.beginRound(...)`, cum era in versiunea dinainte de migrare.
     function finishSeriesRun(reachedOne) {
       mistakes.noteRunFlawless();
 
@@ -144,7 +148,7 @@
           flash: "win",
           banner: "Felicitări! Next level!",
           message: "",
-          nextRound: this.beginRound(next),
+          nextRound: quizApi.beginRound(next),
         };
       }
 
@@ -160,9 +164,64 @@
           : reachedOne
             ? "Felicitări! Ai ajuns la 1."
             : "",
-        nextRound: this.beginRound(next),
+        nextRound: quizApi.beginRound(next),
       };
     }
+
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Aici exista un pas intermediar real: cat timp catul impartirii nu e 1 (si
+    // nu a coborat sub pragul nivelului), raspunsul corect continua ACELASI
+    // lant, nu incepe o intrebare noua independenta — de-asta mutatia de stare
+    // (istoricul, noul numar curent) se face in `dupaRaspunsCorect`, care
+    // decide si daca lantul s-a incheiat (intoarce rezultatul complet) sau
+    // continua (intoarce `{}`, iar M3B trece mai departe la `intrebareUrmatoare`,
+    // aici neatinsa — starea a fost deja actualizata).
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => currentNumber % options[index] === 0,
+      intrebareUrmatoare: () => null,
+      mesaje: {
+        gresit: (ctx) => `${ctx.alesul} nu divide ${currentNumber}. Încearcă din nou!`,
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (!ctx.corect) {
+            mistakes.recordMistake(buildMistakePayload(currentNumber, options[correctIndex], ctx.alesul));
+          }
+          return {};
+        },
+        dupaRaspunsCorect: (ctx) => {
+          const numberBefore = currentNumber;
+          const chosen = ctx.alesul;
+
+          if (isResolvedCombo(activeComboTrap, numberBefore, chosen)) {
+            mistakes.resolveCombo(activeComboTrap);
+          }
+
+          const quotient = Math.floor(numberBefore / chosen);
+          divisionHistory.push(`${numberBefore}:${chosen}=${quotient}`);
+          currentNumber = quotient;
+
+          if (currentNumber === 1) {
+            return { action: "continue", view: finishSeriesRun(true) };
+          }
+          if (isBelowLevelFloor(currentNumber)) {
+            return { action: "continue", view: finishSeriesRun(false) };
+          }
+
+          buildOptions(currentNumber);
+          return {
+            action: "continue",
+            view: {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: `${chosen} divide! Noul număr: ${currentNumber}`,
+              ...roundView(),
+            },
+          };
+        },
+      },
+    });
 
     function pickCompositeStart(exclude) {
       const { min, max } = levelRange(level);
@@ -200,7 +259,7 @@
       };
     }
 
-    return {
+    const quizApi = {
       getLevel: () => level,
       getMaxLevel: () => MAX_LEVEL,
       isCompleted: () => gameCompleted,
@@ -255,55 +314,25 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md). Regula
+      // corect/gresit, mesajele si rezultatul complet raman EXACT cele de
+      // dinainte de migrare — vezi `actiuni` la construirea lui `m3b`, mai sus.
       onAnswer(index) {
-        const numberBefore = currentNumber;
-        const chosen = options[index];
-        const correct = options[correctIndex];
-
-        if (numberBefore % chosen !== 0) {
-          mistakes.recordMistake(buildMistakePayload(numberBefore, correct, chosen));
-          return {
-            outcome: "wrong-answer",
-            correct: false,
-            flash: "wrong",
-            message: `${chosen} nu divide ${numberBefore}. Încearcă din nou!`,
-            ...roundView(),
-          };
-        }
-
-        if (isResolvedCombo(activeComboTrap, numberBefore, chosen)) {
-          mistakes.resolveCombo(activeComboTrap);
-        }
-
-        const quotient = Math.floor(numberBefore / chosen);
-        divisionHistory.push(`${numberBefore}:${chosen}=${quotient}`);
-        currentNumber = quotient;
-
-        if (currentNumber === 1) {
-          return finishSeriesRun.call(this, true);
-        }
-
-        if (isBelowLevelFloor(currentNumber)) {
-          return finishSeriesRun.call(this, false);
-        }
-
-        buildOptions(currentNumber);
-        return {
-          outcome: "step-correct",
-          correct: true,
-          bounce: true,
-          message: `${chosen} divide! Noul număr: ${currentNumber}`,
-          ...roundView(),
-        };
+        return m3b.laApasareButon({
+          item: { options },
+          index,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
 
       pickNextRound: () => pickRoundStart(),
     };
+    return quizApi;
   }
 
   global.QuizRegistry.register({
     id: "prime-divisors",
-    title: "Găsire divizori primi - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Găsire divizori primi",
     description: "Număr compus — alege divizorul prim care îl divide.",
     order: 0,
     gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },

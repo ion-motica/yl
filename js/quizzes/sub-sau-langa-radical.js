@@ -342,39 +342,34 @@
       };
     }
 
-    function afterAnswer(isCorrect) {
-      const questionLimit = questionLimitForLevel(currentLevel);
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    const m3b = global.Motor3Butoane.creeaza({
+      esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
+      intrebareUrmatoare: () => pickNewQuestion(),
+      mesaje: {
+        gresit: "Nu e corect.",
+        corect: "Corect!",
+      },
+      actiuni: {
+        dupaApasare: (ctx) => {
+          if (!ctx.corect) consecutiveCorrect = 0;
+          return {};
+        },
+        dupaRaspunsCorect: () => {
+          const questionLimit = questionLimitForLevel(currentLevel);
+          questionsAnsweredOnLevel += 1;
+          consecutiveCorrect += 1;
 
-      if (!isCorrect) {
-        consecutiveCorrect = 0;
-        return {
-          outcome: "wrong-answer",
-          correct: false,
-          flash: "wrong",
-          message: "Nu e corect.",
-          ...roundView(),
-        };
-      }
-
-      questionsAnsweredOnLevel += 1;
-      consecutiveCorrect += 1;
-
-      if (
-        consecutiveCorrect >= consecutiveNeededForLevel(currentLevel) ||
-        (questionLimit && questionsAnsweredOnLevel >= questionLimit)
-      ) {
-        return advanceLevel();
-      }
-
-      pickNewQuestion();
-      return {
-        outcome: "step-correct",
-        correct: true,
-        bounce: true,
-        message: "Corect!",
-        ...roundView(),
-      };
-    }
+          if (
+            consecutiveCorrect >= consecutiveNeededForLevel(currentLevel) ||
+            (questionLimit && questionsAnsweredOnLevel >= questionLimit)
+          ) {
+            return { action: "continue", view: advanceLevel() };
+          }
+          return {};
+        },
+      },
+    });
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -427,10 +422,13 @@
         };
       },
 
+      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md).
       onAnswer(index) {
-        const chosen = Number(current.options[index]);
-        const isCorrect = chosen === current.correct;
-        return afterAnswer(isCorrect);
+        return m3b.laApasareButon({
+          item: current,
+          index,
+          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
+        }).view;
       },
     };
   }
@@ -439,7 +437,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Sub sau lângă radical v1 - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: "Sub sau lângă radical v1",
     description: "k si n random mici, forme pe 3 niveluri, 5 raspunsuri corecte consecutive pentru avans.",
     order: -4,
     gestionareGreseli: { activ: false },
