@@ -654,6 +654,7 @@
     let questionSerial = 0;
     let current = null;
     let completed = false;
+    let orchestrator = null;
     const attemptLog = [];
 
     function family() {
@@ -671,6 +672,28 @@
       };
     }
 
+    // Faza E, sectiunea 12 din plan: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator, chiar unul "simplu" ca asta (o singura bucata "baza",
+    // fara push/pop/exit). `beginRound`/`pickNextRound` gestioneaza `current`
+    // direct (tiparul stabilit deja in toate quizurile simple migrate in Faza D),
+    // fara sa treaca prin orchestrator — daca l-am lasa sa polege singur (lazy,
+    // la primul `onAnswer`), `SubquizOrchestrator.onAnswer` ar trata acel apel ca
+    // "porneste si arata prima intrebare", NU ca "proceseaza apasarea userului":
+    // ar regenera o intrebare NOUA (prin `generator`) si ar arunca la gunoi
+    // apasarea reala. De-aia orchestratorul e pornit explicit ori de cate ori
+    // `current` se schimba (`sincronizeazaOrchestratorul`, mai jos) — iar
+    // `generator` intoarce `current` deja existent (nu genereaza din nou) cand
+    // pornirea asta explicita il gaseste deja setat, ca sa nu consume o extragere
+    // aleatoare in plus (ar desincroniza secventele deterministe din teste).
+    function sincronizeazaOrchestratorul() {
+      const runtime = orchestrator?.getCurrentRuntime?.();
+      if (runtime) {
+        runtime.setCurrentItem(current);
+      } else {
+        orchestrator?.startFirst?.();
+      }
+    }
+
     function pickNewQuestion() {
       const slots = [...family().left, ...family().right];
       current = buildQuestion(quizConfig, {
@@ -678,6 +701,7 @@
         unknownIndex: questionSerial % slots.length,
       });
       questionSerial += 1;
+      sincronizeazaOrchestratorul();
       return current;
     }
 
@@ -752,27 +776,52 @@
     // FIECARE apasare (ca inainte), `dupaRaspunsCorect` muta starea si pastreaza
     // dezvaluirea raspunsului (`revealedPrompt`/`revealedPromptHtml`) exact ca
     // inainte de migrare, la finalul unei ture.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => Boolean(current) && Number(current.options?.[index]) === current.correct,
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          recordAttempt(ctx.corect, Number(ctx.alesul), ctx.meta);
-          return {};
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator cu o singura
+    // bucata "baza" (push/pop/exit nu se folosesc — nu e nevoie aici). Vezi
+    // comentariul de la `sincronizeazaOrchestratorul`, mai sus, pt. de ce
+    // `esteCorect`/`actiuni` citesc `current` din closure (neschimbat) in loc
+    // sa citeasca din itemul dat de motor.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT,
+        esteCorect: (_item, index) => Boolean(current) && Number(current.options?.[index]) === current.correct,
+        generator() {
+          return current ?? pickNewQuestion();
         },
-        dupaRaspunsCorect: () => {
-          const solved = current;
-          const result = nextAfterCorrect();
-          if (result.runComplete) {
-            result.prompt = revealedPrompt(solved);
-            result.promptHtml = revealedPromptHtml(solved);
-          }
-          return { action: "continue", view: result };
+        mesaje: {
+          gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
         },
-      },
+        actiuni: {
+          dupaApasare: (ctx) => {
+            recordAttempt(ctx.corect, Number(ctx.alesul), ctx.meta);
+            // Vederea de "raspuns gresit" o construieste motorul comun (nu
+            // `roundView()` proprie, ca inainte de migrare) — ii lipseste
+            // `successionHistory` (panoul de sumar din arena) daca nu-l adaugam
+            // aici explicit. `dupaApasare` ruleaza la FIECARE apasare (corecta
+            // sau nu), deci merge si pe ramura corecta — acolo e oricum
+            // suprascris de `roundView()` din `dupaRaspunsCorect`, fara conflict.
+            return { successionHistory: createSummaryRows(quizConfig, current, level, answeredThisRun) };
+          },
+          dupaRaspunsCorect: () => {
+            const solved = current;
+            const result = nextAfterCorrect();
+            if (result.runComplete) {
+              result.prompt = revealedPrompt(solved);
+              result.promptHtml = revealedPromptHtml(solved);
+            }
+            return { action: "continue", view: result };
+          },
+        },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: { quizId: config.quizId ?? QUIZ_ID, hintMessage: HINT },
     });
 
     return {
@@ -805,7 +854,12 @@
         return pickNewQuestion();
       },
       beginRound(next) {
-        current = next ?? pickNewQuestion();
+        if (next) {
+          current = next;
+          sincronizeazaOrchestratorul();
+        } else {
+          pickNewQuestion();
+        }
         return roundView();
       },
       onTimeout(meta = {}) {
@@ -818,15 +872,10 @@
           ...roundView(),
         };
       },
-      // Migrat la Motor3Butoane (Faza D, lotul 2) — vezi `actiuni` la
-      // construirea lui `m3b`, mai sus.
+      // Migrat la Motor3Butoane (Faza D, lotul 2), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
       onAnswer(index, meta = {}) {
-        return m3b.laApasareButon({
-          item: { options: current?.options },
-          index,
-          meta,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+        return orchestrator.onAnswer(index, meta);
       },
       getTonomatConfig: () => ({
         ...quizConfig,

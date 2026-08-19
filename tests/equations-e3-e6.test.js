@@ -16,6 +16,9 @@ function loadQuiz() {
   loadScript("js/utils.js");
   loadScript("js/progress-display.js");
   loadScript("js/quiz-registry.js");
+  loadScript("js/subquiz/item-generator.js");
+  loadScript("js/subquiz/subquiz-definition.js");
+  loadScript("js/subquiz/subquiz-orchestrator.js");
   loadScript("js/motor-3-butoane.js");
   loadScript("js/quizzes/equations-e3-e6.js");
 }
@@ -31,6 +34,9 @@ beforeEach(() => {
   delete globalThis.QuizRegistry;
   delete globalThis.EquationTonomatQuiz;
   delete globalThis.Motor3Butoane;
+  delete globalThis.ItemGenerator;
+  delete globalThis.SubquizDefinition;
+  delete globalThis.SubquizOrchestrator;
 });
 
 test("registers the new quiz with the exact requested title", () => {
