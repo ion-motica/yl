@@ -439,7 +439,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Sub sau lângă radical v1",
+    title: "Sub sau lângă radical v1 - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "k si n random mici, forme pe 3 niveluri, 5 raspunsuri corecte consecutive pentru avans.",
     order: -4,
     gestionareGreseli: { activ: false },

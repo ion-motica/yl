@@ -446,7 +446,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Tabla adunarii Singapore 6=?+3",
+    title: "Tabla adunarii Singapore 6=?+3 - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description:
       "Completează ? în N=?+k sau N=k+? (ex. 6=?+3, 6=2+?). Reluare după greșeli. Nivel 3–10.",
     order: -7,

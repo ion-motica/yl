@@ -451,7 +451,7 @@
 
   global.QuizRegistry.register({
     id: "prime-divisions",
-    title: "Împărțiri la numere prime",
+    title: "Împărțiri la numere prime - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Alege câtul corect pentru împărțiri succesive cu divizori primi.",
     order: 1,
     gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },

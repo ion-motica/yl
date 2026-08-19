@@ -426,7 +426,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Tabla adunarii Singapore 6=3+3|3+4",
+    title: "Tabla adunarii Singapore 6=3+3|3+4 - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description:
       "Descompuneri pentru același număr (ex. 3=), cu reluare după greșeli. Nivel 3–10.",
     order: -8,

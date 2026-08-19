@@ -1892,7 +1892,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE,
+    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Lab modular pentru T*/ 11-20 v2. Include anchors, intensiv si subquizurile 3-6.",
     order: 2.1,
     gestionareGreseli: { activ: false },

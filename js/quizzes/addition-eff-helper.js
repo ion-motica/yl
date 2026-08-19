@@ -3,7 +3,7 @@
 
   global.QuizRegistry.register({
     id: "addition-eff",
-    title: "T+ EFF — Adunare extended fact family",
+    title: "T+ EFF — Adunare extended fact family - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Adunare: serii {same QF, diff facts} și {same fact, diff QF}. Niveluri 1–20.",
     order: -199,
     gestionareGreseli: { activ: false },

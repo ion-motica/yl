@@ -574,7 +574,7 @@
 
   global.QuizRegistry.register({
     id: "addition-table",
-    title: "Tabla adunarii - Clasic - 1_10+1_10",
+    title: "Tabla adunarii - Clasic - 1_10+1_10 - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Alege suma corectă pentru adunările din tabla 1..10.",
     order: -10,
     gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },

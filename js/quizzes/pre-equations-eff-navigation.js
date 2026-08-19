@@ -849,7 +849,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE,
+    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description:
       "Quiz izolat: lanturi pre-ecuatii EFF pe triunghiuri aditive.",
     order: -2,

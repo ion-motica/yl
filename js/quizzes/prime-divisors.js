@@ -303,7 +303,7 @@
 
   global.QuizRegistry.register({
     id: "prime-divisors",
-    title: "Găsire divizori primi",
+    title: "Găsire divizori primi - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Număr compus — alege divizorul prim care îl divide.",
     order: 0,
     gestionareGreseli: { activ: true, nrRepetariPtRecuperare: 2 },

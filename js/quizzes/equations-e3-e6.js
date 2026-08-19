@@ -1042,7 +1042,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE,
+    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description:
       "Tonomat combinatoric E3/E4/E5/E6, etapa 1: acelasi semn, necunoscuta in orice slot numeric.",
     order: -3,

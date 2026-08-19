@@ -12,9 +12,11 @@
 
 ## Stare curentă
 
-**Faza:** B — modulul scris și testat (15 teste verzi). Așteaptă verificarea userului.
-**Următorul pas:** Faza C — IMPUNEREA (aici se sparge totul, intenționat), după aprobare.
+**Faza:** C — COMPLETĂ. Toate cele 24 de quizuri sunt vizibil nefuncționale în meniu, intenționat.
+**Următorul pas:** Faza D — migrarea, în loturi de câte 5 fișiere.
 **Modulul:** `js/motor-3-butoane.js` — „Motor 3 butoane" (M3B), numele dat de user.
+**Autorizare 18.08.2026, noapte:** userul a cerut explicit sa continui fara sa astept confirmare
+la fiecare OPRIRE, "conform planului" — comit si implementez in continuare autonom.
 **Aplicația:** complet funcțională. Impunerea (Faza C) încă nu s-a făcut, deci niciun quiz nu e marcat „NEFUNCȚIONAL".
 **Ultima actualizare:** 18.08.2026
 
@@ -39,6 +41,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 18.08.2026 | — | Plan corectat: scop extins (3 motoare din afara `js/quizzes/`, ratate la prima numărare) + ordine schimbată (impunerea ÎNAINTE de migrare, decizia userului). | plan gata |
 | 18.08.2026 | Faza A | Citire completă (18 fișiere + 17 subquizuri), contract propus, apoi corectat de user de mai multe ori: mecanism de avans forțat fără răspuns corect ("plasa de siguranță") — găsit într-un singur loc (sq3), eliminat complet din contract, nicăieri nu există limită de încercări. Clarificat: „răspuns corect" la nivel de tură = doar prima apăsare, apăsările ulterioare sunt corectare, nu re-evaluare (deja consemnat, corect, în jurnalul/Vizualizare 3 existent — verificat, nu era gaură nouă). Decizie nouă de scop: orice quiz trece prin `SubquizOrchestrator`, minim o bucată — vezi §12 din plan. Faza A aprobată. | **complet** |
 | 18.08.2026 | Faza B | Scris `js/motor-3-butoane.js` (M3B) + `tests/motor-3-butoane.test.js` (15 teste, toate verzi). Numele și vocabularul motoarelor (mr/mq/msq/ML/M3B) date de user. Nimic altceva neatins: niciun quiz nu-l folosește încă, nu e încărcat în `index.html`. Suita completă: 423 teste, 420 trec (3 picate preexistente, sensibile la dată). | **scris, așteaptă verificare** |
+| 18.08.2026 | Faza C | User a autorizat explicit continuarea autonomă, fără OPRIRI, "e noapte". `falling-engine.js` impune semnătura M3B (aruncă altfel); toate cele 24 de quizuri sufixate „NEFUNCTIONAL" în meniu; `rigle-cl1` verificat neafectat (static + test + live); test-santinelă nou. Reparat pe drum: un test preexistent (`falling-engine-jurnal-timing.test.js`) folosea un quiz simulat pe vechea cale — actualizat sa treaca prin M3B, nu relaxat. 7 teste noi picate, așteptate (title-uri sufixate), documentate mai jos — se rezolvă singure la migrare. Verificat live în browser: eroarea chiar apare la apăsare pe quiz nemigrat. | **complet** |
 
 ---
 
@@ -89,11 +92,35 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 
 ## Faza C — IMPUNEREA (aici se sparge totul, intenționat)
 
-- [ ] `falling-engine.js` validează semnătura modulului comun; altfel aruncă eroare explicită
-- [ ] Sufixul „ - QUIZ NEFUNCTIONAL - IN REFACTORING" pus pe toate cele **24** de quizuri din meniu
-- [ ] Verificat explicit că `rigle-cl1.js` (motor m2) NU e afectat
-- [ ] Test-santinelă: vechea cale chiar crapă
-- [ ] **OPRIRE** — raportat
+- [x] `falling-engine.js` validează semnătura modulului comun (`valideazaRaspunsMotor3Butoane`,
+      în `resolveChoice`); altfel aruncă eroare explicită, cu numele fișierului planului
+- [x] Sufixul „ - QUIZ NEFUNCTIONAL - IN REFACTORING" pus pe toate cele **24** de quizuri din
+      meniu (19 titluri literale + 5 din constante `QUIZ_TITLE`/`QUIZ_NAME`, sufix la
+      înregistrare, constanta neatinsă — nu contaminează `quiz_name` din jurnal)
+- [x] Verificat explicit că `rigle-cl1.js` (motor m2) NU e afectat — static (grep: zero
+      referințe reale la `FallingEngine`, doar comentarii care explică separarea) + suita lui
+      dedicată (`tests/rigle-facte.test.js`, 10/10 verde) + verificat live că apăsarea unui
+      răspuns pe un quiz nemigrat chiar aruncă eroarea în consolă
+- [x] Test-santinelă: `tests/falling-engine-impune-motor-3-butoane.test.js` — un quiz pe
+      vechea cale chiar crapă (verificat cu `assert.throws`), unul pe M3B funcționează normal
+- [x] **OPRIRE** — raportat (autorizare explicită de a continua fără așteptare, vezi mai sus)
+
+### Consecință așteptată: 7 teste noi picate (title-uri), pe lângă cele 3 preexistente
+
+Suita completă: 425 teste, 415 trec, 10 pică. 3 sunt preexistente (`vizualizare3-tabel-fluenta`,
+sensibile la dată). **7 sunt noi, așteptate, temporare** — teste care verifică titlul EXACT al
+unui quiz la înregistrare, acum sufixat:
+
+- `tests/addition-table-conexe-helper.test.js` ("registers quiz metadata")
+- `tests/division-table-conexe-helper.test.js` ("registers quiz metadata")
+- `tests/equations-e3-e6.test.js` ("registers the new quiz with the exact requested title")
+- `tests/multiplication-1120-v2-modular.test.js` ("registers as a separate visible lab quiz")
+- `tests/multiplication-table-conexe-helper.test.js` ("registers quiz metadata")
+- `tests/sub-sau-langa-radical.test.js` ("registers as a separate radical v1 quiz")
+- `tests/subtraction-table-conexe-helper.test.js` ("registers quiz metadata")
+
+**Nu se repară acum** — se rezolvă de la sine, per fișier, pe măsură ce fiecare e migrat în
+Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă azi).
 
 ## Faza D — migrarea (loturi de câte 5 fișiere)
 

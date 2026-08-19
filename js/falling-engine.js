@@ -908,11 +908,30 @@
       applyAnswerResultTail(result, pickedIndex, wrongPick, shouldRender, false);
     }
 
+    // Faza C din documente de referinta/PLAN-motor-comun-raspuns.md: orice quiz
+    // trebuie sa raspunda EXCLUSIV prin Motor3Butoane (js/motor-3-butoane.js).
+    // Fara semnatura lui pe rezultat, motorul refuza sa continue — eroare
+    // explicita, imediata, nu avertisment si nu fallback tacut (razgandire-
+    // ieftina.md, punctul 9). Asta face imposibil ca un quiz sa-si scrie
+    // propria logica de corect/gresit, exact bug-ul care a pornit refactorizarea.
+    function valideazaRaspunsMotor3Butoane(rezultat, index) {
+      if (global.Motor3Butoane?.esteRezultatValid?.(rezultat)) return;
+      throw new Error(
+        `Motor 3 butoane: raspunsul la apasarea butonului ${index} nu poarta ` +
+          `semnatura motorului comun (asteptat: motor3Butoane === "` +
+          `${global.Motor3Butoane?.SEMNATURA ?? "?"}"` +
+          `"). Orice quiz trebuie sa raspunda exclusiv prin Motor3Butoane — ` +
+          `vezi documente de referinta/PLAN-motor-comun-raspuns.md.`
+      );
+    }
+
     function resolveChoice(index) {
       hideRising();
       animating = false;
       const meta = attemptMeta();
-      applyAnswerResult(getQuiz().onAnswer(index, meta), index, meta);
+      const rezultat = getQuiz().onAnswer(index, meta);
+      valideazaRaspunsMotor3Butoane(rezultat, index);
+      applyAnswerResult(rezultat, index, meta);
     }
 
     function handleBottomMiss() {

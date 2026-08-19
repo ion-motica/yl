@@ -1386,7 +1386,7 @@
 
   global.QuizRegistry.register({
     id: "multiplication-1120-v2",
-    title: "T*/ 11-20 v2",
+    title: "T*/ 11-20 v2 - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Înmulțirea 11–20: BUCATA 1 — doar test ancore.",
     order: 2,
     gestionareGreseli: { activ: false },

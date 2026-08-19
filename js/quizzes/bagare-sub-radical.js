@@ -437,7 +437,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Bagare sub radical",
+    title: "Bagare sub radical - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description:
       "k · √n = √(n · k²). Niveluri k=2..9, 6 faze progresive, 21 răspunsuri sau final de level.",
     order: -3,

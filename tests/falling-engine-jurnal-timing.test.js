@@ -193,6 +193,8 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
       return rafQueue.length;
     };
     globalThis.cancelAnimationFrame = () => {};
+    delete globalThis.Motor3Butoane;
+    loadScript("js/motor-3-butoane.js");
     loadScript("js/falling-engine.js");
 
     const round1 = {
@@ -208,6 +210,18 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
     let currentRound = round1;
     let timeoutCount = 0;
     const attempts = [];
+    // Din Faza C a planului (motor-3-butoane.js e acum obligatoriu): quizul
+    // trebuie sa raspunda prin Motor3Butoane, altfel falling-engine.js arunca.
+    // `intrebareUrmatoare` are efectul secundar de a muta `currentRound` — la
+    // fel ca in integrarea reala, unde ea e `runtime.nextItem(...)`, care
+    // muta itemul curent citit de `runtime.view()` (aici, `construiesteVedere`).
+    const m3bTest = globalThis.Motor3Butoane.creeaza({
+      esteCorect: (item, index) => index === item.correctIndex,
+      intrebareUrmatoare: () => {
+        currentRound = round2;
+        return round2;
+      },
+    });
     const quiz = {
       isCompleted: () => false,
       getFallSpeedFactor: () => 1,
@@ -216,9 +230,12 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
         return { ...currentRound, outcome: "round", resetFall: true };
       },
       onAnswer(index) {
-        if (index !== 1) return { ...currentRound, outcome: "wrong-answer", correct: false };
-        currentRound = round2;
-        return { ...round2, outcome: "step-correct", correct: true };
+        const rezultat = m3bTest.laApasareButon({
+          item: currentRound,
+          index,
+          construiesteVedere: (extra) => ({ ...currentRound, ...extra }),
+        });
+        return rezultat.view;
       },
     };
     const dom = createDom();

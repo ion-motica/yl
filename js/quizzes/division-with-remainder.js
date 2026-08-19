@@ -350,7 +350,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Impartiri cu rest 1-10",
+    title: "Impartiri cu rest 1-10 - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description:
       "Împărțiri cu rest: d:i=c rest r și d=i*c+r. Niveluri 2–10, 21 răspunsuri sau 5 corecte la rând.",
     order: -4,

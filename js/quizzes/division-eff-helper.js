@@ -3,7 +3,7 @@
 
   global.QuizRegistry.register({
     id: "division-eff",
-    title: "T÷ EFF — Împărțire extended fact family",
+    title: "T÷ EFF — Împărțire extended fact family - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description: "Împărțire: serii {same QF, diff facts} și {same fact, diff QF}. Niveluri 1–20.",
     order: -197,
     gestionareGreseli: { activ: false },

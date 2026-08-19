@@ -422,7 +422,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: "Tabla adunarii - 1..n + 1..n",
+    title: "Tabla adunarii - 1..n + 1..n - QUIZ NEFUNCTIONAL - IN REFACTORING",
     description:
       "Nivel 1: adunări 1..3. Apoi 4+x și x+4, apoi 5+x, etc. Treci nivelul când ai răspuns corect la fiecare întrebare.",
     order: -9,
