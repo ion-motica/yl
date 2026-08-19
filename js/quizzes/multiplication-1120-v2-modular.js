@@ -784,6 +784,68 @@
       });
     }
 
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    //
+    // Fiecare subquiz de mai jos primeste propria instanta M3B, creata din nou
+    // la fiecare apasare (nu are sens sa persiste `apasariInTur` intre apasari
+    // aici — niciun hook de mai jos foloseste `numarApasare`/`estePrimaApasare`,
+    // doar starea proprie a subquiz-ului, care oricum persista separat, in
+    // `event.state`). `def.onAnswer(event)` din subquiz-definition.js asteapta
+    // o COMANDA (`{action, view}`, in vocabularul orchestratorului: continue/
+    // stay/exit/push/pop), nu o vedere plata — de-asta se intoarce rezultatul
+    // COMPLET al lui M3B (`m3b.laApasareButon(...)`), nu doar `.view` ca la
+    // quizurile de nivel superior. `blockWrongTransition` din subquiz-
+    // definition.js lasa comanda neatinsa cand M3B a decis deja "stay" (cazul
+    // de gresit), asa ca semnatura M3B ajunge intacta pana la falling-engine.js.
+    //
+    // CORECTIE INTENTIONATA majora (Categoriile 3 si 6 din FAZA-A-inventar-
+    // contract.md): la o citire mai atenta decat inventarul initial, TOATE
+    // cele 9 subquizuri aveau cel putin o forma din bug-ul original sq3/sq5 —
+    // fie ignorau complet corectitudinea (modurile intensive: `intensiv`,
+    // `effectiveAnchorAdditionIntensive`, `nonAnchorProductsIntensive`), fie
+    // verificau pragul de iesire ÎNAINTE de verificarea corect/gresit (asa ca
+    // un raspuns GRESIT putea el insusi declansa iesirea/avansul, daca
+    // pragul—numarat pe FIECARE apasare, nu doar pe cele rezolvate—era atins
+    // chiar atunci): `anchors`, `rapidAnchorAdditions` (+ placeholder-ul „no
+    // candidates" ignora complet corectitudinea), `effectiveAnchorAddition`,
+    // `nonAnchorProducts`, `domainProducts` (+ placeholder-ul „Final subquiz 7").
+    // Toate corectate: pragurile numara azi doar la raspunsuri REZOLVATE
+    // (corecte), niciun exit/push/pop nu se mai poate declansa pe gresit.
+    function creeazaM3BSubquiz(hooks) {
+      return global.Motor3Butoane.creeaza({
+        esteCorect: (it, idx) => Number(it.options[idx]) === Number(it.correctAnswer),
+        intrebareUrmatoare: () => null,
+        mesaje: {
+          gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca!`,
+        },
+        actiuni: hooks,
+      });
+    }
+
+    function raspundeSubquiz(event, hooks) {
+      const { item, index, meta, runtime } = event;
+      const m3b = creeazaM3BSubquiz(hooks);
+      const rezultat = m3b.laApasareButon({
+        item,
+        index,
+        meta,
+        construiesteVedere: (extra) => roundViewFrom(runtime, extra),
+      });
+
+      // M3B construieste mereu un `view` (chiar si gol, din `campuriCorect`),
+      // dar orchestratorul trateaza `command.view` si `resumed.view` la "pop"
+      // ca alternative exclusive (`command.view ?? resumed.view`), nu ca
+      // straturi de suprapunere — un `view` "subtire" venit de la M3B ar
+      // castiga mereu in fata vederii complete produse de `onResume`, si
+      // ecranul ar pierde promptul/optiunile. Niciun "pop" din acest fisier
+      // nu avea `view` propriu inainte de migrare — pastram exact acel
+      // contract, stergand `view`-ul minimal pe care l-ar fi adaugat M3B.
+      if (rezultat.action === "pop") {
+        delete rezultat.view;
+      }
+      return rezultat;
+    }
+
     function anchorDefinition() {
       return global.SubquizDefinition.define({
         id: "anchors",
@@ -835,87 +897,67 @@
           };
         },
         onAnswer(event) {
-          const { item, index, meta, state, runtime } = event;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const { item, meta, state, runtime } = event;
           const factB = item.metadata.factB;
+          return raspundeSubquiz(event, {
+            dupaApasare: (ctx) => {
+              if (!ctx.corect) {
+                if (!state.wrongFacts.some((fact) => fact.b === factB)) {
+                  state.wrongFacts.push({ b: factB, label: factLabel(factB) });
+                }
+              }
+              return {};
+            },
+            dupaRaspunsCorect: () => {
+              state.answeredCount += 1;
+              state.lastCorrectByB[factB] = meta.responseMs ?? null;
 
-          state.answeredCount += 1;
+              if (state.wrongFacts.length >= 2 && startStageSelection !== "anchorsOnly") {
+                const facts = state.wrongFacts.map((fact) => fact.b);
+                shared.intensiveFactsText = state.wrongFacts.map((fact) => fact.label);
+                state.wrongFacts = [];
+                return {
+                  action: "push",
+                  targetId: "intensiv",
+                  payload: {
+                    facts,
+                    returnToPrevious: true,
+                  },
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    message: `Mod intensiv: antrenament pe ${shared.intensiveFactsText.join(", ")}`,
+                  },
+                };
+              }
 
-          if (!isCorrect) {
-            if (!state.wrongFacts.some((fact) => fact.b === factB)) {
-              state.wrongFacts.push({ b: factB, label: factLabel(factB) });
-            }
-            if (state.answeredCount >= QUESTIONS_PER_LEVEL) {
+              if (state.answeredCount >= QUESTIONS_PER_LEVEL) {
+                return {
+                  action: "exit",
+                  reason: "answeredCount",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "Subquiz 3: valori ancore suma",
+                  },
+                };
+              }
+
+              runtime.nextItem({ reason: "correct" });
               return {
-                action: "exit",
-                reason: "answeredCount",
-                view: {
+                action: "continue",
+                view: roundViewFrom(runtime, {
                   outcome: "step-correct",
                   correct: true,
                   bounce: true,
-                  flash: "win",
-                  message: "Subquiz 3: valori ancore suma",
-                },
+                  message: "Corect!",
+                }),
               };
-            }
-            return {
-              action: "stay",
-              view: roundViewFrom(runtime, {
-                outcome: "wrong-answer",
-                correct: false,
-                flash: "wrong",
-                message: `${chosen} nu e bun. Mai incearca!`,
-              }),
-            };
-          }
-
-          state.lastCorrectByB[factB] = meta.responseMs ?? null;
-
-          if (state.wrongFacts.length >= 2 && startStageSelection !== "anchorsOnly") {
-            const facts = state.wrongFacts.map((fact) => fact.b);
-            shared.intensiveFactsText = state.wrongFacts.map((fact) => fact.label);
-            state.wrongFacts = [];
-            return {
-              action: "push",
-              targetId: "intensiv",
-              payload: {
-                facts,
-                returnToPrevious: true,
-              },
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                message: `Mod intensiv: antrenament pe ${shared.intensiveFactsText.join(", ")}`,
-              },
-            };
-          }
-
-          if (state.answeredCount >= QUESTIONS_PER_LEVEL) {
-            return {
-              action: "exit",
-              reason: "answeredCount",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "Subquiz 3: valori ancore suma",
-              },
-            };
-          }
-
-          runtime.nextItem({ reason: "correct" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-            }),
-          };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -955,28 +997,32 @@
         },
         onAnswer(event) {
           const { state, runtime } = event;
-          state.count += 1;
-          if (state.count >= INTENSIVE_QUESTIONS) {
-            if (state.returnToPrevious) {
-              return {
-                action: "pop",
-                reason: "intensiveComplete",
-                payload: { intensiveCompleted: true },
-              };
-            }
-            return { action: "exit", reason: "intensiveComplete" };
-          }
+          return raspundeSubquiz(event, {
+            dupaRaspunsCorect: () => {
+              state.count += 1;
+              if (state.count >= INTENSIVE_QUESTIONS) {
+                if (state.returnToPrevious) {
+                  return {
+                    action: "pop",
+                    reason: "intensiveComplete",
+                    payload: { intensiveCompleted: true },
+                  };
+                }
+                return { action: "exit", reason: "intensiveComplete" };
+              }
 
-          runtime.nextItem({ reason: "intensiveNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: `Intensiv ${state.count + 1}/${INTENSIVE_QUESTIONS}`,
-            }),
-          };
+              runtime.nextItem({ reason: "intensiveNext" });
+              return {
+                action: "continue",
+                view: roundViewFrom(runtime, {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: `Intensiv ${state.count + 1}/${INTENSIVE_QUESTIONS}`,
+                }),
+              };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1007,37 +1053,41 @@
           return buildAnchorSumQuestion();
         },
         onAnswer(event) {
-          const { item, index, state, runtime } = event;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const { state, runtime } = event;
+          return raspundeSubquiz(event, {
+            dupaApasare: (ctx) => {
+              if (!ctx.corect) state.correctStreak = 0;
+              return {};
+            },
+            dupaRaspunsCorect: () => {
+              state.questionCount += 1;
+              state.correctStreak += 1;
 
-          state.questionCount += 1;
-          state.correctStreak = isCorrect ? state.correctStreak + 1 : 0;
-
-          if (
-            state.questionCount >= ANCHOR_SUM_MAX_QUESTIONS ||
-            state.correctStreak >= ANCHOR_SUM_STREAK_TO_EXIT
-          ) {
-            return {
-              action: "exit",
-              reason:
+              if (
+                state.questionCount >= ANCHOR_SUM_MAX_QUESTIONS ||
                 state.correctStreak >= ANCHOR_SUM_STREAK_TO_EXIT
-                  ? "correctStreak"
-                  : "questionCount",
-            };
-          }
+              ) {
+                return {
+                  action: "exit",
+                  reason:
+                    state.correctStreak >= ANCHOR_SUM_STREAK_TO_EXIT
+                      ? "correctStreak"
+                      : "questionCount",
+                };
+              }
 
-          runtime.nextItem({ reason: "anchorSumNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: isCorrect ? "step-correct" : "wrong-answer",
-              correct: isCorrect,
-              bounce: isCorrect,
-              flash: isCorrect ? undefined : "wrong",
-              message: isCorrect ? "Corect!" : `${chosen} nu e bun. Mai incearca!`,
-            }),
-          };
+              runtime.nextItem({ reason: "anchorSumNext" });
+              return {
+                action: "continue",
+                view: roundViewFrom(runtime, {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: "Corect!",
+                }),
+              };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1072,79 +1122,73 @@
           return buildRapidQuestion(state);
         },
         onAnswer(event) {
-          const { item, index, state, runtime } = event;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
-          const candidateCount = state.candidates.length;
+          const { state, runtime } = event;
+          return raspundeSubquiz(event, {
+            dupaApasare: (ctx) => {
+              if (!ctx.corect) state.correctStreak = 0;
+              return {};
+            },
+            dupaRaspunsCorect: () => {
+              const candidateCount = state.candidates.length;
 
-          if (item.metadata?.noCandidates || candidateCount === 0) {
-            return {
-              action: "exit",
-              reason: "rapidNoCandidates",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "no candidates, mai departe",
-              },
-            };
-          }
+              if (candidateCount === 0) {
+                return {
+                  action: "exit",
+                  reason: "rapidNoCandidates",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "no candidates, mai departe",
+                  },
+                };
+              }
 
-          state.questionCount += 1;
-          state.correctStreak = isCorrect ? state.correctStreak + 1 : 0;
+              state.questionCount += 1;
+              state.correctStreak += 1;
 
-          const multipleCandidateLimit = Math.min(RAPID_MAX_QUESTIONS, candidateCount * 3);
-          if (candidateCount > 1 && state.questionCount >= multipleCandidateLimit) {
-            return {
-              action: "exit",
-              reason: "rapidQuestionLimit",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "ai terminat subquiz 4 modular",
-              },
-            };
-          }
+              const multipleCandidateLimit = Math.min(RAPID_MAX_QUESTIONS, candidateCount * 3);
+              if (candidateCount > 1 && state.questionCount >= multipleCandidateLimit) {
+                return {
+                  action: "exit",
+                  reason: "rapidQuestionLimit",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "ai terminat subquiz 4 modular",
+                  },
+                };
+              }
 
-          if (!isCorrect) {
-            return {
-              action: "stay",
-              view: roundViewFrom(runtime, {
-                outcome: "wrong-answer",
-                correct: false,
-                flash: "wrong",
-                message: `${chosen} nu e bun. Mai incearca!`,
-              }),
-            };
-          }
+              if (candidateCount === 1) {
+                return {
+                  action: "exit",
+                  reason: "rapidSingleCorrect",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "ai terminat subquiz 4 modular",
+                  },
+                };
+              }
 
-          if (candidateCount === 1) {
-            return {
-              action: "exit",
-              reason: "rapidSingleCorrect",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "ai terminat subquiz 4 modular",
-              },
-            };
-          }
-
-          runtime.nextItem({ reason: "rapidNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-            }),
-          };
+              runtime.nextItem({ reason: "rapidNext" });
+              return {
+                action: "continue",
+                view: roundViewFrom(runtime, {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: "Corect!",
+                }),
+              };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1195,72 +1239,67 @@
           };
         },
         onAnswer(event) {
-          const { item, index, state, runtime } = event;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const { item, state, runtime } = event;
           const factB = item.metadata.factB;
+          return raspundeSubquiz(event, {
+            dupaApasare: (ctx) => {
+              if (!ctx.corect) {
+                state.correctStreak = 0;
+                noteEffectiveMistake(state, factB);
+              }
+              return {};
+            },
+            dupaRaspunsCorect: () => {
+              state.questionCount += 1;
+              state.correctStreak += 1;
 
-          state.questionCount += 1;
-          state.correctStreak = isCorrect ? state.correctStreak + 1 : 0;
-
-          if (
-            state.questionCount >= EFFECTIVE_MAX_QUESTIONS ||
-            state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
-          ) {
-            return {
-              action: "exit",
-              reason:
+              if (
+                state.questionCount >= EFFECTIVE_MAX_QUESTIONS ||
                 state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
-                  ? "effectiveCorrectStreak"
-                  : "effectiveQuestionCount",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "ai terminat subquiz 5 modular",
-              },
-            };
-          }
+              ) {
+                return {
+                  action: "exit",
+                  reason:
+                    state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
+                      ? "effectiveCorrectStreak"
+                      : "effectiveQuestionCount",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "ai terminat subquiz 5 modular",
+                  },
+                };
+              }
 
-          if (!isCorrect) {
-            noteEffectiveMistake(state, factB);
-            return {
-              action: "stay",
-              view: roundViewFrom(runtime, {
-                outcome: "wrong-answer",
-                correct: false,
-                flash: "wrong",
-                message: `${chosen} nu e bun. Mai incearca!`,
-              }),
-            };
-          }
+              if (state.problemBs.length >= 2) {
+                const facts = prepareEffectiveIntensive(state);
+                return {
+                  action: "push",
+                  targetId: "effectiveAnchorAdditionIntensive",
+                  payload: { facts },
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    message: `Mod intensiv subquiz 5: ${shared.intensiveFactsText.join(", ")}`,
+                  },
+                };
+              }
 
-          if (state.problemBs.length >= 2) {
-            const facts = prepareEffectiveIntensive(state);
-            return {
-              action: "push",
-              targetId: "effectiveAnchorAdditionIntensive",
-              payload: { facts },
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                message: `Mod intensiv subquiz 5: ${shared.intensiveFactsText.join(", ")}`,
-              },
-            };
-          }
-
-          runtime.nextItem({ reason: "effectiveNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-            }),
-          };
+              runtime.nextItem({ reason: "effectiveNext" });
+              return {
+                action: "continue",
+                view: roundViewFrom(runtime, {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: "Corect!",
+                }),
+              };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1295,29 +1334,34 @@
         generator({ state }) {
           return buildEffectiveIntensiveQuestion(state);
         },
-        onAnswer({ state, runtime }) {
-          state.count += 1;
-          if (state.count >= state.queue.length) {
-            return {
-              action: "pop",
-              reason: "effectiveIntensiveComplete",
-              payload: {
-                effectiveIntensiveCompleted: true,
-                facts: state.facts,
-              },
-            };
-          }
+        onAnswer(event) {
+          const { state, runtime } = event;
+          return raspundeSubquiz(event, {
+            dupaRaspunsCorect: () => {
+              state.count += 1;
+              if (state.count >= state.queue.length) {
+                return {
+                  action: "pop",
+                  reason: "effectiveIntensiveComplete",
+                  payload: {
+                    effectiveIntensiveCompleted: true,
+                    facts: state.facts,
+                  },
+                };
+              }
 
-          runtime.nextItem({ reason: "effectiveIntensiveNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: `Intensiv subquiz 5 ${state.count + 1}/${state.queue.length || 10}`,
-            }),
-          };
+              runtime.nextItem({ reason: "effectiveIntensiveNext" });
+              return {
+                action: "continue",
+                view: roundViewFrom(runtime, {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: `Intensiv subquiz 5 ${state.count + 1}/${state.queue.length || 10}`,
+                }),
+              };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1363,85 +1407,67 @@
           };
         },
         onAnswer(event) {
-          const { item, index, state, runtime } = event;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const { item, state, runtime } = event;
           const factB = item.metadata.factB;
+          return raspundeSubquiz(event, {
+            dupaApasare: (ctx) => {
+              if (!ctx.corect) {
+                state.correctStreak = 0;
+                if (!state.wrongBs.includes(factB)) state.wrongBs.push(factB);
+              }
+              return {};
+            },
+            dupaRaspunsCorect: () => {
+              state.questionCount += 1;
+              state.correctStreak += 1;
 
-          state.questionCount += 1;
-          state.correctStreak = isCorrect ? state.correctStreak + 1 : 0;
+              if (
+                state.correctStreak >= PRODUCT_STREAK_TO_EXIT ||
+                state.questionCount >= PRODUCT_MAX_QUESTIONS
+              ) {
+                return {
+                  action: "exit",
+                  reason:
+                    state.correctStreak >= PRODUCT_STREAK_TO_EXIT
+                      ? "productCorrectStreak"
+                      : "productQuestionCount",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "ai terminat subquiz 6 modular",
+                  },
+                };
+              }
 
-          if (!isCorrect) {
-            if (!state.wrongBs.includes(factB)) state.wrongBs.push(factB);
-            if (state.questionCount >= PRODUCT_MAX_QUESTIONS) {
+              if (state.wrongBs.length >= 2) {
+                const facts = prepareProductIntensive(state);
+                return {
+                  action: "push",
+                  targetId: "nonAnchorProductsIntensive",
+                  payload: { facts },
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    message: `Mod intensiv subquiz 6: ${shared.intensiveFactsText.join(", ")}`,
+                  },
+                };
+              }
+
+              runtime.nextItem({ reason: "productNext" });
               return {
-                action: "exit",
-                reason: "productQuestionCount",
-                view: {
+                action: "continue",
+                view: roundViewFrom(runtime, {
                   outcome: "step-correct",
                   correct: true,
                   bounce: true,
-                  flash: "win",
-                  message: "ai terminat subquiz 6 modular",
-                },
+                  message: "Corect!",
+                }),
               };
-            }
-            return {
-              action: "stay",
-              view: roundViewFrom(runtime, {
-                outcome: "wrong-answer",
-                correct: false,
-                flash: "wrong",
-                message: `${chosen} nu e bun. Mai incearca!`,
-              }),
-            };
-          }
-
-          if (
-            state.correctStreak >= PRODUCT_STREAK_TO_EXIT ||
-            state.questionCount >= PRODUCT_MAX_QUESTIONS
-          ) {
-            return {
-              action: "exit",
-              reason:
-                state.correctStreak >= PRODUCT_STREAK_TO_EXIT
-                  ? "productCorrectStreak"
-                  : "productQuestionCount",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "ai terminat subquiz 6 modular",
-              },
-            };
-          }
-
-          if (state.wrongBs.length >= 2) {
-            const facts = prepareProductIntensive(state);
-            return {
-              action: "push",
-              targetId: "nonAnchorProductsIntensive",
-              payload: { facts },
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                message: `Mod intensiv subquiz 6: ${shared.intensiveFactsText.join(", ")}`,
-              },
-            };
-          }
-
-          runtime.nextItem({ reason: "productNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-            }),
-          };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1476,29 +1502,34 @@
         generator({ state }) {
           return buildProductIntensiveQuestion(state);
         },
-        onAnswer({ state, runtime }) {
-          state.count += 1;
-          if (state.count >= state.queue.length) {
-            return {
-              action: "pop",
-              reason: "productIntensiveComplete",
-              payload: {
-                productIntensiveCompleted: true,
-                facts: state.facts,
-              },
-            };
-          }
+        onAnswer(event) {
+          const { state, runtime } = event;
+          return raspundeSubquiz(event, {
+            dupaRaspunsCorect: () => {
+              state.count += 1;
+              if (state.count >= state.queue.length) {
+                return {
+                  action: "pop",
+                  reason: "productIntensiveComplete",
+                  payload: {
+                    productIntensiveCompleted: true,
+                    facts: state.facts,
+                  },
+                };
+              }
 
-          runtime.nextItem({ reason: "productIntensiveNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: `Intensiv subquiz 6 ${state.count + 1}/${state.queue.length || 10}`,
-            }),
-          };
+              runtime.nextItem({ reason: "productIntensiveNext" });
+              return {
+                action: "continue",
+                view: roundViewFrom(runtime, {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: `Intensiv subquiz 6 ${state.count + 1}/${state.queue.length || 10}`,
+                }),
+              };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1535,78 +1566,66 @@
           return buildDomainProductQuestion(state);
         },
         onAnswer(event) {
-          const { item, index, state, runtime } = event;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
+          const { item, state, runtime } = event;
+          return raspundeSubquiz(event, {
+            dupaRaspunsCorect: () => {
+              if (item.metadata?.complete) {
+                return {
+                  action: "exit",
+                  reason: "domainProductsComplete",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "ai terminat subquiz 7 modular",
+                  },
+                };
+              }
 
-          if (item.metadata?.complete) {
-            return {
-              action: "exit",
-              reason: "domainProductsComplete",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "ai terminat subquiz 7 modular",
-              },
-            };
-          }
+              state.currentDomainCount += 1;
+              state.totalCount += 1;
 
-          state.currentDomainCount += 1;
-          state.totalCount += 1;
+              if (state.currentDomainCount >= PRODUCT_DOMAIN_QUESTION_COUNT) {
+                state.domainIndex += 1;
+                if (state.domainIndex >= state.domainOrder.length) {
+                  return {
+                    action: "exit",
+                    reason: "domainProductsComplete",
+                    view: {
+                      outcome: "step-correct",
+                      correct: true,
+                      bounce: true,
+                      flash: "win",
+                      message: "ai terminat subquiz 7 modular",
+                    },
+                  };
+                }
+                enterNextProductDomain(state);
+                runtime.nextItem({ reason: "domainNext" });
+                return {
+                  action: "continue",
+                  view: roundViewFrom(runtime, {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    message: `Domeniul urmator: ${state.currentDomain.id}`,
+                  }),
+                };
+              }
 
-          if (state.currentDomainCount >= PRODUCT_DOMAIN_QUESTION_COUNT) {
-            state.domainIndex += 1;
-            if (state.domainIndex >= state.domainOrder.length) {
+              runtime.nextItem({ reason: "domainProductNext" });
               return {
-                action: "exit",
-                reason: "domainProductsComplete",
-                view: {
+                action: "continue",
+                view: roundViewFrom(runtime, {
                   outcome: "step-correct",
                   correct: true,
                   bounce: true,
-                  flash: "win",
-                  message: "ai terminat subquiz 7 modular",
-                },
+                  message: "Corect!",
+                }),
               };
-            }
-            enterNextProductDomain(state);
-            runtime.nextItem({ reason: "domainNext" });
-            return {
-              action: "continue",
-              view: roundViewFrom(runtime, {
-                outcome: isCorrect ? "step-correct" : "wrong-answer",
-                correct: isCorrect,
-                bounce: isCorrect,
-                flash: isCorrect ? undefined : "wrong",
-                message: `Domeniul urmator: ${state.currentDomain.id}`,
-              }),
-            };
-          }
-
-          if (!isCorrect) {
-            return {
-              action: "stay",
-              view: roundViewFrom(runtime, {
-                outcome: "wrong-answer",
-                correct: false,
-                flash: "wrong",
-                message: `${chosen} nu e bun. Mai incearca!`,
-              }),
-            };
-          }
-
-          runtime.nextItem({ reason: "domainProductNext" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-            }),
-          };
+            },
+          });
         },
         onTimeout({ runtime }) {
           return {
@@ -1696,6 +1715,11 @@
       return orchestrator.startFirst();
     }
 
+    // `advanceLevel` e apelata din `handleOrchestratorResult`, in AFARA
+    // oricarei instante M3B a vreunui subquiz (declansata de semnalul
+    // `routeComplete` al orchestratorului, dupa ce ultimul subquiz din ruta a
+    // iesit) — de-aia isi pune singura semnatura M3B, ca falling-engine.js sa
+    // accepte rezultatul.
     function advanceLevel(via = "anchors") {
       if (level >= MAX_LEVEL) {
         completed = true;
@@ -1712,6 +1736,7 @@
           prompt: "Final",
           options: ["", "", ""],
           correctIndex: 0,
+          motor3Butoane: global.Motor3Butoane.SEMNATURA,
         };
       }
 
@@ -1742,6 +1767,7 @@
         banner: `Nivel ${level} - ${factorForLevel(level)}x`,
         message: `Nivel ${level}`,
         nextRound: beginRoute(),
+        motor3Butoane: global.Motor3Butoane.SEMNATURA,
       };
     }
 
@@ -1892,7 +1918,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: QUIZ_TITLE,
     description: "Lab modular pentru T*/ 11-20 v2. Include anchors, intensiv si subquizurile 3-6.",
     order: 2.1,
     gestionareGreseli: { activ: false },

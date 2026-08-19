@@ -37,6 +37,7 @@ function setupQuiz({ shuffle = (items) => [...items], random = () => 0 } = {}) {
     "js/subquiz/item-generator.js",
     "js/subquiz/subquiz-definition.js",
     "js/subquiz/subquiz-orchestrator.js",
+    "js/motor-3-butoane.js",
     "js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js",
   ].forEach(loadScript);
 
@@ -336,20 +337,54 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.match(quiz.getInfo11_20().intensivText, /11\*3/);
   });
 
-  it("SQ2 counts wrong answers but exits only after the current question is corrected", () => {
+  // CORECTAT (Faza D, lotul 4, Categoria 2 din FAZA-A-inventar-contract.md):
+  // inainte de migrare, un raspuns gresit in SQ2 sarea direct la o intrebare
+  // noua — asa ca modul "any" al `sq2ExitMode` insemna "orice APASARE conteaza,
+  // corecta sau nu". Acum gresit ramane pe intrebare (regula universala), deci
+  // "any" capata sensul pt. care fusese gandit switch-ul: conteaza orice TURA
+  // REZOLVATA (indiferent de cate incercari a avut), spre deosebire de modul
+  // "correct" care conteaza doar turele rezolvate DIN PRIMA incercare
+  // (`turCorect` din M3B).
+  it("SQ2 'any' mode counts every resolved turn, retries included — wrong never advances or inflates the count", () => {
     const quiz = setupQuiz();
     quiz.setSq2Config?.({ factCount: 1, exitCount: 3, exitMode: "any" });
     let state = quiz.beginRound();
     state = quiz.runArenaAction("sendCurrentFactToSq2");
     const sq2Prompt = state.prompt;
 
+    // primul tur: 3 apasari gresite, ramane pe loc, nu conteaza nimic inca
     for (let i = 0; i < 3; i += 1) {
       state = quiz.onAnswer(wrongIndex(state), { responseMs: 700 });
     }
-
     assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
     assert.equal(state.prompt, sq2Prompt);
 
+    // rezolvat (1/3, cu reincercari) — inca in SQ2, exitCount nu s-a atins
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
+
+    // 2 ture rezolvate curat (2/3, apoi 3/3) — abia acum iese
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+
+    assert.equal(quiz.getSubquizStage(), "base");
+  });
+
+  it("SQ2 'correct' mode only counts turns resolved on the first try (turCorect) — a corrected mistake doesn't count", () => {
+    const quiz = setupQuiz();
+    quiz.setSq2Config?.({ factCount: 1, exitCount: 2, exitMode: "correct" });
+    let state = quiz.beginRound();
+    state = quiz.runArenaAction("sendCurrentFactToSq2");
+
+    // tur cu o greseala inainte de raspunsul corect — NU conteaza in modul "correct"
+    state = quiz.onAnswer(wrongIndex(state), { responseMs: 700 });
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
+
+    // 2 ture rezolvate DIN PRIMA la rand — abia acum iese (exitCount=2)
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
     state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
 
     assert.equal(quiz.getSubquizStage(), "base");

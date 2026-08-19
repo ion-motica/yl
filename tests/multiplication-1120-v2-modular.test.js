@@ -36,6 +36,7 @@ function setupQuiz({ shuffle = (items) => [...items], randomInt = (min) => min }
     "js/subquiz/item-generator.js",
     "js/subquiz/subquiz-definition.js",
     "js/subquiz/subquiz-orchestrator.js",
+    "js/motor-3-butoane.js",
     "js/quizzes/multiplication-1120-v2-modular.js",
   ].forEach(loadScript);
 
@@ -219,14 +220,19 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.deepEqual(state.options, ["55", "66", "77"]);
   });
 
-  it("direct modular subquiz 3 advances level after 12 counted attempts once the current question is corrected", () => {
+  // CORECTAT (Faza D, lotul 4, Categoria 6): pragul de 12 numara azi doar
+  // raspunsuri REZOLVATE (corecte) — inainte de migrare numara la FIECARE
+  // apasare, deci o pereche gresit+corect conta dublu (de-aici bucla de 6
+  // perechi = 12 „apasari"). Sub regula noua sunt nevoie de 12 perechi.
+  it("direct modular subquiz 3 advances level after 12 correct answers", () => {
     const quiz = setupQuiz();
     quiz.setSubquizStartOption("anchorSumValuesOnly");
     let state = quiz.beginRound();
 
     assert.equal(quiz.getSubquizStage(), "anchorSumValues");
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 12; i += 1) {
       state = answerWrongThenCorrect(quiz, state);
+      if (i < 11) assert.equal(state.levelAdvanced, undefined, `nu trebuia sa avanseze inca la pasul ${i}`);
     }
 
     assert.equal(state.levelAdvanced, true);
@@ -247,6 +253,8 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.equal(quiz.getLevel(), 2);
   });
 
+  // CORECTAT: foloseste calea „7 la rand" (streak) pt. subquiz 3, mai scurta
+  // si fara nevoie de intercalare — pragul de 12 e verificat separat, mai sus.
   it("normal route continues from modular subquiz 3 into modular subquiz 4", () => {
     const quiz = setupQuiz();
     let state = quiz.beginRound();
@@ -254,8 +262,8 @@ describe("multiplication-1120-v2 modular clone", () => {
     for (let i = 0; i < 21; i += 1) {
       state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
-    for (let i = 0; i < 6; i += 1) {
-      state = answerWrongThenCorrect(quiz, state);
+    for (let i = 0; i < 7; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
 
     assert.equal(quiz.getLevel(), 1);
@@ -283,6 +291,9 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.equal(quiz.getSubquizStage(), "rapidAnchorAdditions");
   });
 
+  // CORECTAT (Categoria 6): pragul (candidateCount*3=6 la nivelul 4) numara
+  // azi doar raspunsuri REZOLVATE — sunt nevoie de 6 perechi gresit+corect,
+  // nu de 3.
   it("direct modular subquiz 4 advances after the calculated multiple-candidate limit", () => {
     const quiz = setupQuiz();
     quiz.setSubquizStartOption("rapidAnchorAdditions");
@@ -290,7 +301,7 @@ describe("multiplication-1120-v2 modular clone", () => {
     let state = quiz.beginRound();
 
     assert.equal(state.prompt, "70+42=100+?");
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 5; i += 1) {
       state = answerWrongThenCorrect(quiz, state);
       assert.equal(state.levelAdvanced, undefined);
     }
@@ -348,8 +359,8 @@ describe("multiplication-1120-v2 modular clone", () => {
     for (let i = 0; i < 21; i += 1) {
       state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
-    for (let i = 0; i < 6; i += 1) {
-      state = answerWrongThenCorrect(quiz, state);
+    for (let i = 0; i < 7; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
     state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
 
@@ -359,31 +370,24 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.equal(state.prompt, "55+11=?");
   });
 
-  it("direct modular subquiz 5 advances level after 21 counted attempts once the current question is corrected", () => {
+  // CORECTAT (Categoria 6): pragul de 21 exista inca in cod (siguranta pentru
+  // cine nu prinde streak-ul de 10), dar acum se atinge doar prin raspunsuri
+  // REZOLVATE — testul original folosea apasari GRESITE ca sa completeze cele
+  // 21 (dublu-numarate sub bug-ul vechi). Sub regula noua, gresitul repetat nu
+  // avanseaza niciodata, oricat de multe apasari.
+  it("CORECTAT: raspunsul gresit repetat la subquiz 5 modular nu avanseaza niciodata (Categoria 6)", () => {
     const quiz = setupQuiz();
     quiz.setSubquizStartOption("effectiveAnchorAddition");
-    let state = quiz.beginRound();
+    const state = quiz.beginRound();
+    const idx = wrongIndex(state);
 
-    for (let i = 0; i < 9; i += 1) {
-      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-      assert.equal(state.levelAdvanced, undefined);
+    for (let i = 0; i < 40; i += 1) {
+      const rezultat = quiz.onAnswer(idx, { responseMs: 900 });
+      assert.equal(rezultat.outcome, "wrong-answer");
+      assert.equal(rezultat.prompt, state.prompt);
     }
-    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
-    assert.equal(state.levelAdvanced, undefined);
-    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-    assert.equal(state.levelAdvanced, undefined);
-    for (let i = 0; i < 8; i += 1) {
-      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-      assert.equal(state.levelAdvanced, undefined);
-    }
-    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
-    assert.equal(state.levelAdvanced, undefined);
-    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-
-    assert.equal(state.levelAdvanced, true);
-    assert.equal(quiz.getLevel(), 2);
+    assert.equal(quiz.getLevel(), 1);
     assert.equal(quiz.getSubquizStage(), "effectiveAnchorAddition");
-    assert.equal(state.runDelayMs, 0);
   });
 
   it("direct modular subquiz 5 advances level after 10 consecutive correct answers", () => {
@@ -515,8 +519,8 @@ describe("multiplication-1120-v2 modular clone", () => {
     for (let i = 0; i < 21; i += 1) {
       state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
-    for (let i = 0; i < 6; i += 1) {
-      state = answerWrongThenCorrect(quiz, state);
+    for (let i = 0; i < 7; i += 1) {
+      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     }
     state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
     for (let i = 0; i < 10; i += 1) {
@@ -544,29 +548,24 @@ describe("multiplication-1120-v2 modular clone", () => {
     assert.equal(quiz.getSubquizStage(), "nonAnchorProducts");
   });
 
-  it("direct modular subquiz 6 advances after 21 main attempts once the current question is corrected", () => {
+  // CORECTAT (Categoria 6): titlul original folosea apasari GRESITE
+  // dublu-numarate sub bug-ul vechi ca sa completeze cele 21. Sub regula noua,
+  // gresitul repetat nu avanseaza niciodata, oricat de multe apasari — vezi
+  // testul de mai jos, care inlocuieste scenariul devenit inatins (2 greseli
+  // distincte declanseaza acum recuperarea intensiva tintita, nu un grind).
+  it("CORECTAT: raspunsul gresit repetat la subquiz 6 modular nu avanseaza niciodata (Categoria 6)", () => {
     const quiz = setupQuiz();
     quiz.setSubquizStartOption("nonAnchorProducts");
-    let state = quiz.beginRound();
+    const state = quiz.beginRound();
+    const idx = wrongIndex(state);
 
-    for (let i = 0; i < 11; i += 1) {
-      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-      assert.equal(state.levelAdvanced, undefined);
+    for (let i = 0; i < 40; i += 1) {
+      const rezultat = quiz.onAnswer(idx, { responseMs: 900 });
+      assert.equal(rezultat.outcome, "wrong-answer");
+      assert.equal(rezultat.prompt, state.prompt);
     }
-    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
-    assert.equal(state.levelAdvanced, undefined);
-    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-    assert.equal(state.levelAdvanced, undefined);
-    for (let i = 0; i < 7; i += 1) {
-      state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-      assert.equal(state.levelAdvanced, undefined);
-    }
-    state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });
-    assert.equal(state.levelAdvanced, undefined);
-    state = quiz.onAnswer(state.correctIndex, { responseMs: 900 });
-
-    assert.equal(state.levelAdvanced, true);
-    assert.equal(quiz.getLevel(), 2);
+    assert.equal(quiz.getLevel(), 1);
+    assert.equal(quiz.getSubquizStage(), "nonAnchorProducts");
   });
 
   it("direct modular subquiz 6 enters intensive mode after two distinct wrong non-anchors are corrected", () => {

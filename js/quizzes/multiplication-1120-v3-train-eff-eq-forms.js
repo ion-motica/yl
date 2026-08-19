@@ -592,42 +592,91 @@
       });
     }
 
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Ca la multiplication-1120-v2-modular.js: fiecare subquiz primeste
+    // propria instanta M3B, creata la fiecare apasare; `def.onAnswer(event)`
+    // intoarce rezultatul COMPLET al lui M3B (nu doar `.view`); un "pop" fara
+    // `view` propriu (singurul caz aici: `handleIntensiveAnswer`, la
+    // finalizarea SQ2) are nevoie de `view`-ul minimal adaugat automat de M3B
+    // sters, ca `command.view ?? resumed.view` din orchestrator sa treaca la
+    // vederea completa produsa de `onResume`.
+    //
+    // CORECTIE INTENTIONATA majora (Categoria 2 din FAZA-A-inventar-contract.md):
+    // toate cele 3 subquizuri (`base`, `sq2EffVbs`, `sq2EffSbs`) apelau
+    // `runtime.nextItem()` NECONDITIONAT, indiferent de corect/gresit — asta
+    // era singurul fisier din tot refactorul unde 100% din continut avansa
+    // mereu, fara nicio verificare. Corectat: gresit ramane pe intrebare.
+    //
+    // Descoperire utila la migrare: `sq2ExitMode` ("correct" vs "any") se
+    // mapeaza exact pe distinctia `turCorect` a lui M3B (verdictul turului dat
+    // STRICT de prima apasare) — "correct" numara doar turele rezolvate din
+    // prima incercare, "any" numara orice tura rezolvata (oricate incercari a
+    // avut). Inainte de migrare, distinctia asta nu avea sens curat (gresitul
+    // sarea la alta intrebare, deci "orice apasare" insemna altceva) — acum
+    // capata exact sensul pt. care fusese gandit switch-ul din panoul de control.
+    function creeazaM3BSubquiz(hooks) {
+      return global.Motor3Butoane.creeaza({
+        esteCorect: (it, idx) => Number(it.options[idx]) === Number(it.correctAnswer),
+        intrebareUrmatoare: () => null,
+        mesaje: {
+          gresit: (ctx) => `${ctx.alesul} nu e bun.`,
+        },
+        actiuni: hooks,
+      });
+    }
+
+    function raspundeSubquiz(event, hooks) {
+      const { item, index, meta, runtime } = event;
+      const m3b = creeazaM3BSubquiz(hooks);
+      const rezultat = m3b.laApasareButon({
+        item,
+        index,
+        meta,
+        construiesteVedere: (extra) => roundViewFrom(runtime, extra),
+      });
+      if (rezultat.action === "pop") delete rezultat.view;
+      return rezultat;
+    }
+
     function handleIntensiveAnswer(event) {
-      const { item, index, state, runtime } = event;
+      const { item, state, runtime } = event;
       shared.sq2State = state;
-      const chosen = item.options[index];
-      const isCorrect = Number(chosen) === Number(item.correctAnswer);
       const factB = item.metadata.factB;
 
-      state.questionCount += 1;
-      state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
-      if (isCorrect) state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
+      return raspundeSubquiz(event, {
+        dupaRaspunsCorect: (ctx) => {
+          state.questionCount += 1;
+          state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
+          if (ctx.turCorect) {
+            state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
+          }
 
-      const complete = state.facts.every((b) => {
-        const value =
-          sq2ExitMode === "any" ? state.countsByB[b] ?? 0 : state.correctCountsByB[b] ?? 0;
-        return value >= sq2ExitCount;
+          const complete = state.facts.every((b) => {
+            const value =
+              sq2ExitMode === "any" ? state.countsByB[b] ?? 0 : state.correctCountsByB[b] ?? 0;
+            return value >= sq2ExitCount;
+          });
+
+          if (complete) {
+            return {
+              action: "pop",
+              reason: "sq2Complete",
+              payload: { sq2Completed: true },
+            };
+          }
+
+          runtime.nextItem({ reason: "sq2Next" });
+          return {
+            action: "continue",
+            view: roundViewFrom(runtime, {
+              outcome: "step-correct",
+              correct: true,
+              bounce: true,
+              message: "Corect!",
+            }),
+          };
+        },
       });
-
-      if (complete) {
-        return {
-          action: "pop",
-          reason: "sq2Complete",
-          payload: { sq2Completed: true },
-        };
-      }
-
-      runtime.nextItem({ reason: "sq2Next" });
-      return {
-        action: "continue",
-        view: roundViewFrom(runtime, {
-          outcome: "step-correct",
-          correct: isCorrect,
-          bounce: isCorrect,
-          flash: isCorrect ? undefined : "wrong",
-          message: isCorrect ? "Corect!" : `${chosen} nu e bun.`,
-        }),
-      };
     }
 
     function handleIntensiveTimeout({ runtime }) {
@@ -665,52 +714,58 @@
           return item;
         },
         onAnswer(event) {
-          const { item, index, meta, state, runtime } = event;
+          const { item, meta, state, runtime } = event;
           shared.baseState = state;
-          const chosen = item.options[index];
-          const isCorrect = Number(chosen) === Number(item.correctAnswer);
           const factB = item.metadata.factB;
 
-          state.questionCount += 1;
-          if (isCorrect) state.correctCount += 1;
-          else if (!state.wrongFacts.includes(factB)) state.wrongFacts.push(factB);
-          if (Number.isFinite(meta.responseMs)) state.responseTimesByB[factB] = meta.responseMs;
+          return raspundeSubquiz(event, {
+            dupaApasare: (ctx) => {
+              if (!ctx.corect && !state.wrongFacts.includes(factB)) {
+                state.wrongFacts.push(factB);
+              }
+              return {};
+            },
+            dupaRaspunsCorect: () => {
+              state.questionCount += 1;
+              state.correctCount += 1;
+              if (Number.isFinite(meta.responseMs)) state.responseTimesByB[factB] = meta.responseMs;
 
-          if (state.wrongFacts.length >= 2) {
-            const command = maybeEnterSq2FromBase(state, "twoWrongFacts");
-            if (command) return command;
-          }
+              if (state.wrongFacts.length >= 2) {
+                const command = maybeEnterSq2FromBase(state, "twoWrongFacts");
+                if (command) return command;
+              }
 
-          if (state.questionCount % SQ2_TRIGGER_EVERY_BASE_ANSWERS === 0) {
-            const command = maybeEnterSq2FromBase(state, "baseFiveFacts");
-            if (command) return command;
-          }
+              if (state.questionCount % SQ2_TRIGGER_EVERY_BASE_ANSWERS === 0) {
+                const command = maybeEnterSq2FromBase(state, "baseFiveFacts");
+                if (command) return command;
+              }
 
-          if (state.questionCount >= QUESTIONS_PER_LEVEL) {
-            return {
-              action: "exit",
-              reason: "answeredCount",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                flash: "win",
-                message: "Subquiz 1 baza terminat, next level",
-              },
-            };
-          }
+              if (state.questionCount >= QUESTIONS_PER_LEVEL) {
+                return {
+                  action: "exit",
+                  reason: "answeredCount",
+                  view: {
+                    outcome: "step-correct",
+                    correct: true,
+                    bounce: true,
+                    flash: "win",
+                    message: "Subquiz 1 baza terminat, next level",
+                  },
+                };
+              }
 
-          runtime.nextItem({ reason: "afterAnswer" });
-          return {
-            action: "continue",
-            view: roundViewFrom(runtime, {
-              outcome: "step-correct",
-              correct: isCorrect,
-              bounce: isCorrect,
-              flash: isCorrect ? undefined : "wrong",
-              message: isCorrect ? "Corect!" : `${chosen} nu e bun.`,
-            }),
-          };
+              runtime.nextItem({ reason: "afterAnswer" });
+              return {
+                action: "continue",
+                view: roundViewFrom(runtime, {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: "Corect!",
+                }),
+              };
+            },
+          });
         },
         onResume({ runtime }) {
           if (runtime?.getState) shared.baseState = runtime.getState();
@@ -864,6 +919,8 @@
       return orchestrator.startFirst();
     }
 
+    // `advanceLevel` e apelata din `handleOrchestratorResult`, in AFARA
+    // oricarei instante M3B a vreunui subquiz — isi pune singura semnatura.
     function advanceLevel() {
       if (level >= MAX_LEVEL) {
         completed = true;
@@ -880,6 +937,7 @@
           prompt: "Final",
           options: ["", "", ""],
           correctIndex: 0,
+          motor3Butoane: global.Motor3Butoane.SEMNATURA,
         };
       }
 
@@ -896,6 +954,7 @@
         banner: `Nivel ${level} - ${factorForLevel(level)}x`,
         message: `Nivel ${level}`,
         nextRound: beginRoute(),
+        motor3Butoane: global.Motor3Butoane.SEMNATURA,
       };
     }
 

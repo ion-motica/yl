@@ -57,6 +57,7 @@ function setupQuiz({
     "js/subquiz/item-generator.js",
     "js/subquiz/subquiz-definition.js",
     "js/subquiz/subquiz-orchestrator.js",
+    "js/motor-3-butoane.js",
     "js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js",
   ].forEach(loadScript);
 
@@ -180,18 +181,24 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     assert.equal(new Set(fgUsed).size, fgUsed.length, "acelasi fg a fost ales de doua ori in acelasi nivel");
   });
 
-  it("declansatorul \"2 facte gresite\" functioneaza chiar cand chiar al 2-lea raspuns gresit e cel care declanseaza", () => {
-    // Regresie directa pt fix-ul allowOnWrong: fara el, blockWrongTransition
-    // (subquiz-definition.js) ar anula push-ul in sq3 fiindca raspunsul care
-    // il declanseaza e chiar unul gresit.
+  // CORECTAT (Faza D, lotul 4): inainte de migrare, `allowOnWrong:true` lasa
+  // declansatorul "2 facte gresite" sa treaca chiar pe raspunsul gresit care
+  // il declansa — insemnand ca o apasare GRESITA putea ea insasi schimba
+  // intrebarea afisata (push in sq3), o incalcare directa a regulii
+  // universale ("gresit ramane pe aceeasi intrebare"). Corectat: declansatorul
+  // se verifica DOAR dupa ce raspunsul curent a fost REZOLVAT corect.
+  it("declansatorul \"2 facte gresite\" functioneaza abia dupa ce al doilea fact gresit e rezolvat corect", () => {
     const quiz = setupQuiz({ random: () => 0 });
     let round = quiz.beginRound();
     round = answerWrong(quiz, round); // b=1, gresit -> wrongFacts=[1], motorul reia b=1
     assert.equal(round.metadata.factB, 1, "raspuns gresit fara declansator: motorul reia aceeasi intrebare");
     round = answerCorrect(quiz, round); // rezolva b=1 la a doua incercare
     assert.equal(round.metadata.factB, 2);
-    const trigger = answerWrong(quiz, round); // b=2 gresit -> wrongFacts=[2], acum 2 facte gresite distincte (1 si 2)
-    assert.equal(trigger.metadata.subquiz, SQ3_ID, "al doilea fact gresit distinct trebuia sa declanseze sq3, desi raspunsul a fost gresit");
+    const trigger = answerWrong(quiz, round); // b=2 gresit -> ramane pe b=2, NU declanseaza inca
+    assert.equal(trigger.metadata.factB, 2, "raspunsul gresit ramane pe aceeasi intrebare");
+    assert.equal(trigger.outcome, "wrong-answer");
+    const resolved = answerCorrect(quiz, trigger); // abia acum, dupa rezolvare, se declanseaza
+    assert.equal(resolved.metadata.subquiz, SQ3_ID, "al doilea fact gresit distinct declanseaza sq3 dupa ce a fost REZOLVAT corect");
   });
 
   it("criteriul 3: ordinea K=4 — primele 4 facte sunt {1,2,3,4}, in ordinea data de shuffle (nu 1,2,3,4 identic)", () => {
@@ -225,7 +232,15 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     assert.notEqual(round.metadata?.subquiz, SQ3_ID, "sq3 trebuia sa se fi terminat (pop inapoi in baza, sau nivel complet)");
   });
 
-  it("criteriul 6b: plasa de siguranta — un fact niciodata corect tot forteaza avansul dupa 5 incercari", () => {
+  // CORECTAT (Categoria 5 din FAZA-A-inventar-contract.md — ELIMINATA
+  // complet, decizie fermă a userului, consemnata deja in acel document):
+  // fostele "criteriul 6b" si "contract de randare: ... plasa de siguranta"
+  // testau EXPLICIT mecanismul de avans fortat dupa 5 incercari gresite —
+  // exact genul de exceptie pe care userul a respins-o direct ("Poate sa
+  // apese de 3000 de ori pe raspunsurile gresite, nu treci la alta
+  // intrebare"). Inlocuite cu un singur test care verifica eliminarea:
+  // niciun numar de incercari gresite nu forteaza avansul.
+  it("CORECTAT (Categoria 5 eliminata): un fact niciodata corect NU forteaza avansul, oricat de multe incercari gresite", () => {
     const quiz = setupQuiz({ fluentaSursa: { scorPtFact: () => 0 } });
     let round = quiz.beginRound();
     for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
@@ -233,53 +248,11 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     assert.equal(round.metadata.subquiz, SQ3_ID);
 
     const targetB = round.metadata.factB;
-    let timesShown = 0;
-    let guard = 0;
-    // Raspundem mereu gresit la targetB (motorul reia aceeasi intrebare pana
-    // la plafonul de 5 incercari, apoi forteaza avansul), corect la restul,
-    // ca sesiunea sa se poata termina.
-    while (round.metadata?.subquiz === SQ3_ID && guard < 60) {
-      guard += 1;
-      if (round.metadata.factB === targetB) {
-        timesShown += 1;
-        round = answerWrong(quiz, round);
-      } else {
-        round = answerCorrect(quiz, round);
-      }
-      round = round.nextRound ?? round;
-    }
-    assert.ok(guard < 60, "sesiunea sq3 nu trebuia sa ramana blocata la infinit pe factul greu");
-    assert.ok(
-      timesShown >= 5 && timesShown <= 6,
-      `targetB=${targetB} trebuia sa fie afisat de ~5 ori inainte de avans fortat (a fost ${timesShown})`
-    );
-  });
-
-  it("contract de randare: raspunsul care declanseaza plasa de siguranta la sq3 nu se eticheteaza \"wrong-answer\"", () => {
-    // falling-engine.js (applyAnswerResult, wrongPick) trateaza literal
-    // outcome === "wrong-answer" ca "nu randa, ramai pe intrebarea veche". Cand
-    // sq3 a avansat deja itemul (nextItem, dupa plasa de 5 incercari) dar
-    // raspunsul care a declansat-o era gresit, eticheta trebuie sa ramana
-    // "step-correct" — altfel ecranul ramane desincronizat de starea reala a
-    // quizului (butoane "moarte", raspunsuri notate pe intrebarea nevazuta).
-    // Regresie pt bug-ul raportat de user la sq5 (acelasi tipar, aici in sq3).
-    const quiz = setupQuiz({ fluentaSursa: { scorPtFact: () => 0 } });
-    let round = quiz.beginRound();
-    for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
-    round = answerCorrect(quiz, round);
-    assert.equal(round.metadata.subquiz, SQ3_ID);
-
-    const targetB = round.metadata.factB;
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 40; i += 1) {
       round = answerWrong(quiz, round);
-      assert.equal(round.outcome, "wrong-answer", `incercarea ${i + 1}: motorul trebuia sa reia aceeasi intrebare`);
-      assert.equal(round.metadata.factB, targetB, `incercarea ${i + 1}: intrebarea nu trebuia sa avanseze`);
+      assert.equal(round.outcome, "wrong-answer", `incercarea ${i + 1}: ramane pe intrebare, fara limita`);
+      assert.equal(round.metadata.factB, targetB, `incercarea ${i + 1}: intrebarea nu avanseaza niciodata pe gresit`);
     }
-
-    const safetyNet = answerWrong(quiz, round); // a 5-a incercare gresita -> plasa de siguranta forteaza avansul
-    assert.equal(safetyNet.outcome, "step-correct", "raspunsul avanseaza itemul, deci nu poate fi etichetat wrong-answer");
-    assert.equal(safetyNet.correct, false, "raspunsul tot trebuie notat ca incorect pt jurnal/scor, desi eticheta e step-correct");
-    assert.notEqual(safetyNet.metadata.factB, targetB, "plasa de siguranta trebuia sa fi avansat la urmatorul fact");
   });
 
   it("criteriul 7: alegeFG pe cazul numeric din plan (nivel 1, fluenta 0 peste tot, acoperit {1,2,3,4,7})", () => {
@@ -443,7 +416,11 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
   // scorul continuu (scorPtFact, folosit in continuare doar pt. alegeFG).
   // "sesiunea curenta" = nivelul curent (shared.baseState.covered).
 
-  it("criteriul 17: fapt fluent, netestat inca in sesiune -> o singura incercare, corect sau gresit", () => {
+  // CORECTAT: politica "once" insemna inainte "o incercare, corecta sau
+  // gresita" — sub regula universala (gresit ramane pe intrebare pana la
+  // rezolvare), "once" inseamna acum "un singur raspuns CORECT e suficient"
+  // (spre deosebire de "normal", care cere 3 corecte).
+  it("criteriul 17 (CORECTAT): fapt fluent, netestat inca in sesiune -> un singur raspuns CORECT e suficient", () => {
     // Fara custom shuffle: cu scor 0 peste tot, primul declansator (a 5-a
     // intrebare, covered={1,2,3,4,5}) alege fg [7,11,13,17,19] (singurul
     // complet neacoperit — vezi criteriul 11). Niciun membru nu e acoperit
@@ -473,17 +450,16 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     const seenB7 = [];
     let r = trigger;
     let guard = 0;
-    // Raspundem mereu gresit: b=7 (fluent, "once") trebuie sa iasa dupa
-    // exact 1 incercare; restul (nefluente, "normal") trebuie sa ajunga la
-    // plasa de 5 incercari, nu la 1.
+    // Raspundem mereu corect: b=7 (fluent, "once") trebuie sa iasa dupa exact
+    // 1 raspuns; restul (nefluente, "normal") au nevoie de 3 corecte fiecare.
     while (r.metadata?.subquiz === SQ3_ID && guard < 60) {
       guard += 1;
       if (r.metadata.factB === 7) seenB7.push(true);
-      r = answerWrong(quiz, r);
+      r = answerCorrect(quiz, r);
       r = r.nextRound ?? r;
     }
     assert.ok(guard < 60, "sesiunea sq3 nu trebuia sa ramana blocata");
-    assert.equal(seenB7.length, 1, "b=7 (fluent, netestat in sesiune) trebuia intrebat o singura data, indiferent de raspuns");
+    assert.equal(seenB7.length, 1, "b=7 (fluent, netestat in sesiune) trebuia intrebat o singura data, apoi rezolvat");
   });
 
   it("criteriul 18: fapt fluent SI deja acoperit in sesiune -> sarit complet din sq3 (dar vizibil bifat in stack)", () => {
@@ -523,7 +499,7 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
       guard += 1;
       if (r.metadata.factB === 5) seenB5.push(true);
       if (r.metadata.factB === 15) seenB15.push(true);
-      r = answerWrong(quiz, r);
+      r = answerCorrect(quiz, r);
       r = r.nextRound ?? r;
     }
     assert.ok(guard < 60, "sesiunea sq3 nu trebuia sa ramana blocata");
@@ -887,7 +863,16 @@ describe("subquiz 5: Fluent party", () => {
     assert.equal(info.answeredText, "0 / 20 acoperite", "sq5 nu trebuia sa marcheze niciun fact ca acoperit in sq1");
   });
 
-  it("iesirea din sq5 functioneaza si cand toate raspunsurile sunt gresite (allowOnWrong)", () => {
+  // CORECTAT (Faza D, lotul 4) — bug-ul ORIGINAL care a pornit tot refactorul
+  // (raportat de user, 17.08.2026): inainte, sq5 "consuma un turn corect sau
+  // nu" — un raspuns gresit avansa itemul intern in tacere, dar eticheta
+  // ramanea "wrong-answer", desincronizand ecranul de starea reala
+  // (falling-engine.js sarea randarea, butoane "moarte", raspunsurile
+  // urmatoare notate fata de intrebarea nevazuta). Titlul original al acestui
+  // test ("... allowOnWrong") testa chiar acel mecanism ca feature. Acum
+  // gresit ramane pe aceeasi intrebare (fara limita), iar iesirea din sq5
+  // se intampla doar prin rezolvari corecte.
+  it("CORECTAT: raspunsul gresit in sq5 ramane pe aceeasi intrebare (fara limita); iesirea se intampla doar prin raspunsuri corecte", () => {
     const fluentaSursa = {
       scorPtFact: () => 0,
       starePtFact: (a, b) => (a === 11 && b === 9 ? "fluent" : "netestat"),
@@ -901,47 +886,32 @@ describe("subquiz 5: Fluent party", () => {
         "yl:mul1120v4:sq5TurnsPerFact": "3",
       },
     });
-    let round = quiz.beginRound();
-    let guard = 0;
-    while (round.metadata?.subquiz === SQ5_ID && guard < 20) {
-      guard += 1;
-      round = answerWrong(quiz, round);
-      round = round.nextRound ?? round;
-    }
-    assert.ok(guard < 20, "sq5 nu trebuia sa ramana blocat la raspunsuri gresite");
-    assert.equal(
-      round.metadata.subquiz,
-      "base",
-      "sq5 trebuia sa iasa normal spre baza, chiar daca toate raspunsurile au fost gresite"
-    );
-  });
-
-  it("contract de randare: raspunsul gresit in sq5 care avanseaza (D1, §3.4 — turn consumat corect sau nu) nu se eticheteaza \"wrong-answer\"", () => {
-    // Bug raportat de user (17.08.2026): primul raspuns gresit facea quizul sa
-    // avanseze itemul intern, dar eticheta ramanea "wrong-answer" -> falling-engine.js
-    // (wrongPick) sarea randarea, ecranul ramanea pe intrebarea veche, iar
-    // apasarile urmatoare erau notate fata de intrebarea nevazuta (butoane
-    // "moarte", raspuns corect taiat ca gresit).
-    const fluentaSursa = {
-      scorPtFact: () => 0,
-      starePtFact: (a, b) => (a === 11 && [2, 3, 4].includes(b) ? "fluent" : "netestat"),
-    };
-    const quiz = setupQuiz({
-      fluentaSursa,
-      localStorageSeed: { "yl:mul1120v4:sq5Mode": "B", "yl:mul1120v4:sq5Entry": "levelStart" },
-    });
     const round = quiz.beginRound();
     assert.equal(round.metadata.subquiz, SQ5_ID);
 
-    const wrong = answerWrong(quiz, round);
-    assert.equal(wrong.metadata.subquiz, SQ5_ID, "blocul (implicit 12) nu se termina dupa o singura intrebare");
-    assert.equal(wrong.outcome, "step-correct", "sq5 avanseaza mereu — eticheta trebuia sa ramana step-correct, nu wrong-answer");
-    assert.equal(wrong.correct, false, "raspunsul tot trebuie notat ca incorect pt jurnal/scor, desi eticheta e step-correct");
-    assert.notEqual(
-      `${wrong.metadata.factA}*${wrong.metadata.factB}=${wrong.metadata.eqForm}`,
-      `${round.metadata.factA}*${round.metadata.factB}=${round.metadata.eqForm}`,
-      "itemul trebuia sa fi avansat efectiv (fact sau forma diferita)"
-    );
+    // 30 apasari gresite pe rand: outcome ramane onest "wrong-answer", itemul
+    // nu avanseaza deloc (fact + forma neschimbate).
+    let current = round;
+    for (let i = 0; i < 30; i += 1) {
+      const wrong = answerWrong(quiz, current);
+      assert.equal(wrong.outcome, "wrong-answer", `incercarea ${i + 1}: eticheta trebuie sa ramana onesta`);
+      assert.equal(
+        `${wrong.metadata.factA}*${wrong.metadata.factB}=${wrong.metadata.eqForm}`,
+        `${current.metadata.factA}*${current.metadata.factB}=${current.metadata.eqForm}`,
+        `incercarea ${i + 1}: itemul nu trebuia sa avanseze pe raspuns gresit`
+      );
+      current = wrong;
+    }
+
+    // Abia acum, raspunzand corect, sq5 avanseaza si in cele din urma iese.
+    let guard = 0;
+    while (current.metadata?.subquiz === SQ5_ID && guard < 20) {
+      guard += 1;
+      current = answerCorrect(quiz, current);
+      current = current.nextRound ?? current;
+    }
+    assert.ok(guard < 20, "sq5 nu trebuia sa ramana blocat la raspunsuri corecte");
+    assert.equal(current.metadata.subquiz, "base", "sq5 trebuia sa iasa normal spre baza, prin rezolvari corecte");
   });
 
   it("subquiz_id separabil in jurnal: toate randurile sq5 au subquiz_id si subquiz_name", () => {

@@ -6,7 +6,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_NAME + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: QUIZ_NAME,
     description: "Clona de test pentru jurnalul simplu al intrebarilor.",
     order: 2.21,
     gestionareGreseli: { activ: false },

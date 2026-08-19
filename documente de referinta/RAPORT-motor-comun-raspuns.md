@@ -12,18 +12,28 @@
 
 ## Stare curentă
 
-**Faza:** D — în lucru. Loturile 1, 2 și 3 COMPLETE (Lotul 1: commit `f0ded97`; Lotul 2: commit
-`7ed8cc1`; Lotul 3: commit în curs de pregătire — vezi jurnal). 16/18 fișiere migrate.
-**Următorul pas:** Lotul 4 — ultimele 3 fișiere, cele cu subquizuri reale
-(`multiplication-1120-v2-modular.js` — 9 subquizuri, `multiplication-1120-v3-train-eff-eq-forms.js`
-— 3 subquizuri, `multiplication-1120-v4-intensiv-multipli-234.js` — 5 subquizuri, aici se repară
-și `sq5` din bug-ul original care a pornit tot refactorul). După Lotul 4 urmează Faza E
-(`SubquizDefinition.define()` aruncă pe `onAnswer`, orchestrator impus la toate quizurile).
+**Faza:** D COMPLETĂ — toate cele 18 fișiere/motoare migrate la Motor3Butoane (Lot 1: commit
+`f0ded97`; Lot 2: commit `7ed8cc1`; Lot 3: commit `5c08b54`; Lot 4: commit în curs de pregătire
+— vezi jurnal). **Zero titluri „NEFUNCTIONAL" rămase în meniu.** 498 teste, 495 trec (3 pică,
+toate preexistente, sensibile la dată).
+**Următorul pas:** Faza E — „subquizul dă CE, nu CUM": (1) `SubquizDefinition.define()` aruncă
+dacă definiția conține `onAnswer` (impunere structurală, ca la Faza C); (2) toate cele 15 quizuri
+azi „simple" (fără subquiz) trebuie învelite în `SubquizOrchestrator`, cu o singură definiție de
+bază — decizie confirmată a userului, §12 din plan; (3) cei 17 subquizuri reali (9 în v2-modular,
+3 în v3, 5 în v4) migrați ACUM la contractul M3B trebuie re-migrați la contractul „CE nu CUM" al
+lui Faza E (azi fiecare are propriul `onAnswer` care cheamă M3B direct — Faza E mută asta în
+`esteCorect`/`intrebareUrmatoare`/`laIntrebareRezolvata`, fără `onAnswer` propriu-zis).
+**Tipar găsit la Lotul 4, relevant pt. Faza E**: subquiz-definition.js/subquiz-orchestrator.js NU
+s-au atins în Faza D (rezervate Fazei E) — fiecare subquiz primește propria instanță M3B creată la
+fiecare apăsare, `def.onAnswer` întoarce rezultatul COMPLET al lui M3B (nu `.view`), iar
+orchestratorul tratează `command.view ?? resumed.view` la „pop" ca alternative EXCLUSIVE —
+`raspundeSubquiz` (dublat identic în v2-modular/v3/v4) șterge explicit `view`-ul când acțiunea
+finală e „pop". Faza E va înlocui acest tipar cu ceva centralizat în orchestrator.
 **Modulul:** `js/motor-3-butoane.js` — „Motor 3 butoane" (M3B), numele dat de user.
 **Autorizare 18.08.2026, noapte:** userul a cerut explicit sa continui fara sa astept confirmare
 la fiecare OPRIRE, "conform planului" — comit si implementez in continuare autonom. Autorizarea
 e in vigoare, neschimbata.
-**Aplicația:** funcțională; quizurile nemigrate rămân marcate „NEFUNCȚIONAL" în meniu intenționat.
+**Aplicația:** funcțională; toate quizurile migrate, meniul complet fără sufixe.
 **Ultima actualizare:** 19.08.2026
 
 ---
@@ -50,7 +60,8 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 18.08.2026 | Faza C | User a autorizat explicit continuarea autonomă, fără OPRIRI, "e noapte". `falling-engine.js` impune semnătura M3B (aruncă altfel); toate cele 24 de quizuri sufixate „NEFUNCTIONAL" în meniu; `rigle-cl1` verificat neafectat (static + test + live); test-santinelă nou. Reparat pe drum: un test preexistent (`falling-engine-jurnal-timing.test.js`) folosea un quiz simulat pe vechea cale — actualizat sa treaca prin M3B, nu relaxat. 7 teste noi picate, așteptate (title-uri sufixate), documentate mai jos — se rezolvă singure la migrare. Verificat live în browser: eroarea chiar apare la apăsare pe quiz nemigrat. | **complet** |
 | 18.08.2026 | Faza D, Lot 1 | 5 fișiere migrate (`addition-table`, `addition-table-range`, `prime-divisors`, `sub-sau-langa-radical`, `bagare-sub-radical`). Corecție de comportament intenționată la `bagare-sub-radical` (Categoria 4+6). Commit `f0ded97`, push confirmat. | **complet** |
 | 19.08.2026 | Faza D, Lot 2 | 5 fișiere migrate (`addition-table-singapore`, `addition-table-singapore-missing`, `division-with-remainder`, `prime-divisions`, `equations-e3-e6`). Corecție de comportament intenționată la `division-with-remainder` (Categoria 4+6, ca la `bagare-sub-radical`). Primele fișiere cu `promptHoldMs`+`continueStep` proprii — confirmat că trec neatinse prin M3B. Verificat live în browser pentru toate 5, zero erori consolă. 483 teste, 475 trec (8 picate, toate așteptate: 3 preexistente + 5 title-uri pentru fișiere încă nemigrate din Loturile 3-4). Commit `7ed8cc1`, push confirmat. | **complet** |
-| 19.08.2026 | Faza D, Lot 3 | 5 fișiere/motoare migrate, 9 intrări de meniu deblocate (`succesive-quiz/engine.js`, `conexe-table-quiz/engine.js` ×4, `eff-quiz/engine.js` ×4, `pre-equations-eff-navigation.js`, `multiplication-1120-v2.js`). Cel mai mare volum de corecții de comportament din tot refactorul, concentrat în `multiplication-1120-v2.js` (6 subquiz-uri interne, comentariul sursă spunea explicit „greșelile sunt ignorate" la modul intensiv — corectat, fără excepție). Suita existentă a acelui fișier avea 10 teste care testau bug-urile ca feature, rescrise. 499 teste, 495 trec (4 picate, toate așteptate: 3 preexistente + 1 title pentru `multiplication-1120-v2-modular`, Lotul 4). Verificat live în browser. | **complet** |
+| 19.08.2026 | Faza D, Lot 3 | 5 fișiere/motoare migrate, 9 intrări de meniu deblocate (`succesive-quiz/engine.js`, `conexe-table-quiz/engine.js` ×4, `eff-quiz/engine.js` ×4, `pre-equations-eff-navigation.js`, `multiplication-1120-v2.js`). Cel mai mare volum de corecții de comportament din tot refactorul, concentrat în `multiplication-1120-v2.js` (6 subquiz-uri interne, comentariul sursă spunea explicit „greșelile sunt ignorate" la modul intensiv — corectat, fără excepție). Suita existentă a acelui fișier avea 10 teste care testau bug-urile ca feature, rescrise. 499 teste, 495 trec (4 picate, toate așteptate: 3 preexistente + 1 title pentru `multiplication-1120-v2-modular`, Lotul 4). Verificat live în browser. Commit `5c08b54`, push confirmat. | **complet** |
+| 19.08.2026 | Faza D, Lot 4 | Ultimele 3 fișiere cu subquizuri reale migrate: `multiplication-1120-v2-modular.js` (9 subquizuri — toate 9 aveau bug ascuns, nu doar cele 3 marcate în inventar; gasit si reparat bug real de „pop fără view"), `multiplication-1120-v3-train-eff-eq-forms.js` (3 subquizuri, toate Categoria 2, exact ca prezis în inventar), `multiplication-1120-v4-intensiv-multipli-234.js` (5 subquizuri — **fișierul bug-ului ORIGINAL**: `sq5FluentParty` reparat definitiv, Categoria 5 de la `sq3FactorGroup` — plasa de siguranță de 5 încercări — ELIMINATĂ complet, plus un `allowOnWrong` prost-folosit descoperit la `baseDefinition`, ratat de inventarul din Faza A). **Faza D COMPLETĂ — toate 18 fișiere migrate, zero titluri NEFUNCTIONAL rămase.** 498 teste, 495 trec (3 pică, toate preexistente). Verificat live în browser, inclusiv 8 răspunsuri greșite la rând în sq3 (peste fostul plafon de 5) rămânând pe aceeași întrebare cu butoane complet funcționale. | **complet** |
 
 ---
 
@@ -251,9 +262,101 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
       meniu deblocate, verificate live, commis (vezi jurnal).
 
 ### Lotul 4 — cele cu subquizuri
-- [ ] `js/quizzes/multiplication-1120-v2-modular.js` (1) — are test, **9 subquizuri**
-- [ ] `js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js` (1) — are test, **3 subquizuri**
-- [ ] `js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` (1) — are test, **5 subquizuri** (aici se repară și `sq5`)
+- [x] `js/quizzes/multiplication-1120-v2-modular.js` (1) — migrat, **9 subquizuri**.
+      Inainte de migrare am recitit atent inventarul din Faza A si am gasit ca
+      TOATE cele 9 (nu doar cele 3 marcate „Cat 2/3" in inventar) aveau o forma
+      de bug: fie ignorau corectitudinea complet (modurile intensive), fie
+      verificau pragul de iesire ÎNAINTE de verificarea corect/gresit — asa ca
+      un raspuns GRESIT putea el insusi declansa exit/push (`anchors`,
+      `rapidAnchorAdditions`, `effectiveAnchorAddition`, `nonAnchorProducts`,
+      `domainProducts`, toate „Cat 1" in inventarul original, aveau de fapt
+      acest bug ascuns). Toate 9 corectate. Fiecare subquiz primeste propria
+      instanta M3B (creata la fiecare apasare — niciun hook nu are nevoie de
+      `apasariInTur` persistent); `def.onAnswer(event)` intoarce rezultatul
+      COMPLET al lui M3B (nu doar `.view`), fiindca subquiz-definition.js
+      asteapta o comanda `{action,view}`, nu o vedere plata.
+      **Bug real gasit la testare, nu doar teoretic**: orchestratorul trateaza
+      `command.view ?? resumed.view` la „pop" ca alternative EXCLUSIVE, nu ca
+      straturi — dar M3B construieste mereu un `view` (chiar minimal), asa ca
+      `command.view` castiga mereu, ingropand vederea completa produsa de
+      `onResume` (promptul disparea complet la revenirea din modul intensiv).
+      Reparat: `view`-ul se sterge explicit cand actiunea finala e „pop"
+      (niciun „pop" din acest fisier nu avea `view` propriu inainte de
+      migrare — pastreaza contractul exact). `advanceLevel` (declansata de
+      semnalul `routeComplete` al orchestratorului, in AFARA oricarei instante
+      M3B) isi pune singura semnatura. Suita existenta (775 linii, 43 teste):
+      33/43 verzi din prima incercare; 7 teste rescrise (aceleasi tipare Cat.6
+      ca la fisierul-sora `multiplication-1120-v2.js`: praguri numarate pe
+      apasari brute -> corectate la raspunsuri rezolvate, 3 repurpozate ca
+      teste „gresit nu avanseaza niciodata"); 3 teste (bug-ul de „pop") au
+      trecut abia dupa reparatie. **43/43 teste verzi**, verificat live in
+      browser inclusiv tranzitia push→intensiv→pop (promptul revine corect,
+      nu ramane gol), zero erori consola. Suita completa: 499 teste, 496 trec
+      (3 pica, toate preexistente, sensibile la data — ZERO title-uri ramase).
+- [x] `js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js` (1, prin
+      wrapper-ul `-jurnal.js`) — migrat, **3 subquizuri** (`base`, `sq2EffVbs`,
+      `sq2EffSbs`). Confirmat exact ce spunea inventarul: TOATE 3 erau
+      Categoria 2 (avansau necondiționat, `runtime.nextItem()` apelat
+      indiferent de corect/gresit) — singurul fisier din tot refactorul cu
+      100% din continut afectat vizibil. Corectat, fara exceptie. Are din nou
+      capcana „pop fara view" gasita la fisierul-sora modular — acelasi
+      `raspundeSubquiz` cu stergerea explicita a `view`-ului la „pop".
+      **Descoperire utila**: switch-ul preexistent `sq2ExitMode` („correct" vs
+      „any") se mapeaza exact pe `turCorect` din M3B — „correct" numara doar
+      turele rezolvate DIN PRIMA incercare, „any" numara orice tura rezolvata
+      (cu sau fara reincercari) — o distinctie care nu avea sens curat inainte
+      de migrare (gresitul sarea la alta intrebare). Suita existenta (427
+      linii, 19 teste): 18/19 verzi din prima incercare; 1 test rescris (testa
+      explicit bug-ul „any conteaza apasari gresite" ca feature) + 1 test nou
+      adaugat pt. distinctia „correct" vs „any". **20/20 teste verzi**, plus
+      suita `jurnal-intrebari.test.js` (8 teste, verifica INTEGRAREA cu
+      jurnalul de intrebari) verde neschimbata. Verificat live in browser
+      inclusiv tranzitia push→SQ2→pop (promptul revine corect), zero erori
+      consola. Suita completa: 500 teste, 497 trec (3 pica, toate preexistente).
+- [x] `js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` (1) — migrat,
+      **5 subquizuri** (`base`, `sq3FactorGroup`, `sq2EffVbs`, `sq2EffSbs`,
+      `sq5FluentParty`). **Fișierul unde a trăit bug-ul ORIGINAL** care a pornit
+      tot refactorul (eticheta reparată deja, la începutul lucrării — commit
+      inițial din această sesiune — dar politica de avans NU). Cel mai mare
+      fișier din tot refactorul (2387 linii).
+      - **`sq5FluentParty`**: bug-ul ORIGINAL propriu-zis — `outcome` rămânea
+        "step-correct" chiar pe răspuns greșit (cu `answerRevealed:true` ca
+        să ascundă desincronizarea), fiindcă design-ul spunea explicit "sq5
+        numără turns corecte sau nu, nu cere reușită" (§3.4 din planul vechi
+        al lui sq5). Corectat, fără excepție: greșit rămâne pe aceeași
+        pereche, `turnsByKey`/`formsUsedByKey` numără doar la rezolvare.
+      - **`sq3FactorGroup`**: **Categoria 5 ELIMINATĂ complet** — plasa de
+        siguranță (`SQ3_EXIT_MAX_ATTEMPTS=5`, avans forțat după 5 încercări
+        indiferent de corectitudine) era encoding-ul exact al lucrului pe care
+        userul l-a respins ferm chiar la începutul acestei sesiuni. O dată
+        eliminată, `attemptsByB` a devenit redundant cu `correctCountsByB` —
+        șters, cu tot cu constanta. Politica "once" (facte deja fluente,
+        netestate în sesiune) însemna "o încercare, corectă sau greșită" —
+        acum "un singur răspuns CORECT e suficient".
+      - **`baseDefinition`**: descoperire la recitire atentă — folosea
+        `allowOnWrong:true` (mecanism din subquiz-definition.js) ca să lase
+        declanșatoarele ("2 facte greșite", "la fiecare a 5-a întrebare",
+        finalul de nivel) să treacă CHIAR pe răspunsul greșit care le
+        declanșa — însemnând că o apăsare greșită putea ea însăși schimba
+        întrebarea afișată (push în sq3, sau chiar avans de nivel). Inventarul
+        din Faza A îl clasificase "Categoria 1, deja conform" — clasificare
+        incompletă, ratase exact interacțiunea asta. Corectat: toate
+        declanșatoarele mutate în `dupaRaspunsCorect`, `allowOnWrong` devine
+        inutil și e scos peste tot din fișier.
+      - **`sq2EffVbs`/`sq2EffSbs`**: aceeași Categorie 2 ca la v3 (`handleIntensiveAnswer`
+        partajată, `runtime.nextItem()` necondiționat) — corectată identic,
+        cu `turCorect` din M3B pentru distincția `sq2ExitMode` „correct" vs „any".
+      Suita existentă (971 linii, 30 teste) avea 7 teste care testau EXPLICIT
+      mecanismele eliminate ca feature (titluri ca „criteriul 6b: plasa de
+      siguranță", „... allowOnWrow"") — rescrise sau (cazul plasei de
+      siguranță) înlocuite cu un test direct „nu forțează avansul niciodată".
+      **28/28 teste verzi**. Verificat live în browser: **8 răspunsuri greșite
+      la rând în sq3 (mai multe decât fostul plafon de 5) — întrebarea rămâne
+      exact aceeași, butoanele rămân complet funcționale (nu „griuiite", exact
+      simptomul din raportul inițial de bug)**, zero erori consolă. Suita
+      completă: 498 teste, 495 trec (3 pică, toate preexistente, sensibile la
+      dată) — **ZERO title-uri „NEFUNCTIONAL" rămase în tot repo-ul**.
+- [x] **LOTUL 4 COMPLET. FAZA D COMPLETĂ — toate cele 18 fișiere migrate.**
 - [ ] **OPRIRE** — „Am modificat și testat quizurile ...", userul verifică și el
 
 ## Faza E — Pasul 2: subquizul dă CE, nu CUM
