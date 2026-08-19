@@ -671,3 +671,100 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
 
 *(se completează pe parcurs — orice caz care nu încape în contract, orice bug descoperit și
 raportat separat, orice decizie luată de user pe parcurs)*
+
+## Bug-uri găsite, NEreparate — lăsate pentru altă ocazie
+
+> Astea sunt bug-uri REALE, verificate, nu speculații — dar în afara scopului exact al lucrării
+> aflate în desfășurare când au fost găsite (motorul comun de răspuns / învelirea în orchestrator),
+> deci nereparate deliberat. Fiecare intrare are context complet, ca oricine reia firul să nu
+> trebuiască să re-descopere mecanismul de la zero.
+
+### 1. `setSq2Config` respinge tăcut `exitCount` în afara `{3, 4, 5}`
+
+**Unde:** `js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js` ȘI
+`js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` — funcția `setSq2Config`, ambele
+fișiere au implementarea identică:
+```js
+if ([3, 4, 5].includes(Number(config.exitCount))) {
+  sq2ExitCount = Number(config.exitCount);
+  writeSetting(SQ2_EXIT_COUNT_KEY, sq2ExitCount);
+}
+```
+
+**Simptom exact:** `quiz.setSq2Config({ exitCount: 2 })` (sau orice valoare ∉ {3,4,5}, ex. 6, 10,
+0) nu face NIMIC — `sq2ExitCount` rămâne la valoarea anterioară (implicit 3), fără nicio eroare,
+niciun avertisment. Funcția întoarce mereu `true`, indiferent care câmpuri au fost de fapt
+acceptate — apelantul nu are cum să afle că cererea lui a fost ignorată.
+
+**Cum a fost găsit (20.08.2026, migrarea v3 la Faza E):** un test folosea `exitCount: 2` și trecea
+— dar ACCIDENTAL, prin coincidența a două bug-uri care se anulau reciproc. Tiparul vechi (câte o
+instanță `Motor3Butoane` nouă la fiecare apăsare, înlocuit acum) rupea `turCorect` — o corectare
+(a doua apăsare, după una greșită) apărea mereu ca „prima apăsare", deci `turCorect` era mereu
+`true`, nu doar la prima încercare reală. Asta făcea ca un tur „corectat" să se numere GREȘIT ca
+`turCorect`, adăugând un increment în plus la `correctCountsByB` — care, din întâmplare, compensa
+exact faptul că `sq2ExitCount` rămăsese la 3 (nu devenise 2 cum cerea testul). Odată reparat
+`turCorect` (corect, ca parte a migrării la Faza E), testul a picat — investigația a scos la
+iveală bug-ul de validare, mascat până atunci.
+
+**De ce NU s-a reparat:** în afara scopului Fazei E (asta ține de panoul de control/validarea
+configurației, nu de „subquiz dă CE nu CUM" sau „quiz construit prin SubquizOrchestrator").
+**De ce practic nu a produs pagube până acum:** panoul de control (`appendSq2ControlPanel`, la
+ambele fișiere) oferă DOAR trei butoane radio, 3/4/5 — din UI, o valoare invalidă nu poate fi
+trimisă niciodată. Gaura e accesibilă DOAR printr-un apel programatic direct la `setSq2Config` cu
+o valoare din afara mulțimii (exact ce făcea testul).
+**Ce s-a făcut în loc:** testul a fost corectat să folosească `exitCount: 3` (o valoare validă),
+păstrând aceeași intenție de testare (verifică distincția `turCorect` „correct" vs „any").
+
+**Reparație posibilă, neimplementată — de ales una:** (a) lărgește validarea să accepte orice
+număr întreg pozitiv; (b) păstrează restricția dar clamp la cea mai apropiată valoare validă, în
+loc de no-op tăcut; (c) `setSq2Config` să întoarcă `false` (sau un obiect cu ce s-a acceptat/respins)
+când o valoare e respinsă, ca apelantul să poată reacționa.
+
+### 2. `beginRound(next)` cu un obiect trunchiat ar corupe grading-ul ulterior
+
+**Unde:** `js/quizzes/equations-e3-e6.js` — `esteCorect`/`beginRound`.
+
+**Mecanismul exact:**
+```js
+esteCorect: (_item, index) => Boolean(current) && Number(current.options?.[index]) === current.correct,
+...
+beginRound(next) {
+  current = next ?? pickNewQuestion();
+  ...
+}
+```
+`esteCorect` citește `current.correct`. Dacă `beginRound` e chemat cu un `next` TRUNCHIAT — de
+exemplu rezultatul lui `roundView()` (`{prompt, options, correctIndex, hintMessage,
+successionHistory}`, FĂRĂ câmpul `correct`) — atunci după acel apel `current.correct` devine
+`undefined`, iar `esteCorect` întoarce `false` pentru ORICE apăsare ulterioară, la nesfârșit
+(quiz-ul pare „înțepenit", orice răspuns e gresit), până la următoarea `pickNewQuestion()` reală
+(la următorul run-complete sau schimbare de nivel).
+
+**Cum a fost găsit (20.08.2026, învelirea în orchestrator, §12):** un script de verificare
+scria (artificial) `quiz.beginRound(s.nextRound)` imediat după un run-complete, presupunând că
+așa arată fluxul real al aplicației — și a lovit exact coruperea de mai sus.
+
+**De ce NU e (încă) un bug viu:** verificat explicit în `js/falling-engine.js`:
+```js
+startRound(result.nextRound ?? getQuiz().beginRound(getQuiz().pickNextRound()));
+```
+Cu `??`, quan `result.nextRound` e deja prezent (mereu adevărat la acest fișier — `nextAfterCorrect()`
+îl setează pe ambele ramuri de run-complete), ramura din dreapta (care AR chema `beginRound` cu
+`nextRound`-ul trunchiat) NU se evaluează NICIODATĂ. `nextRound` e doar AFIȘAT direct
+(`startRound`/`renderRound`), niciodată retrimis în `beginRound`. Confirmat cu un script corectat
+că această secvență exactă nu se declanșează în aplicația reală.
+
+**De ce nu s-a reparat oricum:** comportamentul e IDENTIC, neatins, cu codul dinainte de migrarea
+la Faza E (`esteCorect`/`beginRound` copiate verbatim) — a repara asta ar însemna o redesenare
+reală (ex. `nextAfterCorrect()` să care mai departe obiectul `current` complet, nu doar
+`roundView()`), în afara scopului „învelește, nu reproiecta".
+
+**Risc rămas, pentru viitor:** dacă vreodată apare un NOU loc care cheamă
+`quiz.beginRound(ceva.nextRound)` fără protecția `??` de mai sus (ex. un buton de acțiune în
+arenă, sau o rescriere a lui `falling-engine.js`), sau dacă `nextAfterCorrect()` e modificat să
+refolosească `nextRound` altfel — grading-ul s-ar rupe tăcut, exact ca în scenariul găsit.
+
+**Reparație posibilă, neimplementată — de ales una:** (a) `nextAfterCorrect()` să pună pe
+`nextRound` obiectul `current` complet (cu `correct`), nu doar `roundView()`; (b) `beginRound` să
+verifice defensiv `next?.correct !== undefined` înainte să aibă încredere într-un `next` primit,
+altfel să cadă pe `pickNewQuestion()`.
