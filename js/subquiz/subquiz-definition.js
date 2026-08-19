@@ -112,13 +112,21 @@
     }
 
     function onAnswer(index, meta = {}) {
-      return motor.laApasareButon({
+      const rezultat = motor.laApasareButon({
         item: currentItem,
         index,
         stare: state,
         meta,
         construiesteVedere: view,
       });
+      // M3B ataseaza mereu un view (chiar minimal) oricarei comenzi de rutare — inclusiv
+      // "pop". Orchestratorul trateaza `command.view ?? resumed.view` la "pop" ca alternative
+      // EXCLUSIVE, deci un view mereu-prezent ar ingropa mereu vederea produsa de `onResume`
+      // al subquiz-ului la care se revine. Il stergem aici, centralizat, ca orice subquiz cu
+      // `pop` sa primeasca vederea corecta fara sa reimplementeze fixul (gasit repetat, per
+      // fisier, in Faza D — vezi documente de referinta/RAPORT-motor-comun-raspuns.md, Lotul 4).
+      if (rezultat.action === "pop") delete rezultat.view;
+      return rezultat;
     }
 
     function onTimeout(meta = {}) {

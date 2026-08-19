@@ -371,9 +371,12 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.equal(quiz.getSubquizStage(), "base");
   });
 
+  // exitCount:3 (nu 2) fiindca setSq2Config accepta doar 3/4/5, ca panoul de control (vezi
+  // appendSq2ControlPanel) — un exitCount:2 e respins silentios, ramane la valoarea implicita,
+  // in afara scopului Fazei E (validarea nu s-a atins la migrare).
   it("SQ2 'correct' mode only counts turns resolved on the first try (turCorect) — a corrected mistake doesn't count", () => {
     const quiz = setupQuiz();
-    quiz.setSq2Config?.({ factCount: 1, exitCount: 2, exitMode: "correct" });
+    quiz.setSq2Config?.({ factCount: 1, exitCount: 3, exitMode: "correct" });
     let state = quiz.beginRound();
     state = quiz.runArenaAction("sendCurrentFactToSq2");
 
@@ -382,7 +385,9 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
     assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
 
-    // 2 ture rezolvate DIN PRIMA la rand — abia acum iese (exitCount=2)
+    // 3 ture rezolvate DIN PRIMA la rand — abia acum iese (exitCount=3)
+    state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
+    assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
     state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });
     assert.equal(quiz.getSubquizStage(), "sq2EffVbs");
     state = quiz.onAnswer(state.correctIndex, { responseMs: 700 });

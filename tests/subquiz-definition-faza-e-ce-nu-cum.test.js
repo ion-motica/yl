@@ -120,6 +120,24 @@ describe("SubquizDefinition da CE, nu CUM (Faza E)", () => {
     assert.equal(rezultat.reason, "gata");
   });
 
+  it("actiunea 'pop' vine fara view — orchestratorul poate arata vederea lui onResume", () => {
+    const runtime = globalThis.SubquizDefinition.createRuntime(
+      definitieSimpla({
+        actiuni: {
+          dupaRaspunsCorect: () => ({ action: "pop", reason: "gata" }),
+        },
+      })
+    );
+    runtime.begin();
+    const rezultat = runtime.onAnswer(1); // corect
+    assert.equal(rezultat.action, "pop");
+    assert.equal(
+      "view" in rezultat,
+      false,
+      "M3B ataseaza mereu un view, dar la pop trebuie sters — altfel ingroapa vederea lui onResume"
+    );
+  });
+
   it("mesajul implicit de gresit ramane neschimbat cand subquizul nu-l suprascrie", () => {
     const runtime = globalThis.SubquizDefinition.createRuntime(definitieSimpla());
     runtime.begin();
