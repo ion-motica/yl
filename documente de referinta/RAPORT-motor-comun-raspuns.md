@@ -34,13 +34,14 @@ tiparul stabilit deja în toate (`beginRound`/`pickNextRound` gestionează într
 fără să treacă prin motor) intră în conflict cu auto-pornirea leneșă a orchestratorului — dacă
 `onAnswer` e primul lucru care atinge orchestratorul, `SubquizOrchestrator.onAnswer` tratează acel
 apel ca „pornește și arată prima întrebare", NU ca „procesează apăsarea" — ar regenera o întrebare
-NOUĂ (prin `generator`) și ar arunca la gunoi apăsarea reală a userului. **Rezolvare, reutilizabilă
-la toate cele 14 rămase:** (1) `generator()` întoarce întrebarea deja existentă (`current ??
-pickNewQuestion()`), nu regenerează necondiționat — ca pornirea explicită a orchestratorului să nu
-consume o extragere aleatoare în plus (ar desincroniza secvențele deterministe din teste); (2) o
-funcție `sincronizeazaOrchestratorul()`, chemată de fiecare dată când întrebarea curentă se
-schimbă, pornește orchestratorul explicit (dacă nu e pornit încă) sau doar sincronizează
-`currentItem`-ul lui cu itemul curent (dacă e deja pornit) — niciodată amândouă.
+NOUĂ (prin `generator`) și ar arunca la gunoi apăsarea reală a userului. **Rezolvare (simplificată
+20.08.2026, după observația userului că prima variantă era complicată inutil — vezi jurnal),
+reutilizabilă la toate cele 14 rămase:** orchestratorul e pornit O SINGURĂ DATĂ, la construirea
+quiz-ului, cu un `generator` complet gol (nu se mai cheamă niciodată după aia — `dupaRaspunsCorect`
+întoarce mereu o comandă explicită, niciodată `undefined`); de-acolo încolo, `sincronizeazaOrchestratorul()`
+e UN SINGUR apel necondiționat (`orchestrator.getCurrentRuntime().setCurrentItem(...)`), chemat
+ori de câte ori întrebarea curentă se schimbă. Fără ramificație „e pornit sau nu", fără
+`current ?? pickNewQuestion()` — inutile, dat fiind că `generator`-ul gol nu se mai atinge oricum.
 **A doua capcană, mai subtilă, găsită prin verificare directă (nu de suita existentă):** vederea
 de „răspuns greșit" o construiește acum motorul comun (`construiesteVedere` = `view()` din
 subquiz-definition.js), NU `roundView()` proprie a quiz-ului ca înainte — îi lipsea
@@ -63,6 +64,16 @@ Teste: `equations-e3-e6.test.js` — 11/11 verzi (2 teste extinse să încarce
 celelalte suite din Faza E). Suită completă: 506 teste, 503 trec, 3 pică — exact cele 3
 preexistente. Verificat live în browser: greșit rămâne, corect avansează, zero erori consolă.
 `index.html`: `equations-e3-e6.js` v6→v7.
+
+**Faza E, §12 — addition-table.js învelit (20.08.2026), al 2-lea quiz „simplu":** același tipar
+simplu (pornire o singură dată, sincronizare necondiționată). O capcană specifică acestui fișier:
+`options` proprii sunt NUMERE, dar motorul comun normalizează la STRING-uri — `isResolvedCombo`
+compară strict (`===`) cu un număr, deci `ctx.alesul` (string-ul normalizat) ar fi picat mereu
+tăcut. Corectat: citește `options[ctx.index]` (numărul original din closure), nu `ctx.alesul`,
+peste tot. Găsit și `divisionHistory`/`prompt` lipsă pe vederea de răspuns greșit (aceeași formă
+de gol ca `successionHistory` la equations-e3-e6) — corectate la fel. Teste: 7/7 verzi. Suită
+completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script dedicat + live. `index.html`:
+`addition-table.js` v1→v2.
 
 **Faza E — v4 migrat (20.08.2026), ULTIMUL fișier cu subquizuri reale:** toate 5 subquizuri din
 `js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` (`base`, `sq3FactorGroup`,
@@ -278,6 +289,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 19.08.2026 | Faza D, Lot 3 | 5 fișiere/motoare migrate, 9 intrări de meniu deblocate (`succesive-quiz/engine.js`, `conexe-table-quiz/engine.js` ×4, `eff-quiz/engine.js` ×4, `pre-equations-eff-navigation.js`, `multiplication-1120-v2.js`). Cel mai mare volum de corecții de comportament din tot refactorul, concentrat în `multiplication-1120-v2.js` (6 subquiz-uri interne, comentariul sursă spunea explicit „greșelile sunt ignorate" la modul intensiv — corectat, fără excepție). Suita existentă a acelui fișier avea 10 teste care testau bug-urile ca feature, rescrise. 499 teste, 495 trec (4 picate, toate așteptate: 3 preexistente + 1 title pentru `multiplication-1120-v2-modular`, Lotul 4). Verificat live în browser. Commit `5c08b54`, push confirmat. | **complet** |
 | 19.08.2026 | Faza D, Lot 4 | Ultimele 3 fișiere cu subquizuri reale migrate: `multiplication-1120-v2-modular.js` (9 subquizuri — toate 9 aveau bug ascuns, nu doar cele 3 marcate în inventar; gasit si reparat bug real de „pop fără view"), `multiplication-1120-v3-train-eff-eq-forms.js` (3 subquizuri, toate Categoria 2, exact ca prezis în inventar), `multiplication-1120-v4-intensiv-multipli-234.js` (5 subquizuri — **fișierul bug-ului ORIGINAL**: `sq5FluentParty` reparat definitiv, Categoria 5 de la `sq3FactorGroup` — plasa de siguranță de 5 încercări — ELIMINATĂ complet, plus un `allowOnWrong` prost-folosit descoperit la `baseDefinition`, ratat de inventarul din Faza A). **Faza D COMPLETĂ — toate 18 fișiere migrate, zero titluri NEFUNCTIONAL rămase.** 498 teste, 495 trec (3 pică, toate preexistente). Verificat live în browser, inclusiv 8 răspunsuri greșite la rând în sq3 (peste fostul plafon de 5) rămânând pe aceeași întrebare cu butoane complet funcționale. | **complet** |
 | 20.08.2026 | Faza E, §12, equations-e3-e6 | PRIMUL quiz „simplu" învelit în `SubquizOrchestrator` (o singură bucată „bază"). Găsită și rezolvată o capcană structurală generală, reutilizabilă la toate cele 14 rămase: tiparul `beginRound`/`pickNextRound` (gestionează întrebarea direct, fără motor) intră în conflict cu auto-pornirea leneșă a orchestratorului — ar înghiți prima apăsare, regenerând o întrebare nouă în loc s-o proceseze. Rezolvat cu `generator()` care întoarce `current` deja existent (nu regenerează, nu consumă o extragere aleatoare în plus) + `sincronizeazaOrchestratorul()` care pornește/sincronizează explicit. A doua capcană, mai subtilă: vederea de răspuns greșit construită de motor nu avea `successionHistory` (panoul de sumar) — reparat prin `dupaApasare`. Verificat cu script dedicat: prima apăsare procesată corect, greșit+successionHistory, corect avansează, run-complete/nivel funcționează, schimbare de nivel funcționează. Teste: 11/11. Suită completă: 506 teste, 503 trec, 3 pică (exact preexistentele). Verificat live în browser. | **complet** |
+| 20.08.2026 | Faza E, §12, addition-table | Al 2-lea quiz simplu învelit. Capcană specifică: `options` proprii sunt numere, motorul normalizează la string-uri — `isResolvedCombo` compară strict cu un număr, ar fi picat tăcut. Corectat: `options[ctx.index]` în loc de `ctx.alesul`. Găsit și `divisionHistory`/`prompt` lipsă pe răspuns greșit, corectate. **Corecție de proces, la cererea userului**: mecanismul de pornire al orchestratorului simplificat la ambele fișiere deja învelite — orchestrator pornit o dată la construcție, `generator` gol, sincronizare printr-un singur apel necondiționat (fără ramificația „e pornit sau nu" din prima variantă, inutilă). Teste: 7/7. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script + live. | **complet** |
 | 20.08.2026 | Faza E, v4 | ULTIMUL fișier cu subquizuri reale: toate 5 subquizuri migrate din `multiplication-1120-v4-intensiv-multipli-234.js` (fișierul bug-ului ORIGINAL) la contractul declarativ. `sq2EffVbs`/`sq2EffSbs` foloseau `turCorect` (ca v3) — reparate la fel, dar cod mort azi (nedeclanșate automat). Găsită și tratată aceeași capcană de „mesaj scurs" ca la v2-modular, de data asta la `sq5Definition` (exit spre "base" în mod B/levelStart, sq5 fiind primul din rută) — corectat cu `view:{message:undefined}`, verificat cu script dedicat. Suita fișierului: 28/28 din prima încercare, inclusiv testul de regresie exact pe bug-ul original. Suită completă: 506 teste, 503 trec, 3 pică — exact cele 3 preexistente, zero eșecuri legate de lucrare pentru prima dată din Faza C încoace. Verificat live: greșit rămâne + `wrongFacts`, corect avansează, zero erori consolă. **Cu asta, toate cele 17 subquizuri reale sunt migrate — pașii 1-3 din §5 (plan) COMPLEȚI.** | **complet** |
 | 20.08.2026 | Faza E, v2-modular | 9/9 subquizuri migrate din `multiplication-1120-v2-modular.js` la contractul declarativ, `raspundeSubquiz`/`creeazaM3BSubquiz` șterse. Niciun hook nu folosea `turCorect` (verificat prin grep) — migrare fără corecție de comportament ascunsă, spre deosebire de v3. Capcană structurală găsită și tratată: `actiuni.*` nu au acces la `runtime` (deci nu pot chema `nextItem()` manual), iar `mesaje.corect` implicit s-ar fi scurs pe ramuri de exit fără `view` propriu — verificat ramură cu ramură, un singur caz real (`anchorSumValues`→`rapidAnchorAdditions`), corectat cu `view:{message:undefined}` explicit. `domainProducts`: mesajul de tranziție de domeniu recreat ca `mesaje.corect` dinamic (detectează `currentDomainCount===0`). Verificat cu script dedicat: mesaj neconfirmat scurs, tranziție de domeniu exact la a 15-a întrebare. Suita fișierului: 43/43 din prima încercare, nimic rescris. Suită completă: 506 teste, 476 trec, 30 pică (exact v4 nemigrat + 3 preexistente). Verificat live: greșit rămâne + `wrongFacts`, corect avansează, zero erori consolă. Sufix scos, commit în lucru. | **complet** |
 | 20.08.2026 | Faza E, v3 | 3/3 subquizuri migrate din `multiplication-1120-v3-train-eff-eq-forms.js` (`base`, `sq2EffVbs`, `sq2EffSbs`) la contractul declarativ, `onAnswer`/`raspundeSubquiz`/`creeazaM3BSubquiz` șterse din fișier. Găsit și reparat: tiparul vechi „M3B nou la fiecare apăsare" rupea `turCorect` (o corectare arăta mereu ca „prima apăsare"); reparat ca efect direct al migrării (o instanță M3B per activare, nu per apăsare) — a scos la iveală un al doilea bug, separat, în afara scopului (`setSq2Config` respinge `exitCount:2`, doar `[3,4,5]` acceptate ca panoul de control) — testul corectat să folosească o valoare validă, validarea neatinsă. Fix „pop fără view" centralizat în `subquiz-definition.js` (dinainte duplicat local în cele 3 fișiere), cu test nou dedicat. Suita fișierului: 20/20 (1 test corectat). `jurnal-intrebari.test.js`: 8/8, neatins. Suită completă: 506 teste, 433 trec, 73 pică (exact v2-modular+v4 nemigrate + 3 preexistente). Verificat live în tab curat: corect avansează, greșit rămâne și înregistrează `wrongFacts`, push/pop SQ2 funcționează cu numărul de întrebări păstrat la revenire. Sufix scos, commit în lucru. | **complet** |
@@ -604,10 +616,10 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
       `SubquizOrchestrator`, minim o bucată „bază". **ÎN LUCRU** — învelirea celor 15 (fără gard
       încă, doar structural, cum spune planul); gardul propriu-zis (enforcement) rămâne pentru
       la final, după ce toate 15 sunt învelite (fără fereastră de spargere).
-      - [x] `equations-e3-e6.js` — 20.08.2026 (vezi „Stare curentă": tiparul reutilizabil găsit
-            aici — `generator` întoarce `current` deja existent, `sincronizeazaOrchestratorul()`
-            pornește/sincronizează explicit, fix pt. `successionHistory` lipsă pe răspuns greșit)
-      - [ ] `addition-table.js`
+      - [x] `equations-e3-e6.js` — 20.08.2026 (tiparul reutilizabil, simplificat — vezi „Stare
+            curentă": orchestrator pornit o dată, `generator` gol, sincronizare necondiționată)
+      - [x] `addition-table.js` — 20.08.2026 (`options[ctx.index]` în loc de `ctx.alesul`,
+            vezi „Stare curentă" pt. capcana de tip număr/string)
       - [ ] `addition-table-range.js`
       - [ ] `prime-divisors.js`
       - [ ] `sub-sau-langa-radical.js`

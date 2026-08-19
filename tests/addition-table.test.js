@@ -22,6 +22,9 @@ function setupQuiz({ deterministic = true } = {}) {
     "js/fact-stats.js",
     "js/progress.js",
     "js/quiz-registry.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
     "js/quizzes/addition-table.js",
   ].forEach(loadScript);
@@ -48,6 +51,9 @@ describe("addition-table (comportament dinainte de migrare, Faza D lot 1)", () =
     delete globalThis.FactStore;
     delete globalThis.FactStats;
     delete globalThis.QuizMistakes;
+    delete globalThis.ItemGenerator;
+    delete globalThis.SubquizDefinition;
+    delete globalThis.SubquizOrchestrator;
     delete globalThis.Motor3Butoane;
   });
 

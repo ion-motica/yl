@@ -675,23 +675,15 @@
     // Faza E, sectiunea 12 din plan: orice quiz trebuie construit intern prin
     // SubquizOrchestrator, chiar unul "simplu" ca asta (o singura bucata "baza",
     // fara push/pop/exit). `beginRound`/`pickNextRound` gestioneaza `current`
-    // direct (tiparul stabilit deja in toate quizurile simple migrate in Faza D),
-    // fara sa treaca prin orchestrator — daca l-am lasa sa polege singur (lazy,
-    // la primul `onAnswer`), `SubquizOrchestrator.onAnswer` ar trata acel apel ca
-    // "porneste si arata prima intrebare", NU ca "proceseaza apasarea userului":
-    // ar regenera o intrebare NOUA (prin `generator`) si ar arunca la gunoi
-    // apasarea reala. De-aia orchestratorul e pornit explicit ori de cate ori
-    // `current` se schimba (`sincronizeazaOrchestratorul`, mai jos) — iar
-    // `generator` intoarce `current` deja existent (nu genereaza din nou) cand
-    // pornirea asta explicita il gaseste deja setat, ca sa nu consume o extragere
-    // aleatoare in plus (ar desincroniza secventele deterministe din teste).
+    // direct (tiparul stabilit deja in toate quizurile simple migrate in Faza D)
+    // — orchestratorul e pornit O SINGURA DATA, la construirea quiz-ului (mai
+    // jos), cu un `generator` gol care nu se mai cheama niciodata dupa aia
+    // (`dupaRaspunsCorect` intoarce mereu o comanda explicita, niciodata
+    // `undefined` — vezi `baseDefinition`). De-aici incolo, `current` si
+    // itemul orchestratorului sunt tinute sincron printr-un singur apel
+    // neconditionat, ori de cate ori `current` se schimba.
     function sincronizeazaOrchestratorul() {
-      const runtime = orchestrator?.getCurrentRuntime?.();
-      if (runtime) {
-        runtime.setCurrentItem(current);
-      } else {
-        orchestrator?.startFirst?.();
-      }
+      orchestrator.getCurrentRuntime().setCurrentItem(current);
     }
 
     function pickNewQuestion() {
@@ -788,9 +780,9 @@
         title: "baza",
         hintMessage: HINT,
         esteCorect: (_item, index) => Boolean(current) && Number(current.options?.[index]) === current.correct,
-        generator() {
-          return current ?? pickNewQuestion();
-        },
+        // Nu se cheama niciodata dupa pornirea initiala (vezi mai sus) — `current`
+        // e gestionat direct de `pickNewQuestion`/`beginRound`, sincronizat separat.
+        generator: () => ({}),
         mesaje: {
           gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
         },
@@ -823,6 +815,7 @@
       activeSubquizIds: ["base"],
       context: { quizId: config.quizId ?? QUIZ_ID, hintMessage: HINT },
     });
+    orchestrator.startFirst();
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -854,12 +847,8 @@
         return pickNewQuestion();
       },
       beginRound(next) {
-        if (next) {
-          current = next;
-          sincronizeazaOrchestratorul();
-        } else {
-          pickNewQuestion();
-        }
+        current = next ?? pickNewQuestion();
+        sincronizeazaOrchestratorul();
         return roundView();
       },
       onTimeout(meta = {}) {
