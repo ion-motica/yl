@@ -784,73 +784,41 @@
       });
     }
 
-    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
+    // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md, Faza E.
+    // Fiecare subquiz de mai jos da doar date (esteCorect/generator/actiuni/mesaje);
+    // subquiz-definition.js construieste UN SINGUR Motor3Butoane per subquiz activ (nu unul
+    // nou la fiecare apasare, ca in tiparul dinainte de Faza E) si deleaga orice apasare la
+    // el — CUM raspunde nu mai e treaba fisierului asta. Fixul de "pop fara view" (necesar ca
+    // `onResume` sa nu fie ingropat de view-ul automat al M3B) e centralizat acum in
+    // subquiz-definition.js, nu mai trebuie reimplementat aici.
     //
-    // Fiecare subquiz de mai jos primeste propria instanta M3B, creata din nou
-    // la fiecare apasare (nu are sens sa persiste `apasariInTur` intre apasari
-    // aici — niciun hook de mai jos foloseste `numarApasare`/`estePrimaApasare`,
-    // doar starea proprie a subquiz-ului, care oricum persista separat, in
-    // `event.state`). `def.onAnswer(event)` din subquiz-definition.js asteapta
-    // o COMANDA (`{action, view}`, in vocabularul orchestratorului: continue/
-    // stay/exit/push/pop), nu o vedere plata — de-asta se intoarce rezultatul
-    // COMPLET al lui M3B (`m3b.laApasareButon(...)`), nu doar `.view` ca la
-    // quizurile de nivel superior. `blockWrongTransition` din subquiz-
-    // definition.js lasa comanda neatinsa cand M3B a decis deja "stay" (cazul
-    // de gresit), asa ca semnatura M3B ajunge intacta pana la falling-engine.js.
+    // `esteCorect` pastrat identic cu vechiul cod (Number(...) === Number(...), fara fallback
+    // pe string) — toate intrebarile de-aici sunt numerice, nicio schimbare de comportament.
     //
-    // CORECTIE INTENTIONATA majora (Categoriile 3 si 6 din FAZA-A-inventar-
-    // contract.md): la o citire mai atenta decat inventarul initial, TOATE
-    // cele 9 subquizuri aveau cel putin o forma din bug-ul original sq3/sq5 —
-    // fie ignorau complet corectitudinea (modurile intensive: `intensiv`,
-    // `effectiveAnchorAdditionIntensive`, `nonAnchorProductsIntensive`), fie
-    // verificau pragul de iesire ÎNAINTE de verificarea corect/gresit (asa ca
-    // un raspuns GRESIT putea el insusi declansa iesirea/avansul, daca
-    // pragul—numarat pe FIECARE apasare, nu doar pe cele rezolvate—era atins
-    // chiar atunci): `anchors`, `rapidAnchorAdditions` (+ placeholder-ul „no
-    // candidates" ignora complet corectitudinea), `effectiveAnchorAddition`,
-    // `nonAnchorProducts`, `domainProducts` (+ placeholder-ul „Final subquiz 7").
-    // Toate corectate: pragurile numara azi doar la raspunsuri REZOLVATE
-    // (corecte), niciun exit/push/pop nu se mai poate declansa pe gresit.
-    function creeazaM3BSubquiz(hooks) {
-      return global.Motor3Butoane.creeaza({
-        esteCorect: (it, idx) => Number(it.options[idx]) === Number(it.correctAnswer),
-        intrebareUrmatoare: () => null,
-        mesaje: {
-          gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca!`,
-        },
-        actiuni: hooks,
-      });
-    }
-
-    function raspundeSubquiz(event, hooks) {
-      const { item, index, meta, runtime } = event;
-      const m3b = creeazaM3BSubquiz(hooks);
-      const rezultat = m3b.laApasareButon({
-        item,
-        index,
-        meta,
-        construiesteVedere: (extra) => roundViewFrom(runtime, extra),
-      });
-
-      // M3B construieste mereu un `view` (chiar si gol, din `campuriCorect`),
-      // dar orchestratorul trateaza `command.view` si `resumed.view` la "pop"
-      // ca alternative exclusive (`command.view ?? resumed.view`), nu ca
-      // straturi de suprapunere — un `view` "subtire" venit de la M3B ar
-      // castiga mereu in fata vederii complete produse de `onResume`, si
-      // ecranul ar pierde promptul/optiunile. Niciun "pop" din acest fisier
-      // nu avea `view` propriu inainte de migrare — pastram exact acel
-      // contract, stergand `view`-ul minimal pe care l-ar fi adaugat M3B.
-      if (rezultat.action === "pop") {
-        delete rezultat.view;
-      }
-      return rezultat;
-    }
+    // CORECTIE INTENTIONATA majora (Categoriile 3 si 6 din FAZA-A-inventar-contract.md),
+    // mostenita din migrarea la Motor3Butoane (Faza D, Lotul 4) — TOATE cele 9 subquizuri
+    // aveau cel putin o forma din bug-ul original sq3/sq5, reparata atunci, nu se re-repara
+    // acum: pragurile numara doar la raspunsuri REZOLVATE (corecte), niciun exit/push/pop nu
+    // se poate declansa pe gresit.
+    //
+    // Cateva ramuri de "exit" (fara `view` propriu in codul vechi) sunt urmate, in ruta
+    // "normal", de un alt subquiz care ISI arata propria intrebare — un `message` implicit
+    // global ar supravietui in acel ecran (M3B nu-l suprascrie decat daca vederea noua are ea
+    // insasi camp `message`). Acolo unde conta (verificat pe fiecare ramura), am pus explicit
+    // `message: undefined` ca sa pastrez exact ce se vedea inainte (nimic).
+    const esteCorectV2 = (it, idx) => Number(it.options[idx]) === Number(it.correctAnswer);
+    const mesajeStandard = {
+      corect: "Corect!",
+      gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca!`,
+    };
 
     function anchorDefinition() {
       return global.SubquizDefinition.define({
         id: "anchors",
         title: "anchors",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: mesajeStandard,
         initialState() {
           const state = {
             answeredCount: 0,
@@ -896,68 +864,44 @@
             }),
           };
         },
-        onAnswer(event) {
-          const { item, meta, state, runtime } = event;
-          const factB = item.metadata.factB;
-          return raspundeSubquiz(event, {
-            dupaApasare: (ctx) => {
-              if (!ctx.corect) {
-                if (!state.wrongFacts.some((fact) => fact.b === factB)) {
-                  state.wrongFacts.push({ b: factB, label: factLabel(factB) });
-                }
+        actiuni: {
+          dupaApasare(ctx) {
+            if (!ctx.corect) {
+              const factB = ctx.item.metadata.factB;
+              if (!ctx.stare.wrongFacts.some((fact) => fact.b === factB)) {
+                ctx.stare.wrongFacts.push({ b: factB, label: factLabel(factB) });
               }
-              return {};
-            },
-            dupaRaspunsCorect: () => {
-              state.answeredCount += 1;
-              state.lastCorrectByB[factB] = meta.responseMs ?? null;
+            }
+          },
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            const factB = ctx.item.metadata.factB;
+            state.answeredCount += 1;
+            state.lastCorrectByB[factB] = ctx.meta.responseMs ?? null;
 
-              if (state.wrongFacts.length >= 2 && startStageSelection !== "anchorsOnly") {
-                const facts = state.wrongFacts.map((fact) => fact.b);
-                shared.intensiveFactsText = state.wrongFacts.map((fact) => fact.label);
-                state.wrongFacts = [];
-                return {
-                  action: "push",
-                  targetId: "intensiv",
-                  payload: {
-                    facts,
-                    returnToPrevious: true,
-                  },
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    message: `Mod intensiv: antrenament pe ${shared.intensiveFactsText.join(", ")}`,
-                  },
-                };
-              }
-
-              if (state.answeredCount >= QUESTIONS_PER_LEVEL) {
-                return {
-                  action: "exit",
-                  reason: "answeredCount",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "Subquiz 3: valori ancore suma",
-                  },
-                };
-              }
-
-              runtime.nextItem({ reason: "correct" });
+            if (state.wrongFacts.length >= 2 && startStageSelection !== "anchorsOnly") {
+              const facts = state.wrongFacts.map((fact) => fact.b);
+              shared.intensiveFactsText = state.wrongFacts.map((fact) => fact.label);
+              state.wrongFacts = [];
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
+                action: "push",
+                targetId: "intensiv",
+                payload: { facts, returnToPrevious: true },
+                view: {
+                  message: `Mod intensiv: antrenament pe ${shared.intensiveFactsText.join(", ")}`,
+                },
               };
-            },
-          });
+            }
+
+            if (state.answeredCount >= QUESTIONS_PER_LEVEL) {
+              return {
+                action: "exit",
+                reason: "answeredCount",
+                view: { flash: "win", message: "Subquiz 3: valori ancore suma" },
+              };
+            }
+            // altfel: ramane in "anchors" — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -976,6 +920,11 @@
         id: "intensiv",
         title: "intensiv",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: {
+          gresit: mesajeStandard.gresit,
+          corect: (ctx) => `Intensiv ${ctx.stare.count + 1}/${INTENSIVE_QUESTIONS}`,
+        },
         initialState({ payload }) {
           const facts = Array.isArray(payload?.facts) && payload.facts.length >= 2
             ? payload.facts.slice(0, 2)
@@ -995,34 +944,26 @@
           const b = state.queue[state.count] ?? state.queue[state.queue.length - 1];
           return buildQuestionForB(b, state, { excludeFactor: true });
         },
-        onAnswer(event) {
-          const { state, runtime } = event;
-          return raspundeSubquiz(event, {
-            dupaRaspunsCorect: () => {
-              state.count += 1;
-              if (state.count >= INTENSIVE_QUESTIONS) {
-                if (state.returnToPrevious) {
-                  return {
-                    action: "pop",
-                    reason: "intensiveComplete",
-                    payload: { intensiveCompleted: true },
-                  };
-                }
-                return { action: "exit", reason: "intensiveComplete" };
+        actiuni: {
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            state.count += 1;
+            if (state.count >= INTENSIVE_QUESTIONS) {
+              if (state.returnToPrevious) {
+                return {
+                  action: "pop",
+                  reason: "intensiveComplete",
+                  payload: { intensiveCompleted: true },
+                };
               }
-
-              runtime.nextItem({ reason: "intensiveNext" });
-              return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: `Intensiv ${state.count + 1}/${INTENSIVE_QUESTIONS}`,
-                }),
-              };
-            },
-          });
+              // Singurul caz posibil aici (fara returnToPrevious): ruta "intensivOnly",
+              // unde "intensiv" e singurul subquiz — exit duce direct la routeComplete,
+              // view-ul de mai jos nu ajunge niciodata vizibil (pastrat explicit ca sa nu
+              // depinda de asta implicit).
+              return { action: "exit", reason: "intensiveComplete", view: { message: undefined } };
+            }
+            // altfel: ramane in "intensiv" — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1041,6 +982,8 @@
         id: "anchorSumValues",
         title: "valori ancore suma",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: mesajeStandard,
         initialState() {
           const state = {
             questionCount: 0,
@@ -1052,42 +995,32 @@
         generator() {
           return buildAnchorSumQuestion();
         },
-        onAnswer(event) {
-          const { state, runtime } = event;
-          return raspundeSubquiz(event, {
-            dupaApasare: (ctx) => {
-              if (!ctx.corect) state.correctStreak = 0;
-              return {};
-            },
-            dupaRaspunsCorect: () => {
-              state.questionCount += 1;
-              state.correctStreak += 1;
+        actiuni: {
+          dupaApasare(ctx) {
+            if (!ctx.corect) ctx.stare.correctStreak = 0;
+          },
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            state.questionCount += 1;
+            state.correctStreak += 1;
 
-              if (
-                state.questionCount >= ANCHOR_SUM_MAX_QUESTIONS ||
-                state.correctStreak >= ANCHOR_SUM_STREAK_TO_EXIT
-              ) {
-                return {
-                  action: "exit",
-                  reason:
-                    state.correctStreak >= ANCHOR_SUM_STREAK_TO_EXIT
-                      ? "correctStreak"
-                      : "questionCount",
-                };
-              }
-
-              runtime.nextItem({ reason: "anchorSumNext" });
+            if (
+              state.questionCount >= ANCHOR_SUM_MAX_QUESTIONS ||
+              state.correctStreak >= ANCHOR_SUM_STREAK_TO_EXIT
+            ) {
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
+                action: "exit",
+                reason:
+                  state.correctStreak >= ANCHOR_SUM_STREAK_TO_EXIT ? "correctStreak" : "questionCount",
+                // Fara `view` propriu in codul vechi. Ruta "normal" continua cu
+                // "rapidAnchorAdditions" imediat dupa — un `message` implicit ar
+                // supravietui in vederea primei intrebari de-acolo. Pastram exact ce
+                // se vedea inainte (nimic).
+                view: { message: undefined },
               };
-            },
-          });
+            }
+            // altfel: ramane in "anchorSumValues" — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1106,6 +1039,8 @@
         id: "rapidAnchorAdditions",
         title: "adunari rapide cu ancore",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: mesajeStandard,
         initialState() {
           const candidates = NONANCHORS.map(buildRapidCandidateForB).filter(Boolean);
           const state = {
@@ -1121,74 +1056,43 @@
         generator({ state }) {
           return buildRapidQuestion(state);
         },
-        onAnswer(event) {
-          const { state, runtime } = event;
-          return raspundeSubquiz(event, {
-            dupaApasare: (ctx) => {
-              if (!ctx.corect) state.correctStreak = 0;
-              return {};
-            },
-            dupaRaspunsCorect: () => {
-              const candidateCount = state.candidates.length;
+        actiuni: {
+          dupaApasare(ctx) {
+            if (!ctx.corect) ctx.stare.correctStreak = 0;
+          },
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            const candidateCount = state.candidates.length;
 
-              if (candidateCount === 0) {
-                return {
-                  action: "exit",
-                  reason: "rapidNoCandidates",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "no candidates, mai departe",
-                  },
-                };
-              }
-
-              state.questionCount += 1;
-              state.correctStreak += 1;
-
-              const multipleCandidateLimit = Math.min(RAPID_MAX_QUESTIONS, candidateCount * 3);
-              if (candidateCount > 1 && state.questionCount >= multipleCandidateLimit) {
-                return {
-                  action: "exit",
-                  reason: "rapidQuestionLimit",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "ai terminat subquiz 4 modular",
-                  },
-                };
-              }
-
-              if (candidateCount === 1) {
-                return {
-                  action: "exit",
-                  reason: "rapidSingleCorrect",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "ai terminat subquiz 4 modular",
-                  },
-                };
-              }
-
-              runtime.nextItem({ reason: "rapidNext" });
+            if (candidateCount === 0) {
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
+                action: "exit",
+                reason: "rapidNoCandidates",
+                view: { flash: "win", message: "no candidates, mai departe" },
               };
-            },
-          });
+            }
+
+            state.questionCount += 1;
+            state.correctStreak += 1;
+
+            const multipleCandidateLimit = Math.min(RAPID_MAX_QUESTIONS, candidateCount * 3);
+            if (candidateCount > 1 && state.questionCount >= multipleCandidateLimit) {
+              return {
+                action: "exit",
+                reason: "rapidQuestionLimit",
+                view: { flash: "win", message: "ai terminat subquiz 4 modular" },
+              };
+            }
+
+            if (candidateCount === 1) {
+              return {
+                action: "exit",
+                reason: "rapidSingleCorrect",
+                view: { flash: "win", message: "ai terminat subquiz 4 modular" },
+              };
+            }
+            // altfel: ramane in "rapidAnchorAdditions" — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1207,6 +1111,8 @@
         id: "effectiveAnchorAddition",
         title: "adunare efectiva ancore",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: mesajeStandard,
         initialState() {
           const state = {
             questionCount: 0,
@@ -1238,68 +1144,43 @@
             }),
           };
         },
-        onAnswer(event) {
-          const { item, state, runtime } = event;
-          const factB = item.metadata.factB;
-          return raspundeSubquiz(event, {
-            dupaApasare: (ctx) => {
-              if (!ctx.corect) {
-                state.correctStreak = 0;
-                noteEffectiveMistake(state, factB);
-              }
-              return {};
-            },
-            dupaRaspunsCorect: () => {
-              state.questionCount += 1;
-              state.correctStreak += 1;
+        actiuni: {
+          dupaApasare(ctx) {
+            if (!ctx.corect) {
+              ctx.stare.correctStreak = 0;
+              noteEffectiveMistake(ctx.stare, ctx.item.metadata.factB);
+            }
+          },
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            state.questionCount += 1;
+            state.correctStreak += 1;
 
-              if (
-                state.questionCount >= EFFECTIVE_MAX_QUESTIONS ||
-                state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
-              ) {
-                return {
-                  action: "exit",
-                  reason:
-                    state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
-                      ? "effectiveCorrectStreak"
-                      : "effectiveQuestionCount",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "ai terminat subquiz 5 modular",
-                  },
-                };
-              }
-
-              if (state.problemBs.length >= 2) {
-                const facts = prepareEffectiveIntensive(state);
-                return {
-                  action: "push",
-                  targetId: "effectiveAnchorAdditionIntensive",
-                  payload: { facts },
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    message: `Mod intensiv subquiz 5: ${shared.intensiveFactsText.join(", ")}`,
-                  },
-                };
-              }
-
-              runtime.nextItem({ reason: "effectiveNext" });
+            if (
+              state.questionCount >= EFFECTIVE_MAX_QUESTIONS ||
+              state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
+            ) {
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
+                action: "exit",
+                reason:
+                  state.correctStreak >= EFFECTIVE_STREAK_TO_EXIT
+                    ? "effectiveCorrectStreak"
+                    : "effectiveQuestionCount",
+                view: { flash: "win", message: "ai terminat subquiz 5 modular" },
               };
-            },
-          });
+            }
+
+            if (state.problemBs.length >= 2) {
+              const facts = prepareEffectiveIntensive(state);
+              return {
+                action: "push",
+                targetId: "effectiveAnchorAdditionIntensive",
+                payload: { facts },
+                view: { message: `Mod intensiv subquiz 5: ${shared.intensiveFactsText.join(", ")}` },
+              };
+            }
+            // altfel: ramane in "effectiveAnchorAddition" — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1318,6 +1199,11 @@
         id: "effectiveAnchorAdditionIntensive",
         title: "intensiv adunare efectiva ancore",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: {
+          gresit: mesajeStandard.gresit,
+          corect: (ctx) => `Intensiv subquiz 5 ${ctx.stare.count + 1}/${ctx.stare.queue.length || 10}`,
+        },
         initialState({ payload }) {
           const facts = Array.isArray(payload?.facts) && payload.facts.length >= 2
             ? payload.facts.slice(0, 2)
@@ -1334,34 +1220,19 @@
         generator({ state }) {
           return buildEffectiveIntensiveQuestion(state);
         },
-        onAnswer(event) {
-          const { state, runtime } = event;
-          return raspundeSubquiz(event, {
-            dupaRaspunsCorect: () => {
-              state.count += 1;
-              if (state.count >= state.queue.length) {
-                return {
-                  action: "pop",
-                  reason: "effectiveIntensiveComplete",
-                  payload: {
-                    effectiveIntensiveCompleted: true,
-                    facts: state.facts,
-                  },
-                };
-              }
-
-              runtime.nextItem({ reason: "effectiveIntensiveNext" });
+        actiuni: {
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            state.count += 1;
+            if (state.count >= state.queue.length) {
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: `Intensiv subquiz 5 ${state.count + 1}/${state.queue.length || 10}`,
-                }),
+                action: "pop",
+                reason: "effectiveIntensiveComplete",
+                payload: { effectiveIntensiveCompleted: true, facts: state.facts },
               };
-            },
-          });
+            }
+            // altfel: ramane — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1380,6 +1251,8 @@
         id: "nonAnchorProducts",
         title: "inmultiri non-anchors",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: mesajeStandard,
         initialState() {
           const state = {
             questionCount: 0,
@@ -1406,68 +1279,44 @@
             }),
           };
         },
-        onAnswer(event) {
-          const { item, state, runtime } = event;
-          const factB = item.metadata.factB;
-          return raspundeSubquiz(event, {
-            dupaApasare: (ctx) => {
-              if (!ctx.corect) {
-                state.correctStreak = 0;
-                if (!state.wrongBs.includes(factB)) state.wrongBs.push(factB);
-              }
-              return {};
-            },
-            dupaRaspunsCorect: () => {
-              state.questionCount += 1;
-              state.correctStreak += 1;
+        actiuni: {
+          dupaApasare(ctx) {
+            if (!ctx.corect) {
+              const factB = ctx.item.metadata.factB;
+              ctx.stare.correctStreak = 0;
+              if (!ctx.stare.wrongBs.includes(factB)) ctx.stare.wrongBs.push(factB);
+            }
+          },
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            state.questionCount += 1;
+            state.correctStreak += 1;
 
-              if (
-                state.correctStreak >= PRODUCT_STREAK_TO_EXIT ||
-                state.questionCount >= PRODUCT_MAX_QUESTIONS
-              ) {
-                return {
-                  action: "exit",
-                  reason:
-                    state.correctStreak >= PRODUCT_STREAK_TO_EXIT
-                      ? "productCorrectStreak"
-                      : "productQuestionCount",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "ai terminat subquiz 6 modular",
-                  },
-                };
-              }
-
-              if (state.wrongBs.length >= 2) {
-                const facts = prepareProductIntensive(state);
-                return {
-                  action: "push",
-                  targetId: "nonAnchorProductsIntensive",
-                  payload: { facts },
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    message: `Mod intensiv subquiz 6: ${shared.intensiveFactsText.join(", ")}`,
-                  },
-                };
-              }
-
-              runtime.nextItem({ reason: "productNext" });
+            if (
+              state.correctStreak >= PRODUCT_STREAK_TO_EXIT ||
+              state.questionCount >= PRODUCT_MAX_QUESTIONS
+            ) {
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
+                action: "exit",
+                reason:
+                  state.correctStreak >= PRODUCT_STREAK_TO_EXIT
+                    ? "productCorrectStreak"
+                    : "productQuestionCount",
+                view: { flash: "win", message: "ai terminat subquiz 6 modular" },
               };
-            },
-          });
+            }
+
+            if (state.wrongBs.length >= 2) {
+              const facts = prepareProductIntensive(state);
+              return {
+                action: "push",
+                targetId: "nonAnchorProductsIntensive",
+                payload: { facts },
+                view: { message: `Mod intensiv subquiz 6: ${shared.intensiveFactsText.join(", ")}` },
+              };
+            }
+            // altfel: ramane in "nonAnchorProducts" — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1486,6 +1335,11 @@
         id: "nonAnchorProductsIntensive",
         title: "intensiv inmultiri non-anchors",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: {
+          gresit: mesajeStandard.gresit,
+          corect: (ctx) => `Intensiv subquiz 6 ${ctx.stare.count + 1}/${ctx.stare.queue.length || 10}`,
+        },
         initialState({ payload }) {
           const facts = Array.isArray(payload?.facts) && payload.facts.length >= 2
             ? payload.facts.slice(0, 2)
@@ -1502,34 +1356,19 @@
         generator({ state }) {
           return buildProductIntensiveQuestion(state);
         },
-        onAnswer(event) {
-          const { state, runtime } = event;
-          return raspundeSubquiz(event, {
-            dupaRaspunsCorect: () => {
-              state.count += 1;
-              if (state.count >= state.queue.length) {
-                return {
-                  action: "pop",
-                  reason: "productIntensiveComplete",
-                  payload: {
-                    productIntensiveCompleted: true,
-                    facts: state.facts,
-                  },
-                };
-              }
-
-              runtime.nextItem({ reason: "productIntensiveNext" });
+        actiuni: {
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            state.count += 1;
+            if (state.count >= state.queue.length) {
               return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: `Intensiv subquiz 6 ${state.count + 1}/${state.queue.length || 10}`,
-                }),
+                action: "pop",
+                reason: "productIntensiveComplete",
+                payload: { productIntensiveCompleted: true, facts: state.facts },
               };
-            },
-          });
+            }
+            // altfel: ramane — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1548,6 +1387,18 @@
         id: "domainProducts",
         title: "domenii non-anchors EFF",
         hintMessage: HINT,
+        esteCorect: esteCorectV2,
+        mesaje: {
+          gresit: mesajeStandard.gresit,
+          // `currentDomainCount` e resetat la 0 chiar inainte, de `enterNextProductDomain`
+          // (in dupaRaspunsCorect), DOAR cand tocmai s-a trecut la un domeniu nou — restul
+          // timpului e >=1. E singurul semnal disponibil aici (actiuni.* nu au acces la
+          // "ce fel de tranzitie tocmai s-a intamplat", doar la starea deja mutata).
+          corect: (ctx) =>
+            ctx.stare.currentDomainCount === 0
+              ? `Domeniul urmator: ${ctx.stare.currentDomain?.id}`
+              : "Corect!",
+        },
         initialState() {
           const state = {
             domainOrder: shuffle([...PRODUCT_DOMAINS]),
@@ -1565,67 +1416,36 @@
           shared.domainProductState = state;
           return buildDomainProductQuestion(state);
         },
-        onAnswer(event) {
-          const { item, state, runtime } = event;
-          return raspundeSubquiz(event, {
-            dupaRaspunsCorect: () => {
-              if (item.metadata?.complete) {
+        actiuni: {
+          dupaRaspunsCorect(ctx) {
+            const state = ctx.stare;
+            if (ctx.item.metadata?.complete) {
+              return {
+                action: "exit",
+                reason: "domainProductsComplete",
+                view: { flash: "win", message: "ai terminat subquiz 7 modular" },
+              };
+            }
+
+            state.currentDomainCount += 1;
+            state.totalCount += 1;
+
+            if (state.currentDomainCount >= PRODUCT_DOMAIN_QUESTION_COUNT) {
+              state.domainIndex += 1;
+              if (state.domainIndex >= state.domainOrder.length) {
                 return {
                   action: "exit",
                   reason: "domainProductsComplete",
-                  view: {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    flash: "win",
-                    message: "ai terminat subquiz 7 modular",
-                  },
+                  view: { flash: "win", message: "ai terminat subquiz 7 modular" },
                 };
               }
-
-              state.currentDomainCount += 1;
-              state.totalCount += 1;
-
-              if (state.currentDomainCount >= PRODUCT_DOMAIN_QUESTION_COUNT) {
-                state.domainIndex += 1;
-                if (state.domainIndex >= state.domainOrder.length) {
-                  return {
-                    action: "exit",
-                    reason: "domainProductsComplete",
-                    view: {
-                      outcome: "step-correct",
-                      correct: true,
-                      bounce: true,
-                      flash: "win",
-                      message: "ai terminat subquiz 7 modular",
-                    },
-                  };
-                }
-                enterNextProductDomain(state);
-                runtime.nextItem({ reason: "domainNext" });
-                return {
-                  action: "continue",
-                  view: roundViewFrom(runtime, {
-                    outcome: "step-correct",
-                    correct: true,
-                    bounce: true,
-                    message: `Domeniul urmator: ${state.currentDomain.id}`,
-                  }),
-                };
-              }
-
-              runtime.nextItem({ reason: "domainProductNext" });
-              return {
-                action: "continue",
-                view: roundViewFrom(runtime, {
-                  outcome: "step-correct",
-                  correct: true,
-                  bounce: true,
-                  message: "Corect!",
-                }),
-              };
-            },
-          });
+              enterNextProductDomain(state);
+              // altfel: ramane, cu domeniul nou — Motor3Butoane cere generator-ul automat;
+              // `mesaje.corect` de mai sus detecteaza `currentDomainCount === 0` (proaspat
+              // resetat) ca sa arate "Domeniul urmator: X" in loc de "Corect!".
+            }
+            // altfel: ramane in domeniul curent — Motor3Butoane cere generator-ul automat.
+          },
         },
         onTimeout({ runtime }) {
           return {
@@ -1918,7 +1738,7 @@
 
   global.QuizRegistry.register({
     id: QUIZ_ID,
-    title: QUIZ_TITLE + " - QUIZ NEFUNCTIONAL - IN REFACTORING",
+    title: QUIZ_TITLE,
     description: "Lab modular pentru T*/ 11-20 v2. Include anchors, intensiv si subquizurile 3-6.",
     order: 2.1,
     gestionareGreseli: { activ: false },
