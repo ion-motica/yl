@@ -280,3 +280,52 @@ test("shared config falls back to defaults when values no longer apply", () => {
     questionsPerRun: 20,
   });
 });
+
+// Regresie pt. bug-ul #2 din "Bug-uri gasite, NEreparate" (documente de
+// referinta/RAPORT-motor-comun-raspuns.md): un `next` TRUNCHIAT (forma exacta
+// a lui roundView() — fara campul `.correct`) nu mai trebuie sa corupa
+// grading-ul viitor. Nu se declanseaza in aplicatia reala azi (falling-engine.js
+// nu retrimite niciodata `nextRound` in `beginRound`), dar `beginRound` insusi
+// trebuie sa ramana sigur daca vreodata un apelant nou ar face-o.
+test("beginRound cu un obiect trunchiat (fara .correct) nu corupe grading-ul — cade pe o intrebare noua", () => {
+  loadQuiz();
+  globalThis.GameUtils.shuffle = (items) => [...items];
+
+  const quiz = globalThis.QuizRegistry.get("equations-e3-e6").create();
+  const state = quiz.beginRound();
+  assert.equal(typeof state.correctIndex, "number");
+
+  const truncated = {
+    prompt: state.prompt,
+    promptHtml: state.promptHtml,
+    options: state.options,
+    correctIndex: state.correctIndex,
+    hintMessage: state.hintMessage,
+  };
+  assert.equal(truncated.correct, undefined, "roundView() nu are campul .correct — premisa testului");
+
+  const afterTruncated = quiz.beginRound(truncated);
+  const answered = quiz.onAnswer(afterTruncated.correctIndex);
+
+  assert.notEqual(
+    answered.outcome,
+    "wrong-answer",
+    "raspunsul pe indexul corect al intrebarii NOI (dupa cadere pe pickNewQuestion) trebuie acceptat ca fiind corect"
+  );
+});
+
+test("beginRound cu un obiect complet (cu .correct numeric) functioneaza normal, neschimbat", () => {
+  loadQuiz();
+  globalThis.GameUtils.shuffle = (items) => [...items];
+
+  const quiz = globalThis.QuizRegistry.get("equations-e3-e6").create();
+  quiz.beginRound();
+  const next = quiz.pickNextRound();
+  assert.equal(typeof next.correct, "number", "pickNextRound produce un obiect complet, cu .correct");
+
+  const state = quiz.beginRound(next);
+  assert.equal(state.prompt, next.prompt, "beginRound(next) valid foloseste exact obiectul primit, neschimbat");
+
+  const answered = quiz.onAnswer(state.correctIndex);
+  assert.notEqual(answered.outcome, "wrong-answer");
+});

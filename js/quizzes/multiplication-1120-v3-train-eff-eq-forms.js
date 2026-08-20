@@ -1202,38 +1202,75 @@
         mount.append(intensiveModeRow, sbsAnswerRow, factRow, eqFormRow, exitRow, exitModeRow);
       },
 
+      // Bug reparat (vezi documente de referinta/RAPORT-motor-comun-raspuns.md,
+      // "Bug-uri gasite, NEreparate" #1): inainte, un camp cu o valoare invalida
+      // era ignorat tacit, fara nicio urma — apelantul nu avea cum sa afle ca
+      // cererea lui a fost respinsa. Acum fiecare camp CERUT (prezent in
+      // `config`) dar respins e adaugat la `rejected`, in loc sa dispara tacut.
+      // Comportamentul PE FIECARE camp ramane identic (aceleasi multimi valide,
+      // acelasi no-op pe valoare invalida) — doar raspunsul functiei spune
+      // adevarul, in loc sa intoarca mereu `true` necondiționat.
       setSq2Config(config = {}) {
-        if (SQ2_INTENSIVE_MODES.includes(config.intensiveMode)) {
-          intensiveMode = config.intensiveMode;
-          if (intensiveMode === "alternate") nextAlternateIntensiveTarget = SQ2_VBS_ID;
-          writeSetting(SQ2_INTENSIVE_MODE_KEY, intensiveMode);
+        const rejected = [];
+        if (config.intensiveMode !== undefined) {
+          if (SQ2_INTENSIVE_MODES.includes(config.intensiveMode)) {
+            intensiveMode = config.intensiveMode;
+            if (intensiveMode === "alternate") nextAlternateIntensiveTarget = SQ2_VBS_ID;
+            writeSetting(SQ2_INTENSIVE_MODE_KEY, intensiveMode);
+          } else {
+            rejected.push("intensiveMode");
+          }
         }
-        if (typeof config.sbsAnswerFactor === "boolean") {
-          sbsAnswerFromFactor = config.sbsAnswerFactor;
-          writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, sbsAnswerFromFactor);
+        if (config.sbsAnswerFactor !== undefined) {
+          if (typeof config.sbsAnswerFactor === "boolean") {
+            sbsAnswerFromFactor = config.sbsAnswerFactor;
+            writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, sbsAnswerFromFactor);
+          } else {
+            rejected.push("sbsAnswerFactor");
+          }
         }
-        if (typeof config.sbsAnswerProduct === "boolean") {
-          sbsAnswerFromProduct = config.sbsAnswerProduct;
-          writeSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, sbsAnswerFromProduct);
+        if (config.sbsAnswerProduct !== undefined) {
+          if (typeof config.sbsAnswerProduct === "boolean") {
+            sbsAnswerFromProduct = config.sbsAnswerProduct;
+            writeSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, sbsAnswerFromProduct);
+          } else {
+            rejected.push("sbsAnswerProduct");
+          }
         }
         ensureSbsAnswerSource();
-        if ([1, 2, 3, 4].includes(Number(config.factCount))) {
-          sq2FactCount = Number(config.factCount);
-          writeSetting(SQ2_FACT_COUNT_KEY, sq2FactCount);
+        if (config.factCount !== undefined) {
+          if ([1, 2, 3, 4].includes(Number(config.factCount))) {
+            sq2FactCount = Number(config.factCount);
+            writeSetting(SQ2_FACT_COUNT_KEY, sq2FactCount);
+          } else {
+            rejected.push("factCount");
+          }
         }
-        if ([3, 4, 5].includes(Number(config.exitCount))) {
-          sq2ExitCount = Number(config.exitCount);
-          writeSetting(SQ2_EXIT_COUNT_KEY, sq2ExitCount);
+        if (config.exitCount !== undefined) {
+          if ([3, 4, 5].includes(Number(config.exitCount))) {
+            sq2ExitCount = Number(config.exitCount);
+            writeSetting(SQ2_EXIT_COUNT_KEY, sq2ExitCount);
+          } else {
+            rejected.push("exitCount");
+          }
         }
-        if (config.exitMode === "correct" || config.exitMode === "any") {
-          sq2ExitMode = config.exitMode;
-          writeSetting(SQ2_EXIT_MODE_KEY, sq2ExitMode);
+        if (config.exitMode !== undefined) {
+          if (config.exitMode === "correct" || config.exitMode === "any") {
+            sq2ExitMode = config.exitMode;
+            writeSetting(SQ2_EXIT_MODE_KEY, sq2ExitMode);
+          } else {
+            rejected.push("exitMode");
+          }
         }
-        if (rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX).includes(Number(config.eqFormCount))) {
-          sq2EqFormCount = Number(config.eqFormCount);
-          writeSetting(SQ2_EQ_FORM_COUNT_KEY, sq2EqFormCount);
+        if (config.eqFormCount !== undefined) {
+          if (rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX).includes(Number(config.eqFormCount))) {
+            sq2EqFormCount = Number(config.eqFormCount);
+            writeSetting(SQ2_EQ_FORM_COUNT_KEY, sq2EqFormCount);
+          } else {
+            rejected.push("eqFormCount");
+          }
         }
-        return true;
+        return { ok: rejected.length === 0, rejected };
       },
     };
   }

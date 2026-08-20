@@ -846,8 +846,19 @@
       pickNextRound() {
         return pickNewQuestion();
       },
+      // Bug reparat (vezi documente de referinta/RAPORT-motor-comun-raspuns.md,
+      // "Bug-uri gasite, NEreparate" #2): un `next` TRUNCHIAT (ex. `roundView()`,
+      // fara campul `.correct`) ar fi corupt grading-ul ulterior — `esteCorect`
+      // ar fi ramas `false` la nesfarsit. Verificarea nu poate fi doar
+      // `next?.correct !== undefined`: `correct` e un nume de camp suprapus —
+      // apare si ca boolean (`correct: true`, eticheta de outcome a M3B) in
+      // alte rezultate, care ar trece fals-pozitiv acel test. De-asta se cere
+      // explicit TIPUL — doar un `current` complet are `.correct` numeric.
+      // Calea reala (falling-engine.js, `result.nextRound ?? beginRound(pickNextRound())`)
+      // nu atinge niciodata ramura defensiva — `next` e mereu ori absent, ori
+      // rezultatul unui `pickNewQuestion()` anterior, cu `.correct` intact.
       beginRound(next) {
-        current = next ?? pickNewQuestion();
+        current = typeof next?.correct === "number" ? next : pickNewQuestion();
         sincronizeazaOrchestratorul();
         return roundView();
       },

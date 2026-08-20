@@ -464,4 +464,45 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
     assert.deepEqual(seen, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
     assert.deepEqual(sequencer.currentWindow(), [16, 17, 18, 19, 20]);
   });
+
+  // Regresie pt. bug-ul #1 din "Bug-uri gasite, NEreparate" (documente de
+  // referinta/RAPORT-motor-comun-raspuns.md): setSq2Config nu mai intoarce
+  // mereu `true` necondiționat — un camp cerut dar invalid apare in `rejected`,
+  // in loc sa dispara tacut. Multimile valide (3/4/5 pt. exitCount etc.) raman
+  // EXACT cele de dinainte — doar raspunsul functiei spune adevarul.
+  it("setSq2Config respinge exitCount invalid explicit (ok:false, rejected), fara sa schimbe setarea salvata", () => {
+    const quiz = setupQuiz();
+    const result = quiz.setSq2Config({ exitCount: 2 });
+
+    assert.deepEqual(result, { ok: false, rejected: ["exitCount"] });
+    assert.equal(
+      globalThis.localStorage.getItem("yl:mul1120v3:sq2ExitCount"),
+      null,
+      "valoarea invalida nu trebuie sa fi fost scrisa"
+    );
+  });
+
+  it("setSq2Config accepta exitCount valid (ok:true, rejected gol) si il salveaza", () => {
+    const quiz = setupQuiz();
+    const result = quiz.setSq2Config({ exitCount: 4 });
+
+    assert.deepEqual(result, { ok: true, rejected: [] });
+    assert.equal(globalThis.localStorage.getItem("yl:mul1120v3:sq2ExitCount"), "4");
+  });
+
+  it("setSq2Config cu mai multe campuri: campurile valide se aplica, doar cele invalide ajung in rejected", () => {
+    const quiz = setupQuiz();
+    const result = quiz.setSq2Config({ exitCount: 2, factCount: 2, exitMode: "not-a-mode" });
+
+    assert.deepEqual(result.rejected.sort(), ["exitCount", "exitMode"]);
+    assert.equal(result.ok, false);
+    // factCount (valid) tot s-a aplicat, neafectat de celelalte doua campuri respinse.
+    assert.equal(globalThis.localStorage.getItem("yl:mul1120v3:sq2FactCount"), "2");
+  });
+
+  it("setSq2Config fara niciun camp e ok:true, rejected gol (nimic cerut, nimic respins)", () => {
+    const quiz = setupQuiz();
+    assert.deepEqual(quiz.setSq2Config({}), { ok: true, rejected: [] });
+    assert.deepEqual(quiz.setSq2Config(), { ok: true, rejected: [] });
+  });
 });

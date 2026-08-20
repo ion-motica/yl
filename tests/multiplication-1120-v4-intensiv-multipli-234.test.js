@@ -939,3 +939,39 @@ describe("subquiz 5: Fluent party", () => {
     assert.ok(contextJurnal.subquiz_name, "subquiz_name nu trebuie sa fie null pentru sq5");
   });
 });
+
+// Regresie pt. bug-ul #1 din "Bug-uri gasite, NEreparate" (documente de
+// referinta/RAPORT-motor-comun-raspuns.md) — implementarea lui setSq2Config e
+// identica in v3 si v4 (aceeasi capcana, acelasi fix). Vezi
+// tests/multiplication-1120-v3-train-eff-eq-forms.test.js pt. acoperirea
+// completa; aici doar confirmarea ca fix-ul e prezent identic si in v4.
+describe("multiplication-1120-v4: setSq2Config raporteaza cinstit campurile respinse", () => {
+  beforeEach(() => {
+    delete globalThis.QuizRegistry;
+    delete globalThis.GameUtils;
+    delete globalThis.ProgressDisplay;
+    delete globalThis.FactCatalog;
+    delete globalThis.FactWindowSequencer;
+    delete globalThis.QFGenerator;
+    delete globalThis.ItemGenerator;
+    delete globalThis.SubquizDefinition;
+    delete globalThis.SubquizOrchestrator;
+    delete globalThis.Mul1120V4IntensivMultipli234Quiz;
+  });
+
+  it("respinge exitCount invalid explicit (ok:false, rejected), fara sa scrie setarea", () => {
+    const quiz = setupQuiz();
+    const result = quiz.setSq2Config({ exitCount: 2 });
+
+    assert.deepEqual(result, { ok: false, rejected: ["exitCount"] });
+    assert.equal(globalThis.localStorage.getItem("yl:mul1120v4:sq2ExitCount"), null);
+  });
+
+  it("accepta exitCount valid (ok:true, rejected gol) si il salveaza", () => {
+    const quiz = setupQuiz();
+    const result = quiz.setSq2Config({ exitCount: 5 });
+
+    assert.deepEqual(result, { ok: true, rejected: [] });
+    assert.equal(globalThis.localStorage.getItem("yl:mul1120v4:sq2ExitCount"), "5");
+  });
+});
