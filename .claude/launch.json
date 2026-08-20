@@ -20,6 +20,12 @@
       "port": 8771
     },
     {
+      "name": "youlearn-verify-session",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8779", "--bind", "127.0.0.1"],
+      "port": 8779
+    },
+    {
       "name": "citybreak-local",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8772", "--bind", "127.0.0.1", "--directory", "C:\\Users\\I\\Projects\\City Break - Flights"],

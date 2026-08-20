@@ -268,6 +268,26 @@
     let lastQuestionSignature = null;
     let current = null;
     let gameCompleted = false;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa a
+    // tiparului). Orchestratorul porneste O SINGURA DATA, la construirea
+    // quiz-ului, cu un `generator` gol care nu se mai cheama niciodata dupa
+    // aia. `pickNewQuestion()` e singurul loc care schimba `current` catre o
+    // intrebare NOUA (chemat din `beginRound`, `advanceLevel` si din ramura
+    // fara avans a lui `dupaRaspunsCorect`, mai jos) — sincronizeaza
+    // neconditionat, chiar acolo, dupa fiecare mutatie. `beginRound` mai
+    // cheama sincronizarea o data explicit, ca la celelalte fisiere deja
+    // invelite, pt. cazul cu `next` primit gata construit.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: current?.prompt ?? "-",
+        promptHtml: current?.promptHtml,
+        options: current ? [...current.options] : ["-", "-", "-"],
+        correctIndex: current?.correctIndex ?? 0,
+      });
+    }
 
     function getLevelLabel(targetLevel = currentLevel) {
       return `Nivel ${targetLevel}`;
@@ -291,6 +311,7 @@
     function pickNewQuestion() {
       current = buildQuestion(currentLevel, lastQuestionSignature);
       lastQuestionSignature = current.signature;
+      sincronizeazaOrchestratorul();
       return current;
     }
 
@@ -343,33 +364,61 @@
     }
 
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
-      intrebareUrmatoare: () => pickNewQuestion(),
-      mesaje: {
-        gresit: "Nu e corect.",
-        corect: "Corect!",
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (!ctx.corect) consecutiveCorrect = 0;
-          return {};
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"), acelasi tipar simplu ca la celelalte 4 fisiere deja
+    // migrate. Diferenta reala fata de ele, gasita la scrierea invelirii: pe
+    // ramura "nu s-a atins inca pragul de avans", `dupaRaspunsCorect` intorcea
+    // `{}` (fara `action`) — sub M3B-ul folosit DIRECT (dinainte), asta cadea
+    // pe calea implicita a lui M3B insusi (`config.intrebareUrmatoare`), care
+    // alegea urmatoarea intrebare. Sub orchestrator insa, calea implicita e
+    // generatorul GOL al definitiei (nu se mai cheama niciodata, ca la
+    // celelalte fisiere) — ar fi produs un item gol, nu o intrebare reala.
+    // Reparat facand explicit ce se intampla implicit inainte: cheama
+    // `pickNewQuestion()` chiar aici si intoarce o comanda explicita —
+    // comportament identic, doar explicit in loc de implicit (exact cerinta
+    // tiparului deja stabilit: „dupaRaspunsCorect intoarce mereu o comanda
+    // explicita, niciodata undefined").
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT,
+        esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
+        generator: () => ({}),
+        mesaje: {
+          gresit: "Nu e corect.",
+          corect: "Corect!",
         },
-        dupaRaspunsCorect: () => {
-          const questionLimit = questionLimitForLevel(currentLevel);
-          questionsAnsweredOnLevel += 1;
-          consecutiveCorrect += 1;
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (!ctx.corect) consecutiveCorrect = 0;
+            return {};
+          },
+          dupaRaspunsCorect: () => {
+            const questionLimit = questionLimitForLevel(currentLevel);
+            questionsAnsweredOnLevel += 1;
+            consecutiveCorrect += 1;
 
-          if (
-            consecutiveCorrect >= consecutiveNeededForLevel(currentLevel) ||
-            (questionLimit && questionsAnsweredOnLevel >= questionLimit)
-          ) {
-            return { action: "continue", view: advanceLevel() };
-          }
-          return {};
+            if (
+              consecutiveCorrect >= consecutiveNeededForLevel(currentLevel) ||
+              (questionLimit && questionsAnsweredOnLevel >= questionLimit)
+            ) {
+              return { action: "continue", view: advanceLevel() };
+            }
+
+            pickNewQuestion();
+            return { action: "continue", view: roundView() };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -410,6 +459,7 @@
 
       beginRound(next) {
         current = next ?? pickNewQuestion();
+        sincronizeazaOrchestratorul();
         return roundView();
       },
 
@@ -422,13 +472,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md).
-      onAnswer(index) {
-        return m3b.laApasareButon({
-          item: current,
-          index,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+      // Migrat la Motor3Butoane (Faza D), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
+      onAnswer(index, meta = {}) {
+        return orchestrator.onAnswer(index, meta);
       },
     };
   }
