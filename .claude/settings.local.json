@@ -112,7 +112,15 @@
       "Bash(npm run *)",
       "Bash(sed -i 's#<!-- INDEX-DOCUMENTE:END -->#| Test temporar | `nicaieri.md` |\\\\n<!-- INDEX-DOCUMENTE:END -->#' CLAUDE.md)",
       "Bash(taskkill //F //IM python.exe //FI \"WINDOWTITLE eq*\")",
-      "Bash(node --test tests/multiplication-1120-v3-train-eff-eq-forms.test.js tests/jurnal-intrebari.test.js)"
+      "Bash(node --test tests/multiplication-1120-v3-train-eff-eq-forms.test.js tests/jurnal-intrebari.test.js)",
+      "WebSearch",
+      "Bash(cp \"/c/Users/I/Downloads/youlearn-jurnal-merged-2026-08-09.json\" \"/c/Users/I/Projects/Youlearn.com/_temp-verificare-log.json\" && echo copiat)",
+      "Bash(rm -f \"/c/Users/I/Projects/Youlearn.com/_temp-verificare-log.json\")",
+      "Bash(node scripts/validate_palette.js \"#86b6ef,#5598e7,#2a78d6,#1c5cab,#104281\" --mode light --ordinal)",
+      "Bash(node scripts/validate_palette.js \"#b7d3f6,#6da7ec,#3987e5,#256abf,#184f95\" --mode dark --surface \"#1a1a19\" --ordinal)",
+      "mcp__6f616b42-0ed8-571e-823f-ee4aca6b7ce9__read_me",
+      "Bash(powershell -Command \"\\(Get-Item 'C:\\\\Users\\\\I\\\\Downloads\\\\Travel - export zboruri din flinghlitst.io la data 2026.08.11.json'\\).Length\")",
+      "Bash(find /c/Users/I -maxdepth 3 -iname \"*citybreak*\" 2>/dev/null)"
     ],
     "defaultMode": "auto"
   }
