@@ -476,6 +476,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 20.08.2026 | Faza E, §12, addition-table | Al 2-lea quiz simplu învelit. Capcană specifică: `options` proprii sunt numere, motorul normalizează la string-uri — `isResolvedCombo` compară strict cu un număr, ar fi picat tăcut. Corectat: `options[ctx.index]` în loc de `ctx.alesul`. Găsit și `divisionHistory`/`prompt` lipsă pe răspuns greșit, corectate. **Corecție de proces, la cererea userului**: mecanismul de pornire al orchestratorului simplificat la ambele fișiere deja învelite — orchestrator pornit o dată la construcție, `generator` gol, sincronizare printr-un singur apel necondiționat (fără ramificația „e pornit sau nu" din prima variantă, inutilă). Teste: 7/7. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script + live. | **complet** |
 | 20.08.2026 | Faza E, §12, addition-table-range | Al 3-lea (și, pentru moment, ultimul cerut) quiz simplu învelit — clonă structurală a `addition-table.js`, exact același tipar simplificat aplicat direct, fără explorare suplimentară. 6/6 teste din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live. | **complet** |
 | 20.08.2026 | Faza E, §12, sub-sau-langa-radical | Al 5-lea quiz simplu învelit — prima diferență structurală reală față de tipar: ramura fără avans de nivel din `dupaRaspunsCorect` întorcea `{}` (fără `action`), ceea ce sub orchestrator ar fi lovit generatorul gol (item gol în loc de întrebare reală). Reparat explicit: cheamă `pickNewQuestion()` și întoarce `{action:"continue", view: roundView()}`. Confirmat: fără capcana `options[ctx.index]`/`ctx.alesul` (niciun hook nu o atinge). Sincronizare centralizată în `pickNewQuestion()` (3 puncte de mutație, spre deosebire de un singur „beginXRound" la fișierele anterioare) + apel explicit redundant în `beginRound` (cale activ exercitată de teste, nu doar teoretică). Verificat live exact scenariul de risc (răspuns greșit imediat după avans de nivel arată întrebarea nouă, nu una învechită), programatic pe instanța reală înregistrată în pagină, zero erori consolă. Teste: 11/11. Suită completă: 506, 503 trec, 3 pică (preexistente). Commit `33ade82`, push confirmat. | **complet** |
+| 20.08.2026 | Post-Faza F, cele 2 bug-uri | Userul a cerut explicit rezolvarea ambelor bug-uri documentate ca „NEreparate". **Bug 1** (`setSq2Config` respinge tăcut `exitCount` invalid): fix ales — varianta (c), cea mai conservatoare (nimic nu se schimbă comportamental, doar valoarea returnată devine cinstită: `{ok, rejected}` în loc de `true` necondiționat) — aplicat UNIFORM la toate cele 7 câmpuri ale funcției (nu doar `exitCount`, ca să nu rămână API-ul pe jumătate mincinos), identic în `v3` și `v4`. **Bug 2** (`beginRound(next)` cu obiect trunchiat ar corupe grading-ul, `equations-e3-e6.js`): fix ales — varianta (b), verificare defensivă `typeof next?.correct === "number"` (NU doar `!== undefined`, cum sugera propunerea inițială — ar fi trecut fals-pozitiv pe `correct:true`, boolean-ul de outcome M3B, omniprezent în rezultate; coliziune de nume găsită la implementare, motiv suplimentar față de „mai simplu" pentru a evita varianta (a)). 8 teste noi (2 equations-e3-e6, 4 v3, 2 v4), toate verzi din prima încercare, plus verificare live cu scripturile reale, ambele bug-uri confirmate reparate, zero erori consolă. Suită completă: 515 teste, 512 trec, 3 pică (preexistente). Commit `65c1c6b`, push confirmat. **Secțiunea „Bug-uri găsite" din acest raport — ambele intrări rezolvate, nimic rămas deschis.** | **complet** |
 | 20.08.2026 | Post-Faza F, RUN_DONE_MS | Userul a cerut, imediat după raportul Fazei F, eliminarea pauzei fixe de 450ms de la finalul unui „run-complete" fără avans de nivel (item 1 din „De adresat după finalizarea planului curent"). `RUN_DONE_MS` schimbat din `450` în `0` în `falling-engine.js` — un singur punct de impact în tot repo-ul, `LEVEL_ADV_MS` (avansul de nivel, 1400ms) neatins deliberat, alt scop. Verificare live: prima metodă de măsurare (polling pe `document.body.textContent`) a fost defectă, a produs timpi falși de ordinul secundelor — corectată citind direct elementul izolat `#top-number` și calculând singur indexul corect prin divizibilitate (nu presupus). Rezultat, pe `prime-divisors.js`: 0ms măsurat la fiecare din 8 tranziții consecutive, inclusiv finalizări de lanț fără avans de nivel — exact scenariul reclamat inițial de user. Suită completă: 507, 504 trec, 3 pică (preexistente, neafectate). Zero erori consolă. Commit `755db08`, push confirmat. | **complet** |
 | 20.08.2026 | Faza F, verificare finală | Cerută explicit de user imediat după §12 („Faza F acum"). Toate cele 11 criterii din §9 al planului verificate riguros, unul câte unul, cu comenzi concrete (nu din memorie): grep pe tot `js/` pentru `onAnswer` propriu (zero, toate deleagă la orchestrator) și pentru `outcome:"wrong-answer"` scris de mână (un singur caz, cod mort — rezultatul mereu suprascris la timeout); `git diff` complet față de `4fc4722` (ultimul commit dinaintea Fazei A) pentru titluri de meniu (identice) și pentru `rigle-cl1.js` (0 linii diferență, byte-identic); rulare completă a suitei (507 teste, 504 trec, 3 pică, confirmate preexistente prin `git log` — fișierul de test neatins din 10.08.2026); `check:docs`/`check:encoding` curate. **Un singur criteriu (5, plasa de siguranță „ca dată") nu se potrivește literal cu planul** — a fost ELIMINATĂ complet, nu tabelizată, printr-o decizie explicită a userului din Faza A, deja documentată — semnalat clar, nu ascuns. Nicio modificare de cod în această fază — verificare pură. **PLANUL ÎNTREG E COMPLET.** | **complet** |
 | 20.08.2026 | Faza E, §12, gardul al doilea | Enforcement-ul propriu-zis, autorizat separat de user („continuă și cu gardul acum") — `valideazaConstructiaPrinSubquizOrchestrator` adăugată în `falling-engine.js`/`resolveChoice`, mirror exact al gardului Motor3Butoane din Faza C: verifică `rezultat.subquizEvent` (semnătura pusă de `decorate()` în `subquiz-orchestrator.js`), aruncă altfel cu mesaj explicit. Găsite și reparate 2 teste preexistente incompatibile cu noul gard (simulau quiz-uri prin M3B direct, fără orchestrator): `falling-engine-impune-motor-3-butoane.test.js` (al doilea test rescris să treacă prin orchestrator + test nou „M3B fără orchestrator acum aruncă") și `falling-engine-jurnal-timing.test.js` — la acesta din urmă, prima încercare de reparare (generator CU efect secundar, mutând starea) a picat cu o eroare de timing subtilă: `orchestrator.startFirst()` cheamă generatorul IMEDIAT, la pornire, nu doar la prima corectare — exact capcana pe care tiparul „generator gol + `dupaRaspunsCorect` explicit" (deja stabilit în toate cele 15 fișiere din §12) o evită prin construcție. Corectat aplicând același tipar, nu o variantă nouă. Verificat empiric, exhaustiv, în browser: toate cele 24 de intrări reale de meniu (25 cu `rigle-cl1`, exclus corect — motor propriu m2) trec gardul fără nicio eroare, plus un click real pe interfață. Suită completă: 507, 504 trec, 3 pică (preexistente). Commit `0384779`, push confirmat. **§12 100% COMPLET — învelire + gard.** | **complet** |
@@ -925,14 +926,36 @@ memorie) — vezi „Stare curentă" pentru raportul complet, criteriu cu criter
 *(se completează pe parcurs — orice caz care nu încape în contract, orice bug descoperit și
 raportat separat, orice decizie luată de user pe parcurs)*
 
-## Bug-uri găsite, NEreparate — lăsate pentru altă ocazie
+## Bug-uri găsite — AMBELE REZOLVATE 20.08.2026
 
-> Astea sunt bug-uri REALE, verificate, nu speculații — dar în afara scopului exact al lucrării
-> aflate în desfășurare când au fost găsite (motorul comun de răspuns / învelirea în orchestrator),
-> deci nereparate deliberat. Fiecare intrare are context complet, ca oricine reia firul să nu
-> trebuiască să re-descopere mecanismul de la zero.
+> Titlu original: „Bug-uri găsite, NEreparate — lăsate pentru altă ocazie". Erau bug-uri REALE,
+> verificate, nu speculații — dar în afara scopului exact al lucrării aflate în desfășurare când au
+> fost găsite (motorul comun de răspuns / învelirea în orchestrator), deci nereparate deliberat la
+> momentul respectiv. Userul a cerut explicit rezolvarea lor imediat după finalizarea planului —
+> ambele rezolvate acum, vezi detaliile din fiecare secțiune. Context original păstrat neșters, ca
+> oricine reia firul să înțeleagă cum au fost găsite și de ce alegerea de fix a fost cea aleasă.
 
-### 1. `setSq2Config` respinge tăcut `exitCount` în afara `{3, 4, 5}`
+### 1. `setSq2Config` respinge tăcut `exitCount` în afara `{3, 4, 5}` — REZOLVAT 20.08.2026
+
+**Rezolvare:** varianta (c) din cele 3 propuse — cea mai conservatoare, dat fiind e SINGURA care nu
+schimbă NIMIC observabil (nici ce valori sunt acceptate, nici ce se întâmplă la o valoare invalidă
+— setarea rămâne neschimbată, exact ca înainte). Doar valoarea RETURNATĂ devine cinstită: în loc de
+`true` necondiționat, funcția întoarce acum `{ok: boolean, rejected: string[]}` — `rejected`
+listează EXACT câmpurile CERUTE (prezente în `config`) dar respinse ca invalide; câmpurile absente
+din `config` nu contează (n-au fost o „cerere"). **Decizie de scop, notată explicit:** deși bug-ul
+raportat era specific despre `exitCount`, tiparul „silent no-op" era IDENTIC pentru toate cele 7
+câmpuri ale funcției (`intensiveMode`, `sbsAnswerFactor`, `sbsAnswerProduct`, `factCount`,
+`exitCount`, `exitMode`, `eqFormCount`) — aplicat fix-ul UNIFORM la toate 7, nu doar la `exitCount`,
+ca să nu rămână funcția pe jumătate cinstită (o inconsistență artificială, fără nicio justificare
+tehnică). Aplicat identic în AMBELE fișiere (`v3`/`v4`, implementare byte-identică, confirmat).
+Teste noi: 4 în `multiplication-1120-v3-train-eff-eq-forms.test.js` + 2 în
+`multiplication-1120-v4-intensiv-multipli-234.test.js` (valoare invalidă → `{ok:false,rejected:[...]}`
++ nimic scris în storage; valoare validă → `{ok:true,rejected:[]}` + scris corect; mai multe câmpuri
+simultan, unele valide unele nu; fără niciun câmp → `{ok:true,rejected:[]}`). Verificat live cu
+scripturile reale din pagină, pe ambele fișiere, zero erori consolă. Suită completă: 515 teste, 512
+trec, 3 pică (preexistente). Commit `65c1c6b`, push confirmat.
+
+**Text original al bug-ului (păstrat pentru context):**
 
 **Unde:** `js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js` ȘI
 `js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` — funcția `setSq2Config`, ambele
@@ -973,7 +996,25 @@ număr întreg pozitiv; (b) păstrează restricția dar clamp la cea mai apropia
 loc de no-op tăcut; (c) `setSq2Config` să întoarcă `false` (sau un obiect cu ce s-a acceptat/respins)
 când o valoare e respinsă, ca apelantul să poată reacționa.
 
-### 2. `beginRound(next)` cu un obiect trunchiat ar corupe grading-ul ulterior
+### 2. `beginRound(next)` cu un obiect trunchiat ar corupe grading-ul ulterior — REZOLVAT 20.08.2026
+
+**Rezolvare:** varianta (b) din cele 2 propuse — verificare defensivă în `beginRound`, NU redesenare
+a lui `nextAfterCorrect()`. Ales (b) în loc de (a) și pentru un motiv suplimentar, găsit la
+implementare (nu doar „mai simplu"): opțiunea (a) ar fi cerut ca `nextRound` să care `current`
+complet — dar `current.correct` (valoarea NUMERICĂ a răspunsului corect, pt. acest fișier) ar fi
+intrat în coliziune de nume cu `correct: true` (boolean-ul de outcome, omniprezent în rezultatele
+M3B) — risc de suprascriere silențioasă, în funcție de ordinea de spread. Verificarea defensivă
+ALEASĂ nu e nici ea literal `next?.correct !== undefined` (cum sugera propunerea inițială — ar fi
+trecut fals-pozitiv exact pe acel `correct:true` boolean) — ci `typeof next?.correct === "number"`,
+care exclude explicit acel caz. Calea reală (`falling-engine.js`) rămâne neatinsă — `next` e mereu
+ori absent, ori deja complet, deci ramura defensivă (cădere pe `pickNewQuestion()`) nu se declanșează
+azi, e o plasă de siguranță pentru viitor. Teste noi (2), în `equations-e3-e6.test.js`: un `next`
+trunchiat (forma exactă a lui `roundView()`) nu corupe grading-ul — răspunsul pe indexul corect al
+întrebării noi e acceptat normal; un `next` complet (din `pickNextRound()`) funcționează identic,
+neschimbat. Verificat live cu scriptul real din pagină. Suită completă: 515, 512 trec, 3 pică
+(preexistente). Commit `65c1c6b`, push confirmat.
+
+**Text original al bug-ului (păstrat pentru context):**
 
 **Unde:** `js/quizzes/equations-e3-e6.js` — `esteCorect`/`beginRound`.
 
