@@ -40,6 +40,21 @@
     let currentMissingSide = "left";
     let options = [];
     let correctIndex = 0;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi addition-table-singapore.js pt. explicatia
+    // completa a tiparului — fisier-frate, aceeasi structura + dimensiunea
+    // `missingSide`). `buildOptionsForFact` e singurul loc care schimba
+    // `options`/`correctIndex` — sincronizeaza neconditionat, chiar acolo, la
+    // final.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: promptLabel(currentFact, currentMissingSide),
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     function pickMissingSide() {
       return Math.random() < 0.5 ? "left" : "right";
@@ -158,6 +173,7 @@
       ]);
       options = triple;
       correctIndex = options.indexOf(correctLabel);
+      sincronizeazaOrchestratorul();
     }
 
     function factById(factId) {
@@ -334,56 +350,80 @@
     // urmatorul fapt din coada turului curent, fie incheie turul (nivel nou /
     // faza retry / joc complet), cu pauzele `promptHoldMs`+`continueStep` EXACT
     // ca inainte de migrare — M3B le lasa sa treaca neatinse.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => options[index] === correctAnswer(currentFact, currentMissingSide),
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) =>
-          `La ${promptLabel(currentFact, currentMissingSide)}, ${ctx.alesul} nu e corect. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
-          if (!ctx.corect) {
-            hadMistakeThisTurn = true;
-            if (
-              !wrongFactIds.some(
-                (item) =>
-                  item.factId === currentFact.factId && item.missingSide === currentMissingSide
-              )
-            ) {
-              wrongFactIds.push(queueItem(currentFact.factId, currentMissingSide));
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza") — vezi addition-table-singapore.js pt. explicatia
+    // capcanelor deja intalnite acolo (`intrebareUrmatoare` deja cod mort,
+    // campuri proprii de vedere injectate prin `dupaApasare`, mesaj dinamic cu
+    // `ctx.alesul`), toate identice si aici.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: "Alege numărul corect pentru ?.",
+        esteCorect: (_item, index) => options[index] === correctAnswer(currentFact, currentMissingSide),
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) =>
+            `La ${promptLabel(currentFact, currentMissingSide)}, ${ctx.alesul} nu e corect. Încearcă din nou!`,
+        },
+        actiuni: {
+          dupaApasare: (ctx) => {
+            recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+            if (!ctx.corect) {
+              hadMistakeThisTurn = true;
+              if (
+                !wrongFactIds.some(
+                  (item) =>
+                    item.factId === currentFact.factId && item.missingSide === currentMissingSide
+                )
+              ) {
+                wrongFactIds.push(queueItem(currentFact.factId, currentMissingSide));
+              }
             }
-          }
-          return {};
-        },
-        dupaRaspunsCorect: () => {
-          const label = historyLine(currentFact);
-          historyLines.push(label);
-          activeQueue.shift();
-
-          if (activeQueue.length) {
-            const nextView = beginCurrentStep();
             return {
-              action: "continue",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                message: `Corect! ${label}`,
-                ...nextView,
-              },
+              questionFormat: "singapore-bond",
+              targetSum: level,
+              bondKnownAddend: knownAddend(currentFact, currentMissingSide),
+              bondMissingSide: currentMissingSide,
+              bondHistory: [...historyLines],
+              divisionHistory: [],
             };
-          }
+          },
+          dupaRaspunsCorect: () => {
+            const label = historyLine(currentFact);
+            historyLines.push(label);
+            activeQueue.shift();
 
-          if (phase === "retry") {
-            hadMistakeThisTurn = false;
-          }
+            if (activeQueue.length) {
+              const nextView = beginCurrentStep();
+              return {
+                action: "continue",
+                view: {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: `Corect! ${label}`,
+                  ...nextView,
+                },
+              };
+            }
 
-          return { action: "continue", view: buildTurnCompleteStep(label) };
+            if (phase === "retry") {
+              hadMistakeThisTurn = false;
+            }
+
+            return { action: "continue", view: buildTurnCompleteStep(label) };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     return {
       getLevel: () => level,
@@ -444,16 +484,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, lotul 2). Regula corect/gresit era deja
-      // conforma (gresit ramane pe aceeasi intrebare) — migrarea NU schimba
-      // comportamentul vizibil, doar muta logica in `actiuni` de mai sus.
+      // Migrat la Motor3Butoane (Faza D, lotul 2), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
       onAnswer(index, meta = {}) {
-        return m3b.laApasareButon({
-          item: { options },
-          index,
-          meta,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+        return orchestrator.onAnswer(index, meta);
       },
 
       pickNextRound: () => startTurn(),
