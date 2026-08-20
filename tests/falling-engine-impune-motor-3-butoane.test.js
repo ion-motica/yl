@@ -3,6 +3,10 @@
 // quiz care nu poarta semnatura Motor3Butoane — vechea cale ("quizul isi scrie
 // singur logica de corect/gresit") trebuie sa chiar crape, nu doar sa fie
 // descurajata printr-o regula scrisa undeva.
+//
+// Extins pentru Faza E, sectiunea 12 (al doilea gard): raspunsul trebuie sa
+// poarte SI semnatura SubquizOrchestrator (campul "subquizEvent") — M3B
+// folosit DIRECT, fara orchestrator, nu mai e suficient.
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { readFileSync } from "node:fs";
@@ -141,6 +145,9 @@ describe("Impunerea Motor3Butoane in falling-engine.js (Faza C)", () => {
     globalThis.AsnwProfile = { isEffective: () => true }; // mod raspuns direct, fara animatia de ridicare
     globalThis.requestAnimationFrame = () => 1;
     globalThis.cancelAnimationFrame = () => {};
+    loadScript("js/subquiz/item-generator.js");
+    loadScript("js/subquiz/subquiz-definition.js");
+    loadScript("js/subquiz/subquiz-orchestrator.js");
     loadScript("js/motor-3-butoane.js");
     loadScript("js/falling-engine.js");
   });
@@ -167,7 +174,7 @@ describe("Impunerea Motor3Butoane in falling-engine.js (Faza C)", () => {
     );
   });
 
-  it("un quiz care raspunde prin Motor3Butoane functioneaza normal", () => {
+  it("un quiz care raspunde prin Motor3Butoane DIRECT, fara SubquizOrchestrator, acum arunca (Faza E, sectiunea 12)", () => {
     let curent = roundDeBaza;
     const m3b = globalThis.Motor3Butoane.creeaza({
       esteCorect: (item, index) => index === item.correctIndex,
@@ -180,6 +187,8 @@ describe("Impunerea Motor3Butoane in falling-engine.js (Faza C)", () => {
       isCompleted: () => false,
       getFallSpeedFactor: () => 1,
       onTimeout: () => ({ ...curent, outcome: "round", resetFall: true }),
+      // M3B direct, fara sa treaca prin SubquizOrchestrator — exact calea pe
+      // care o foloseau toate quiz-urile inainte de invelirea din §12.
       onAnswer: (index) =>
         m3b.laApasareButon({
           item: curent,
@@ -190,6 +199,47 @@ describe("Impunerea Motor3Butoane in falling-engine.js (Faza C)", () => {
     const { engine, dom } = creeazaMotor(quiz);
     engine.startRound(roundDeBaza);
 
-    assert.doesNotThrow(() => dom.optionBtns[0].click(), "raspunsul cu semnatura M3B nu trebuie sa arunce");
+    assert.throws(
+      () => dom.optionBtns[0].click(),
+      /SubquizOrchestrator/,
+      "raspunsul cu semnatura M3B dar fara subquizEvent trebuie sa arunce, nu sa fie acceptat tacit"
+    );
+  });
+
+  it("un quiz construit prin SubquizOrchestrator (o singura bucata baza) functioneaza normal", () => {
+    let currentItem = { prompt: "2+3=?", options: ["4", "5", "6"], correctIndex: 1 };
+    const definition = globalThis.SubquizDefinition.define({
+      id: "base",
+      title: "baza",
+      esteCorect: (_item, index) => index === currentItem.correctIndex,
+      generator: () => ({}),
+      actiuni: {
+        dupaRaspunsCorect: () => {
+          currentItem = { prompt: "2+3=?", options: ["4", "5", "6"], correctIndex: 1 };
+          return {};
+        },
+      },
+    });
+    const orchestrator = globalThis.SubquizOrchestrator.create({
+      definitions: [definition],
+      activeSubquizIds: ["base"],
+      context: {},
+    });
+    orchestrator.startFirst();
+    orchestrator.getCurrentRuntime().setCurrentItem(currentItem);
+
+    const quiz = {
+      isCompleted: () => false,
+      getFallSpeedFactor: () => 1,
+      onTimeout: () => ({ ...roundDeBaza, outcome: "round", resetFall: true }),
+      onAnswer: (index, meta) => orchestrator.onAnswer(index, meta),
+    };
+    const { engine, dom } = creeazaMotor(quiz);
+    engine.startRound(roundDeBaza);
+
+    assert.doesNotThrow(
+      () => dom.optionBtns[1].click(),
+      "raspunsul cu semnatura M3B SI subquizEvent nu trebuie sa arunce"
+    );
   });
 });

@@ -925,12 +925,33 @@
       );
     }
 
+    // Faza E, sectiunea 12 din documente de referinta/PLAN-motor-comun-raspuns.md:
+    // al doilea gard, la acelasi nivel cu Motor3Butoane — orice quiz trebuie
+    // construit intern prin SubquizOrchestrator (js/subquiz/subquiz-orchestrator.js),
+    // chiar daca are o singura bucata "baza". Fara semnatura lui (campul
+    // "subquizEvent", pus de decorate() pe orice rezultat trecut prin
+    // orchestrator), motorul refuza sa continue — eroare explicita, imediata,
+    // nu avertisment si nu fallback tacut (razgandire-ieftina.md, punctul 9).
+    // Asta face imposibil ca un quiz sa-si scrie propria rutare, separata de
+    // orchestrator, exact riscul descris in plan (§12).
+    function valideazaConstructiaPrinSubquizOrchestrator(rezultat, index) {
+      if (rezultat?.subquizEvent) return;
+      throw new Error(
+        `SubquizOrchestrator: raspunsul la apasarea butonului ${index} nu poarta ` +
+          `semnatura orchestratorului comun (campul "subquizEvent", pus de ` +
+          `decorate() in js/subquiz/subquiz-orchestrator.js). Orice quiz trebuie ` +
+          `construit intern prin SubquizOrchestrator, minim o bucata "baza" — ` +
+          `vezi documente de referinta/PLAN-motor-comun-raspuns.md, sectiunea 12.`
+      );
+    }
+
     function resolveChoice(index) {
       hideRising();
       animating = false;
       const meta = attemptMeta();
       const rezultat = getQuiz().onAnswer(index, meta);
       valideazaRaspunsMotor3Butoane(rezultat, index);
+      valideazaConstructiaPrinSubquizOrchestrator(rezultat, index);
       applyAnswerResult(rezultat, index, meta);
     }
 

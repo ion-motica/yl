@@ -194,6 +194,12 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
     };
     globalThis.cancelAnimationFrame = () => {};
     delete globalThis.Motor3Butoane;
+    delete globalThis.ItemGenerator;
+    delete globalThis.SubquizDefinition;
+    delete globalThis.SubquizOrchestrator;
+    loadScript("js/subquiz/item-generator.js");
+    loadScript("js/subquiz/subquiz-definition.js");
+    loadScript("js/subquiz/subquiz-orchestrator.js");
     loadScript("js/motor-3-butoane.js");
     loadScript("js/falling-engine.js");
 
@@ -212,16 +218,41 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
     const attempts = [];
     // Din Faza C a planului (motor-3-butoane.js e acum obligatoriu): quizul
     // trebuie sa raspunda prin Motor3Butoane, altfel falling-engine.js arunca.
-    // `intrebareUrmatoare` are efectul secundar de a muta `currentRound` — la
-    // fel ca in integrarea reala, unde ea e `runtime.nextItem(...)`, care
-    // muta itemul curent citit de `runtime.view()` (aici, `construiesteVedere`).
-    const m3bTest = globalThis.Motor3Butoane.creeaza({
+    // Din Faza E, sectiunea 12 (al doilea gard): trebuie SI construit intern
+    // prin SubquizOrchestrator, altfel arunca la fel. Tiparul deja validat de
+    // 15 ori in §12: `generator` GOL (orchestrator.startFirst() il cheama
+    // IMEDIAT, la pornire — un generator cu efect secundar ar muta
+    // `currentRound` prematur, inainte de orice apasare reala); mutarea la
+    // `round2` se face explicit in `dupaRaspunsCorect`, cu sincronizare
+    // manuala a orchestratorului dupa.
+    const definition = globalThis.SubquizDefinition.define({
+      id: "base",
+      title: "baza",
       esteCorect: (item, index) => index === item.correctIndex,
-      intrebareUrmatoare: () => {
-        currentRound = round2;
-        return round2;
+      generator: () => ({}),
+      actiuni: {
+        dupaRaspunsCorect: () => {
+          currentRound = round2;
+          orchestrator.getCurrentRuntime().setCurrentItem(currentRound);
+          return {
+            action: "continue",
+            view: {
+              prompt: round2.prompt,
+              options: [...round2.options],
+              correctIndex: round2.correctIndex,
+              metadata: round2.metadata,
+            },
+          };
+        },
       },
     });
+    const orchestrator = globalThis.SubquizOrchestrator.create({
+      definitions: [definition],
+      activeSubquizIds: ["base"],
+      context: {},
+    });
+    orchestrator.startFirst();
+    orchestrator.getCurrentRuntime().setCurrentItem(currentRound);
     const quiz = {
       isCompleted: () => false,
       getFallSpeedFactor: () => 1,
@@ -229,13 +260,8 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
         timeoutCount += 1;
         return { ...currentRound, outcome: "round", resetFall: true };
       },
-      onAnswer(index) {
-        const rezultat = m3bTest.laApasareButon({
-          item: currentRound,
-          index,
-          construiesteVedere: (extra) => ({ ...currentRound, ...extra }),
-        });
-        return rezultat.view;
+      onAnswer(index, meta) {
+        return orchestrator.onAnswer(index, meta);
       },
     };
     const dom = createDom();
