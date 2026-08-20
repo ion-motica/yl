@@ -61,6 +61,22 @@
     let m1PendingConexeTypes = new Set();
     let m1FactRunOrigin = "m1";
     let m2WrongFactIds = new Set();
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa a
+    // tiparului). `buildOptionsFor` e singurul loc care schimba
+    // `options`/`correctIndex` (chemat mereu dupa ce `currentFact`/
+    // `currentConexeType` sunt deja actualizate) — sincronizeaza neconditionat,
+    // chiar acolo, la final.
+    function sincronizeazaOrchestratorul() {
+      const view = roundView();
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: view.prompt,
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     function withResetFall(view) {
       return view && typeof view === "object" ? { resetFall: true, ...view } : view;
@@ -165,6 +181,7 @@
       const built = adapter.buildOptions(fact, conexeType, shuffle);
       options = built.options;
       correctIndex = built.correctIndex;
+      sincronizeazaOrchestratorul();
     }
 
     function stepItem(factId, conexeType) {
@@ -532,31 +549,54 @@
     // existenta, care deja produce fie un pas intermediar (step-correct), fie
     // un rezultat complet de bloc/nivel (run-complete, prin `completeCurrentBlock`
     // -> `finishBlock` -> `advanceLevel`).
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => options[index] === adapter.correctAnswer(currentFact, currentConexeType),
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) =>
-          `La ${adapter.promptLabel(currentFact, currentConexeType)}, ${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
-          if (!ctx.corect) {
-            currentBlockHadMistake = true;
-            trackM1Result(false, ctx.meta);
-            pushWrongStep(stepItem(currentFact.factId, currentConexeType));
-            if (blockMode === "m2") {
-              m2WrongFactIds.add(currentFact.factId);
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `roundView()` delega la `adapter.buildRoundView` — patru
+    // adaptoare (adunare/scadere/inmultire/impartire), fiecare cu campuri
+    // proprii, unele conditionate de `conexeType` (`questionFormat`/`targetSum`/
+    // `bondKnownAddend`/`bondMissingSide` doar pt. tipurile "bond-*"). Prea
+    // variabil ca sa injectezi campuri punctuale (ca `successionHistory` la
+    // equations-e3-e6.js) — in loc, `dupaApasare` intoarce `roundView()`
+    // INTREG, exact ca vechiul `onStepWrong` (`...roundView()`), valabil
+    // pt. orice adaptor. Pe ramura corecta e oricum suprascris de rezultatul
+    // complet din `onStepCorrect`, fara conflict.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT_MESSAGE,
+        esteCorect: (_item, index) => options[index] === adapter.correctAnswer(currentFact, currentConexeType),
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) =>
+            `La ${adapter.promptLabel(currentFact, currentConexeType)}, ${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
+        },
+        actiuni: {
+          dupaApasare: (ctx) => {
+            recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+            if (!ctx.corect) {
+              currentBlockHadMistake = true;
+              trackM1Result(false, ctx.meta);
+              pushWrongStep(stepItem(currentFact.factId, currentConexeType));
+              if (blockMode === "m2") {
+                m2WrongFactIds.add(currentFact.factId);
+              }
             }
-          }
-          return {};
+            return roundView();
+          },
+          dupaRaspunsCorect: (ctx) => {
+            return { action: "continue", view: onStepCorrect(ctx.meta) };
+          },
         },
-        dupaRaspunsCorect: (ctx) => {
-          return { action: "continue", view: onStepCorrect(ctx.meta) };
-        },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     return {
       getLevel: () => level,
@@ -609,15 +649,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
-      // construirea lui `m3b`, mai sus.
+      // Migrat la Motor3Butoane (Faza D, lotul 3), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
       onAnswer(index, meta = {}) {
-        return m3b.laApasareButon({
-          item: { options },
-          index,
-          meta,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+        return orchestrator.onAnswer(index, meta);
       },
 
       getFallSpeedFactor() {
