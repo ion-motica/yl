@@ -37,6 +37,21 @@
     let currentFact = null;
     let options = [];
     let correctIndex = 0;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa a
+    // tiparului). `buildOptionsForFact` e singurul loc care schimba
+    // `options`/`correctIndex` — sincronizeaza neconditionat, chiar acolo, la
+    // final. Fara `promptHtml` aici (spre deosebire de sub-sau-langa-radical.js):
+    // fisierul nu-l foloseste, `prompt` e mereu text simplu (`${level}=`).
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: `${level}=`,
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     function decompositionLabel(fact) {
       const { a, b } = fact.values;
@@ -149,6 +164,7 @@
       const triple = shuffle([correctLabel, wrong[0] ?? `${fact.values.a}+${fact.values.b + 1}`, wrong[1] ?? `${fact.values.a + 1}+${fact.values.b}`]);
       options = triple;
       correctIndex = options.indexOf(correctLabel);
+      sincronizeazaOrchestratorul();
     }
 
     function factById(factId) {
@@ -321,50 +337,78 @@
     // curent, fie incheie turul (nivel nou / faza retry / joc complet), cu
     // pauzele `promptHoldMs`+`continueStep` EXACT ca inainte de migrare — M3B
     // le lasa sa treaca neatinse, sunt citite direct de falling-engine.js.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => options[index] === decompositionLabel(currentFact),
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `La ${level}=?, ${ctx.alesul} nu e corect. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
-          if (!ctx.corect) {
-            hadMistakeThisTurn = true;
-            if (!wrongFactIds.includes(currentFact.factId)) {
-              wrongFactIds.push(currentFact.factId);
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `esteCorect`/`intrebareUrmatoare`/`actiuni` copiate
+    // identic — `dupaRaspunsCorect` intorcea deja mereu o comanda explicita cu
+    // `action` (spre deosebire de sub-sau-langa-radical.js/bagare-sub-radical.js),
+    // deci `intrebareUrmatoare` (aici `() => null`, deja neutralizata inainte
+    // de aceasta lucrare) ramane cod mort neatins, ca la primele 4 fisiere.
+    // `roundView()` are campuri proprii (`questionFormat`, `targetSum`,
+    // `bondHistory`) absente din vederea generica a motorului comun — la fel
+    // ca `successionHistory`/`divisionHistory` la fisierele anterioare,
+    // trebuie injectate explicit prin `dupaApasare`, ca sa nu lipseasca pe
+    // ramura de raspuns gresit.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: "Alege descompunerea corectă.",
+        esteCorect: (_item, index) => options[index] === decompositionLabel(currentFact),
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) => `La ${level}=?, ${ctx.alesul} nu e corect. Încearcă din nou!`,
+        },
+        actiuni: {
+          dupaApasare: (ctx) => {
+            recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+            if (!ctx.corect) {
+              hadMistakeThisTurn = true;
+              if (!wrongFactIds.includes(currentFact.factId)) {
+                wrongFactIds.push(currentFact.factId);
+              }
             }
-          }
-          return {};
-        },
-        dupaRaspunsCorect: () => {
-          const label = decompositionLabel(currentFact);
-          historyLines.push(`${level}=${label}`);
-          activeQueue.shift();
-
-          if (activeQueue.length) {
-            const nextView = beginCurrentStep();
             return {
-              action: "continue",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                message: `Corect! ${level}=${label}`,
-                ...nextView,
-              },
+              questionFormat: "singapore-bond",
+              targetSum: level,
+              bondHistory: [...historyLines],
+              divisionHistory: [],
             };
-          }
+          },
+          dupaRaspunsCorect: () => {
+            const label = decompositionLabel(currentFact);
+            historyLines.push(`${level}=${label}`);
+            activeQueue.shift();
 
-          if (phase === "retry") {
-            hadMistakeThisTurn = false;
-          }
+            if (activeQueue.length) {
+              const nextView = beginCurrentStep();
+              return {
+                action: "continue",
+                view: {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: `Corect! ${level}=${label}`,
+                  ...nextView,
+                },
+              };
+            }
 
-          return { action: "continue", view: buildTurnCompleteStep(label) };
+            if (phase === "retry") {
+              hadMistakeThisTurn = false;
+            }
+
+            return { action: "continue", view: buildTurnCompleteStep(label) };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     return {
       getLevel: () => level,
@@ -424,16 +468,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, lotul 2). Regula corect/gresit era deja
-      // conforma (gresit ramane pe aceeasi intrebare) — migrarea NU schimba
-      // comportamentul vizibil, doar muta logica in `actiuni` de mai sus.
+      // Migrat la Motor3Butoane (Faza D, lotul 2), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
       onAnswer(index, meta = {}) {
-        return m3b.laApasareButon({
-          item: { options },
-          index,
-          meta,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+        return orchestrator.onAnswer(index, meta);
       },
 
       pickNextRound: () => startTurn(),
