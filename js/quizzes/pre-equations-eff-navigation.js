@@ -348,6 +348,21 @@
     let triangleSerial = 0;
     let completedTriangleKeys = new Set();
     let completed = false;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa a
+    // tiparului). `buildQuestion()` e singurul loc care schimba `current`
+    // (deci `options`/`correctIndex`) — sincronizeaza neconditionat, chiar
+    // acolo, la final. `beginRound` mai cheama sincronizarea o data explicit,
+    // pt. ramura cu `next` primit direct (nu trece prin `buildQuestion()`).
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: current?.prompt ?? "-",
+        options: current ? [...current.options] : ["-", "-", "-"],
+        correctIndex: current?.correctIndex ?? 0,
+      });
+    }
 
     function chooseOperatorForTriangle() {
       return shuffle(quizConfig.operators)[0] ?? "+";
@@ -433,6 +448,7 @@
         triangle: { ...currentTriangle },
         stepIndex: currentStep,
       };
+      sincronizeazaOrchestratorul();
       return current;
     }
 
@@ -563,39 +579,57 @@
     // intermediar real (3 pasi per triunghi, Categoria 7): `dupaRaspunsCorect`
     // fie trece la pasul urmator (step-correct), fie incheie ciclul triunghiului
     // (`completeCycle()`, care poate incheia si nivelul intreg, prin `completeLevel()`).
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => isCorrectChoice(index),
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (!ctx.corect) {
-            currentCycleHadMistake = true;
-          }
-          return {};
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `roundView()` are un singur camp propriu
+    // (`successionHistory`, panoul de sumar) absent din vederea generica —
+    // injectat prin `dupaApasare`, ca la equations-e3-e6.js. `options` sunt
+    // deja string-uri (ambele moduri, `number`/`formula`, folosesc
+    // `.map(String)`/text) — `ctx.alesul` sigur de folosit, fara capcana de tip.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT,
+        esteCorect: (_item, index) => isCorrectChoice(index),
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
         },
-        dupaRaspunsCorect: () => {
-          if (currentStep < 2) {
-            currentStep += 1;
-            buildQuestion();
-            return {
-              action: "continue",
-              view: {
-                outcome: "step-correct",
-                correct: true,
-                bounce: true,
-                message: "Corect!",
-                ...roundView(),
-              },
-            };
-          }
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (!ctx.corect) {
+              currentCycleHadMistake = true;
+            }
+            return { successionHistory: roundView().successionHistory };
+          },
+          dupaRaspunsCorect: () => {
+            if (currentStep < 2) {
+              currentStep += 1;
+              buildQuestion();
+              return {
+                action: "continue",
+                view: {
+                  outcome: "step-correct",
+                  correct: true,
+                  bounce: true,
+                  message: "Corect!",
+                  ...roundView(),
+                },
+              };
+            }
 
-          return { action: "continue", view: completeCycle() };
+            return { action: "continue", view: completeCycle() };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -635,6 +669,7 @@
         } else {
           buildQuestion();
         }
+        sincronizeazaOrchestratorul();
         return roundView();
       },
       onTimeout() {
@@ -647,14 +682,10 @@
           ...roundView(),
         };
       },
-      // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
-      // construirea lui `m3b`, mai sus.
-      onAnswer(index) {
-        return m3b.laApasareButon({
-          item: { options: current?.options },
-          index,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+      // Migrat la Motor3Butoane (Faza D, lotul 3), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
+      onAnswer(index, meta = {}) {
+        return orchestrator.onAnswer(index, meta);
       },
       getPreEquationNavigationConfig() {
         return {
