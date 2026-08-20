@@ -18,19 +18,21 @@
 > de la zero — tot ce contează practic e rezumat aici.**
 
 **Faza:** D COMPLETĂ. **Faza E, pașii 1-3 COMPLEȚI** — toate cele 17 subquizuri reale (9 în
-v2-modular, 3 în v3, 5 în v4) migrate la contractul declarativ „CE nu CUM". **§12 ÎN LUCRU**:
-14/15 fișiere „simple" din checklist învelite în `SubquizOrchestrator` (`equations-e3-e6.js`,
-`addition-table.js`, `addition-table-range.js`, `prime-divisors.js`, `sub-sau-langa-radical.js`,
-`bagare-sub-radical.js`, `addition-table-singapore.js`, `addition-table-singapore-missing.js`,
+v2-modular, 3 în v3, 5 în v4) migrate la contractul declarativ „CE nu CUM". **§12 ÎNVELIREA
+COMPLETĂ (20.08.2026)** — toate cele 15 fișiere „simple" din checklist învelite în
+`SubquizOrchestrator`: `equations-e3-e6.js`, `addition-table.js`, `addition-table-range.js`,
+`prime-divisors.js`, `sub-sau-langa-radical.js`, `bagare-sub-radical.js`,
+`addition-table-singapore.js`, `addition-table-singapore-missing.js`,
 `division-with-remainder.js`, `prime-divisions.js`, `succesive-quiz/engine.js`,
-`conexe-table-quiz/engine.js`, `eff-quiz/engine.js`, `pre-equations-eff-navigation.js` —
-`conexe-table-quiz`/`eff-quiz` deblochează 4 intrări de meniu fiecare). **Rămâne UN SINGUR
-fișier: `multiplication-1120-v2.js` — cel mai complex din toată lista (vezi Faza D Lot 3: „6
-subquiz-uri interne" la migrarea M3B).** **Sesiune nouă, 20.08.2026 seara:
-userul a autorizat continuarea autonomă prin toată lista rămasă, fără oprire — vezi „Autorizare
-activă" mai jos, secțiunea „Tranziție de sesiune". Sesiunea a fost întreruptă o dată de o limită de
-utilizare (după `addition-table-singapore-missing.js`) și reluată cu „continuă de unde ai rămas" —
-fără pierdere de lucru.**
+`conexe-table-quiz/engine.js` (4 intrări meniu), `eff-quiz/engine.js` (4 intrări meniu),
+`pre-equations-eff-navigation.js`, `multiplication-1120-v2.js` (ULTIMUL, cel mai mare/complex —
+1411 linii, 6 „subquiz"-uri interne informale pe `stage`/`mode`, 9 situri de sincronizare). **Rămâne
+DOAR gardul propriu-zis (§12, enforcement) — explicit în afara scopului acestei sesiuni.**
+Sesiune, 20.08.2026 seara: userul a autorizat continuarea autonomă prin toată lista, fără oprire —
+vezi „Autorizare activă" mai jos, secțiunea „Tranziție de sesiune". Sesiunea a fost întreruptă o
+dată de o limită de utilizare (după `addition-table-singapore-missing.js`) și reluată cu „continuă
+de unde ai rămas" — fără pierdere de lucru. **Zero decizii reale de design de raportat — vezi
+secțiunea „Decizii amânate" de la finalul acestui fișier pentru explicație.**
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
 Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`. Faza E, v2-modular: `d70c544`.
 Faza E, v4: `7a0f012`. Faza E, §12: `848b871`, `7b0cf98`, `1d1c50d`, `7e1db3b`, `e6c762c`,
@@ -38,7 +40,8 @@ Faza E, v4: `7a0f012`. Faza E, §12: `848b871`, `7b0cf98`, `1d1c50d`, `7e1db3b`,
 (addition-table-singapore.js), `f4d67bd` (addition-table-singapore-missing.js), `3ebbbf6`
 (division-with-remainder.js), `99b33bf` (prime-divisions.js), `6c66f2a`
 (succesive-quiz/engine.js), `b44f4d2` (conexe-table-quiz/engine.js), `eb809b2`
-(eff-quiz/engine.js), `25f0b7b` (pre-equations-eff-navigation.js).
+(eff-quiz/engine.js), `25f0b7b` (pre-equations-eff-navigation.js), `b3235b2`
+(multiplication-1120-v2.js — ULTIMUL).
 **Toate pushate pe `origin/master` — confirmat.**
 
 **Faza E, §12 — equations-e3-e6.js învelit (20.08.2026), PRIMUL quiz „simplu":** o singură bucată
@@ -284,15 +287,16 @@ e in vigoare, neschimbata; reconfirmată explicit 19.08.2026 („continua aplica
 **Aplicația:** complet funcțională — zero sufixe „NEFUNCTIONAL" rămase (ultimul scos la migrarea
 v4, 20.08.2026). Migrările/învelirile de până acum au inclus și corecții de bug intenționate,
 documentate individual (Faza D Lot 1/2, Faza E v3/v4) — nu doar mutări mecanice.
-**Ultima actualizare:** 20.08.2026 seara, sesiune nouă care continuă §12 autonom conform
-autorizării — `pre-equations-eff-navigation.js` gata (14/15 fișiere), în lucru pe ULTIMUL fișier
-din întreaga listă: `multiplication-1120-v2.js`. Vezi subsecțiunea „Tranziție de sesiune,
-20.08.2026" de mai jos pentru autorizarea exactă și istoricul deciziei de a continua fără oprire.
-**Notă de proces observată o dată, la `prime-divisions.js`, neafectând fișierele ulterioare:**
-suita completă a arătat o dată 4 eșecuri (nu 3) — `tests/equations-e3-e6.test.js` ("avoids visible
-common known numbers on both sides") a picat o singură dată, apoi a trecut curat la rulările
-următoare, și trece constant izolat — test probabilistic fără seed determinist, flakiness
-preexistentă, nu regresie.
+**Ultima actualizare:** 20.08.2026 seara — **§12 (învelirea) COMPLETĂ.** `multiplication-1120-v2.js`
+(ultimul fișier din listă) gata. Toate cele 15 fișiere din checklist sunt învelite în
+`SubquizOrchestrator`, testate, verificate live, commise, pushate. Userul urmează să fie informat
+că nu există decizii de design de prezentat (secțiunea dedicată de la final rămâne goală, cu
+explicație) — următorul pas posibil e gardul propriu-zis din §12 (enforcement), explicit NEATINS,
+în afara scopului autorizării acestei sesiuni. **Notă de proces observată o dată, la
+`prime-divisions.js`, neafectând fișierele ulterioare:** suita completă a arătat o dată 4 eșecuri
+(nu 3) — `tests/equations-e3-e6.test.js` ("avoids visible common known numbers on both sides") a
+picat o singură dată, apoi a trecut curat la rulările următoare, și trece constant izolat — test
+probabilistic fără seed determinist, flakiness preexistentă, nu regresie.
 
 ### De ce s-a oprit sesiunea anterioară exact aici
 
@@ -350,29 +354,23 @@ decizii de luat le amanm pana la sfarsitul listei."
 - NU se ating cele 2 bug-uri din „Bug-uri găsite, NEreparate" și nici nota din „De adresat după
   finalizarea planului curent" — rămân deliberat deferate, cu context deja complet acolo.
 
-**Pasul următor exact — ULTIMUL fișier din întreaga listă §12:**
-[`js/quizzes/multiplication-1120-v2.js`](../js/quizzes/multiplication-1120-v2.js) (1411 linii —
-cel mai mare fișier atins vreodată în acest refactor). **Citat exact din Faza D Lot 3, motivul
-pentru care nu se poate copia tiparul orb:** „Cel mai mare numar de incalcari Categoria 3/4/6
-gasite intr-un singur fisier: 6 „subquiz"-uri interne (anchor/intensiv/anchorSumValues/
-rapidAnchorAdditions/effectiveAnchorAddition/nonAnchorProducts), fiecare cu propriul bug." Aceste
-6 „subquiz"-uri sunt DIFERITE de conceptul `SubquizOrchestrator` real (push/pop/exit) — la Faza D
-au fost migrate direct la M3B, ca zone informale de stare internă, NU ca subquiz-uri reale cu
-rutare. **Distincție importantă, de verificat la citire, nu presupusă:** fișierul-soră
-`multiplication-1120-v2-modular.js` (deja învelit, Faza E principală) folosește 9 subquiz-uri
-REALE cu `SubquizOrchestrator`/push/pop — `multiplication-1120-v2.js` (acesta) ar putea avea o
-structură complet diferită (un singur M3B cu ramificații interne pe cele 6 zone, nu 6 definiții de
-subquiz separate) — necesită analiză proprie din citire integrală, nu copiere a tiparului de la
-`v2-modular`. **Decizie de proces:** citește TOT fișierul (1411 linii, posibil în mai multe bucăți)
-înainte de orice editare; dacă structura reală diferă semnificativ de „o bucată bază" simplă,
-alege varianta conservatoare (păstrează comportamentul exact) și notează orice decizie reală de
-design în „Decizii amânate" de mai jos.
+**Pasul următor — NU mai există fișiere de învelit în §12.** Toate cele 15 sunt gata (vezi
+checklist-ul complet de mai jos, toate `[x]`). Ce rămâne, dacă userul cere continuarea:
+1. **Gardul propriu-zis din §12** (enforcement: orice quiz — inclusiv cele 15 „simple" — trebuie
+   construit prin `SubquizOrchestrator`, altfel aruncă la construcție, exact ca gardul `onAnswer`
+   din Faza E pas 1). Explicit NEATINS în această sesiune (autorizarea acoperea strict învelirea).
+2. **Faza F** — verificare finală (toate criteriile din §9 al planului, `npm run check:docs`,
+   `check:encoding`, titluri identice, zero „NEFUNCTIONAL").
+Niciunul din acestea nu a fost autorizat pentru lucru autonom în această sesiune — rămân puncte de
+oprire/raportare separate, ca înainte.
 
-**`sub-sau-langa-radical.js`/`bagare-sub-radical.js`/`addition-table-singapore.js`/
-`addition-table-singapore-missing.js`/`division-with-remainder.js`/`prime-divisions.js`/
-`succesive-quiz/engine.js`/`conexe-table-quiz/engine.js`/`eff-quiz/engine.js`/
-`pre-equations-eff-navigation.js` — REZOLVATE (20.08.2026)**, vezi paragrafele dedicate din
-jurnal/„Stare curentă" de mai sus pt. detalii.
+**Toate cele 15 fișiere din §12 — REZOLVATE (20.08.2026):** `equations-e3-e6.js`,
+`addition-table.js`, `addition-table-range.js`, `prime-divisors.js`, `sub-sau-langa-radical.js`,
+`bagare-sub-radical.js`, `addition-table-singapore.js`, `addition-table-singapore-missing.js`,
+`division-with-remainder.js`, `prime-divisions.js`, `succesive-quiz/engine.js`,
+`conexe-table-quiz/engine.js`, `eff-quiz/engine.js`, `pre-equations-eff-navigation.js`,
+`multiplication-1120-v2.js` — vezi paragrafele dedicate din jurnal/„Stare curentă" de mai sus pt.
+detalii pe fiecare.
 
 **Reguli de proces care rămân valabile, neschimbate** (nu le re-derivezi, sunt deja stabilite):
 regula din `CLAUDE.md` — caută documentul zonei înainte de modificare (niciunul din cele 11
@@ -410,6 +408,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 20.08.2026 | Faza E, §12, addition-table | Al 2-lea quiz simplu învelit. Capcană specifică: `options` proprii sunt numere, motorul normalizează la string-uri — `isResolvedCombo` compară strict cu un număr, ar fi picat tăcut. Corectat: `options[ctx.index]` în loc de `ctx.alesul`. Găsit și `divisionHistory`/`prompt` lipsă pe răspuns greșit, corectate. **Corecție de proces, la cererea userului**: mecanismul de pornire al orchestratorului simplificat la ambele fișiere deja învelite — orchestrator pornit o dată la construcție, `generator` gol, sincronizare printr-un singur apel necondiționat (fără ramificația „e pornit sau nu" din prima variantă, inutilă). Teste: 7/7. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script + live. | **complet** |
 | 20.08.2026 | Faza E, §12, addition-table-range | Al 3-lea (și, pentru moment, ultimul cerut) quiz simplu învelit — clonă structurală a `addition-table.js`, exact același tipar simplificat aplicat direct, fără explorare suplimentară. 6/6 teste din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live. | **complet** |
 | 20.08.2026 | Faza E, §12, sub-sau-langa-radical | Al 5-lea quiz simplu învelit — prima diferență structurală reală față de tipar: ramura fără avans de nivel din `dupaRaspunsCorect` întorcea `{}` (fără `action`), ceea ce sub orchestrator ar fi lovit generatorul gol (item gol în loc de întrebare reală). Reparat explicit: cheamă `pickNewQuestion()` și întoarce `{action:"continue", view: roundView()}`. Confirmat: fără capcana `options[ctx.index]`/`ctx.alesul` (niciun hook nu o atinge). Sincronizare centralizată în `pickNewQuestion()` (3 puncte de mutație, spre deosebire de un singur „beginXRound" la fișierele anterioare) + apel explicit redundant în `beginRound` (cale activ exercitată de teste, nu doar teoretică). Verificat live exact scenariul de risc (răspuns greșit imediat după avans de nivel arată întrebarea nouă, nu una învechită), programatic pe instanța reală înregistrată în pagină, zero erori consolă. Teste: 11/11. Suită completă: 506, 503 trec, 3 pică (preexistente). Commit `33ade82`, push confirmat. | **complet** |
+| 20.08.2026 | Faza E, §12, multiplication-1120-v2 | ULTIMUL fișier din §12 învelit — 1411 linii, cel mai mare din tot refactorul. Confirmat la citirea integrală: UN SINGUR M3B, cu `dupaApasare`/`dupaRaspunsCorect` ramificate intern pe `stage`/`mode` pentru cele 6 „subquiz"-uri informale (anchor/intensiv/anchorSumValues/rapidAnchorAdditions/effectiveAnchorAddition/nonAnchorProducts) — NU `SubquizOrchestrator` real cu push/pop (spre deosebire de fișierul-soră `multiplication-1120-v2-modular.js`, deja învelit în Faza E principală cu 9 subquiz-uri reale). Tiparul „o bucată bază" s-a aplicat direct, fără redesenare — `esteCorect`/`mesaje`/`actiuni` copiate identic din vechiul M3B. Diferență structurală reală: 9 situri separate de mutație a lui `current` (8 funcții `build*Question*`, una cu 2 ramuri) — fără un chokepoint unic, sincronizare adăugată la fiecare sit individual, nu centralizată. `roundView()` = exact vederea generică (fără câmpuri proprii) — doar `def.hintMessage`. `options` string-uri, `ctx.alesul` sigur. `dupaRaspunsCorect` întorcea deja mereu comandă explicită pe toate ramurile. Teste: 33/33 din prima încercare, inclusiv toate testele de regresie „CORECTAT" (Categoriile 3/4/6) pe toate cele 6 zone. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live end-to-end: lanțul complet de 5 tranziții de stage (anchor→subquiz3→4→5→6) parcurs în ordine reală prin `index.html`, plus răspuns greșit imediat după ultima tranziție (scenariul cel mai riscant) — prompt/opțiuni corecte, nu învechite. Zero erori consolă. Commit `b3235b2`, push confirmat. **§12 (învelirea) COMPLETĂ — toate cele 15 fișiere.** | **complet** |
 | 20.08.2026 | Faza E, §12, pre-equations-eff-navigation | Al 14-lea fișier învelit — un singur `current` unificat (ca `sub-sau-langa-radical.js`), `buildQuestion()` singurul loc care îl schimbă, sincronizare centralizată acolo PLUS un apel explicit în `beginRound` (ramura `if(next)` nu trece prin `buildQuestion()`). `roundView()` are un singur câmp propriu (`successionHistory`, panou sumar cu 5 linii: Triunghi/Semn/Pas/Mod/Perfecte) — injectat prin `dupaApasare`, apelând `roundView().successionHistory` direct (evită duplicarea logicii de construcție a array-ului). `options` deja string-uri în ambele moduri (numeric/formulă) — `ctx.alesul` sigur de folosit. `dupaRaspunsCorect` întorcea deja mereu comandă explicită. Teste: 13/13 din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live: mesaj cu valoarea aleasă, `successionHistory` actualizat corect (Pas 1/3→2/3 la trecerea la pasul următor din triunghi), zero erori consolă. Commit `25f0b7b`, push confirmat. | **complet** |
 | 20.08.2026 | Faza E, §12, eff-quiz/engine | Al 13-lea fișier învelit, deblochează 4 intrări de meniu (addition/subtraction/multiplication/division-eff-helper.js). Fisier-frate cu `conexe-table-quiz/engine.js`, dar cu o diferență de istorie: fosta `onStepWrong` fusese deja ȘTEARSĂ la Faza D (nu mai avea niciun apelant, nici `onTimeout`) — vederea de răspuns greșit era deja delegată integral lui M3B, prin `construiesteVedere:(extra)=>({...roundView(),...extra})`. Sub orchestrator, aceeași soluție ca la `conexe-table-quiz.js` se aplică identic: `dupaApasare` întoarce `roundView()` complet (are propriile `divisionHistory`/`bondHistory`/`questionFormat`/`successionHistory`, absente din vederea generică). `esteCorect` compară direct indexul (`index === correctIndex`), nu `options[index]` — formă și mai simplă, fără nicio ambiguitate de tip. `beginCurrentStep()` (în bucla `while`) e singurul loc care schimbă `currentFact`/`currentBuilt`/`options`/`correctIndex` — sincronizare centralizată acolo. Teste: 7/7 din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live pe toate 4 quiz-urile: mesaj cu valoarea aleasă, `successionHistory` actualizat corect pe corect, zero erori consolă. Commit `eb809b2`, push confirmat. | **complet** |
 | 20.08.2026 | Faza E, §12, conexe-table-quiz/engine | Al 12-lea fișier învelit, deblochează 4 intrări de meniu (adunare/scădere/înmulțire/împărțire — 4 adaptoare separate). M3B era deja curat cuplat din Faza D: `dupaRaspunsCorect` cheamă direct `onStepCorrect(meta)` existentă, neschimbată, care produce fie un pas intermediar, fie un rezultat complet de bloc/nivel prin lanțul `completeCurrentBlock→finishBlock→advanceLevel`. Provocarea reală, diferită de toate fișierele anterioare: `roundView()` delegă la `adapter.buildRoundView`, cu câmpuri complet custom și CONDIȚIONATE de `conexeType` (`questionFormat`/`targetSum`/`bondKnownAddend`/`bondMissingSide` doar pt. tipurile „bond-*", altfel absente) — prea variabil ca să injectezi câmpuri punctuale ca la fișierele anterioare. Rezolvat structural: `dupaApasare` întoarce `roundView()` ÎNTREG (nu doar delta), exact ca vechiul `onStepWrong` (`...roundView()`) — valabil universal, pentru orice adaptor, fără cazuri speciale per tip. Sincronizare centralizată în `buildOptionsFor`, singurul loc care schimbă `options`/`correctIndex` (`currentFact`/`currentConexeType` deja actualizate înainte de a-l chema). Teste: 49/49 din prima încercare, pe toate cele 4 adaptoare (inclusiv testele explicite pe formatul „singapore-bond" vs. colon/star/minus). Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live pe toate 4 quiz-urile ȘI explicit pe scenariul cel mai riscant (răspuns greșit pe un prompt „bond" — toate câmpurile custom, inclusiv `targetSum`/`bondKnownAddend`/`bondMissingSide`, rămân corecte), zero erori consolă. Commit `b44f4d2`, push confirmat. | **complet** |
@@ -742,10 +741,12 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
 - [x] Test-santinelă: `define({ onAnswer })` chiar aruncă — 19.08.2026,
       `tests/subquiz-definition-faza-e-ce-nu-cum.test.js` (7 teste, toate verzi; include și
       `SubquizOrchestrator.create()` cu o definiție cu `onAnswer`, nu doar `define()` direct)
-- [ ] §12: al doilea gard — orice quiz (inclusiv cele 15 „simple" de azi) construit prin
-      `SubquizOrchestrator`, minim o bucată „bază". **ÎN LUCRU** — învelirea celor 15 (fără gard
-      încă, doar structural, cum spune planul); gardul propriu-zis (enforcement) rămâne pentru
-      la final, după ce toate 15 sunt învelite (fără fereastră de spargere).
+- [x] §12: învelirea structurală — toate cele 15 quizuri „simple" construite prin
+      `SubquizOrchestrator`, minim o bucată „bază". **COMPLETĂ 20.08.2026** — toate 15 gata (fără
+      gard încă, doar structural, cum spune planul).
+- [ ] §12: al doilea gard — enforcement-ul propriu-zis (aruncă dacă un quiz NU e construit prin
+      `SubquizOrchestrator`), rămâne NEATINS — explicit în afara autorizării acestei sesiuni,
+      pas separat de raportat/aprobat.
       - [x] `equations-e3-e6.js` — 20.08.2026 (tiparul reutilizabil, simplificat — vezi „Stare
             curentă": orchestrator pornit o dată, `generator` gol, sincronizare necondiționată)
       - [x] `addition-table.js` — 20.08.2026 (`options[ctx.index]` în loc de `ctx.alesul`,
@@ -794,8 +795,19 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
             mutație a lui `current`, plus sincronizare explicită în `beginRound` pt. ramura cu
             `next`; `successionHistory` propriu injectat prin `dupaApasare`, apelând `roundView()`
             direct, fără duplicare de logică)
-      - [ ] `multiplication-1120-v2.js` — **URMĂTORUL, ULTIMUL, cel mai complex (vezi nota din
-            „Pasul următor exact")**
+      - [x] `multiplication-1120-v2.js` — 20.08.2026 (ULTIMUL — 1411 linii, cel mai mare fișier
+            din tot refactorul; confirmat la citire: UN SINGUR M3B cu 6 „subquiz"-uri interne
+            informale, ramificate pe `stage`/`mode`, NU SubquizOrchestrator real cu push/pop —
+            tiparul „o bucată bază" s-a aplicat direct, fără redesenare. 9 situri separate de
+            mutație a lui `current` — sincronizare adăugată la fiecare, nu centralizată. `roundView()`
+            fără câmpuri proprii — doar `def.hintMessage`. 33/33 teste din prima încercare, inclusiv
+            toate testele de regresie „CORECTAT" pe toate cele 6 zone. Verificat live end-to-end,
+            lanțul complet de 5 tranziții de stage (anchor→3→4→5→6) în ordine reală, plus răspuns
+            greșit imediat după ultima tranziție — toate corecte, zero erori)
+
+**§12 COMPLET — toate cele 15 fișiere învelite în `SubquizOrchestrator`. Rămâne DOAR gardul
+propriu-zis (enforcement-ul „orice quiz trebuie construit prin orchestrator") — explicit în afara
+scopului autorizării acestei sesiuni, neatins, pentru un pas separat.**
 - [ ] **OPRIRE** — raportat (acest punct: pasul 1 complet, gata de pasul 3 — migrarea per fișier)
 
 ## Faza F — verificare finală
@@ -981,6 +993,31 @@ Depinde de o decizie de UX a userului, nu de un fapt tehnic de corectat — de-a
 > oprească lucrul ca să întrebe. Fiecare intrare: ce trebuia decis, ce s-a ales și de ce (mereu
 > varianta cea mai conservatoare — comportament identic cu dinainte), ce altă variantă exista.
 > **Se prezintă userului DOAR după ce toate cele 11 fișiere sunt gata — nu pe parcurs.**
->
-> *(goală la 20.08.2026, tranziția de sesiune — se completează pe parcursul §12, dacă apare ceva
-> care nu e o simplă aplicare a tiparului deja validat de 4 ori)*
+
+**CONCLUZIE FINALĂ (20.08.2026, toate cele 11 fișiere rămase gata): secțiunea rămâne GOALĂ —
+zero decizii reale de design de raportat.** Verificat explicit, la fiecare din cele 11 fișiere, dacă
+vreo alegere s-a ridicat la nivelul unei „decizii de design cu alternative vizibile pentru user"
+(nu doar un detaliu de implementare fără impact comportamental):
+
+- **Capcanele structurale găsite** (ramura `dupaRaspunsCorect` care întorcea `{}` fără `action` la
+  `sub-sau-langa-radical.js`/`bagare-sub-radical.js`; `ctx.alesul` vs. `options[ctx.index]` la
+  `prime-divisions.js`, cu risc de corupere a `combo.wrong` stocat) au fost toate **corectări
+  obligatorii**, nu alegeri — dat fiind tiparul deja aprobat („dupaRaspunsCorect intoarce mereu o
+  comanda explicita, niciodata undefined"), lăsarea lor necorectate ar fi produs un bug REAL
+  (item gol afișat / comparație de tip stricată), nu doar o variantă alternativă acceptabilă.
+- **Locul exact al apelurilor `sincronizeazaOrchestratorul()`** (centralizat într-un singur punct
+  de mutație vs. scattered la mai multe situri, ex. `prime-divisions.js`/`multiplication-1120-v2.js`
+  cu 2 și respectiv 9 situri) a variat de la fișier la fișier, dictat STRICT de structura internă
+  existentă a fiecăruia (unde chiar mutează `current`/`options`) — zero impact comportamental
+  vizibil, deci nu calificată drept „decizie de design", doar un detaliu de implementare adaptat.
+- **Soluția „`dupaApasare` întoarce `roundView()` complet"** (la `conexe-table-quiz/engine.js`,
+  `eff-quiz/engine.js`) vs. injectarea de câmpuri punctuale (la `equations-e3-e6.js`,
+  `succesive-quiz/engine.js`, `pre-equations-eff-navigation.js`) — ambele ar fi produs EXACT
+  același rezultat vizibil (verificat prin teste identice); alegerea a fost dictată de câte
+  câmpuri proprii avea `roundView()`-ul fiecărui fișier (1 câmp → injectare punctuală mai simplă;
+  4+ câmpuri condiționate de tip → returnarea completă mai robustă), nu o alegere cu consecințe
+  vizibile diferite pentru user.
+
+Toate cele 11 fișiere (de fapt 15, incluzând primele 4 din sesiunea anterioară) au comportament
+**identic, verificat riguros**, cu codul dinainte de înveliire — asta a fost cerința explicită și
+scopul întregii lucrări din §12.
