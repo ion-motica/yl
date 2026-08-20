@@ -19,15 +19,16 @@
 
 **Faza:** D COMPLETĂ. **Faza E, pașii 1-3 COMPLEȚI** — toate cele 17 subquizuri reale (9 în
 v2-modular, 3 în v3, 5 în v4) migrate la contractul declarativ „CE nu CUM". **§12 ÎN LUCRU**:
-6/15 quizuri „simple" învelite în `SubquizOrchestrator` (`equations-e3-e6.js`,
+7/15 quizuri „simple" învelite în `SubquizOrchestrator` (`equations-e3-e6.js`,
 `addition-table.js`, `addition-table-range.js`, `prime-divisors.js`, `sub-sau-langa-radical.js`,
-`bagare-sub-radical.js`) — vezi mai jos. Rămân 9. **Sesiune nouă, 20.08.2026 seara: userul a
-autorizat continuarea autonomă prin toată lista rămasă, fără oprire — vezi „Autorizare activă" mai
-jos, secțiunea „Tranziție de sesiune".**
+`bagare-sub-radical.js`, `addition-table-singapore.js`) — vezi mai jos. Rămân 8. **Sesiune nouă,
+20.08.2026 seara: userul a autorizat continuarea autonomă prin toată lista rămasă, fără oprire —
+vezi „Autorizare activă" mai jos, secțiunea „Tranziție de sesiune".**
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
 Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`. Faza E, v2-modular: `d70c544`.
 Faza E, v4: `7a0f012`. Faza E, §12: `848b871`, `7b0cf98`, `1d1c50d`, `7e1db3b`, `e6c762c`,
-`33ade82` (sub-sau-langa-radical.js), `62012bd` (bagare-sub-radical.js).
+`33ade82` (sub-sau-langa-radical.js), `62012bd` (bagare-sub-radical.js), `66cc595`
+(addition-table-singapore.js).
 **Toate pushate pe `origin/master` — confirmat.**
 
 **Faza E, §12 — equations-e3-e6.js învelit (20.08.2026), PRIMUL quiz „simplu":** o singură bucată
@@ -274,9 +275,9 @@ e in vigoare, neschimbata; reconfirmată explicit 19.08.2026 („continua aplica
 v4, 20.08.2026). Migrările/învelirile de până acum au inclus și corecții de bug intenționate,
 documentate individual (Faza D Lot 1/2, Faza E v3/v4) — nu doar mutări mecanice.
 **Ultima actualizare:** 20.08.2026 seara, sesiune nouă care continuă §12 autonom conform
-autorizării — `bagare-sub-radical.js` gata (6/15), în lucru pe `addition-table-singapore.js` (al
-7-lea). Vezi subsecțiunea „Tranziție de sesiune, 20.08.2026" de mai jos pentru autorizarea exactă
-și istoricul deciziei de a continua fără oprire.
+autorizării — `addition-table-singapore.js` gata (7/15), în lucru pe
+`addition-table-singapore-missing.js` (al 8-lea). Vezi subsecțiunea „Tranziție de sesiune,
+20.08.2026" de mai jos pentru autorizarea exactă și istoricul deciziei de a continua fără oprire.
 
 ### De ce s-a oprit sesiunea anterioară exact aici
 
@@ -334,22 +335,19 @@ decizii de luat le amanm pana la sfarsitul listei."
 - NU se ating cele 2 bug-uri din „Bug-uri găsite, NEreparate" și nici nota din „De adresat după
   finalizarea planului curent" — rămân deliberat deferate, cu context deja complet acolo.
 
-**Pasul următor exact — al 7-lea quiz simplu:** [`js/quizzes/addition-table-singapore.js`](../js/quizzes/addition-table-singapore.js),
-titlu meniu **„Tabla adunarii Singapore 6=3+3|3+4"**. Ordinea rămasă după el (neschimbată din
-checklist): `addition-table-singapore-missing.js` → `division-with-remainder.js` →
-`prime-divisions.js` → `succesive-quiz/engine.js` → `conexe-table-quiz/engine.js` (4 intrări
-meniu) → `eff-quiz/engine.js` (4 intrări meniu) → `pre-equations-eff-navigation.js` →
-`multiplication-1120-v2.js` (ultimul, cel mai complex — vezi Faza D Lot 3: „6 subquiz-uri interne"
-la migrarea M3B; probabil cere analiză proprie, nu copiere oarbă a tiparului). Nicio pre-analiză
-scrisă încă pentru `addition-table-singapore.js` — se citește integral înainte de a-l edita, ca la
-toate celelalte. **Notă utilă din Faza D Lot 2:** acest fișier are pas intermediar real (coadă de
-fapte pe același tur) ȘI o fază de retry separată — de verificat cum interacționează cu tiparul de
-înveliire (posibil similar cu `prime-divisors.js`, posibil cu o particularitate proprie, ca la
-`sub-sau-langa-radical.js`/`bagare-sub-radical.js` — de citit integral, nu presupus).
+**Pasul următor exact — al 8-lea quiz simplu:** [`js/quizzes/addition-table-singapore-missing.js`](../js/quizzes/addition-table-singapore-missing.js),
+titlu meniu **„Tabla adunarii Singapore 6=?+3"**. Ordinea rămasă după el (neschimbată din
+checklist): `division-with-remainder.js` → `prime-divisions.js` → `succesive-quiz/engine.js` →
+`conexe-table-quiz/engine.js` (4 intrări meniu) → `eff-quiz/engine.js` (4 intrări meniu) →
+`pre-equations-eff-navigation.js` → `multiplication-1120-v2.js` (ultimul, cel mai complex — vezi
+Faza D Lot 3: „6 subquiz-uri interne" la migrarea M3B; probabil cere analiză proprie, nu copiere
+oarbă a tiparului). **Notă din Faza D Lot 2:** `addition-table-singapore-missing.js` are „aceeași
+structură ca fișierul de mai sus (+ dimensiunea `missingSide`), migrare pură" — probabil foarte
+similar cu `addition-table-singapore.js` (fresh migrat), dar de citit integral, nu presupus prin
+analogie (regulă generală, respectată la toate fișierele de până acum).
 
-**`sub-sau-langa-radical.js`/`bagare-sub-radical.js` — REZOLVATE (20.08.2026)**, vezi paragrafele
-dedicate din jurnal/„Stare curentă" de mai sus pt. detalii (aceeași capcană structurală la
-amândouă: ramura fără avans din `dupaRaspunsCorect` trebuia făcută explicită, nu putea rămâne `{}`).
+**`sub-sau-langa-radical.js`/`bagare-sub-radical.js`/`addition-table-singapore.js` — REZOLVATE
+(20.08.2026)**, vezi paragrafele dedicate din jurnal/„Stare curentă" de mai sus pt. detalii.
 
 **Reguli de proces care rămân valabile, neschimbate** (nu le re-derivezi, sunt deja stabilite):
 regula din `CLAUDE.md` — caută documentul zonei înainte de modificare (niciunul din cele 11
@@ -387,6 +385,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 20.08.2026 | Faza E, §12, addition-table | Al 2-lea quiz simplu învelit. Capcană specifică: `options` proprii sunt numere, motorul normalizează la string-uri — `isResolvedCombo` compară strict cu un număr, ar fi picat tăcut. Corectat: `options[ctx.index]` în loc de `ctx.alesul`. Găsit și `divisionHistory`/`prompt` lipsă pe răspuns greșit, corectate. **Corecție de proces, la cererea userului**: mecanismul de pornire al orchestratorului simplificat la ambele fișiere deja învelite — orchestrator pornit o dată la construcție, `generator` gol, sincronizare printr-un singur apel necondiționat (fără ramificația „e pornit sau nu" din prima variantă, inutilă). Teste: 7/7. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script + live. | **complet** |
 | 20.08.2026 | Faza E, §12, addition-table-range | Al 3-lea (și, pentru moment, ultimul cerut) quiz simplu învelit — clonă structurală a `addition-table.js`, exact același tipar simplificat aplicat direct, fără explorare suplimentară. 6/6 teste din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live. | **complet** |
 | 20.08.2026 | Faza E, §12, sub-sau-langa-radical | Al 5-lea quiz simplu învelit — prima diferență structurală reală față de tipar: ramura fără avans de nivel din `dupaRaspunsCorect` întorcea `{}` (fără `action`), ceea ce sub orchestrator ar fi lovit generatorul gol (item gol în loc de întrebare reală). Reparat explicit: cheamă `pickNewQuestion()` și întoarce `{action:"continue", view: roundView()}`. Confirmat: fără capcana `options[ctx.index]`/`ctx.alesul` (niciun hook nu o atinge). Sincronizare centralizată în `pickNewQuestion()` (3 puncte de mutație, spre deosebire de un singur „beginXRound" la fișierele anterioare) + apel explicit redundant în `beginRound` (cale activ exercitată de teste, nu doar teoretică). Verificat live exact scenariul de risc (răspuns greșit imediat după avans de nivel arată întrebarea nouă, nu una învechită), programatic pe instanța reală înregistrată în pagină, zero erori consolă. Teste: 11/11. Suită completă: 506, 503 trec, 3 pică (preexistente). Commit `33ade82`, push confirmat. | **complet** |
+| 20.08.2026 | Faza E, §12, addition-table-singapore | Al 7-lea quiz simplu învelit — fără `current` unificat (`currentFact`+`options`+`correctIndex` separate, sincronizare centralizată în `buildOptionsForFact`, singurul loc care le schimbă). `dupaRaspunsCorect` întorcea deja mereu comandă explicită (ca la primele 4, nu ca la ultimele 2) — `intrebareUrmatoare` (`() => null`, deja neutralizată dinainte de lucrare) rămâne cod mort. Găsit și tratat: `roundView()` are câmpuri proprii (`questionFormat`, `targetSum`, `bondHistory`) absente din vederea generică — injectate prin `dupaApasare`, la fel ca `divisionHistory`/`successionHistory` la fișierele anterioare. Primul fișier cu mesaj dinamic real folosind `ctx.alesul` (nu doar `options[ctx.index]` din closure) — verificat live că valoarea aleasă apare corect în mesaj prin orchestrator. Teste: 8/8 din prima încercare, inclusiv scenariul de retry. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live: mesaj dinamic corect, câmpuri proprii prezente pe greșit, bondHistory actualizat pe corect, zero erori consolă. Commit `66cc595`, push confirmat. | **complet** |
 | 20.08.2026 | Faza E, §12, bagare-sub-radical | Al 6-lea quiz simplu învelit — aceeași capcană ca la `sub-sau-langa-radical.js` (ramura „caz normal" din `dupaRaspunsCorect` întorcea `{}`, bazându-se pe `intrebareUrmatoare` implicit al M3B — ștearsă, înlocuită cu comandă explicită). Diferență: aici `pickNewQuestion()` e o funcție PURĂ (nu se auto-mută pe `current`) — sincronizarea adăugată separat la fiecare din cele 4 situri unde codul face `current = pickNewQuestion()` (`advanceLevel`, 2 ramuri din `dupaRaspunsCorect`, `beginRound`), nu centralizată într-un singur loc ca la fișierul anterior. `esteCorect` fără capcana `options[ctx.index]`/`ctx.alesul` (confirmat, ca la fișierul anterior). Verificat live: wrong stă pe loc cu hint, correct din ramura normală avansează cu prompt nou, correct-cu-streak avansează faza — toate cu semnătura M3B prezentă, zero erori consolă. Teste: 8/8 din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Commit `62012bd`, push confirmat. | **complet** |
 | 20.08.2026 | Faza E, §12, prime-divisors | Al 4-lea quiz simplu învelit — primul cu pas intermediar real (lanț de împărțiri până la 1), `dupaRaspunsCorect` întoarce mereu comandă explicită și pe ramura intermediară, deci tiparul simplificat rămâne neschimbat. Aceeași capcană `options[ctx.index]` vs `ctx.alesul`. Diferență față de `addition-table*`: `divisionHistory` are conținut REAL (nu gol) — injectat prin `dupaApasare`, verificat live că lanțul 4→2→1 arată istoricul corect pe ecran. 6/6 teste din prima încercare, inclusiv testul dedicat pasului intermediar. Suită completă: 506, 503 trec, 3 pică (preexistente). | **complet** |
 | 20.08.2026 | Faza E, v4 | ULTIMUL fișier cu subquizuri reale: toate 5 subquizuri migrate din `multiplication-1120-v4-intensiv-multipli-234.js` (fișierul bug-ului ORIGINAL) la contractul declarativ. `sq2EffVbs`/`sq2EffSbs` foloseau `turCorect` (ca v3) — reparate la fel, dar cod mort azi (nedeclanșate automat). Găsită și tratată aceeași capcană de „mesaj scurs" ca la v2-modular, de data asta la `sq5Definition` (exit spre "base" în mod B/levelStart, sq5 fiind primul din rută) — corectat cu `view:{message:undefined}`, verificat cu script dedicat. Suita fișierului: 28/28 din prima încercare, inclusiv testul de regresie exact pe bug-ul original. Suită completă: 506 teste, 503 trec, 3 pică — exact cele 3 preexistente, zero eșecuri legate de lucrare pentru prima dată din Faza C încoace. Verificat live: greșit rămâne + `wrongFacts`, corect avansează, zero erori consolă. **Cu asta, toate cele 17 subquizuri reale sunt migrate — pașii 1-3 din §5 (plan) COMPLEȚI.** | **complet** |
@@ -733,8 +732,11 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
             — ramura „caz normal" din `dupaRaspunsCorect` întorcea `{}`, reparată explicit; aici
             `pickNewQuestion()` rămâne PURĂ, deci sincronizarea s-a adăugat la fiecare din cele 4
             situri de mutație, nu centralizat)
-      - [ ] `addition-table-singapore.js` — **URMĂTORUL**
-      - [ ] `addition-table-singapore-missing.js`
+      - [x] `addition-table-singapore.js` — 20.08.2026 (fără `current` unificat — `currentFact`+
+            `options`+`correctIndex` separate; `roundView()` are câmpuri proprii `questionFormat`/
+            `targetSum`/`bondHistory`, injectate explicit prin `dupaApasare` pe ramura de greșit;
+            mesaj dinamic real cu `ctx.alesul`, confirmat corect prin orchestrator)
+      - [ ] `addition-table-singapore-missing.js` — **URMĂTORUL**
       - [ ] `division-with-remainder.js`
       - [ ] `prime-divisions.js`
       - [ ] `succesive-quiz/engine.js`
