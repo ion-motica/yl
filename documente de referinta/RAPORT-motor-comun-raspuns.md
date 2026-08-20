@@ -233,9 +233,11 @@ avansează, zero erori consolă. Sufixul „NEFUNCTIONAL" scos. `index.html`:
 **Autorizare 18.08.2026, noapte:** userul a cerut explicit sa continui fara sa astept confirmare
 la fiecare OPRIRE, "conform planului" — comit si implementez in continuare autonom. Autorizarea
 e in vigoare, neschimbata; reconfirmată explicit 19.08.2026 („continua aplicarea planului").
-**Aplicația:** funcțională, cu excepția celor 3 quizuri cu subquizuri (sufixate „NEFUNCTIONAL",
-intenționat — vezi mai sus).
-**Ultima actualizare:** 19.08.2026, sesiune Faza E
+**Aplicația:** complet funcțională — zero sufixe „NEFUNCTIONAL" rămase (ultimul scos la migrarea
+v4, 20.08.2026). Migrările/învelirile de până acum au inclus și corecții de bug intenționate,
+documentate individual (Faza D Lot 1/2, Faza E v3/v4) — nu doar mutări mecanice.
+**Ultima actualizare:** 20.08.2026, tranziție de sesiune în mijlocul §12 — vezi subsecțiunea
+„Tranziție de sesiune, 20.08.2026" de mai jos pentru starea EXACTĂ și pasul următor.
 
 ### De ce s-a oprit sesiunea anterioară exact aici
 
@@ -262,6 +264,75 @@ chat-ul nou repetă „continuă autonom, fără să aștepți") poți relua dir
 manieră riguroasă (test întâi, migrare, verificare live, commit/push per fișier — respectând
 granularitatea proprie a Fazei E, adică raportează/oprește-te după FIECARE fișier, nu după tot
 lotul de 3, dacă nu ai o autorizare explicită și pentru asta).
+
+### Tranziție de sesiune, 20.08.2026 — motiv: context plin, NU oprire din decizie proprie
+
+Spre deosebire de tranziția de mai sus (Faza D→E, alegere proprie a sesiunii anterioare), asta e o
+tranziție cerută de user explicit („scrie un raport... sa trecem in alt chat", contextul curent
+era pe cale să se umple), în mijlocul §12, cu lucru neterminat. **Nicio decizie de oprire nu s-a
+luat** — sesiunea nouă trebuie să continue direct, conform autorizării de mai jos.
+
+**Autorizare activă, dată chiar înainte de această tranziție (20.08.2026), mai largă decât cea din
+18.08.2026 — citat exact, ca să nu se piardă nuanța:** „continua si implementeaza restul de
+quizuri fara input de la mine - daca apar decizii de luat notezi, treci mai departe si mi le
+prezitni la final. acum plec de la pc. deci continui pana finalizezi toate quizurile si daca sunt
+decizii de luat le amanm pana la sfarsitul listei."
+
+**Ce înseamnă concret pentru sesiunea nouă:**
+- Continuă direct §12 — cele 11 quizuri/motoare rămase din checklist-ul de mai jos, în ordinea
+  deja stabilită — **fără să te oprești să întrebi**, cu același nivel de rigoare aplicat la
+  primele 4 (static check, teste actualizate, `node --test` per fișier + suită completă, verificare
+  live în browser, `npm run check:encoding`, cache-bust în `index.html`, commit+push per fișier,
+  actualizare RAPORT).
+- Dacă apare o **decizie reală de design** (nu doar „aplică tiparul deja validat"; o alegere unde
+  ar fi fost rezonabil și altfel) — nu întreba, alege varianta cea mai conservatoare (păstrează
+  comportamentul existent exact, nu redesena), **notează alegerea** în secțiunea nouă
+  „## Decizii amânate — de prezentat userului la final" (la finalul acestui fișier), și mergi mai
+  departe. NU se prezintă userului pe parcurs — DOAR după ce toate cele 11 sunt gata.
+- Autorizarea acoperă STRICT învelirea celor 11 fișiere rămase din §12. NU acoperă gardul propriu-zis
+  (ultimul bullet needit din §12 — enforcement-ul „orice quiz trebuie construit prin orchestrator")
+  și nu acoperă nimic din Faza F — alea rămân puncte de oprire/raportare separate, ca-nainte.
+- NU se ating cele 2 bug-uri din „Bug-uri găsite, NEreparate" și nici nota din „De adresat după
+  finalizarea planului curent" — rămân deliberat deferate, cu context deja complet acolo.
+
+**Pasul următor exact — al 5-lea quiz simplu:** [`js/quizzes/sub-sau-langa-radical.js`](../js/quizzes/sub-sau-langa-radical.js),
+titlu meniu **„Sub sau lângă radical v1"**. Ordinea rămasă după el (neschimbată din checklist):
+`bagare-sub-radical.js` → `addition-table-singapore.js` → `addition-table-singapore-missing.js` →
+`division-with-remainder.js` → `prime-divisions.js` → `succesive-quiz/engine.js` →
+`conexe-table-quiz/engine.js` (4 intrări meniu) → `eff-quiz/engine.js` (4 intrări meniu) →
+`pre-equations-eff-navigation.js` → `multiplication-1120-v2.js` (ultimul, cel mai complex — vezi
+Faza D Lot 3: „6 subquiz-uri interne" la migrarea M3B; probabil cere analiză proprie, nu copiere
+oarbă a tiparului).
+
+**`sub-sau-langa-radical.js` a fost deja CITIT integral în sesiunea anterioară (nicio editare
+făcută încă) — pre-analiză, ca să nu se piardă lectura:**
+- `current.options` sunt deja STRING-uri chiar la construcția întrebării
+  (`shuffle([String(value), String(traps[0]), String(traps[1])])`, linia ~240) —
+  `current.correct` rămâne NUMĂR. Vechiul `esteCorect`: `Number(current.options[index]) ===
+  current.correct`. Spre deosebire de `addition-table*`/`prime-divisors.js`, **niciun alt hook
+  (`dupaApasare`/`dupaRaspunsCorect`) nu citește `ctx.alesul` sau un index într-un mod sensibil la
+  coerciția tip string-normalizat-de-motor** — posibil primul fișier din §12 FĂRĂ capcana
+  `options[ctx.index]` vs `ctx.alesul`. **De verificat cu test dedicat, nu de presupus.**
+- `roundView()` (liniile ~280-289) produce exact `{prompt, promptHtml, options, correctIndex,
+  hintMessage}` — coincide aproape 1:1 cu `view()`-ul generic din `subquiz-definition.js`. Posibil
+  primul fișier unde `dupaApasare` NU are nevoie să injecteze niciun câmp lipsă pe ramura de
+  răspuns greșit (spre deosebire de `successionHistory`/`divisionHistory` la fișierele anterioare).
+  **De verificat explicit, nu de omis fără test.**
+- `beginRound(next) { current = next ?? pickNewQuestion(); ... }` (linia ~411) are aceeași formă ca
+  bug-ul #2 documentat mai jos pentru `equations-e3-e6.js` (un `next` trunchiat ar corupe
+  `current.correct`, deci `esteCorect` ar rămâne `false` la nesfârșit). Verifică la fel, prin
+  `falling-engine.js`, dacă acest apel exact e neatins de `??` — probabil da (mecanismul e generic
+  în `falling-engine.js`, nu specific fișierului), dar de confirmat per fișier, nu de presupus prin
+  analogie.
+- Restul fișierului (nivele 1-5, `advanceLevel`, `completeGame`) e structural identic cu tiparul
+  deja validat de 4 ori (pornire unică a orchestratorului, `generator` gol, `sincronizeazaOrchestratorul()`
+  necondiționat) — nimic altceva neobișnuit găsit la citirea integrală.
+
+**Reguli de proces care rămân valabile, neschimbate** (nu le re-derivezi, sunt deja stabilite):
+regula din `CLAUDE.md` — caută documentul zonei înainte de modificare (niciunul din cele 11
+fișiere rămase nu are document de referință dedicat în tabel, deci explorare standard, ca la
+primele 4); orice raport/commit despre un quiz specific numește ÎNTOTDEAUNA și fișierul `.js` ȘI
+titlul exact din meniu (regulă memorată separat, în sistemul de memorie Claude — se aplică automat).
 
 ---
 
@@ -630,7 +701,8 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
             `divisionHistory` cu conținut REAL — nu gol ca la `addition-table*` — trebuia
             injectat prin `dupaApasare` la fel; are pas intermediar real, testat explicit
             live: lanțul 4→2→1 funcționează, `divisionHistory` se afișează corect; 6/6 teste)
-      - [ ] `sub-sau-langa-radical.js`
+      - [ ] `sub-sau-langa-radical.js` — **URMĂTORUL**, deja citit integral, pre-analiză gata
+            (vezi „Tranziție de sesiune, 20.08.2026" mai sus)
       - [ ] `bagare-sub-radical.js`
       - [ ] `addition-table-singapore.js`
       - [ ] `addition-table-singapore-missing.js`
@@ -816,3 +888,16 @@ poate fi resimțită ca inconsistentă, mai ales de un copil. Posibile direcții
     număr, nu un defect.
 Depinde de o decizie de UX a userului, nu de un fapt tehnic de corectat — de-aia stă aici, nu la
 „Bug-uri găsite, nereparate".
+
+## Decizii amânate — de prezentat userului la final
+
+> Secțiune nouă (autorizare 20.08.2026 — vezi „Tranziție de sesiune" din „Stare curentă"). Diferită
+> de cele două secțiuni de mai sus: nu e un bug (verificat, real) și nu e o observație de UX — e o
+> **alegere de implementare** făcută unilateral, în timpul învelirii celor 11 quizuri rămase din
+> §12, într-un loc unde ar fi fost rezonabil și altfel, dar userul a cerut explicit să nu se
+> oprească lucrul ca să întrebe. Fiecare intrare: ce trebuia decis, ce s-a ales și de ce (mereu
+> varianta cea mai conservatoare — comportament identic cu dinainte), ce altă variantă exista.
+> **Se prezintă userului DOAR după ce toate cele 11 fișiere sunt gata — nu pe parcurs.**
+>
+> *(goală la 20.08.2026, tranziția de sesiune — se completează pe parcursul §12, dacă apare ceva
+> care nu e o simplă aplicare a tiparului deja validat de 4 ori)*
