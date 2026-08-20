@@ -55,6 +55,21 @@
     let seriesHistory = [];  // [{prompt, answer}] pt seria curentă
 
     let levelPool = [];
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi conexe-table-quiz/engine.js pt. explicatia
+    // completa a tiparului — fisier-frate, aceeasi solutie). `beginCurrentStep()`
+    // e singurul loc care schimba `currentFact`/`currentBuilt`/`options`/
+    // `correctIndex` — sincronizeaza neconditionat, chiar acolo, inainte de
+    // fiecare `return roundView()`.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: currentBuilt?.prompt ?? "—",
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -278,6 +293,7 @@
         currentBuilt = built;
         options = built.options;
         correctIndex = built.correctIndex;
+        sincronizeazaOrchestratorul();
         return roundView();
       }
 
@@ -399,32 +415,51 @@
     // secundare traiesc acum in `dupaApasare`, iar rezultatul vizual il
     // construieste M3B, prin `mesaje.gresit`. `dupaRaspunsCorect` cheama
     // direct `onStepCorrect` existenta, neschimbata.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => index === correctIndex,
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (!ctx.corect) {
-            if (seriesType === "A") {
-              seriesHadMistakes = true;
-              reg.addWrong(quizId, level, currentFact.factId);
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `roundView()` are campuri proprii (`divisionHistory`,
+    // `bondHistory`, `questionFormat`, `successionHistory`) absente din vederea
+    // generica — ca la conexe-table-quiz/engine.js, `dupaApasare` intoarce
+    // `roundView()` INTREG (nu campuri punctuale), exact ce facea implicit
+    // vechiul `construiesteVedere: (extra) => ({...roundView(), ...extra})`.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT,
+        esteCorect: (_item, index) => index === correctIndex,
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) => `${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
+        },
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (!ctx.corect) {
+              if (seriesType === "A") {
+                seriesHadMistakes = true;
+                reg.addWrong(quizId, level, currentFact.factId);
+              }
+              const item = activeQueue[0];
+              const dup = wrongQueue.some(
+                (w) => w.factId === item?.factId && w.qfTypeId === item?.qfTypeId
+              );
+              if (!dup && item) wrongQueue.push(item);
             }
-            const item = activeQueue[0];
-            const dup = wrongQueue.some(
-              (w) => w.factId === item?.factId && w.qfTypeId === item?.qfTypeId
-            );
-            if (!dup && item) wrongQueue.push(item);
-          }
-          return {};
+            return roundView();
+          },
+          dupaRaspunsCorect: () => {
+            return { action: "continue", view: onStepCorrect() };
+          },
         },
-        dupaRaspunsCorect: () => {
-          return { action: "continue", view: onStepCorrect() };
-        },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     // ── Init ────────────────────────────────────────────────────────────────────
 
@@ -520,14 +555,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
-      // construirea lui `m3b`, mai sus.
-      onAnswer(index) {
-        return m3b.laApasareButon({
-          item: { options },
-          index,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+      // Migrat la Motor3Butoane (Faza D, lotul 3), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
+      onAnswer(index, meta = {}) {
+        return orchestrator.onAnswer(index, meta);
       },
 
       getAamIllustration,
