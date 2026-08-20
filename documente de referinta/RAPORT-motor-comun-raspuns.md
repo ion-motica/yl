@@ -19,11 +19,15 @@
 
 **Faza:** D COMPLETĂ. **Faza E, pașii 1-3 COMPLEȚI** — toate cele 17 subquizuri reale (9 în
 v2-modular, 3 în v3, 5 în v4) migrate la contractul declarativ „CE nu CUM". **§12 ÎN LUCRU**:
-4/15 quizuri „simple" învelite în `SubquizOrchestrator` (`equations-e3-e6.js`,
-`addition-table.js`, `addition-table-range.js`, `prime-divisors.js`) — vezi mai jos. Rămân 11.
+5/15 quizuri „simple" învelite în `SubquizOrchestrator` (`equations-e3-e6.js`,
+`addition-table.js`, `addition-table-range.js`, `prime-divisors.js`, `sub-sau-langa-radical.js`) —
+vezi mai jos. Rămân 10. **Sesiune nouă, 20.08.2026 seara: userul a autorizat continuarea autonomă
+prin toată lista rămasă, fără oprire — vezi „Autorizare activă" mai jos, secțiunea „Tranziție de
+sesiune".**
 Commit-uri Faza D, în ordine: Lot 1 `f0ded97`, Lot 2 `7ed8cc1`, Lot 3 `5c08b54`, Lot 4 `38f8780`.
 Faza E, pas 1: `15d8bdb`, `c7f0047`. Faza E, v3: `162530f`. Faza E, v2-modular: `d70c544`.
-Faza E, v4: `7a0f012`. Faza E, §12: `848b871`, `7b0cf98`, `1d1c50d`, `7e1db3b`, `e6c762c`.
+Faza E, v4: `7a0f012`. Faza E, §12: `848b871`, `7b0cf98`, `1d1c50d`, `7e1db3b`, `e6c762c`,
+`33ade82` (sub-sau-langa-radical.js).
 **Toate pushate pe `origin/master` — confirmat.**
 
 **Faza E, §12 — equations-e3-e6.js învelit (20.08.2026), PRIMUL quiz „simplu":** o singură bucată
@@ -75,6 +79,39 @@ peste tot. Găsit și `divisionHistory`/`prompt` lipsă pe vederea de răspuns g
 de gol ca `successionHistory` la equations-e3-e6) — corectate la fel. Teste: 7/7 verzi. Suită
 completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script dedicat + live. `index.html`:
 `addition-table.js` v1→v2.
+
+**Faza E, §12 — sub-sau-langa-radical.js învelit (20.08.2026), al 5-lea quiz „simplu", PRIMA
+diferență structurală reală față de tipar:** spre deosebire de primele 4 fișiere, aici
+`dupaRaspunsCorect` avea o ramură (fără avans de nivel) care întorcea `{}` — fără `action`. Sub
+M3B-ul folosit DIRECT (dinainte de înveliire), asta cădea pe calea implicită a lui M3B
+(`config.intrebareUrmatoare`), care alegea singură întrebarea următoare. Sub orchestrator, calea
+implicită e generatorul GOL al definiției (cerut de tipar, nu se mai cheamă niciodată) — ar fi
+produs un item gol în loc de o întrebare reală, o rupere vizibilă. Reparat făcând explicit ce se
+întâmpla implicit înainte: ramura fără avans cheamă acum `pickNewQuestion()` chiar în
+`dupaRaspunsCorect` și întoarce `{action:"continue", view: roundView()}` — comportament identic,
+doar explicit în loc de implicit (exact cerința deja stabilită a tiparului: „`dupaRaspunsCorect`
+intoarce mereu o comandă explicită, niciodată `undefined`"). Confirmată din pre-analiza sesiunii
+anterioare: acest fișier NU are capcana `options[ctx.index]` vs `ctx.alesul` (niciun hook nu
+citește `ctx.alesul`, ambele acțiuni ignoră parametrul `item`/`ctx` sau citesc direct din closure).
+**A doua particularitate:** fișierul folosește `promptHtml` (conținut HTML real, cu radicali/exponenți),
+spre deosebire de `addition-table*`/`prime-divisors.js` (unde `prompt` era text simplu) —
+`sincronizeazaOrchestratorul()` transportă acum și acel câmp, altfel vederea de răspuns greșit ar
+fi arătat un `promptHtml` absent (deși `prompt` conținea deja HTML-ul, `promptHtml` separat lipsea
+din orchestrator dacă nu era transportat explicit). **Plasarea sincronizării:** spre deosebire de
+celelalte 4 (o singură funcție „beginXRound" e locul unic de mutație), aici `current` se schimbă
+din 3 locuri diferite (`beginRound`, `advanceLevel` prin `pickNewQuestion()`, și ramura nouă din
+`dupaRaspunsCorect` tot prin `pickNewQuestion()`) — sincronizarea a fost centralizată chiar în
+`pickNewQuestion()` (singurul loc care produce efectiv o întrebare NOUĂ), plus un apel explicit
+suplimentar în `beginRound` (redundant în calea reală, dar necesar pt. testele care cheamă
+`beginRound()` fără argument — cale activ exercitată, nu doar teoretică, spre deosebire de bug-ul
+#2 documentat la `equations-e3-e6.js`). **Verificat live în browser, exact scenariul de risc**
+(nu presupus): un răspuns greșit imediat DUPĂ un avans de nivel arată corect întrebarea NOUĂ (de
+la nivelul nou), nu una învechită — testat programatic direct pe instanța înregistrată real în
+pagină (`QuizRegistry.get(...).create(...)`, cu scriptul real încărcat din `index.html`, nu doar
+izolat în Node), zero erori consolă. Teste: 11/11 din prima încercare (adăugat
+`item-generator.js`/`subquiz-definition.js`/`subquiz-orchestrator.js` la încărcare, ca la
+`equations-e3-e6.test.js`). Suită completă: 506, 503 trec, 3 pică (preexistente). `index.html`:
+`sub-sau-langa-radical.js` v1→v2. Commit `33ade82`, push confirmat.
 
 **Faza E — v4 migrat (20.08.2026), ULTIMUL fișier cu subquizuri reale:** toate 5 subquizuri din
 `js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` (`base`, `sq3FactorGroup`,
@@ -236,8 +273,10 @@ e in vigoare, neschimbata; reconfirmată explicit 19.08.2026 („continua aplica
 **Aplicația:** complet funcțională — zero sufixe „NEFUNCTIONAL" rămase (ultimul scos la migrarea
 v4, 20.08.2026). Migrările/învelirile de până acum au inclus și corecții de bug intenționate,
 documentate individual (Faza D Lot 1/2, Faza E v3/v4) — nu doar mutări mecanice.
-**Ultima actualizare:** 20.08.2026, tranziție de sesiune în mijlocul §12 — vezi subsecțiunea
-„Tranziție de sesiune, 20.08.2026" de mai jos pentru starea EXACTĂ și pasul următor.
+**Ultima actualizare:** 20.08.2026 seara, sesiune nouă care continuă §12 autonom conform
+autorizării — `sub-sau-langa-radical.js` gata (5/15), în lucru pe `bagare-sub-radical.js` (al
+6-lea). Vezi subsecțiunea „Tranziție de sesiune, 20.08.2026" de mai jos pentru autorizarea exactă
+și istoricul deciziei de a continua fără oprire.
 
 ### De ce s-a oprit sesiunea anterioară exact aici
 
@@ -295,38 +334,19 @@ decizii de luat le amanm pana la sfarsitul listei."
 - NU se ating cele 2 bug-uri din „Bug-uri găsite, NEreparate" și nici nota din „De adresat după
   finalizarea planului curent" — rămân deliberat deferate, cu context deja complet acolo.
 
-**Pasul următor exact — al 5-lea quiz simplu:** [`js/quizzes/sub-sau-langa-radical.js`](../js/quizzes/sub-sau-langa-radical.js),
-titlu meniu **„Sub sau lângă radical v1"**. Ordinea rămasă după el (neschimbată din checklist):
-`bagare-sub-radical.js` → `addition-table-singapore.js` → `addition-table-singapore-missing.js` →
+**Pasul următor exact — al 6-lea quiz simplu:** [`js/quizzes/bagare-sub-radical.js`](../js/quizzes/bagare-sub-radical.js),
+titlu meniu **„Bagare sub radical"**. Ordinea rămasă după el (neschimbată din checklist):
+`addition-table-singapore.js` → `addition-table-singapore-missing.js` →
 `division-with-remainder.js` → `prime-divisions.js` → `succesive-quiz/engine.js` →
 `conexe-table-quiz/engine.js` (4 intrări meniu) → `eff-quiz/engine.js` (4 intrări meniu) →
 `pre-equations-eff-navigation.js` → `multiplication-1120-v2.js` (ultimul, cel mai complex — vezi
 Faza D Lot 3: „6 subquiz-uri interne" la migrarea M3B; probabil cere analiză proprie, nu copiere
-oarbă a tiparului).
+oarbă a tiparului). Nicio pre-analiză scrisă încă pentru `bagare-sub-radical.js` — se citește
+integral înainte de a-l edita, ca la toate celelalte.
 
-**`sub-sau-langa-radical.js` a fost deja CITIT integral în sesiunea anterioară (nicio editare
-făcută încă) — pre-analiză, ca să nu se piardă lectura:**
-- `current.options` sunt deja STRING-uri chiar la construcția întrebării
-  (`shuffle([String(value), String(traps[0]), String(traps[1])])`, linia ~240) —
-  `current.correct` rămâne NUMĂR. Vechiul `esteCorect`: `Number(current.options[index]) ===
-  current.correct`. Spre deosebire de `addition-table*`/`prime-divisors.js`, **niciun alt hook
-  (`dupaApasare`/`dupaRaspunsCorect`) nu citește `ctx.alesul` sau un index într-un mod sensibil la
-  coerciția tip string-normalizat-de-motor** — posibil primul fișier din §12 FĂRĂ capcana
-  `options[ctx.index]` vs `ctx.alesul`. **De verificat cu test dedicat, nu de presupus.**
-- `roundView()` (liniile ~280-289) produce exact `{prompt, promptHtml, options, correctIndex,
-  hintMessage}` — coincide aproape 1:1 cu `view()`-ul generic din `subquiz-definition.js`. Posibil
-  primul fișier unde `dupaApasare` NU are nevoie să injecteze niciun câmp lipsă pe ramura de
-  răspuns greșit (spre deosebire de `successionHistory`/`divisionHistory` la fișierele anterioare).
-  **De verificat explicit, nu de omis fără test.**
-- `beginRound(next) { current = next ?? pickNewQuestion(); ... }` (linia ~411) are aceeași formă ca
-  bug-ul #2 documentat mai jos pentru `equations-e3-e6.js` (un `next` trunchiat ar corupe
-  `current.correct`, deci `esteCorect` ar rămâne `false` la nesfârșit). Verifică la fel, prin
-  `falling-engine.js`, dacă acest apel exact e neatins de `??` — probabil da (mecanismul e generic
-  în `falling-engine.js`, nu specific fișierului), dar de confirmat per fișier, nu de presupus prin
-  analogie.
-- Restul fișierului (nivele 1-5, `advanceLevel`, `completeGame`) e structural identic cu tiparul
-  deja validat de 4 ori (pornire unică a orchestratorului, `generator` gol, `sincronizeazaOrchestratorul()`
-  necondiționat) — nimic altceva neobișnuit găsit la citirea integrală.
+**`sub-sau-langa-radical.js` — REZOLVAT (20.08.2026)**, vezi paragraful dedicat din jurnal/„Stare
+curentă" de mai sus pt. detalii (prima diferență structurală reală față de tipar: ramura fără avans
+de nivel din `dupaRaspunsCorect` trebuia făcută explicită, nu putea rămâne `{}`).
 
 **Reguli de proces care rămân valabile, neschimbate** (nu le re-derivezi, sunt deja stabilite):
 regula din `CLAUDE.md` — caută documentul zonei înainte de modificare (niciunul din cele 11
@@ -363,6 +383,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 20.08.2026 | Faza E, §12, equations-e3-e6 | PRIMUL quiz „simplu" învelit în `SubquizOrchestrator` (o singură bucată „bază"). Găsită și rezolvată o capcană structurală generală, reutilizabilă la toate cele 14 rămase: tiparul `beginRound`/`pickNextRound` (gestionează întrebarea direct, fără motor) intră în conflict cu auto-pornirea leneșă a orchestratorului — ar înghiți prima apăsare, regenerând o întrebare nouă în loc s-o proceseze. Rezolvat cu `generator()` care întoarce `current` deja existent (nu regenerează, nu consumă o extragere aleatoare în plus) + `sincronizeazaOrchestratorul()` care pornește/sincronizează explicit. A doua capcană, mai subtilă: vederea de răspuns greșit construită de motor nu avea `successionHistory` (panoul de sumar) — reparat prin `dupaApasare`. Verificat cu script dedicat: prima apăsare procesată corect, greșit+successionHistory, corect avansează, run-complete/nivel funcționează, schimbare de nivel funcționează. Teste: 11/11. Suită completă: 506 teste, 503 trec, 3 pică (exact preexistentele). Verificat live în browser. | **complet** |
 | 20.08.2026 | Faza E, §12, addition-table | Al 2-lea quiz simplu învelit. Capcană specifică: `options` proprii sunt numere, motorul normalizează la string-uri — `isResolvedCombo` compară strict cu un număr, ar fi picat tăcut. Corectat: `options[ctx.index]` în loc de `ctx.alesul`. Găsit și `divisionHistory`/`prompt` lipsă pe răspuns greșit, corectate. **Corecție de proces, la cererea userului**: mecanismul de pornire al orchestratorului simplificat la ambele fișiere deja învelite — orchestrator pornit o dată la construcție, `generator` gol, sincronizare printr-un singur apel necondiționat (fără ramificația „e pornit sau nu" din prima variantă, inutilă). Teste: 7/7. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script + live. | **complet** |
 | 20.08.2026 | Faza E, §12, addition-table-range | Al 3-lea (și, pentru moment, ultimul cerut) quiz simplu învelit — clonă structurală a `addition-table.js`, exact același tipar simplificat aplicat direct, fără explorare suplimentară. 6/6 teste din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live. | **complet** |
+| 20.08.2026 | Faza E, §12, sub-sau-langa-radical | Al 5-lea quiz simplu învelit — prima diferență structurală reală față de tipar: ramura fără avans de nivel din `dupaRaspunsCorect` întorcea `{}` (fără `action`), ceea ce sub orchestrator ar fi lovit generatorul gol (item gol în loc de întrebare reală). Reparat explicit: cheamă `pickNewQuestion()` și întoarce `{action:"continue", view: roundView()}`. Confirmat: fără capcana `options[ctx.index]`/`ctx.alesul` (niciun hook nu o atinge). Sincronizare centralizată în `pickNewQuestion()` (3 puncte de mutație, spre deosebire de un singur „beginXRound" la fișierele anterioare) + apel explicit redundant în `beginRound` (cale activ exercitată de teste, nu doar teoretică). Verificat live exact scenariul de risc (răspuns greșit imediat după avans de nivel arată întrebarea nouă, nu una învechită), programatic pe instanța reală înregistrată în pagină, zero erori consolă. Teste: 11/11. Suită completă: 506, 503 trec, 3 pică (preexistente). Commit `33ade82`, push confirmat. | **complet** |
 | 20.08.2026 | Faza E, §12, prime-divisors | Al 4-lea quiz simplu învelit — primul cu pas intermediar real (lanț de împărțiri până la 1), `dupaRaspunsCorect` întoarce mereu comandă explicită și pe ramura intermediară, deci tiparul simplificat rămâne neschimbat. Aceeași capcană `options[ctx.index]` vs `ctx.alesul`. Diferență față de `addition-table*`: `divisionHistory` are conținut REAL (nu gol) — injectat prin `dupaApasare`, verificat live că lanțul 4→2→1 arată istoricul corect pe ecran. 6/6 teste din prima încercare, inclusiv testul dedicat pasului intermediar. Suită completă: 506, 503 trec, 3 pică (preexistente). | **complet** |
 | 20.08.2026 | Faza E, v4 | ULTIMUL fișier cu subquizuri reale: toate 5 subquizuri migrate din `multiplication-1120-v4-intensiv-multipli-234.js` (fișierul bug-ului ORIGINAL) la contractul declarativ. `sq2EffVbs`/`sq2EffSbs` foloseau `turCorect` (ca v3) — reparate la fel, dar cod mort azi (nedeclanșate automat). Găsită și tratată aceeași capcană de „mesaj scurs" ca la v2-modular, de data asta la `sq5Definition` (exit spre "base" în mod B/levelStart, sq5 fiind primul din rută) — corectat cu `view:{message:undefined}`, verificat cu script dedicat. Suita fișierului: 28/28 din prima încercare, inclusiv testul de regresie exact pe bug-ul original. Suită completă: 506 teste, 503 trec, 3 pică — exact cele 3 preexistente, zero eșecuri legate de lucrare pentru prima dată din Faza C încoace. Verificat live: greșit rămâne + `wrongFacts`, corect avansează, zero erori consolă. **Cu asta, toate cele 17 subquizuri reale sunt migrate — pașii 1-3 din §5 (plan) COMPLEȚI.** | **complet** |
 | 20.08.2026 | Faza E, v2-modular | 9/9 subquizuri migrate din `multiplication-1120-v2-modular.js` la contractul declarativ, `raspundeSubquiz`/`creeazaM3BSubquiz` șterse. Niciun hook nu folosea `turCorect` (verificat prin grep) — migrare fără corecție de comportament ascunsă, spre deosebire de v3. Capcană structurală găsită și tratată: `actiuni.*` nu au acces la `runtime` (deci nu pot chema `nextItem()` manual), iar `mesaje.corect` implicit s-ar fi scurs pe ramuri de exit fără `view` propriu — verificat ramură cu ramură, un singur caz real (`anchorSumValues`→`rapidAnchorAdditions`), corectat cu `view:{message:undefined}` explicit. `domainProducts`: mesajul de tranziție de domeniu recreat ca `mesaje.corect` dinamic (detectează `currentDomainCount===0`). Verificat cu script dedicat: mesaj neconfirmat scurs, tranziție de domeniu exact la a 15-a întrebare. Suita fișierului: 43/43 din prima încercare, nimic rescris. Suită completă: 506 teste, 476 trec, 30 pică (exact v4 nemigrat + 3 preexistente). Verificat live: greșit rămâne + `wrongFacts`, corect avansează, zero erori consolă. Sufix scos, commit în lucru. | **complet** |
@@ -701,9 +722,10 @@ Faza D/E și sufixul i se scoate (titlul revine identic cu ce testul așteaptă 
             `divisionHistory` cu conținut REAL — nu gol ca la `addition-table*` — trebuia
             injectat prin `dupaApasare` la fel; are pas intermediar real, testat explicit
             live: lanțul 4→2→1 funcționează, `divisionHistory` se afișează corect; 6/6 teste)
-      - [ ] `sub-sau-langa-radical.js` — **URMĂTORUL**, deja citit integral, pre-analiză gata
-            (vezi „Tranziție de sesiune, 20.08.2026" mai sus)
-      - [ ] `bagare-sub-radical.js`
+      - [x] `sub-sau-langa-radical.js` — 20.08.2026 (prima diferență structurală reală față de
+            tipar: `dupaRaspunsCorect` avea o ramură `{}` fără `action`, reparată explicit; vezi
+            paragraful dedicat mai sus)
+      - [ ] `bagare-sub-radical.js` — **URMĂTORUL**
       - [ ] `addition-table-singapore.js`
       - [ ] `addition-table-singapore-missing.js`
       - [ ] `division-with-remainder.js`
