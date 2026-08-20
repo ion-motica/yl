@@ -31,6 +31,9 @@ function setupQuiz({ deterministic = true } = {}) {
     "js/utils.js",
     "js/progress-display.js",
     "js/quiz-registry.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
     "js/quizzes/bagare-sub-radical.js",
   ].forEach(loadScript);

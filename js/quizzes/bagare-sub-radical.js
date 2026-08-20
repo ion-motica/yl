@@ -201,6 +201,23 @@
     let mixedQuestionCount = 0;
     let current = null;
     let gameCompleted = false;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js / sub-sau-langa-radical.js
+    // pt. explicatia completa a tiparului). `pickNewQuestion()` ramane PURA
+    // (nu muta `current` singura, spre deosebire de sub-sau-langa-radical.js) —
+    // fiecare punct care face `current = pickNewQuestion()` (mai jos:
+    // `advanceLevel`, cele doua ramuri din `dupaRaspunsCorect`, `beginRound`)
+    // cheama sincronizarea explicit, imediat dupa.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: current?.prompt ?? "—",
+        promptHtml: current?.promptHtml,
+        options: current ? [...current.options] : ["—", "—", "—"],
+        correctIndex: current?.correctIndex ?? 0,
+      });
+    }
 
     function getLevelLabel(targetLevel = level) {
       return `Nivel ${targetLevel} · k = ${kForLevel(targetLevel)}`;
@@ -285,6 +302,7 @@
       level += 1;
       resetLevelState();
       current = pickNewQuestion();
+      sincronizeazaOrchestratorul();
 
       const message =
         via === "streak"
@@ -315,56 +333,79 @@
     // care sa poata avansa. `questionCount` (pragul de 21) se muta din a numara
     // orice apasare (Categoria 6) la a numara doar raspunsuri REZOLVATE
     // (corecte) — pragul de 21 ramane neschimbat, doar sensul lui.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
-      intrebareUrmatoare: () => {
-        current = pickNewQuestion();
-        return current;
-      },
-      mesaje: {
-        gresit: "Nu e corect.",
-        corect: "Corect!",
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (!ctx.corect) consecutiveCorrect = 0;
-          return {};
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). Aceeasi capcana gasita la sub-sau-langa-radical.js:
+    // ramura "caz normal" din `dupaRaspunsCorect` intorcea `{}` (fara
+    // `action`), bazandu-se pe calea implicita a lui M3B (`intrebareUrmatoare`,
+    // aici stersa) — sub orchestrator, calea implicita e generatorul GOL,
+    // cerut de tipar. Reparat la fel: face explicit ce facea M3B implicit
+    // (`current = pickNewQuestion()` + comanda explicita).
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT,
+        esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
+        generator: () => ({}),
+        mesaje: {
+          gresit: "Nu e corect.",
+          corect: "Corect!",
         },
-        dupaRaspunsCorect: () => {
-          questionCount += 1;
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (!ctx.corect) consecutiveCorrect = 0;
+            return {};
+          },
+          dupaRaspunsCorect: () => {
+            questionCount += 1;
 
-          if (questionCount >= QUESTIONS_PER_LEVEL) {
-            return { action: "continue", view: advanceLevel("count") };
-          }
-
-          if (currentPhase === PHASE.FOUR) {
-            mixedQuestionCount += 1;
-            if (mixedQuestionCount >= MIXED_QUESTIONS) goToPhase(PHASE.FIVE);
-            current = pickNewQuestion();
-            return {
-              action: "continue",
-              view: { outcome: "step-correct", correct: true, bounce: true, message: "Corect!", ...roundView() },
-            };
-          }
-
-          consecutiveCorrect += 1;
-
-          if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
-            if (currentPhase === PHASE.SIX) {
-              return { action: "continue", view: advanceLevel("streak") };
+            if (questionCount >= QUESTIONS_PER_LEVEL) {
+              return { action: "continue", view: advanceLevel("count") };
             }
-            advanceToNextPhase();
-            current = pickNewQuestion();
-            return {
-              action: "continue",
-              view: { outcome: "step-correct", correct: true, bounce: true, message: "Corect!", ...roundView() },
-            };
-          }
 
-          return {}; // caz normal: M3B cheama `intrebareUrmatoare` si foloseste `mesaje.corect`
+            if (currentPhase === PHASE.FOUR) {
+              mixedQuestionCount += 1;
+              if (mixedQuestionCount >= MIXED_QUESTIONS) goToPhase(PHASE.FIVE);
+              current = pickNewQuestion();
+              sincronizeazaOrchestratorul();
+              return {
+                action: "continue",
+                view: { outcome: "step-correct", correct: true, bounce: true, message: "Corect!", ...roundView() },
+              };
+            }
+
+            consecutiveCorrect += 1;
+
+            if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
+              if (currentPhase === PHASE.SIX) {
+                return { action: "continue", view: advanceLevel("streak") };
+              }
+              advanceToNextPhase();
+              current = pickNewQuestion();
+              sincronizeazaOrchestratorul();
+              return {
+                action: "continue",
+                view: { outcome: "step-correct", correct: true, bounce: true, message: "Corect!", ...roundView() },
+              };
+            }
+
+            // caz normal: inainte, M3B folosit direct chema `intrebareUrmatoare`
+            // implicit; sub orchestrator, facut explicit (vezi comentariul de mai sus).
+            current = pickNewQuestion();
+            sincronizeazaOrchestratorul();
+            return { action: "continue", view: roundView() };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -402,6 +443,7 @@
 
       beginRound(next) {
         current = next ?? pickNewQuestion();
+        sincronizeazaOrchestratorul();
         return roundView();
       },
 
@@ -413,13 +455,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, PLAN-motor-comun-raspuns.md).
-      onAnswer(index) {
-        return m3b.laApasareButon({
-          item: current,
-          index,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+      // Migrat la Motor3Butoane (Faza D), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
+      onAnswer(index, meta = {}) {
+        return orchestrator.onAnswer(index, meta);
       },
     };
   }
