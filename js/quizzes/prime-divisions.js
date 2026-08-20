@@ -21,8 +21,22 @@
     let gameCompleted = false;
     const solvedFactors = [];
     const divisionHistory = [];
+    let orchestrator = null;
 
     const mistakes = global.QuizMistakes.create(config);
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi prime-divisors.js pt. explicatia completa a
+    // tiparului — fisier-frate, acelasi pas intermediar real). Chemata
+    // explicit dupa `buildStep`/`buildStepFromCombo`, la cele 2 situri de
+    // mutatie (`beginRound`, ramura intermediara din `dupaRaspunsCorect`).
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: currentPrompt(),
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     function nextSetFloorForLevel(lv) {
       if (lv >= 5) return 20;
@@ -308,79 +322,102 @@
     // pasul intermediar avea deja `promptHoldMs`+`continueStep` (o pauza de
     // 160ms care arata rezultatul impartirii curente inainte de urmatoarea) —
     // M3B le lasa sa treaca neatinse, sunt citite direct de falling-engine.js.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => options[index] === currentQuotient,
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `La ${currentDividend}:${currentDivisor}=?, ${ctx.alesul} nu e corect. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (!ctx.corect) {
-            mistakes.recordMistake(
-              buildMistakePayload({
-                dividend: currentDividend,
-                divisor: currentDivisor,
-                correct: currentQuotient,
-                wrong: ctx.alesul,
-              })
-            );
-          }
-          return {};
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `options` proprii sunt NUMERE — `mesaje.gresit`/
+    // `dupaApasare` citesc `options[ctx.index]` direct din closure, NU
+    // `ctx.alesul` (ar fi string-ul normalizat de motor). Aici capcana are o
+    // consecinta mai subtila decat un mesaj: `ctx.alesul` (string) ar fi ajuns
+    // stocat ca `combo.wrong` prin `buildMistakePayload`, comparat mai tarziu
+    // cu `!==` strict fata de un NUMAR (`correctQuotient`) in
+    // `buildStepFromCombo` — un string ar fi picat mereu acea comparatie,
+    // indiferent de valoare.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: "Alege câtul corect.",
+        esteCorect: (_item, index) => options[index] === currentQuotient,
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) => `La ${currentDividend}:${currentDivisor}=?, ${options[ctx.index]} nu e corect. Încearcă din nou!`,
         },
-        dupaRaspunsCorect: () => {
-          const dividendBefore = currentDividend;
-          const divisorBefore = currentDivisor;
-          const quotientBefore = currentQuotient;
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (!ctx.corect) {
+              mistakes.recordMistake(
+                buildMistakePayload({
+                  dividend: currentDividend,
+                  divisor: currentDivisor,
+                  correct: currentQuotient,
+                  wrong: options[ctx.index],
+                })
+              );
+            }
+            return { divisionHistory: [...divisionHistory] };
+          },
+          dupaRaspunsCorect: () => {
+            const dividendBefore = currentDividend;
+            const divisorBefore = currentDivisor;
+            const quotientBefore = currentQuotient;
 
-          if (isResolvedCombo(activeComboTrap, dividendBefore, divisorBefore, quotientBefore, quotientBefore)) {
-            mistakes.resolveCombo(activeComboTrap);
-          }
+            if (isResolvedCombo(activeComboTrap, dividendBefore, divisorBefore, quotientBefore, quotientBefore)) {
+              mistakes.resolveCombo(activeComboTrap);
+            }
 
-          solvedFactors.push(divisorBefore);
-          divisionHistory.push(buildFactorizationLine(quotientBefore));
+            solvedFactors.push(divisorBefore);
+            divisionHistory.push(buildFactorizationLine(quotientBefore));
 
-          if (quotientBefore === 1) {
-            const result = finishSeriesRun(true, solvedStepView(dividendBefore, divisorBefore));
+            if (quotientBefore === 1) {
+              const result = finishSeriesRun(true, solvedStepView(dividendBefore, divisorBefore));
+              return {
+                action: "continue",
+                view: applyCorrectRevealToResult(result, dividendBefore, divisorBefore, quotientBefore),
+              };
+            }
+
+            if (shouldSkipFinalPrimeStep(quotientBefore) || isBelowLevelFloor(quotientBefore)) {
+              const result = finishSeriesRun(false, solvedStepView(dividendBefore, divisorBefore));
+              return {
+                action: "continue",
+                view: applyCorrectRevealToResult(result, dividendBefore, divisorBefore, quotientBefore),
+              };
+            }
+
+            const answeredStep = {
+              prompt: `${dividendBefore}:${divisorBefore}=${quotientBefore}`,
+              promptHtml: divisionPromptHtml(dividendBefore, divisorBefore, quotientBefore),
+              options: formatOptionsForView(),
+              correctIndex,
+              divisionHistory: [...divisionHistory],
+              hintMessage: "",
+            };
+
+            buildStep(quotientBefore);
+            sincronizeazaOrchestratorul();
             return {
               action: "continue",
-              view: applyCorrectRevealToResult(result, dividendBefore, divisorBefore, quotientBefore),
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                promptHoldMs: CORRECT_PROMPT_HOLD_MS,
+                message: `Corect! ${dividendBefore}:${divisorBefore}=${quotientBefore}`,
+                ...answeredStep,
+                continueStep: roundView({ hintMessage: "" }),
+              },
             };
-          }
-
-          if (shouldSkipFinalPrimeStep(quotientBefore) || isBelowLevelFloor(quotientBefore)) {
-            const result = finishSeriesRun(false, solvedStepView(dividendBefore, divisorBefore));
-            return {
-              action: "continue",
-              view: applyCorrectRevealToResult(result, dividendBefore, divisorBefore, quotientBefore),
-            };
-          }
-
-          const answeredStep = {
-            prompt: `${dividendBefore}:${divisorBefore}=${quotientBefore}`,
-            promptHtml: divisionPromptHtml(dividendBefore, divisorBefore, quotientBefore),
-            options: formatOptionsForView(),
-            correctIndex,
-            divisionHistory: [...divisionHistory],
-            hintMessage: "",
-          };
-
-          buildStep(quotientBefore);
-          return {
-            action: "continue",
-            view: {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              promptHoldMs: CORRECT_PROMPT_HOLD_MS,
-              message: `Corect! ${dividendBefore}:${divisorBefore}=${quotientBefore}`,
-              ...answeredStep,
-              continueStep: roundView({ hintMessage: "" }),
-            },
-          };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     const quizApi = {
       getLevel: () => level,
@@ -430,6 +467,7 @@
         activeComboTrap = null;
         if (combo) buildStepFromCombo(combo);
         else buildStep(startNum);
+        sincronizeazaOrchestratorul();
 
         return roundView({
           hintMessage: combo
@@ -449,15 +487,10 @@
         };
       },
 
-      // Migrat la Motor3Butoane (Faza D, lotul 2). Regula corect/gresit, mesajele
-      // si rezultatul complet raman EXACT cele de dinainte de migrare — vezi
-      // `actiuni` la construirea lui `m3b`, mai sus.
-      onAnswer(index) {
-        return m3b.laApasareButon({
-          item: { options },
-          index,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+      // Migrat la Motor3Butoane (Faza D, lotul 2), invelit in SubquizOrchestrator
+      // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
+      onAnswer(index, meta = {}) {
+        return orchestrator.onAnswer(index, meta);
       },
 
       pickNextRound: () => pickRoundStart(),
