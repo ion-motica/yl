@@ -163,6 +163,21 @@
     let consecutiveCorrect = 0;
     let current = null;
     let gameCompleted = false;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi bagare-sub-radical.js pt. explicatia completa
+    // a tiparului — structura identica: `current` unificat, `pickNewQuestion()`
+    // PURA). Fiecare punct care face `current = pickNewQuestion()` (mai jos:
+    // `advanceLevel`, ramura din `dupaRaspunsCorect`, `beginRound`) cheama
+    // sincronizarea explicit, imediat dupa.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: current?.prompt ?? "—",
+        options: current ? [...current.options] : ["—", "—", "—"],
+        correctIndex: current?.correctIndex ?? 0,
+      });
+    }
 
     function getLevelLabel(targetLevel = level) {
       return `Nivel ${targetLevel} · împărțitor ${divisorForLevel(targetLevel)}`;
@@ -213,6 +228,7 @@
       level += 1;
       resetLevelState();
       current = pickNewQuestion();
+      sincronizeazaOrchestratorul();
 
       const message =
         via === "streak"
@@ -241,46 +257,64 @@
     // A doua corectie (Categoria 6): `questionCount` (pragul de 21) numara azi
     // la FIECARE apasare, inclusiv gresite — dupa migrare numara doar la
     // raspunsuri REZOLVATE (corecte), pragul de 21 ramane neschimbat.
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: () => "Nu e corect. Mai încearcă!",
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (!ctx.corect) {
-            consecutiveCorrect = 0;
-          }
-          return {};
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). Spre deosebire de sub-sau-langa-radical.js/
+    // bagare-sub-radical.js, `dupaRaspunsCorect` intorcea deja mereu comanda
+    // explicita pe toate cele 3 ramuri — `intrebareUrmatoare` (`() => null`)
+    // ramane cod mort neatins, ca la primele 4 fisiere.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT,
+        esteCorect: (_item, index) => Number(current.options[index]) === current.correct,
+        generator: () => ({}),
+        mesaje: {
+          gresit: () => "Nu e corect. Mai încearcă!",
         },
-        dupaRaspunsCorect: () => {
-          questionCount += 1;
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (!ctx.corect) {
+              consecutiveCorrect = 0;
+            }
+            return {};
+          },
+          dupaRaspunsCorect: () => {
+            questionCount += 1;
 
-          if (questionCount >= QUESTIONS_PER_LEVEL) {
-            return { action: "continue", view: advanceLevel("count") };
-          }
+            if (questionCount >= QUESTIONS_PER_LEVEL) {
+              return { action: "continue", view: advanceLevel("count") };
+            }
 
-          consecutiveCorrect += 1;
+            consecutiveCorrect += 1;
 
-          if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
-            return { action: "continue", view: advanceLevel("streak") };
-          }
+            if (consecutiveCorrect >= CONSECUTIVE_NEEDED) {
+              return { action: "continue", view: advanceLevel("streak") };
+            }
 
-          current = pickNewQuestion();
-          return {
-            action: "continue",
-            view: {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-              ...roundView(),
-            },
-          };
+            current = pickNewQuestion();
+            sincronizeazaOrchestratorul();
+            return {
+              action: "continue",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                message: "Corect!",
+                ...roundView(),
+              },
+            };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     return {
       getQuizId: () => config.quizId ?? QUIZ_ID,
@@ -318,6 +352,7 @@
 
       beginRound(next) {
         current = next ?? pickNewQuestion();
+        sincronizeazaOrchestratorul();
         return roundView();
       },
 
@@ -330,13 +365,10 @@
       },
 
       // Migrat la Motor3Butoane (Faza D, lotul 2) — vezi corectiile de
-      // comportament (Categoria 4 si 6) la constructia lui `m3b`, mai sus.
-      onAnswer(index) {
-        return m3b.laApasareButon({
-          item: { options: current.options },
-          index,
-          construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-        }).view;
+      // comportament (Categoria 4 si 6) la constructia lui `baseDefinition`,
+      // mai sus. Invelit in SubquizOrchestrator (Faza E, sectiunea 12).
+      onAnswer(index, meta = {}) {
+        return orchestrator.onAnswer(index, meta);
       },
     };
   }
