@@ -772,3 +772,47 @@ refolosească `nextRound` altfel — grading-ul s-ar rupe tăcut, exact ca în s
 `nextRound` obiectul `current` complet (cu `correct`), nu doar `roundView()`; (b) `beginRound` să
 verifice defensiv `next?.correct !== undefined` înainte să aibă încredere într-un `next` primit,
 altfel să cadă pe `pickNewQuestion()`.
+
+## De adresat după finalizarea planului curent
+
+> Observații apărute pe parcurs care NU sunt bug-uri (verificat — comportament intenționat,
+> existent dinainte de lucrarea curentă), dar merită o discuție separată, de altă natură decât
+> „repară asta", după ce planul actual (Faza E completă) e gata. Nu se ating acum — ar fi scope
+> creep peste scopul exact al motorului comun de răspuns.
+
+### 1. Pauza fixă de 450ms (`RUN_DONE_MS`) la finalul fiecărui „run-complete"
+
+**Unde:** `js/falling-engine.js:19` — `const RUN_DONE_MS = 450;`, folosită la liniile ~727-728:
+```js
+result.runDelayMs ??
+  (result.levelAdvanced ? LEVEL_ADV_MS : RUN_DONE_MS);
+```
+Delay-ul implicit pentru orice rezultat cu `outcome:"run-complete"` care nu-și specifică propriul
+`runDelayMs` (`LEVEL_ADV_MS=1400` e varianta pentru avans de nivel, mai lungă — separată).
+
+**Cum a apărut discuția (20.08.2026):** userul a semnalat un „lag perceptibil, la fiecare câteva
+întrebări" la `prime-divisors.js` / „Găsire divizori primi". Investigat cu măsurători directe: (1)
+300 apeluri `onAnswer` sintetice, sub 0.5ms fiecare — logica quiz-ului nu e cauza; (2) clickuri
+reale în UI, cu polling pe DOM până starea devine validă din nou — confirmat exact: fiecare pas
+intermediar dintr-un lanț de împărțiri e instant (0ms), dar fiecare FINALIZARE de lanț (numărul
+ajunge la 1) durează consistent ~465ms, potrivindu-se exact cu `RUN_DONE_MS=450` (+ overhead mic
+de polling). `finishSeriesRun` din `prime-divisors.js` nu specifică niciodată `runDelayMs`, deci
+cade mereu pe acest implicit.
+
+**De ce NU e bug, verificat, nu presupus:** `finishSeriesRun` (funcția care produce rezultatul
+`run-complete`) e byte-identică înainte și după commit-ul Faza E (`git diff f0ded97 e6c762c` —
+singura diferență e indentarea, de la mutarea în noua funcție wrapper `baseDefinition`).
+Comportamentul exista identic dinainte de toată lucrarea curentă din această sesiune; userul l-a
+observat abia acum pentru că testa activ exact acest fișier, imediat după ce fusese învelit.
+
+**De ce merită revizitat totuși, mai târziu:** un lanț de împărțiri la `prime-divisors.js` are des
+2-4 pași rapizi (instant) urmați de o pauză de aproape jumătate de secundă — asimetria de ritm
+poate fi resimțită ca inconsistentă, mai ales de un copil. Posibile direcții, NICIUNA evaluată
+încă (doar enumerate, nu recomandate):
+(a) scurtează `RUN_DONE_MS` global, pentru toate quizurile;
+(b) lasă fiecare quiz să-și seteze propriu `runDelayMs`, mai mic pentru ramuri fără mesaj de
+    arătat (ex. ramura lui `finishSeriesRun` cu `message: ""`);
+(c) nu schimba nimic — pauza ar putea fi acolo intenționat, ca „respirație" înainte de următorul
+    număr, nu un defect.
+Depinde de o decizie de UX a userului, nu de un fapt tehnic de corectat — de-aia stă aici, nu la
+„Bug-uri găsite, nereparate".
