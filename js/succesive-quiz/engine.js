@@ -60,6 +60,22 @@
     let consecutivePerfectSeries = 0; // câte serii perfecte consecutive s-au acumulat
     let seriesHistory = [];
     let currentStepWrongRecorded = false;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa a
+    // tiparului). `prepareStep()` e singurul loc care schimba
+    // `currentStep`/`options`/`correctIndex` — sincronizeaza neconditionat,
+    // chiar acolo, la final.
+    function sincronizeazaOrchestratorul() {
+      const showVertical = currentStep && isRecoveryToday(currentStep.a);
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: currentStep?.prompt ?? "—",
+        promptHtml: showVertical ? buildVerticalPromptHtml(currentStep) : undefined,
+        options: [...options],
+        correctIndex,
+      });
+    }
 
     function helpers() {
       return { randomInt, shuffle };
@@ -169,6 +185,7 @@
       options = built.options.map(String);
       correctIndex = built.correctIndex;
       currentStepWrongRecorded = false;
+      sincronizeazaOrchestratorul();
     }
 
     function startSeries() {
@@ -305,69 +322,84 @@
     // succesiva): `dupaRaspunsCorect` muta starea si decide daca seria continua
     // (step-correct) sau s-a incheiat (`completeSeries()`, care poate purta la
     // randul ei o serie noua deja pregatita in `nextRound`).
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => Number(options[index]) === Number(currentStep.correctAnswer),
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `${String(currentStep.prompt).replace("=?", "")} nu este ${ctx.alesul}. Încearcă din nou!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
-          if (!ctx.corect) {
-            seriesFlawless = false;
-            if (!currentStepWrongRecorded) {
-              reg()?.addWrong(level, currentStep.a);
-              currentStepWrongRecorded = true;
+    //
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `options` sunt deja STRING-uri — `ctx.alesul` e sigur de
+    // folosit (fara capcana de tip, spre deosebire de prime-divisions.js).
+    // `roundView()` are campuri proprii (`successionHistory`, `promptHtml`
+    // conditionat) absente din vederea generica — `successionHistory` injectat
+    // prin `dupaApasare`, la fel ca la equations-e3-e6.js; `promptHtml`
+    // transportat direct de `sincronizeazaOrchestratorul()`.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT_MESSAGE,
+        esteCorect: (_item, index) => Number(options[index]) === Number(currentStep.correctAnswer),
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) => `${String(currentStep.prompt).replace("=?", "")} nu este ${ctx.alesul}. Încearcă din nou!`,
+        },
+        actiuni: {
+          dupaApasare: (ctx) => {
+            recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
+            if (!ctx.corect) {
+              seriesFlawless = false;
+              if (!currentStepWrongRecorded) {
+                reg()?.addWrong(level, currentStep.a);
+                currentStepWrongRecorded = true;
+              }
+              // SpeedManager — apelat la fiecare greșeală (inclusiv repetiții pe același pas).
+              global.SpeedManager?.recordWrong(quizId, level, currentStep.a);
             }
-            // SpeedManager — apelat la fiecare greșeală (inclusiv repetiții pe același pas).
-            global.SpeedManager?.recordWrong(quizId, level, currentStep.a);
-          }
-          return {};
+            return { successionHistory: seriesHistory.slice(-3) };
+          },
+          dupaRaspunsCorect: (ctx) => {
+            // Notează dacă pasul era o restanță activă. SDP per zi = corect din
+            // prima în această serie ȘI nu a mai fost greșit azi.
+            const isRestanta = activeMistakeAs.has(currentStep.a);
+            if (isRestanta) {
+              reg()?.addCorrect(level, currentStep.a);
+            }
+            const isSDP = !currentStepWrongRecorded && !(reg()?.isFromToday(level, currentStep.a) ?? false);
+            global.SpeedManager?.recordCorrect(quizId, level, currentStep.a, ctx.meta.responseMs, isRestanta && isSDP);
+
+            const solvedPrompt = currentStep.prompt;
+            const solvedAnswer = currentStep.correctAnswer;
+
+            seriesHistory.push({ prompt: solvedPrompt, answer: solvedAnswer });
+            stepIndex += 1;
+            currentValue = solvedAnswer;
+
+            if (stepIndex >= seriesLength) {
+              return { action: "continue", view: completeSeries() };
+            }
+
+            prepareStep();
+            return {
+              action: "continue",
+              view: {
+                outcome: "step-correct",
+                correct: true,
+                bounce: true,
+                message: "Corect!",
+                ...roundView(),
+              },
+            };
+          },
         },
-        dupaRaspunsCorect: (ctx) => {
-          // Notează dacă pasul era o restanță activă. SDP per zi = corect din
-          // prima în această serie ȘI nu a mai fost greșit azi.
-          const isRestanta = activeMistakeAs.has(currentStep.a);
-          if (isRestanta) {
-            reg()?.addCorrect(level, currentStep.a);
-          }
-          const isSDP = !currentStepWrongRecorded && !(reg()?.isFromToday(level, currentStep.a) ?? false);
-          global.SpeedManager?.recordCorrect(quizId, level, currentStep.a, ctx.meta.responseMs, isRestanta && isSDP);
+      });
+    }
 
-          const solvedPrompt = currentStep.prompt;
-          const solvedAnswer = currentStep.correctAnswer;
-
-          seriesHistory.push({ prompt: solvedPrompt, answer: solvedAnswer });
-          stepIndex += 1;
-          currentValue = solvedAnswer;
-
-          if (stepIndex >= seriesLength) {
-            return { action: "continue", view: completeSeries() };
-          }
-
-          prepareStep();
-          return {
-            action: "continue",
-            view: {
-              outcome: "step-correct",
-              correct: true,
-              bounce: true,
-              message: "Corect!",
-              ...roundView(),
-            },
-          };
-        },
-      },
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
     function onAnswer(index, meta = {}) {
-      return m3b.laApasareButon({
-        item: { options },
-        index,
-        meta,
-        construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-      }).view;
+      return orchestrator.onAnswer(index, meta);
     }
 
     return {
