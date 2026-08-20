@@ -17,9 +17,13 @@
 > exact al deciziilor. Planul complet e în `PLAN-motor-comun-raspuns.md`, dar NU trebuie recitit
 > de la zero — tot ce contează practic e rezumat aici.**
 
-**Faza:** D COMPLETĂ. **Faza E, pașii 1-3 COMPLEȚI** — toate cele 17 subquizuri reale (9 în
-v2-modular, 3 în v3, 5 în v4) migrate la contractul declarativ „CE nu CUM". **§12 COMPLET
-(20.08.2026), inclusiv gardul** — toate cele 15 fișiere „simple" din checklist învelite în
+**Faza:** D COMPLETĂ. **Faza E COMPLETĂ** — pașii 1-3 (toate cele 17 subquizuri reale, 9 în
+v2-modular, 3 în v3, 5 în v4, migrate la contractul declarativ „CE nu CUM") ȘI §12 (învelirea celor
+15 fișiere „simple" + gardul). **Faza F COMPLETĂ (20.08.2026) — toate cele 11 criterii din §9 al
+planului verificate riguros, unul câte unul; PLANUL ÎNTREG E ÎNCHEIAT.** Vezi „Ultima actualizare"
+de mai jos pentru raportul complet al Fazei F, criteriu cu criteriu.
+
+**§12, detaliile învelirii (20.08.2026)** — toate cele 15 fișiere „simple" din checklist învelite în
 `SubquizOrchestrator`: `equations-e3-e6.js`, `addition-table.js`, `addition-table-range.js`,
 `prime-divisors.js`, `sub-sau-langa-radical.js`, `bagare-sub-radical.js`,
 `addition-table-singapore.js`, `addition-table-singapore-missing.js`,
@@ -288,7 +292,65 @@ e in vigoare, neschimbata; reconfirmată explicit 19.08.2026 („continua aplica
 **Aplicația:** complet funcțională — zero sufixe „NEFUNCTIONAL" rămase (ultimul scos la migrarea
 v4, 20.08.2026). Migrările/învelirile de până acum au inclus și corecții de bug intenționate,
 documentate individual (Faza D Lot 1/2, Faza E v3/v4) — nu doar mutări mecanice.
-**Ultima actualizare:** 20.08.2026 seara — **§12 COMPLET, inclusiv gardul.** După ce toate cele 15
+**Ultima actualizare:** 20.08.2026 seara — **PLANUL ÎNTREG E COMPLET, inclusiv Faza F.** Userul a
+cerut „Faza F acum" imediat după finalizarea §12. Toate cele 11 criterii din §9 al planului
+verificate riguros, unul câte unul, cu comenzi concrete (grep, git diff față de commit-ul
+pre-refactor `4fc4722`, rulări de teste) — nu din memorie. Rezultat: **10/11 confirmate integral,
+1 discrepanță reală semnalată explicit**:
+
+1. **Invariant testat pt. toate cele 24 de intrări** — CONFIRMAT. Verificat nume exacte de teste
+   (nu doar regex aproximativ) pt. toate cele 18 fișiere sursă: fiecare are cel puțin un test
+   „răspuns greșit rămâne pe aceeași întrebare" ȘI un test „răspuns corect avansează" (ex.
+   `sub-sau-langa-radical`: „wrong answers keep the same question..." + „...advances through
+   advanced levels..."; `multiplication-1120-v3`: „wrong never advances or inflates the count").
+2. **Zero implementări proprii de `onAnswer`** — CONFIRMAT. `grep` peste `js/` arată toate cele 18
+   fișiere delegând direct la `orchestrator.onAnswer(...)` (unele prin `handleOrchestratorResult`,
+   verificat că doar reacționează la semnalul de rutare `subquizEvent.routeComplete`, nu la
+   grading). Singura excepție: `rigle-cl1.js` are un `onAnswer() {}` gol — stub mort pt. „apeluri
+   neguardate din HUD", niciodată chemat (motor propriu m2, separat de `falling-engine.js`).
+3. **Impunere reală, la ambele niveluri** — CONFIRMAT. Motor: 2 gărzi în `falling-engine.js`
+   (Motor3Butoane + SubquizOrchestrator), fiecare cu test dedicat care demonstrează crash pe calea
+   veche. `SubquizDefinition.define()`: 8/8 teste verzi, inclusiv „define({onAnswer}) chiar arunca"
+   și „SubquizOrchestrator.create respinge la construire o definiție cu onAnswer".
+4. **Subquizurile dau doar CE** — CONFIRMAT (aceleași teste ca pct. 3). Toate cele 32 de bucăți
+   (17 subquizuri reale + 15 bucăți „bază" din §12) funcționează exclusiv prin
+   `generator`+`initialState`+date declarative.
+5. **Plasa de siguranță „supraviețuiește ca dată"** — **NU, discrepanță reală față de textul
+   literal al planului.** `grep` confirmă: `SQ3_EXIT_MAX_ATTEMPTS` nu mai există sub nicio formă,
+   nicăieri — a fost **eliminată complet**, nu transformată în date. Aceasta a fost o decizie
+   explicită a userului, luată în **Faza A** (aprobarea planului, 18.08.2026), documentată în
+   jurnal: „mecanism de avans forțat fără răspuns corect ('plasa de siguranță') — găsit într-un
+   singur loc (sq3), eliminat complet din contract, nicăieri nu există limită de încercări."
+   Planul original (§9) nu a fost rescris să reflecte această decizie ulterioară — rezultatul
+   final e de fapt **mai strict** decât cerea criteriul inițial (fără limită deloc, nu doar
+   „limită păstrată ca date"), dar literal, criteriul 5 așa cum e scris azi în plan e fals.
+6. **Cele 4 sloturi de animație funcționează** — CONFIRMAT. `promptHoldMs`/`continueStep`/
+   `runDelayMs` active și citite de `falling-engine.js`, folosite azi în 11 fișiere de quiz
+   (numărul exact 7/11 din plan era o fotografie la 18.08.2026, dinaintea restructurării — mecanismul
+   însuși, verificat, funcționează peste tot unde e nevoie).
+7. **Bug-ul din §1 nu se mai poate exprima** — CONFIRMAT. `grep` pe `outcome:"wrong-answer"` scris
+   de mână găsește un singur caz real, în `conexe-table-quiz/engine.js` (`onStepWrong`, folosită
+   azi DOAR de `onTimeout`) — dar rezultatul ei e mereu suprascris de `outcome:"timeout"` explicit
+   înainte de a ajunge la `falling-engine.js`, deci bug-ul exact din §1 (stare avansată + etichetă
+   „wrong-answer" simultan) rămâne structural imposibil.
+8. **Zero titluri „NEFUNCTIONAL", identice cu cele dinainte** — CONFIRMAT. `grep -r NEFUNCTIONAL
+   js/` → zero. Comparație completă, prin `git diff`, a tuturor titlurilor de meniu între
+   `4fc4722` (ultimul commit înainte de Faza A) și starea curentă — identice (singura diferență
+   aparentă, investigată, era un artefact al metodologiei de comparație — un fișier `.md` de
+   documentație inclus accidental în setul vechi, nu o schimbare reală).
+9. **Non-regresie** — CONFIRMAT. 507 teste, 504 trec, 3 pică — confirmate riguros preexistente:
+   `tests/vizualizare3-tabel-fluenta.test.js` nu a fost atins din 10.08.2026 (8 zile înainte de
+   începerea lucrării), teste sensibile la dată curentă. `check:docs`/`check:encoding` curate.
+10. **`rigle-cl1.js` neatins și funcțional** — CONFIRMAT riguros: `git diff 4fc4722 HEAD --
+    js/quizzes/rigle-cl1.js` → 0 linii, fișier byte-identic cu starea dinaintea refactorului
+    întreg. Verificat funcțional live (construiește, `beginRound()` funcționează).
+11. **Raportul reflectă realitatea** — acest bloc, scris acum, e chiar dovada.
+
+**Toate cele 11 fișiere §12 din această sesiune + gardul, deja pushate — nimic nou de commis
+pentru Faza F în sine (a fost verificare pură, fără modificări de cod).**
+
+**Ultima actualizare anterioară (păstrată mai jos, pentru context):** 20.08.2026 seara — **§12
+COMPLET, inclusiv gardul.** După ce toate cele 15
 fișiere au fost învelite, userul a cerut explicit continuarea cu gardul propriu-zis („continuă și
 cu gardul acum"). Implementat `valideazaConstructiaPrinSubquizOrchestrator` în
 `falling-engine.js`, mirror exact al gardului Motor3Butoane din Faza C — verifică
@@ -365,12 +427,10 @@ decizii de luat le amanm pana la sfarsitul listei."
 - NU se ating cele 2 bug-uri din „Bug-uri găsite, NEreparate" și nici nota din „De adresat după
   finalizarea planului curent" — rămân deliberat deferate, cu context deja complet acolo.
 
-**Pasul următor — §12 este 100% complet (învelire + gard).** Nu mai există nimic de făcut din
-checklist-ul acestei secțiuni (toate `[x]` mai jos, inclusiv gardul). Ce rămâne, dacă userul cere
-continuarea:
-1. **Faza F** — verificare finală (toate criteriile din §9 al planului, `npm run check:docs`,
-   `check:encoding`, titluri identice, zero „NEFUNCTIONAL"). NEATINSĂ, nu a fost autorizată încă —
-   rămâne punct de oprire/raportare separat.
+**Pasul următor — NU MAI EXISTĂ.** §12 e 100% complet (învelire + gard) ȘI Faza F e COMPLETĂ
+(20.08.2026, cerută explicit de user imediat după §12) — vezi blocul dedicat de la începutul
+secțiunii „Stare curentă" pentru raportul complet, criteriu cu criteriu. **Planul întreg
+(`PLAN-motor-comun-raspuns.md`) e încheiat.**
 
 **Toate cele 15 fișiere din §12 — REZOLVATE (20.08.2026):** `equations-e3-e6.js`,
 `addition-table.js`, `addition-table-range.js`, `prime-divisors.js`, `sub-sau-langa-radical.js`,
@@ -416,6 +476,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 | 20.08.2026 | Faza E, §12, addition-table | Al 2-lea quiz simplu învelit. Capcană specifică: `options` proprii sunt numere, motorul normalizează la string-uri — `isResolvedCombo` compară strict cu un număr, ar fi picat tăcut. Corectat: `options[ctx.index]` în loc de `ctx.alesul`. Găsit și `divisionHistory`/`prompt` lipsă pe răspuns greșit, corectate. **Corecție de proces, la cererea userului**: mecanismul de pornire al orchestratorului simplificat la ambele fișiere deja învelite — orchestrator pornit o dată la construcție, `generator` gol, sincronizare printr-un singur apel necondiționat (fără ramificația „e pornit sau nu" din prima variantă, inutilă). Teste: 7/7. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat cu script + live. | **complet** |
 | 20.08.2026 | Faza E, §12, addition-table-range | Al 3-lea (și, pentru moment, ultimul cerut) quiz simplu învelit — clonă structurală a `addition-table.js`, exact același tipar simplificat aplicat direct, fără explorare suplimentară. 6/6 teste din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live. | **complet** |
 | 20.08.2026 | Faza E, §12, sub-sau-langa-radical | Al 5-lea quiz simplu învelit — prima diferență structurală reală față de tipar: ramura fără avans de nivel din `dupaRaspunsCorect` întorcea `{}` (fără `action`), ceea ce sub orchestrator ar fi lovit generatorul gol (item gol în loc de întrebare reală). Reparat explicit: cheamă `pickNewQuestion()` și întoarce `{action:"continue", view: roundView()}`. Confirmat: fără capcana `options[ctx.index]`/`ctx.alesul` (niciun hook nu o atinge). Sincronizare centralizată în `pickNewQuestion()` (3 puncte de mutație, spre deosebire de un singur „beginXRound" la fișierele anterioare) + apel explicit redundant în `beginRound` (cale activ exercitată de teste, nu doar teoretică). Verificat live exact scenariul de risc (răspuns greșit imediat după avans de nivel arată întrebarea nouă, nu una învechită), programatic pe instanța reală înregistrată în pagină, zero erori consolă. Teste: 11/11. Suită completă: 506, 503 trec, 3 pică (preexistente). Commit `33ade82`, push confirmat. | **complet** |
+| 20.08.2026 | Faza F, verificare finală | Cerută explicit de user imediat după §12 („Faza F acum"). Toate cele 11 criterii din §9 al planului verificate riguros, unul câte unul, cu comenzi concrete (nu din memorie): grep pe tot `js/` pentru `onAnswer` propriu (zero, toate deleagă la orchestrator) și pentru `outcome:"wrong-answer"` scris de mână (un singur caz, cod mort — rezultatul mereu suprascris la timeout); `git diff` complet față de `4fc4722` (ultimul commit dinaintea Fazei A) pentru titluri de meniu (identice) și pentru `rigle-cl1.js` (0 linii diferență, byte-identic); rulare completă a suitei (507 teste, 504 trec, 3 pică, confirmate preexistente prin `git log` — fișierul de test neatins din 10.08.2026); `check:docs`/`check:encoding` curate. **Un singur criteriu (5, plasa de siguranță „ca dată") nu se potrivește literal cu planul** — a fost ELIMINATĂ complet, nu tabelizată, printr-o decizie explicită a userului din Faza A, deja documentată — semnalat clar, nu ascuns. Nicio modificare de cod în această fază — verificare pură. **PLANUL ÎNTREG E COMPLET.** | **complet** |
 | 20.08.2026 | Faza E, §12, gardul al doilea | Enforcement-ul propriu-zis, autorizat separat de user („continuă și cu gardul acum") — `valideazaConstructiaPrinSubquizOrchestrator` adăugată în `falling-engine.js`/`resolveChoice`, mirror exact al gardului Motor3Butoane din Faza C: verifică `rezultat.subquizEvent` (semnătura pusă de `decorate()` în `subquiz-orchestrator.js`), aruncă altfel cu mesaj explicit. Găsite și reparate 2 teste preexistente incompatibile cu noul gard (simulau quiz-uri prin M3B direct, fără orchestrator): `falling-engine-impune-motor-3-butoane.test.js` (al doilea test rescris să treacă prin orchestrator + test nou „M3B fără orchestrator acum aruncă") și `falling-engine-jurnal-timing.test.js` — la acesta din urmă, prima încercare de reparare (generator CU efect secundar, mutând starea) a picat cu o eroare de timing subtilă: `orchestrator.startFirst()` cheamă generatorul IMEDIAT, la pornire, nu doar la prima corectare — exact capcana pe care tiparul „generator gol + `dupaRaspunsCorect` explicit" (deja stabilit în toate cele 15 fișiere din §12) o evită prin construcție. Corectat aplicând același tipar, nu o variantă nouă. Verificat empiric, exhaustiv, în browser: toate cele 24 de intrări reale de meniu (25 cu `rigle-cl1`, exclus corect — motor propriu m2) trec gardul fără nicio eroare, plus un click real pe interfață. Suită completă: 507, 504 trec, 3 pică (preexistente). Commit `0384779`, push confirmat. **§12 100% COMPLET — învelire + gard.** | **complet** |
 | 20.08.2026 | Faza E, §12, multiplication-1120-v2 | ULTIMUL fișier din §12 învelit — 1411 linii, cel mai mare din tot refactorul. Confirmat la citirea integrală: UN SINGUR M3B, cu `dupaApasare`/`dupaRaspunsCorect` ramificate intern pe `stage`/`mode` pentru cele 6 „subquiz"-uri informale (anchor/intensiv/anchorSumValues/rapidAnchorAdditions/effectiveAnchorAddition/nonAnchorProducts) — NU `SubquizOrchestrator` real cu push/pop (spre deosebire de fișierul-soră `multiplication-1120-v2-modular.js`, deja învelit în Faza E principală cu 9 subquiz-uri reale). Tiparul „o bucată bază" s-a aplicat direct, fără redesenare — `esteCorect`/`mesaje`/`actiuni` copiate identic din vechiul M3B. Diferență structurală reală: 9 situri separate de mutație a lui `current` (8 funcții `build*Question*`, una cu 2 ramuri) — fără un chokepoint unic, sincronizare adăugată la fiecare sit individual, nu centralizată. `roundView()` = exact vederea generică (fără câmpuri proprii) — doar `def.hintMessage`. `options` string-uri, `ctx.alesul` sigur. `dupaRaspunsCorect` întorcea deja mereu comandă explicită pe toate ramurile. Teste: 33/33 din prima încercare, inclusiv toate testele de regresie „CORECTAT" (Categoriile 3/4/6) pe toate cele 6 zone. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live end-to-end: lanțul complet de 5 tranziții de stage (anchor→subquiz3→4→5→6) parcurs în ordine reală prin `index.html`, plus răspuns greșit imediat după ultima tranziție (scenariul cel mai riscant) — prompt/opțiuni corecte, nu învechite. Zero erori consolă. Commit `b3235b2`, push confirmat. **§12 (învelirea) COMPLETĂ — toate cele 15 fișiere.** | **complet** |
 | 20.08.2026 | Faza E, §12, pre-equations-eff-navigation | Al 14-lea fișier învelit — un singur `current` unificat (ca `sub-sau-langa-radical.js`), `buildQuestion()` singurul loc care îl schimbă, sincronizare centralizată acolo PLUS un apel explicit în `beginRound` (ramura `if(next)` nu trece prin `buildQuestion()`). `roundView()` are un singur câmp propriu (`successionHistory`, panou sumar cu 5 linii: Triunghi/Semn/Pas/Mod/Perfecte) — injectat prin `dupaApasare`, apelând `roundView().successionHistory` direct (evită duplicarea logicii de construcție a array-ului). `options` deja string-uri în ambele moduri (numeric/formulă) — `ctx.alesul` sigur de folosit. `dupaRaspunsCorect` întorcea deja mereu comandă explicită. Teste: 13/13 din prima încercare. Suită completă: 506, 503 trec, 3 pică (preexistente). Verificat live: mesaj cu valoarea aleasă, `successionHistory` actualizat corect (Pas 1/3→2/3 la trecerea la pasul următor din triunghi), zero erori consolă. Commit `25f0b7b`, push confirmat. | **complet** |
@@ -824,11 +885,19 @@ scopului autorizării acestei sesiuni, neatins, pentru un pas separat.**
 
 ## Faza F — verificare finală
 
-- [ ] Niciun titlu din meniu nu mai conține „QUIZ NEFUNCTIONAL - IN REFACTORING"
-- [ ] Titlurile sunt identice cu cele dinainte de lucrare
-- [ ] Toate testele repo-ului verzi + `npm run check:docs` + `npm run check:encoding`
-- [ ] Cele 11 criterii din §9 al planului, verificate unul câte unul
-- [ ] **OPRIRE** — raport final
+**COMPLETĂ — 20.08.2026.** Toate cele 4 puncte verificate riguros, cu comenzi concrete (nu din
+memorie) — vezi „Stare curentă" pentru raportul complet, criteriu cu criteriu.
+
+- [x] Niciun titlu din meniu nu mai conține „QUIZ NEFUNCTIONAL - IN REFACTORING" — `grep -r
+      NEFUNCTIONAL js/` → zero rezultate.
+- [x] Titlurile sunt identice cu cele dinainte de lucrare — comparat riguros, prin `git diff`, cu
+      `4fc4722` (ultimul commit înainte de Faza A) — toate cele 24 de titluri de meniu identice.
+- [x] Toate testele repo-ului verzi + `npm run check:docs` + `npm run check:encoding` — 507 teste,
+      504 trec, 3 pică (confirmate preexistente: `vizualizare3-tabel-fluenta.test.js`, neatins din
+      10.08.2026, cu 8 zile înainte de începerea lucrării); `check:docs`/`check:encoding` curate.
+- [x] Cele 11 criterii din §9 al planului, verificate unul câte unul — 10/11 confirmate integral;
+      **1 discrepanță reală semnalată explicit** (criteriul 5, plasa de siguranță — vezi mai jos).
+- [x] **OPRIRE** — raport final prezentat userului.
 
 ---
 
