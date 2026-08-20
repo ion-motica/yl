@@ -16,7 +16,12 @@
   // (y = fracție × travelSpan; sub 0.5 = în jumătatea de sus).
   const BOUNCE_MIN_FRAC = 0.4;
   const FLASH_MS = 420;
-  const RUN_DONE_MS = 450;
+  // Cerut explicit de user (20.08.2026, "De adresat dupa finalizarea planului
+  // curent" din documente de referinta/RAPORT-motor-comun-raspuns.md): pauza
+  // implicita la finalul unui "run-complete" fara avans de nivel eliminata —
+  // rupea ritmul la lanturi cu pasi rapizi (ex. prime-divisors.js). Avansul de
+  // nivel (LEVEL_ADV_MS) ramane neatins, are alt scop (celebrarea "Next level!").
+  const RUN_DONE_MS = 0;
   const LEVEL_ADV_MS = 1400;
   const LIFT_BG_OPACITY_DEFAULT = 0.8;
 
