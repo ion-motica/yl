@@ -33,6 +33,9 @@ function setupQuiz() {
     "js/quiz-registry.js",
     "js/fact-catalog.js",
     "js/eff/qf-generator.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
     "js/quizzes/multiplication-1120-v2.js",
   ].forEach(loadScript);

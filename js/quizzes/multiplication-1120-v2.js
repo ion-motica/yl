@@ -234,6 +234,23 @@
     let productQueue = [];
     let completed = false;
     let current = null;
+    let orchestrator = null;
+
+    // Faza E, sectiunea 12: orice quiz trebuie construit intern prin
+    // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa a
+    // tiparului). Spre deosebire de fisierele anterioare, aici NU exista un
+    // singur punct de mutatie pt. `current` — sunt 9 situri separate (8 functii
+    // `build*Question*`, unele cu 2 ramuri), fiindca fisierul are 6 „subquiz"-uri
+    // interne informale (stage/mode), migrate direct la M3B in Faza D, NU la
+    // SubquizOrchestrator real (push/pop). Fiecare sit cheama sincronizarea
+    // explicit, imediat dupa ce seteaza `current`.
+    function sincronizeazaOrchestratorul() {
+      orchestrator.getCurrentRuntime().setCurrentItem({
+        prompt: current?.prompt ?? "—",
+        options: current ? [...current.options] : ["—", "—", "—"],
+        correctIndex: current?.correctIndex ?? 0,
+      });
+    }
 
     function isDirectTestMode() {
       return startStageSelection !== "normal";
@@ -310,6 +327,7 @@
           correctIndex: opt.correctIndex,
         };
         noteFactorFlag(val === A);
+        sincronizeazaOrchestratorul();
         return;
       }
 
@@ -324,6 +342,7 @@
         correctIndex: opt.correctIndex,
       };
       noteFactorFlag(val === A);
+      sincronizeazaOrchestratorul();
     }
 
     function roundView(extra = {}) {
@@ -420,6 +439,7 @@
         missingAnchor,
         shownAnchor,
       };
+      sincronizeazaOrchestratorul();
     }
 
     function nextAnchorSumQuestion() {
@@ -522,6 +542,7 @@
         options: ["0", "1", "2"],
         correctIndex: 0,
       };
+      sincronizeazaOrchestratorul();
     }
 
     function buildRapidAnchorAdditionQuestion() {
@@ -544,6 +565,7 @@
         smallTerm: candidate.smallTerm,
       };
       lastRapidPrompt = candidate.prompt;
+      sincronizeazaOrchestratorul();
     }
 
     function nextRapidAnchorAdditionQuestion() {
@@ -642,6 +664,7 @@
       lastEffectivePrompt = candidate.prompt;
       lastEffectiveB = candidate.b;
       effectiveTurnCount++;
+      sincronizeazaOrchestratorul();
     }
 
     function nextEffectiveAnchorAdditionQuestion() {
@@ -711,6 +734,7 @@
         bigTerm: candidate.bigTerm,
         smallTerm: candidate.smallTerm,
       };
+      sincronizeazaOrchestratorul();
     }
 
     function buildProductPass() {
@@ -741,6 +765,7 @@
         options: opt.options,
         correctIndex: opt.correctIndex,
       };
+      sincronizeazaOrchestratorul();
     }
 
     function nextProductQuestion() {
@@ -784,6 +809,7 @@
         options: built.options,
         correctIndex: built.correctIndex,
       };
+      sincronizeazaOrchestratorul();
     }
 
     function startProductIntensive() {
@@ -1187,66 +1213,83 @@
       };
     }
 
-    const m3b = global.Motor3Butoane.creeaza({
-      esteCorect: (_item, index) => Number(current.options[index]) === Number(current.correct),
-      intrebareUrmatoare: () => null,
-      mesaje: {
-        gresit: (ctx) => `${ctx.alesul} nu e bun. Mai încearcă!`,
-      },
-      actiuni: {
-        dupaApasare: (ctx) => {
-          if (ctx.corect) return {};
-
-          if (mode === "intensiv" || mode === "effectiveIntensiv" || mode === "nonAnchorProductsIntensiv") {
-            return {};
-          }
-          if (stage === "anchorSumValues") {
-            subquizCorrectStreak = 0;
-            return {};
-          }
-          if (stage === "rapidAnchorAdditions") {
-            subquizCorrectStreak = 0;
-            return {};
-          }
-          if (stage === "effectiveAnchorAddition") {
-            subquizCorrectStreak = 0;
-            noteEffectiveMistake(current.factB);
-            return {};
-          }
-          if (stage === "nonAnchorProducts") {
-            productCorrectStreak = 0;
-            if (!productWrongBs.includes(current.factB)) productWrongBs.push(current.factB);
-            return {};
-          }
-
-          // ── ANCHOR TEST (stage "normal", mode "anchor") ──────────────────
-          if (!wrongFacts.some((w) => w.b === current.factB)) {
-            wrongFacts.push({ b: current.factB, label: factLabel(current.factB) });
-          }
-          return {};
+    // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
+    // bucata "baza"). `esteCorect`/`mesaje`/`actiuni` copiate identic din
+    // vechiul M3B direct — cele 6 „subquiz"-uri interne raman ramificatii pe
+    // `stage`/`mode` in interiorul ACELEIASI bucati, nu subquiz-uri reale cu
+    // rutare (asa erau si inainte de aceasta lucrare, migrate la M3B in Faza D,
+    // nu redesenate acum). `roundView()` = exact vederea generica
+    // (prompt/options/correctIndex/hintMessage) — fara campuri proprii de
+    // injectat, spre deosebire de fisierele cu `successionHistory`/`bondHistory`.
+    // `options` sunt string-uri (`sameLastDigitOptions` etc. fac `.map(String)`),
+    // `ctx.alesul` sigur de folosit in mesaj.
+    function baseDefinition() {
+      return global.SubquizDefinition.define({
+        id: "base",
+        title: "baza",
+        hintMessage: HINT,
+        esteCorect: (_item, index) => Number(current.options[index]) === Number(current.correct),
+        generator: () => ({}),
+        mesaje: {
+          gresit: (ctx) => `${ctx.alesul} nu e bun. Mai încearcă!`,
         },
-        dupaRaspunsCorect: (ctx) => {
-          let view;
-          if (stage === "anchorSumValues") view = onAnchorSumCorrect();
-          else if (stage === "rapidAnchorAdditions") view = onRapidAnchorAdditionCorrect();
-          else if (stage === "effectiveAnchorAddition") view = onEffectiveAnchorAdditionCorrect();
-          else if (stage === "nonAnchorProducts") view = onProductCorrect();
-          else if (mode === "intensiv") view = onIntensivCorrect();
-          else view = onAnchorCorrect(ctx.meta);
-          return { action: "continue", view };
+        actiuni: {
+          dupaApasare: (ctx) => {
+            if (ctx.corect) return {};
+
+            if (mode === "intensiv" || mode === "effectiveIntensiv" || mode === "nonAnchorProductsIntensiv") {
+              return {};
+            }
+            if (stage === "anchorSumValues") {
+              subquizCorrectStreak = 0;
+              return {};
+            }
+            if (stage === "rapidAnchorAdditions") {
+              subquizCorrectStreak = 0;
+              return {};
+            }
+            if (stage === "effectiveAnchorAddition") {
+              subquizCorrectStreak = 0;
+              noteEffectiveMistake(current.factB);
+              return {};
+            }
+            if (stage === "nonAnchorProducts") {
+              productCorrectStreak = 0;
+              if (!productWrongBs.includes(current.factB)) productWrongBs.push(current.factB);
+              return {};
+            }
+
+            // ── ANCHOR TEST (stage "normal", mode "anchor") ──────────────────
+            if (!wrongFacts.some((w) => w.b === current.factB)) {
+              wrongFacts.push({ b: current.factB, label: factLabel(current.factB) });
+            }
+            return {};
+          },
+          dupaRaspunsCorect: (ctx) => {
+            let view;
+            if (stage === "anchorSumValues") view = onAnchorSumCorrect();
+            else if (stage === "rapidAnchorAdditions") view = onRapidAnchorAdditionCorrect();
+            else if (stage === "effectiveAnchorAddition") view = onEffectiveAnchorAdditionCorrect();
+            else if (stage === "nonAnchorProducts") view = onProductCorrect();
+            else if (mode === "intensiv") view = onIntensivCorrect();
+            else view = onAnchorCorrect(ctx.meta);
+            return { action: "continue", view };
+          },
         },
-      },
+      });
+    }
+
+    orchestrator = global.SubquizOrchestrator.create({
+      definitions: [baseDefinition()],
+      activeSubquizIds: ["base"],
+      context: {},
     });
+    orchestrator.startFirst();
 
-    // Migrat la Motor3Butoane (Faza D, lotul 3) — vezi `actiuni` la
-    // construirea lui `m3b`, mai sus.
+    // Migrat la Motor3Butoane (Faza D, lotul 3), invelit in SubquizOrchestrator
+    // (Faza E, sectiunea 12) — vezi `baseDefinition`, mai sus.
     function onAnswer(index, meta = {}) {
-      return m3b.laApasareButon({
-        item: { options: current.options },
-        index,
-        meta,
-        construiesteVedere: (extra) => ({ ...roundView(), ...extra }),
-      }).view;
+      return orchestrator.onAnswer(index, meta);
     }
 
     // Bară cade / timeout → IGNORAT complet: reset bară, aceeași întrebare,
