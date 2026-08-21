@@ -156,8 +156,11 @@
       axe: [
         {
           id: "vizualizare",
+          // Bife, nu radio: reprezentarile bifate se afiseaza simultan, una sub
+          // alta, in ordinea de aici. Cel putin una ramane mereu bifata.
+          // Combinatia se salveaza ca default cu butonul „Set as default".
           eticheta: "Reprezentare",
-          tip_selectie: "unica",
+          tip_selectie: "multipla",
           optiuni: [
             { id: "grila_10x10", eticheta: "Grila X × Y stare" },
             { id: "tabel_fluenta", eticheta: "Tabel % fluență per subtablă (serie calupuri)", activa: true },

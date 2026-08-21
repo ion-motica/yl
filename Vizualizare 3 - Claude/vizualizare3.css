@@ -367,17 +367,11 @@ body {
   border-color: var(--viz3-albastru);
 }
 
-/* Randul unei reprezentari + butonul ei „md"/„default" (5, Reprezentare):
-   bifa/eticheta ia tot spatiul, butonul sta lipit la dreapta — ca la slidere. */
-.viz3-rand-cu-default {
+/* Butonul „Set as default" al axei Reprezentare: sus, sub eticheta axei, inaintea
+   bifelor — salveaza toata combinatia bifata, nu o optiune anume. */
+.viz3-rand-buton-default {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.viz3-rand-cu-default .viz3-optiune {
-  flex: 1;
+  margin: 2px 0 6px;
 }
 
 .viz3-buton-default {
@@ -391,7 +385,7 @@ body {
   cursor: pointer;
 }
 
-/* Reprezentarea deja-default: buton plin, fara mana de click (nu face nimic). */
+/* Combinatia deja-default: buton plin, fara mana de click (nu face nimic). */
 .viz3-buton-default--activ {
   background: var(--viz3-albastru);
   color: #fff;
@@ -519,9 +513,19 @@ body {
   margin-bottom: 12px;
 }
 
-.viz3-viz-antet h1 {
+/* Titlul unei reprezentari, deasupra blocului ei. Antetul de sus ramane doar cu
+   sursa: butoanele de sursa/import sunt ale paginii, nu ale unei reprezentari. */
+.viz3-reprezentare-titlu {
   font-size: 18px;
-  margin: 0;
+  margin: 0 0 10px;
+}
+
+/* Cate o sectiune per reprezentare bifata, una sub alta. Sunt fratii pe care ii
+   va reordona drag & drop-ul; linia de sus separa vizual blocurile. */
+.viz3-reprezentare + .viz3-reprezentare {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--viz3-bordura);
 }
 
 /* Trei randuri: ce vezi acum / ce poti alege / import-export. */

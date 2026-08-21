@@ -806,6 +806,22 @@
     programeazaAuto(autoSecunde * 1000);
   }
 
+  // Cand grila se debifeaza, foliile ies din DOM: ceasurile lor nu au voie sa
+  // continue sa lucreze pe noduri detasate, iar cel de auto s-ar reprograma la
+  // nesfarsit. Se apeleaza doar la disparitia grilei, nu la fiecare re-randare —
+  // cat timp grila ramane afisata, `aseazaFoliile`/`programeazaAuto` isi curata
+  // singure ceasurile, iar auto-ul trebuie sa supravietuiasca re-randarii.
+  function opresteCeasurileFoliilor() {
+    if (ceasGrup) {
+      clearTimeout(ceasGrup);
+      ceasGrup = null;
+    }
+    if (ceasAuto) {
+      clearTimeout(ceasAuto);
+      ceasAuto = null;
+    }
+  }
+
   function aplicaCompozitie() {
     const stiva = document.querySelector(".viz3-folii");
     if (!stiva) return;
@@ -1850,6 +1866,15 @@
         eticheta.textContent = axa.eticheta;
         grup.appendChild(eticheta);
 
+        // Axa Reprezentare: un singur buton, sus, sub eticheta — salveaza toata
+        // combinatia de bife, nu o optiune anume.
+        if (axa === axaVizualizare) {
+          const randButon = document.createElement("div");
+          randButon.className = "viz3-rand-buton-default";
+          randButon.appendChild(construiesteButonDefaultReprezentari());
+          grup.appendChild(randButon);
+        }
+
         if (axa.tip_control === "folii") {
           randeazaControlFolii(grup, axa);
           tinta.appendChild(grup);
@@ -1882,7 +1907,7 @@
           if (axa === axaDomeniu && optiuneSalvata) {
             input.checked = opt.id === optiuneSalvata.id;
           } else if (axa === axaVizualizare) {
-            input.checked = opt.id === reprezentareDefault;
+            input.checked = reprezentariActive.includes(opt.id);
           } else {
             input.checked = opt.activa === true;
           }
@@ -1924,18 +1949,7 @@
           const rand = optiune(opt.eticheta, elemente);
           if (opt.dezactivata) rand.classList.add("viz3-dezactivata");
 
-          // Axa Reprezentare: fiecare optiune functionala primeste un buton „md"
-          // (make default) langa ea. Butonul sta IN AFARA label-ului, ca apasarea
-          // lui sa nu bifeze radio-ul (modelul: „md" nu comuta ce vezi acum).
-          if (axa === axaVizualizare && !opt.dezactivata) {
-            const randDefault = document.createElement("div");
-            randDefault.className = "viz3-rand-cu-default";
-            randDefault.appendChild(rand);
-            randDefault.appendChild(construiesteButonDefault(opt.id));
-            grup.appendChild(randDefault);
-          } else {
-            grup.appendChild(rand);
-          }
+          grup.appendChild(rand);
           if (campuriInterval) grup.appendChild(campuriInterval.element);
         });
 
@@ -2080,11 +2094,13 @@
 
   // Antetul comun (titlu + cele 3 randuri de sursa), refolosit de grila si de
   // tabel. `titluText` e singura diferenta intre reprezentari.
-  function construiesteAntet(titluText, info) {
+  // Antetul cu sursa se randeaza O SINGURA DATA, sus, oricate reprezentari ar fi
+  // bifate: butoanele de sursa/import-export sunt ale paginii, nu ale unei
+  // reprezentari. Fiecare reprezentare isi pune doar titlul ei, deasupra blocului
+  // ei (vezi `construiesteTitluReprezentare`).
+  function construiesteAntet(info) {
     const antet = document.createElement("div");
     antet.className = "viz3-viz-antet";
-    const titlu = document.createElement("h1");
-    titlu.textContent = titluText;
     // Trei randuri: ce vezi acum / ce poti alege / import-export.
     const sursa = document.createElement("div");
     sursa.className = "viz3-sursa";
@@ -2098,15 +2114,24 @@
       randSursa([butonDescarcaJurnal(), butonImportaJurnal()]),
       randSursa([butonInlocuiesteJurnal(), butonMergeJurnal()])
     );
-    antet.append(titlu, sursa);
+    antet.append(sursa);
     return antet;
   }
 
-  function randeazaVizualizarea(container, model, info) {
-    container.replaceChildren();
+  function construiesteTitluReprezentare(titluText) {
+    const titlu = document.createElement("h1");
+    titlu.className = "viz3-reprezentare-titlu";
+    titlu.textContent = titluText;
+    return titlu;
+  }
+
+  // `container` = sectiunea proprie a reprezentarii, deja goala si deja pusa in
+  // pagina de `analizeazaSiRandeaza`. Randarea nu mai sterge tot `viz3-viz`:
+  // alaturi de ea poate sta si o alta reprezentare.
+  function randeazaVizualizarea(container, model) {
     // Titlul urmeaza domeniul ales: catalogul curent isi stie intervalul.
     container.appendChild(
-      construiesteAntet(`Starea curentă — tabla înmulțirii ${catalog.eticheta}`, info)
+      construiesteTitluReprezentare(`Starea curentă — tabla înmulțirii ${catalog.eticheta}`)
     );
 
     // Tabla = 4 folii transparente suprapuse. Suprapuse arată exact ca tabla
@@ -2516,23 +2541,13 @@
     return tr;
   }
 
-  function randeazaTabelFluenta(container, model, info) {
-    // Foliile nu mai exista in DOM cand se trece pe tabel; ceasurile lor nu
-    // au voie sa continue sa lucreze pe noduri detasate.
-    if (ceasGrup) {
-      clearTimeout(ceasGrup);
-      ceasGrup = null;
-    }
-    if (ceasAuto) {
-      clearTimeout(ceasAuto);
-      ceasAuto = null;
-    }
-
-    container.replaceChildren();
+  // Ca si `randeazaVizualizarea`: primeste sectiunea proprie, deja goala. Oprirea
+  // ceasurilor foliilor nu mai e treaba ei — grila poate fi bifata in acelasi
+  // timp cu tabelul (vezi `opresteCeasurileFoliilor`).
+  function randeazaTabelFluenta(container, model) {
     container.appendChild(
-      construiesteAntet(
-        `Tabel % fluență per subtablă (serie calupuri) — ${model.eticheta_domeniu} · ${model.adancime} răsp/fact`,
-        info
+      construiesteTitluReprezentare(
+        `Tabel % fluență per subtablă (serie calupuri) — ${model.eticheta_domeniu} · ${model.adancime} răsp/fact`
       )
     );
 
@@ -2845,23 +2860,30 @@
     : axaDomeniu?.optiuni.find((o) => o.activa)?.interval;
   let catalog = global.construiesteCatalogInmultire(intervalPornire);
 
-  // Reprezentarea „default" (ce se incarca la refresh) tine minte peste refresh,
-  // ca domeniul. Defaultul se schimba DOAR cu butonul „md" (nu prin bifare:
-  // bifarea comuta doar ce vezi acum, temporar). La refresh se incarca defaultul
-  // marcat, niciodata ultima bifa. Deocamdata doar pe axa Reprezentare.
+  // Combinatia „default" de reprezentari (ce se incarca la refresh) tine minte
+  // peste refresh, ca domeniul. Defaultul se schimba DOAR cu butonul
+  // „Set as default" (nu prin bifare: bifarea comuta doar ce vezi acum,
+  // temporar). La refresh se incarca combinatia marcata, niciodata ultimele bife.
   const CHEIE_REPREZENTARE_DEFAULT = "viz3_reprezentare_default";
 
-  function citesteReprezentareDefaultSalvata() {
+  // Se salveaza o lista JSON de id-uri. Valoarea veche (un singur id, text
+  // simplu, de pe vremea radio-urilor) se citeste ca lista de un element, ca
+  // defaultul deja marcat de user sa nu se piarda.
+  function citesteReprezentariDefaultSalvate() {
     try {
-      return global.localStorage?.getItem(CHEIE_REPREZENTARE_DEFAULT) || null;
+      const brut = global.localStorage?.getItem(CHEIE_REPREZENTARE_DEFAULT);
+      if (!brut) return [];
+      if (!brut.startsWith("[")) return [brut];
+      const lista = JSON.parse(brut);
+      return Array.isArray(lista) ? lista.filter((id) => typeof id === "string") : [];
     } catch {
-      return null;
+      return [];
     }
   }
 
-  function salveazaReprezentareDefault(optiuneId) {
+  function salveazaReprezentariDefault(idOptiuni) {
     try {
-      global.localStorage?.setItem(CHEIE_REPREZENTARE_DEFAULT, optiuneId);
+      global.localStorage?.setItem(CHEIE_REPREZENTARE_DEFAULT, JSON.stringify(idOptiuni));
     } catch {
       // Storage plin/indisponibil: defaultul tine doar sesiunea curenta.
     }
@@ -2927,58 +2949,78 @@
     }
   }
 
-  // Ce reprezentare e activă (grilă vs tabel) și adâncimea fotografiei pentru
-  // tabel. NU se persistă peste refresh — doar Domeniul ține minte (convenție).
+  // Ce reprezentari sunt bifate (se afiseaza simultan) si adâncimea fotografiei
+  // pentru tabel. Bifarea NU se persistă — la refresh se incarca combinatia
+  // marcata cu „Set as default", ca la Domeniu (convenție).
   const axaVizualizare = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "vizualizare");
   const axaAdancime = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "adancime_foto");
-  // Defaultul salvat are prioritate, dar numai daca optiunea lui inca exista si e
-  // functionala (definitiile se pot schimba). Altfel, optiunea `activa`.
-  const reprezDefaultSalvat = citesteReprezentareDefaultSalvata();
-  const optiuneReprezDefault = axaVizualizare?.optiuni.find(
-    (o) => o.id === reprezDefaultSalvat && !o.dezactivata
-  );
-  let reprezentareDefault =
-    optiuneReprezDefault?.id ??
-    axaVizualizare?.optiuni.find((o) => o.activa)?.id ??
-    "grila_10x10";
-  let reprezentareActiva = reprezentareDefault;
 
-  // Butoanele „md"/„default" de langa fiecare reprezentare, tinute ca sa le
-  // putem re-eticheta cand defaultul se schimba (bifare sau apasare „md").
-  const butoaneDefaultReprezentare = new Map();
+  // Ordinea reprezentarilor e mereu cea din definitii, oricare ar fi ordinea in
+  // care le-a bifat userul: filtram lista de optiuni, nu o lista de bifari. Cand
+  // bifele vor deveni reordonabile prin drag & drop, D&D-ul va permuta chiar
+  // ordinea optiunilor — asta ramane singura sursa de adevar pentru ordine.
+  function inOrdineaDefinitiilor(idOptiuni) {
+    const cerute = new Set(idOptiuni);
+    return (axaVizualizare?.optiuni ?? [])
+      .filter((o) => !o.dezactivata && cerute.has(o.id))
+      .map((o) => o.id);
+  }
 
-  function construiesteButonDefault(optId) {
+  // Defaultul salvat are prioritate, dar numai pentru optiunile care inca exista
+  // si sunt functionale (definitiile se pot schimba). Daca nu ramane nimic din
+  // el, optiunile `activa` din definitii; iar daca nici acolo nu e nimic, prima
+  // optiune functionala — o reprezentare ramane mereu bifata.
+  function combinatiaDePornire() {
+    const salvate = inOrdineaDefinitiilor(citesteReprezentariDefaultSalvate());
+    if (salvate.length > 0) return salvate;
+    const dinDefinitii = inOrdineaDefinitiilor(
+      (axaVizualizare?.optiuni ?? []).filter((o) => o.activa).map((o) => o.id)
+    );
+    if (dinDefinitii.length > 0) return dinDefinitii;
+    const prima = (axaVizualizare?.optiuni ?? []).find((o) => !o.dezactivata);
+    return prima ? [prima.id] : [];
+  }
+
+  let reprezentariDefault = combinatiaDePornire();
+  let reprezentariActive = [...reprezentariDefault];
+
+  // Butonul unic „Set as default" de sub eticheta axei: salveaza combinatia de
+  // bife din momentul apasarii. Cand bifele curente sunt exact combinatia
+  // salvata, arata „default", plin si inert — acelasi tipar ca butoanele „md".
+  let butonDefaultReprezentari = null;
+
+  function aceeasiCombinatie(a, b) {
+    return a.length === b.length && a.every((id, i) => id === b[i]);
+  }
+
+  function construiesteButonDefaultReprezentari() {
     const buton = document.createElement("button");
     buton.type = "button";
     buton.className = "viz3-buton-default";
-    buton.addEventListener("click", () => faDefaultReprezentare(optId));
-    butoaneDefaultReprezentare.set(optId, buton);
-    actualizeazaUnButonDefault(optId);
+    buton.addEventListener("click", faDefaultReprezentari);
+    butonDefaultReprezentari = buton;
+    actualizeazaButonDefaultReprezentari();
     return buton;
   }
 
-  function actualizeazaUnButonDefault(optId) {
-    const buton = butoaneDefaultReprezentare.get(optId);
-    if (!buton) return;
-    const esteDefault = optId === reprezentareDefault;
-    buton.textContent = esteDefault ? "default" : "md";
-    buton.title = esteDefault ? "Reprezentarea implicită la deschidere" : "make default";
-    buton.classList.toggle("viz3-buton-default--activ", esteDefault);
+  function actualizeazaButonDefaultReprezentari() {
+    if (!butonDefaultReprezentari) return;
+    const esteDefault = aceeasiCombinatie(reprezentariActive, reprezentariDefault);
+    butonDefaultReprezentari.textContent = esteDefault ? "default" : "Set as default";
+    butonDefaultReprezentari.title = esteDefault
+      ? "Combinația bifată acum e cea care se încarcă la deschidere"
+      : "Salvează combinația bifată acum ca implicită la deschidere";
+    butonDefaultReprezentari.classList.toggle("viz3-buton-default--activ", esteDefault);
   }
 
-  function actualizeazaButoaneDefault() {
-    butoaneDefaultReprezentare.forEach((_buton, optId) => actualizeazaUnButonDefault(optId));
-  }
-
-  // Seteaza reprezentarea default (ce se incarca la refresh) si o salveaza.
-  // Apasarea pe cea deja-default nu face nimic (a facut deja). NU comuta ce vezi
-  // acum — doar bifarea face asta (in listenerul de change), care apeleaza tot
-  // asta ca sa alinieze defaultul cu reprezentarea bifata.
-  function faDefaultReprezentare(optId) {
-    if (optId === reprezentareDefault) return;
-    reprezentareDefault = optId;
-    salveazaReprezentareDefault(optId);
-    actualizeazaButoaneDefault();
+  // Salveaza combinatia bifata acum ca default (ce se incarca la refresh).
+  // Apasarea cand ea e deja defaultul nu face nimic (a facut deja). NU schimba
+  // ce vezi acum — doar bifarea face asta.
+  function faDefaultReprezentari() {
+    if (aceeasiCombinatie(reprezentariActive, reprezentariDefault)) return;
+    reprezentariDefault = [...reprezentariActive];
+    salveazaReprezentariDefault(reprezentariDefault);
+    actualizeazaButonDefaultReprezentari();
   }
   let adancimeActiva = axaAdancime?.optiuni.find((o) => o.activa)?.adancime ?? 5;
   // true doar dupa ce userul bifeaza manual o alta adancime decat cea
@@ -3319,16 +3361,29 @@
     return axaAdancime?.optiuni.find((o) => o.id === idOptiune)?.adancime ?? adancimeActiva;
   }
 
-  // Arată doar subsecțiunea de opțiuni a reprezentării active (5.1 sau 5.2);
-  // subsecțiunile care nu aparțin niciunei reprezentări rămân mereu vizibile.
+  // Arată subsecțiunile de opțiuni ale TUTUROR reprezentărilor bifate (5.1, 5.2
+  // sau ambele); subsecțiunile care nu aparțin niciunei reprezentări rămân mereu
+  // vizibile.
   function actualizeazaSubsectiuni() {
     const etapaViz = axe.find((e) => e.reprezentare_subsectiuni);
     const mapare = etapaViz?.reprezentare_subsectiuni ?? {};
     const legate = new Set(Object.values(mapare));
-    const vizibila = mapare[reprezentareActiva];
+    const vizibile = new Set(reprezentariActive.map((id) => mapare[id]).filter(Boolean));
     cpEl.querySelectorAll("[data-subsectiune]").forEach((el) => {
       const id = el.dataset.subsectiune;
-      el.hidden = legate.has(id) && id !== vizibila;
+      el.hidden = legate.has(id) && !vizibile.has(id);
+    });
+  }
+
+  // Cel puțin o reprezentare rămâne bifată. Când a mai rămas una, rândul ei spune
+  // prin tooltip de ce nu se debifează. Nu o dezactivăm vizibil: gri-ul înseamnă
+  // deja „vor urma" în CP-ul ăsta, ar spune două lucruri diferite cu același semn.
+  function actualizeazaBifaBlocata() {
+    const singura = reprezentariActive.length === 1 ? reprezentariActive[0] : null;
+    cpEl.querySelectorAll('input[data-preset^="vizualizare_"]').forEach((input) => {
+      const id = input.dataset.preset.slice("vizualizare_".length);
+      const rand = input.closest(".viz3-optiune") ?? input;
+      rand.title = id === singura ? "Cel puțin o reprezentare trebuie să rămână bifată" : "";
     });
   }
 
@@ -3372,45 +3427,71 @@
     if (incarcareEl) incarcareEl.hidden = true;
   }
 
+  // Blocul unei reprezentari, in sectiunea lui. Fiecare isi calculeaza modelul
+  // ei si randeaza doar in `sectiune` — nimic din ce face una nu atinge blocul
+  // celeilalte.
+  function randeazaBlocTabelFluenta(sectiune, inregistrari) {
+    const recomandare = obtineRecomandareAdancime(inregistrari, catalog);
+    if (
+      !adancimeAlesaManual &&
+      recomandare.adancime_recomandata !== null &&
+      recomandare.adancime_recomandata !== adancimeActiva
+    ) {
+      adancimeActiva = recomandare.adancime_recomandata;
+      const optiuneRecomandata = axaAdancime.optiuni.find((o) => o.adancime === adancimeActiva);
+      const inputRecomandat = optiuneRecomandata
+        ? cpEl.querySelector(`input[data-preset="adancime_foto_${optiuneRecomandata.id}"]`)
+        : null;
+      if (inputRecomandat) inputRecomandat.checked = true;
+    }
+    // Modelul adancimii active a fost deja calculat in sweep-ul de mai sus
+    // (e unul dintre candidati) — il refolosim in loc sa-l recalculam a 5-a
+    // oara. Fallback defensiv daca vreodata adancimeActiva n-ar fi printre
+    // candidati (nu se intampla azi, dar recalculul direct ramane corect).
+    const candidatActiv = recomandare.candidati.find((c) => c.adancime === adancimeActiva);
+    const model = candidatActiv
+      ? candidatActiv.model
+      : motor.construiesteModelTabelFluenta({ inregistrari, catalog, adancime: adancimeActiva, praguri });
+    randeazaTabelFluenta(sectiune, model);
+    actualizeazaMarcajeRecomandareAdancime(recomandare);
+    if (model.antete.length > 0) randeazaTabelRecomandareAdancime(sectiune, recomandare, axaAdancime);
+  }
+
+  function randeazaBlocGrila(sectiune, inregistrari) {
+    const model = motor.ruleazaAnaliza({
+      inregistrari,
+      catalog,
+      configuratie: CONFIGURATIE,
+      praguri,
+    });
+    randeazaVizualizarea(sectiune, model);
+  }
+
   async function analizeazaSiRandeaza(inregistrari, info) {
     ultimaAnaliza = { inregistrari, info };
     arataIncarcare();
     await asteaptaRandareaIncarcarii();
     try {
-      if (reprezentareActiva === "tabel_fluenta") {
-        const recomandare = obtineRecomandareAdancime(inregistrari, catalog);
-        if (
-          !adancimeAlesaManual &&
-          recomandare.adancime_recomandata !== null &&
-          recomandare.adancime_recomandata !== adancimeActiva
-        ) {
-          adancimeActiva = recomandare.adancime_recomandata;
-          const optiuneRecomandata = axaAdancime.optiuni.find((o) => o.adancime === adancimeActiva);
-          const inputRecomandat = optiuneRecomandata
-            ? cpEl.querySelector(`input[data-preset="adancime_foto_${optiuneRecomandata.id}"]`)
-            : null;
-          if (inputRecomandat) inputRecomandat.checked = true;
+      if (!reprezentariActive.includes("grila_10x10")) opresteCeasurileFoliilor();
+      vizEl.replaceChildren();
+      // Antetul cu sursa o singura data, sus; apoi cate o sectiune pentru fiecare
+      // reprezentare bifata, in ordinea din definitii. Sectiunile sunt fratii pe
+      // care ii va reordona drag & drop-ul: fiecare isi poarta id-ul in
+      // `data-reprezentare`.
+      vizEl.appendChild(construiesteAntet(info));
+      reprezentariActive.forEach((idReprezentare) => {
+        const sectiune = document.createElement("section");
+        sectiune.className = "viz3-reprezentare";
+        sectiune.dataset.reprezentare = idReprezentare;
+        vizEl.appendChild(sectiune);
+        if (idReprezentare === "tabel_fluenta") {
+          randeazaBlocTabelFluenta(sectiune, inregistrari);
+        } else {
+          randeazaBlocGrila(sectiune, inregistrari);
         }
-        // Modelul adancimii active a fost deja calculat in sweep-ul de mai sus
-        // (e unul dintre candidati) — il refolosim in loc sa-l recalculam a 5-a
-        // oara. Fallback defensiv daca vreodata adancimeActiva n-ar fi printre
-        // candidati (nu se intampla azi, dar recalculul direct ramane corect).
-        const candidatActiv = recomandare.candidati.find((c) => c.adancime === adancimeActiva);
-        const model = candidatActiv
-          ? candidatActiv.model
-          : motor.construiesteModelTabelFluenta({ inregistrari, catalog, adancime: adancimeActiva, praguri });
-        randeazaTabelFluenta(vizEl, model, info);
-        actualizeazaMarcajeRecomandareAdancime(recomandare);
-        if (model.antete.length > 0) randeazaTabelRecomandareAdancime(vizEl, recomandare, axaAdancime);
-        return;
-      }
-      const model = motor.ruleazaAnaliza({
-        inregistrari,
-        catalog,
-        configuratie: CONFIGURATIE,
-        praguri,
       });
-      randeazaVizualizarea(vizEl, model, info);
+      // Tabelul nu mai e in pagina: reglajele din 5.2 n-au ce comanda.
+      if (!reprezentariActive.includes("tabel_fluenta")) tabelFluentaAtual = null;
     } finally {
       ascundeIncarcare();
     }
@@ -3459,17 +3540,31 @@
   }
 
   randeazaControlPanel(cpEl, axe);
+  actualizeazaBifaBlocata();
   actualizeazaSubsectiuni();
   // Delegare pe container: schimbarea reprezentarii (grila/tabel) sau a
   // marimii calupului re-randeaza fara sa recitim sursa de date.
   cpEl.addEventListener("change", (ev) => {
     const preset = ev.target?.dataset?.preset ?? "";
-    if (preset.startsWith("vizualizare_") && ev.target.checked) {
-      reprezentareActiva = preset.slice("vizualizare_".length);
-      if (reprezentareActiva === "tabel_fluenta") adancimeAlesaManual = false;
+    if (preset.startsWith("vizualizare_")) {
+      const idReprezentare = preset.slice("vizualizare_".length);
+      // Cel putin o reprezentare ramane mereu bifata: debifarea ultimei se
+      // anuleaza si nu se intampla nimic altceva.
+      if (!ev.target.checked && reprezentariActive.length === 1) {
+        ev.target.checked = true;
+        return;
+      }
+      const cerute = ev.target.checked
+        ? [...reprezentariActive, idReprezentare]
+        : reprezentariActive.filter((id) => id !== idReprezentare);
+      reprezentariActive = inOrdineaDefinitiilor(cerute);
+      // Tabelul tocmai bifat isi ia din nou adancimea recomandata, ca inainte.
+      if (ev.target.checked && idReprezentare === "tabel_fluenta") adancimeAlesaManual = false;
       // Bifarea DOAR comuta ce vezi acum; NU schimba defaultul. Doar butonul
-      // „md" seteaza defaultul persistent — la refresh se incarca acela, nu
-      // ultima bifa. La refresh, o bifare netransformata-in-default se pierde.
+      // „Set as default" salveaza combinatia — la refresh se incarca ea, nu
+      // ultimele bife. O bifare netransformata-in-default se pierde la refresh.
+      actualizeazaButonDefaultReprezentari();
+      actualizeazaBifaBlocata();
       actualizeazaSubsectiuni();
       rerandeaza();
     }

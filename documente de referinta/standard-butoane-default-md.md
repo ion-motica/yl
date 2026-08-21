@@ -39,27 +39,31 @@ ce *preset* se aplică automat (eticheta „Default preset:"). Sunt două lucrur
 diferite: presetul = un pachet de bife pe o subsecțiune; „md" = o singură bifă dintr-o axă.
 Dacă cele două coexistă vizibil, **dezambiguizează vocabularul**.
 
-## Implementare de referință (Vizualizare 3, axa „Reprezentare")
+## Implementare de referință — nu mai există în cod (22.08.2026)
 
-- Fișier logică: `Vizualizare 3 - Claude/vizualizare3-bootstrap.js`.
-- Cheie localStorage: `viz3_reprezentare_default`.
-- Persistență: `citesteReprezentareDefaultSalvata` / `salveazaReprezentareDefault`
-  (mirror după blocul Domeniului).
-- Init defaultului: `reprezentareDefault` = salvatul valid, altfel opțiunea `activa`.
-- Butoane: `construiesteButonDefault`, `actualizeazaUnButonDefault`, `actualizeazaButoaneDefault`,
-  `faDefaultReprezentare` (early-return dacă opțiunea e deja default), într-un `Map` optId→buton.
-- Gardă randare buton: `if (axa === axaVizualizare && !opt.dezactivata)`.
-- Gardă bifare inițială: ramura `else if (axa === axaVizualizare)` din bucla de opțiuni
-  (bifa pornește din defaultul salvat, nu din `activa`).
-- Listener de `change`: bifarea setează doar `reprezentareActiva` (ce vezi) — **NU** apelează
-  `faDefaultReprezentare` (asta ar readuce „Model A"-ul respins).
-- CSS: `.viz3-rand-cu-default` (rândul), `.viz3-buton-default`, `.viz3-buton-default--activ`
-  (defaultul curent: plin, `cursor: default`). Mirror după `.viz3-buton-slidere`.
+Singura implementare a butoanelor „md" era axa „Reprezentare" din Vizualizare 3. Acolo
+reprezentările au devenit **bife simultane** (mai multe afișate deodată), deci nu mai există
+„o opțiune default" de marcat: butoanele „md" de lângă fiecare opțiune au fost înlocuite de
+**un singur buton „Set as default"**, sus, sub eticheta axei, care salvează *combinația* de
+bife din momentul apăsării (`viz3_reprezentare_default` ține acum o listă JSON).
+
+Restul repo-ului nu folosește tiparul: cele două subquizuri cu CP din
+`js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js` au decis explicit **fără** butoane
+„md" (decizie user, 29.07.2026). Deci standardul rămâne **fără exemplu viu** — regulile de mai
+sus se aplică la prima axă care va cere din nou un default per opțiune.
+
+**Ce se păstrează neschimbat în varianta cu un buton** (și e de păstrat oriunde se reia tiparul):
+regulile 3, 4 și 5 — apăsarea butonului nu schimbă ce vezi acum, bifarea e tranzitorie și nu
+scrie nimic, iar la refresh se încarcă mereu ce e marcat, niciodată ultimele bife. Butonul arată
+„default", plin și inert, când bifele curente sunt exact combinația salvată (regula 2), prin
+aceleași clase CSS `.viz3-buton-default` / `.viz3-buton-default--activ`.
 
 ## Scalare (dacă se extinde la mai multe axe)
 
-Acum e cablat pe o singură axă (`axa === axaVizualizare`), deliberat („testăm și extindem după").
-Generalizarea la „orice axă poate avea bife-default persistente" e o refactorizare mecanică:
+Notat pe vremea când tiparul era cablat pe o singură axă (`axa === axaVizualizare`), deliberat
+(„testăm și extindem după"). Rămâne valabil ca schiță pentru prima axă care va cere din nou
+butoane „md". Generalizarea la „orice axă poate avea bife-default persistente" e o refactorizare
+mecanică:
 
 - cheie per-axă (`viz3_default_<axaId>`), un `Map` axaId→optId în loc de o variabilă unică;
 - flag declarativ în `definitii-axe.js` (ex. `default_memorabil: true`) în locul comparației
