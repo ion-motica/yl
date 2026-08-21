@@ -368,6 +368,9 @@
 
   // Reglajele foliilor. `dimensiuneFolie` rămâne null până măsurăm tabla.
   let dimensiuneFolie = null;
+  // Mărimea de dinainte de debifarea foliilor, ca rebifarea lor să o pună la loc:
+  // tabla singură se lățește pe tot ecranul, dar aia e mărimea ei, nu a foliilor.
+  let dimensiuneInainteDeStrans = null;
   let vitezaReasezare = 300;
   let autoSecunde = 0;
   let ceasAuto = null;
@@ -397,6 +400,33 @@
     aplicaDimensiune();
   }
 
+  function puneDimensiuneFolie(valoare) {
+    if (!sliderDimensiune) return;
+    dimensiuneFolie = valoare;
+    sliderDimensiune.slider.value = String(valoare);
+    sliderDimensiune.arata();
+    aplicaDimensiune();
+  }
+
+  // Cat loc are tabla pe latime in zona de vizualizare, fara paddingul ei.
+  function latimeDisponibila() {
+    if (!vizEl) return 0;
+    const stil = getComputedStyle(vizEl);
+    const padding = parseFloat(stil.paddingLeft) + parseFloat(stil.paddingRight);
+    return Math.max(0, vizEl.clientWidth - padding);
+  }
+
+  // Cu foliile debifate se vede o singura tabla: ea se intinde pe toata latimea
+  // disponibila, ca sa se poata citi si pe telefon, si pe PC. Nu trece de
+  // marimea ei naturala (maximul sliderului): mai mult ar insemna doar sa umflam
+  // o tabla care oricum incape.
+  function potrivesteDimensiuneaLaEcran() {
+    const latime = latimeTabla();
+    const disponibil = latimeDisponibila();
+    if (!latime || !disponibil) return;
+    puneDimensiuneFolie(Math.min(disponibil, latime));
+  }
+
   // Panza pe care plutesc aranjamentele: cat cere cel mai mare dintre ele.
   // Un aranjament nou, mai lat, o creste automat. Functie, nu constanta: asa
   // nu depinde de ordinea in care se initializeaza modulele.
@@ -406,6 +436,24 @@
       coloane: Math.max(...forme.map((a) => a.coloane)),
       randuri: Math.max(...forme.map((a) => a.randuri)),
     };
+  }
+
+  // Panza de care e nevoie ACUM. Plutirea are rost doar cat timp foliile chiar
+  // se muta singure: fara ea (auto = 0, sau foliile oprite), panza se stramteaza
+  // pe forma aranjamentului curent, ca div-ul sa nu mai tina spatiu gol in jurul
+  // tablei. Efect secundar dorit: cu panza egala cu forma, `coordonateDestinatie`
+  // n-are unde deplasa aranjamentul (maxCol/maxRnd = 0), deci el se aseaza fix in
+  // coltul stanga-sus — chiar si cu „Reașezare pe linie/coloană random" bifata.
+  function panzaCurenta() {
+    if (foliiActive && autoSecunde > 0) return panzaMax();
+    return aranjamente[foliiActive ? aranjamentCurent : "suprapus"] ?? aranjamente.suprapus;
+  }
+
+  // Marimea div-ului foliilor vine din datele aranjamentelor, nu din CSS.
+  function sincronizeazaPanza() {
+    const panza = panzaCurenta();
+    document.documentElement.style.setProperty("--viz3-panza-coloane", String(panza.coloane));
+    document.documentElement.style.setProperty("--viz3-panza-randuri", String(panza.randuri));
   }
 
   function intregAleator(min, max) {
@@ -446,7 +494,7 @@
   function loculIntalnirii(membri, acum) {
     const mod = Math.floor(Math.random() * 3);
     if (mod === 0) {
-      const panza = panzaMax();
+      const panza = panzaCurenta();
       return {
         col: intregAleator(0, panza.coloane - 1),
         rnd: intregAleator(0, panza.randuri - 1),
@@ -474,7 +522,8 @@
     // Aranjamentul intreg se aseaza undeva pe panza. Libertatea e exact cat
     // ramane dupa ce incape forma lui: un rand de 4 se poate misca doar pe
     // verticala, un patrat 2x2 in ambele directii, o singura folie oriunde.
-    const panza = panzaMax();
+    // Cand panza e stransa pe forma (vezi `panzaCurenta`), libertatea e zero.
+    const panza = panzaCurenta();
     const maxCol = panza.coloane - grila.coloane;
     const maxRnd = panza.randuri - grila.randuri;
     if (!pastreazaLocul) {
@@ -717,6 +766,8 @@
     const stiva = document.querySelector(".viz3-folii");
     if (!stiva) return;
     stiva.dataset.aranjament = foliiActive ? aranjamentCurent : "suprapus";
+    // Panza inainte de asezare: destinatiile se calculeaza pe ea.
+    sincronizeazaPanza();
     aseazaFoliile(stiva);
     aplicaCompozitie();
   }
@@ -1251,7 +1302,12 @@
     );
 
     const auto = randeazaNumar(gasesteReglaj("auto"), (v) => {
+      const seStrangeaInainte = autoSecunde <= 0;
       autoSecunde = v;
+      // Trecerea 0 ↔ non-0 schimba panza (stransa pe forma vs. plutitoare), deci
+      // foliile se reaseaza o data. In rest, numarul doar reprogrameaza ceasul —
+      // n-are rost sa le pornim o tranzitie la fiecare apasare de +/-.
+      if (seStrangeaInainte !== (autoSecunde <= 0)) aplicaAranjament();
       aplicaAuto();
     });
 
@@ -1272,6 +1328,16 @@
       foliiActive = bifa.checked;
       butoane.forEach((b) => (b.disabled = !foliiActive));
       deActivat.forEach((el) => (el.disabled = !foliiActive));
+      // Debifarea lasa o singura tabla: o intindem pe latimea disponibila, ca sa
+      // se citeasca. Rebifarea pune la loc marimea de dinainte — cea la care
+      // incap patru folii pe panza.
+      if (!foliiActive) {
+        dimensiuneInainteDeStrans = dimensiuneFolie;
+        potrivesteDimensiuneaLaEcran();
+      } else if (dimensiuneInainteDeStrans !== null) {
+        puneDimensiuneFolie(dimensiuneInainteDeStrans);
+        dimensiuneInainteDeStrans = null;
+      }
       aplicaAranjament();
       aplicaAuto();
     });
@@ -2148,11 +2214,11 @@
     document.documentElement.style.setProperty("--viz3-coloane", String(model.coloane));
     document.documentElement.style.setProperty("--viz3-randuri", String(model.randuri));
     container.appendChild(stiva);
-    // Panza isi ia marimea din datele aranjamentelor, nu din CSS.
-    const panza = panzaMax();
-    document.documentElement.style.setProperty("--viz3-panza-coloane", String(panza.coloane));
-    document.documentElement.style.setProperty("--viz3-panza-randuri", String(panza.randuri));
+    sincronizeazaPanza();
     sincronizeazaDimensiune();
+    // Pornire cu foliile debifate (sau re-randare in starea asta): tabla singura
+    // se aseaza tot pe latimea disponibila.
+    if (!foliiActive) potrivesteDimensiuneaLaEcran();
     aplicaViteza();
     aplicaAranjament();
     // Masuram abia dupa ce browserul a asezat pagina: in timpul randarii,
@@ -2812,6 +2878,20 @@
   // La rotire (portret -> landscape sau invers), sertarul se inchide — pe
   // landscape CP-ul revine oricum vizibil dintr-o coloana fixa, nu ca sertar.
   interogarePortret?.addEventListener?.("change", () => seteazaMeniuDeschis(false));
+
+  // Tabla singura (folii debifate) se tine dupa latimea disponibila, deci se
+  // repotriveste si cand ecranul isi schimba marimea: rotirea telefonului sau
+  // redimensionarea ferestrei pe PC. Asteptam sa se opreasca tragerea de
+  // fereastra, ca sa nu recalculam scara la fiecare pixel.
+  let ceasRepotrivire = null;
+  global.addEventListener?.("resize", () => {
+    if (foliiActive) return;
+    if (ceasRepotrivire) clearTimeout(ceasRepotrivire);
+    ceasRepotrivire = setTimeout(() => {
+      ceasRepotrivire = null;
+      if (!foliiActive) potrivesteDimensiuneaLaEcran();
+    }, 150);
+  });
 
   // Domeniul ales tine minte peste refresh, ca importul. Altfel fiecare Ctrl+R
   // te intoarce la tabla implicita, iar datele de pe alt interval par disparute
