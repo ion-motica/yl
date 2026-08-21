@@ -1474,6 +1474,9 @@
           domainProductsDefinition(),
         ],
         activeSubquizIds: route,
+        // Mesajul de final de nivel depinde de subquizul din care s-a iesit —
+        // orchestratorul il da in eveniment, nu-l mai ghiceste quizul.
+        onRouteComplete: (eveniment) => advanceLevel(eveniment.subquizId ?? "anchors"),
         context: {
           quizId,
           getLevel: () => level,
@@ -1535,11 +1538,10 @@
       return orchestrator.startFirst();
     }
 
-    // `advanceLevel` e apelata din `handleOrchestratorResult`, in AFARA
-    // oricarei instante M3B a vreunui subquiz (declansata de semnalul
-    // `routeComplete` al orchestratorului, dupa ce ultimul subquiz din ruta a
-    // iesit) — de-aia isi pune singura semnatura M3B, ca falling-engine.js sa
-    // accepte rezultatul.
+    // `advanceLevel` se cheama DOAR prin `onRouteComplete`, adica din interiorul
+    // orchestratorului (vezi routeComplete in js/subquiz/subquiz-orchestrator.js).
+    // De-aia nu-si mai pune singura nici semnatura M3B, nici `subquizEvent`:
+    // le pune orchestratorul, ca la orice alt eveniment de rutare.
     function advanceLevel(via = "anchors") {
       if (level >= MAX_LEVEL) {
         completed = true;
@@ -1556,7 +1558,6 @@
           prompt: "Final",
           options: ["", "", ""],
           correctIndex: 0,
-          motor3Butoane: global.Motor3Butoane.SEMNATURA,
         };
       }
 
@@ -1587,15 +1588,7 @@
         banner: `Nivel ${level} - ${factorForLevel(level)}x`,
         message: `Nivel ${level}`,
         nextRound: beginRoute(),
-        motor3Butoane: global.Motor3Butoane.SEMNATURA,
       };
-    }
-
-    function handleOrchestratorResult(result) {
-      if (result?.subquizEvent?.routeComplete) {
-        return advanceLevel(result.subquizEvent.subquizId ?? "anchors");
-      }
-      return result;
     }
 
     resetLevelState();
@@ -1725,11 +1718,11 @@
       },
 
       onAnswer(index, meta = {}) {
-        return handleOrchestratorResult(orchestrator.onAnswer(index, meta));
+        return orchestrator.onAnswer(index, meta);
       },
 
       onTimeout(meta = {}) {
-        return handleOrchestratorResult(orchestrator.onTimeout(meta));
+        return orchestrator.onTimeout(meta);
       },
     };
   }

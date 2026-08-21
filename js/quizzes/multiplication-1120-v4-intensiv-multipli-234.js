@@ -2042,6 +2042,7 @@
       orchestrator = global.SubquizOrchestrator.create({
         definitions: [baseDefinition(), sq3Definition(), sq2Definition(), sq2SbsDefinition(), sq5Definition()],
         activeSubquizIds: activeIds,
+        onRouteComplete: laRutaCompleta,
         context: {
           quizId,
           getLevel: () => level,
@@ -2084,9 +2085,10 @@
       return beginRoute();
     }
 
-    // `advanceLevel`/`handleOrchestratorResult` sunt apelate in AFARA oricarei
-    // instante M3B a vreunui subquiz (declansate de semnalul `routeComplete`
-    // al orchestratorului) — isi pun singure semnatura.
+    // `advanceLevel` se cheama DOAR din `laRutaCompleta`, adica din interiorul
+    // orchestratorului (vezi routeComplete in js/subquiz/subquiz-orchestrator.js).
+    // De-aia nu-si mai pune singura nici semnatura M3B, nici `subquizEvent`:
+    // le pune orchestratorul, ca la orice alt eveniment de rutare.
     function advanceLevel() {
       if (level >= MAX_LEVEL) {
         completed = true;
@@ -2103,7 +2105,6 @@
           prompt: "Final",
           options: ["", "", ""],
           correctIndex: 0,
-          motor3Butoane: global.Motor3Butoane.SEMNATURA,
         };
       }
 
@@ -2120,28 +2121,25 @@
         banner: `Nivel ${level} - ${factorForLevel(level)}x`,
         message: `Nivel ${level}`,
         nextRound: beginRoute(),
-        motor3Butoane: global.Motor3Butoane.SEMNATURA,
       };
     }
 
-    function handleOrchestratorResult(result) {
-      if (result?.subquizEvent?.routeComplete) {
-        if (inLevel0) {
-          return {
-            outcome: "run-complete",
-            correct: true,
-            runComplete: true,
-            runDelayMs: 0,
-            flash: "win",
-            banner: "Fluent party terminat — Nivel 1",
-            message: `Nivel ${level}`,
-            nextRound: beginLevel1AfterLevel0(),
-            motor3Butoane: global.Motor3Butoane.SEMNATURA,
-          };
-        }
-        return advanceLevel();
+    // CE urmeaza dupa ce ruta s-a terminat. Orchestratorul o cheama si tot el
+    // pune marcajele pe rezultat — quizul nu mai construieste rezultate de top.
+    function laRutaCompleta() {
+      if (inLevel0) {
+        return {
+          outcome: "run-complete",
+          correct: true,
+          runComplete: true,
+          runDelayMs: 0,
+          flash: "win",
+          banner: "Fluent party terminat — Nivel 1",
+          message: `Nivel ${level}`,
+          nextRound: beginLevel1AfterLevel0(),
+        };
       }
-      return result;
+      return advanceLevel();
     }
 
     resetLevelState();
@@ -2258,11 +2256,11 @@
       },
 
       onAnswer(index, meta = {}) {
-        return handleOrchestratorResult(orchestrator.onAnswer(index, meta));
+        return orchestrator.onAnswer(index, meta);
       },
 
       onTimeout(meta = {}) {
-        return handleOrchestratorResult(orchestrator.onTimeout(meta));
+        return orchestrator.onTimeout(meta);
       },
 
       appendSq3ControlPanel,

@@ -851,6 +851,7 @@
       orchestrator = global.SubquizOrchestrator.create({
         definitions: [baseDefinition(), sq2Definition(), sq2SbsDefinition()],
         activeSubquizIds: ["base"],
+        onRouteComplete: () => advanceLevel(),
         context: {
           quizId,
           getLevel: () => level,
@@ -872,8 +873,10 @@
       return orchestrator.startFirst();
     }
 
-    // `advanceLevel` e apelata din `handleOrchestratorResult`, in AFARA
-    // oricarei instante M3B a vreunui subquiz — isi pune singura semnatura.
+    // `advanceLevel` se cheama DOAR prin `onRouteComplete`, adica din interiorul
+    // orchestratorului (vezi routeComplete in js/subquiz/subquiz-orchestrator.js).
+    // De-aia nu-si mai pune singura nici semnatura M3B, nici `subquizEvent`:
+    // le pune orchestratorul, ca la orice alt eveniment de rutare.
     function advanceLevel() {
       if (level >= MAX_LEVEL) {
         completed = true;
@@ -890,7 +893,6 @@
           prompt: "Final",
           options: ["", "", ""],
           correctIndex: 0,
-          motor3Butoane: global.Motor3Butoane.SEMNATURA,
         };
       }
 
@@ -907,13 +909,7 @@
         banner: `Nivel ${level} - ${factorForLevel(level)}x`,
         message: `Nivel ${level}`,
         nextRound: beginRoute(),
-        motor3Butoane: global.Motor3Butoane.SEMNATURA,
       };
-    }
-
-    function handleOrchestratorResult(result) {
-      if (result?.subquizEvent?.routeComplete) return advanceLevel();
-      return result;
     }
 
     resetLevelState();
@@ -1008,11 +1004,11 @@
       },
 
       onAnswer(index, meta = {}) {
-        return handleOrchestratorResult(orchestrator.onAnswer(index, meta));
+        return orchestrator.onAnswer(index, meta);
       },
 
       onTimeout(meta = {}) {
-        return handleOrchestratorResult(orchestrator.onTimeout(meta));
+        return orchestrator.onTimeout(meta);
       },
 
       getArenaActions() {
@@ -1042,8 +1038,7 @@
         );
         const command = startIntensiveWithFacts(facts, "manualArenaButton", { flash: "win" }, targetId);
         if (!command) return null;
-        const result = orchestrator.command(command);
-        return handleOrchestratorResult(result);
+        return orchestrator.command(command);
       },
 
       appendSq2ControlPanel(mount, hooks = {}) {
