@@ -4,6 +4,11 @@
 // `dezactivata: true` + `motiv`, exact cum cere contractul MABP.
 //
 // În prototip, o singură opțiune activă (`activa: true`) per axă.
+//
+// Ordinea de aici e ordinea fluxului MABP (0 Domeniu -> 5 Vizualizare) si e
+// ordinea in care se citeste analiza. In CP sectiunile se afiseaza INVERS,
+// 5->0, ca Vizualizarea sa fie prima (vezi `randeazaControlPanel` din
+// vizualizare3-bootstrap.js). Numarul din `titlu` ramane numarul etapei.
 
 (function (global) {
   "use strict";

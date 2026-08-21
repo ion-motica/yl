@@ -1808,7 +1808,12 @@
     subtitlu.textContent = "Prototip: o opțiune activă per axă. Restul vor urma.";
     container.append(titlu, subtitlu);
 
-    definitii.forEach((etapa) => {
+    // Ordinea din `definitii-axe.js` e ordinea fluxului MABP (0 Domeniu -> 5
+    // Vizualizare) si ramane asa in date. In CP afisam sectiunile invers, 5->0,
+    // ca Vizualizarea sa fie prima. Numerele din titluri NU se schimba: ele spun
+    // a cata etapa din flux e, nu a cata pozitie in meniu. Copiem inainte de
+    // `reverse()`, array-ul global e inghetat.
+    [...definitii].reverse().forEach((etapa) => {
       const sectiune = document.createElement("section");
       sectiune.className = "viz3-etapa";
       const titluEtapa = document.createElement("h2");
