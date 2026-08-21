@@ -23,6 +23,17 @@ v2-modular, 3 în v3, 5 în v4, migrate la contractul declarativ „CE nu CUM") 
 planului verificate riguros, unul câte unul; PLANUL ÎNTREG E ÎNCHEIAT.** Vezi „Ultima actualizare"
 de mai jos pentru raportul complet al Fazei F, criteriu cu criteriu.
 
+> **⚠ 21.08.2026 — gărzile au scos la iveală 3 bug-uri reale (una singură raportată de user),
+> reparate printr-o corecție arhitecturală în orchestrator. Commit: `da4447b`. Vezi „Bug-uri de
+> tranziție de rutare (21.08.2026)" de mai jos.** Pe scurt: rezultatele de la *tranzițiile de
+> rutare* (avans de nivel, revenire din sq3) ieșeau din quiz fără marcaje, gărzile aruncau, iar
+> `applyAnswerResult` nu mai rula — ecranul rămânea pe întrebarea veche cu butoanele active
+> („întrebare-fantomă din subtabla veche", raportat de user la v4). Reparat mutând finalul de rută
+> ÎN orchestrator (`onRouteComplete`) și propagând semnătura M3B într-un singur loc, la intrarea în
+> `handle` (acoperă și recursia — a treia cauză, găsită abia la verificarea live).
+> **Verificarea Fazei F, criteriul 3, a fost prea superficială: un singur răspuns per quiz, fără
+> să ajungă vreodată la o schimbare de nivel — de-aia n-a prins nimic.**
+
 **§12, detaliile învelirii (20.08.2026)** — toate cele 15 fișiere „simple" din checklist învelite în
 `SubquizOrchestrator`: `equations-e3-e6.js`, `addition-table.js`, `addition-table-range.js`,
 `prime-divisors.js`, `sub-sau-langa-radical.js`, `bagare-sub-radical.js`,
@@ -463,6 +474,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 
 | Data | Fază / Lot | Ce s-a făcut | Stare |
 |---|---|---|---|
+| 21.08.2026 | Post-plan — bug-uri de tranziție de rutare | User a raportat la v4: „final de nivel, apare alert de schimbare de nivel, apoi mai apare o întrebare tot din subtabla veche". Investigat (Sonnet 5), apoi re-analizat la cererea userului (Opus 5), care a corectat diagnosticul: **două** bug-uri, de vârste diferite, cu același simptom. Reparate arhitectural, nu prin petice: finalul de rută mutat ÎN orchestrator (`onRouteComplete`), semnătura M3B propagată într-un SINGUR loc (intrarea în `handle`, ca să acopere și recursia). Cele 3 quizuri cu rute reale au scăpat de `handleOrchestratorResult` și de auto-semnare. **A treia gaură, găsită abia la verificarea live** (recursia prin `onResume`) — dovadă că verificarea în browser prinde ce nu prinde Node. Test nou: `tests/orchestrator-marcaje-pe-orice-raspuns.test.js` (5 teste; verificat că pică 4/5 pe codul vechi). Suită: 520, 517 trec, 3 pică (preexistentele). Verificat live: 3 schimbări de nivel, 137 pași, zero erori, zero întrebări-fantomă. | **complet** |
 | 18.08.2026 | — | Plan scris (Opus 5), pus pe GitHub. Nicio modificare de cod. | plan gata |
 | 18.08.2026 | — | Plan corectat: scop extins (3 motoare din afara `js/quizzes/`, ratate la prima numărare) + ordine schimbată (impunerea ÎNAINTE de migrare, decizia userului). | plan gata |
 | 18.08.2026 | Faza A | Citire completă (18 fișiere + 17 subquizuri), contract propus, apoi corectat de user de mai multe ori: mecanism de avans forțat fără răspuns corect ("plasa de siguranță") — găsit într-un singur loc (sq3), eliminat complet din contract, nicăieri nu există limită de încercări. Clarificat: „răspuns corect" la nivel de tură = doar prima apăsare, apăsările ulterioare sunt corectare, nu re-evaluare (deja consemnat, corect, în jurnalul/Vizualizare 3 existent — verificat, nu era gaură nouă). Decizie nouă de scop: orice quiz trece prin `SubquizOrchestrator`, minim o bucată — vezi §12 din plan. Faza A aprobată. | **complet** |
@@ -925,6 +937,70 @@ memorie) — vezi „Stare curentă" pentru raportul complet, criteriu cu criter
 
 *(se completează pe parcurs — orice caz care nu încape în contract, orice bug descoperit și
 raportat separat, orice decizie luată de user pe parcurs)*
+
+## Bug-uri de tranziție de rutare (21.08.2026) — REZOLVATE (commit `da4447b`)
+
+> Găsite pornind de la un simptom raportat de user la `multiplication-1120-v4-intensiv-multipli-234.js`
+> („T*/ 11-20 - v4 - bag toate in joc, intensiv multipli 2 3 4"): *„final de nivel, apare alert de
+> schimbare de nivel, apoi mai apare o întrebare tot din subtabla veche, apoi continuă cu întrebări
+> din subtabla noului nivel."* Userul a cerut întâi doar investigație (fără reparare), apoi
+> re-analiză cu Opus 5 înainte de a repara.
+
+**Simptomul, mecanic.** `resolveChoice` din `js/falling-engine.js` cheamă gărzile ÎNAINTE de
+`applyAnswerResult`. Când o gardă aruncă, `applyAnswerResult` nu mai rulează niciodată — deci nici
+`setInputEnabled(false)`, iar `animating` fusese deja pus pe `false` la începutul funcției. Ecranul
+rămâne pe întrebarea veche, cu butoanele active, deși starea internă a quizului a avansat deja
+(mutația s-a produs înainte de aruncare). Următoarea apăsare a userului e un răspuns normal, care
+trece gărzile — abia atunci se reîmprospătează ecranul. De-acolo „întrebarea-fantomă". Eroarea nu e
+prinsă nicăieri (`grep`: niciun `window.onerror`, niciun try/catch pe cale).
+
+**Cauza 1 — avansul de nivel (garda 2 `subquizEvent`; introdusă de gardul §12, 20.08.2026).**
+Cele 3 quizuri cu rute reale prindeau semnalul `routeComplete` într-un `handleOrchestratorResult`
+propriu și ÎNLOCUIAU rezultatul orchestratorului cu unul construit de mână (`advanceLevel()`), fără
+`subquizEvent`. Aruncă la FIECARE schimbare de nivel.
+
+**Cauza 2 — revenirea din sq3 (garda 1 `motor3Butoane`; latentă de la Faza D).** M3B semnează și
+comanda, și vederea ei (`js/motor-3-butoane.js`, ramura de rutare). Dar `subquiz-definition.js`
+șterge deliberat vederea comenzii la `pop` (ca să n-o îngroape pe cea din `onResume` — fix corect
+din Faza D), iar orchestratorul cade atunci pe `resumed.view`, construită de `onResume`, care NU
+trece prin M3B. Rezultat nesemnat, aceeași aruncare, fără alertă. Vechi, nu de la gardul de azi.
+
+**Cauza 3 — recursia prin `onResume`; GĂSITĂ ABIA LA VERIFICAREA LIVE, după ce primul fix părea
+complet.** La `pop`, dacă `onResume` cere el însuși o rutare (v4 iese din nivel exact așa, când sq3
+a completat acoperirea: `{action:"exit", reason:"levelCoveredAfterSq3"}`), orchestratorul
+recursează cu comanda LUI — care nu vine din M3B, deci e nesemnată. Primul fix propaga semnătura în
+`decorate`, ceea ce nu acoperea recursia. **Lecție: Node nu a prins-o pentru că, cu
+`random: () => 0`, nivelul se termină mereu în subquizul de bază; browserul a prins-o din a doua
+schimbare de nivel.**
+
+**Reparația (arhitecturală, la cererea userului: „dacă sofisticarea e necesară, folosește-o").**
+Principiul impus: *finalul de rută e tot un eveniment de rutare, deci se rezolvă în orchestrator, ca
+`push`/`pop`/`exit`; quizul spune doar CE urmează, orchestratorul pune marcajele.*
+
+1. `js/subquiz/subquiz-orchestrator.js`: config nou `onRouteComplete` — `routeComplete()` îl cheamă
+   și decorează el rezultatul. Semnătura M3B se propagă de pe comandă într-un SINGUR loc, la
+   intrarea în `handle` (`cuSemnaturaComenzii(handleIntern(command), command)`), ca să acopere
+   toate ramurile ȘI recursia. Semnătura nu se inventează niciodată — se copiază doar cea pusă de
+   M3B. În plus, `onAnswer` fără subquiz pornit aruncă acum explicit, în loc să întoarcă tăcut un
+   rezultat nesemnat care ar fi crăpat mai târziu, departe de cauză (razgandire-ieftina.md, p. 9).
+2. Cele 3 quizuri (`v2-modular`, `v3`, `v4`): `handleOrchestratorResult` ȘTERS din toate; `onAnswer`
+   /`onTimeout` întorc direct rezultatul orchestratorului; cele 6 auto-semnări manuale
+   (`motor3Butoane: global.Motor3Butoane.SEMNATURA`) șterse — quizurile nu mai construiesc
+   rezultate de top. Fișierele au ieșit mai SIMPLE, nu mai complicate.
+
+**Respins ca sofisticărie inutilă:** slăbirea gărzii (ar anula rostul ei) și restructurarea
+avansului de nivel ca `jump`/`start` prin orchestrator (corectă, dar mult peste ce cere bug-ul).
+
+**Verificare.** Test nou `tests/orchestrator-marcaje-pe-orice-raspuns.test.js` (5 teste: cele 3
+quizuri reale duse prin 2 schimbări de nivel + recursia prin `onResume` + aruncarea fără subquiz
+pornit); confirmat că pică 4/5 pe codul vechi și trece 5/5 pe cel nou. Suită completă: 520 teste,
+517 trec, 3 pică (exact preexistentele). `check:encoding` și `check:docs` OK. Live, în browser real,
+pe v4: 3 schimbări de nivel, 137 de pași, **zero erori**, iar după fiecare alertă urmează doar
+întrebări din subtabla nouă (12x, apoi 13x, apoi 14x) — zero întrebări-fantomă.
+
+**De reținut pentru Faza F:** criteriul 3 („impunere reală pe 2 niveluri") fusese verificat cu un
+singur răspuns per quiz, fără să ajungă vreodată la o schimbare de nivel — de-aia n-a prins nimic.
+O verificare de gardă trebuie să treacă prin TRANZIȚIILE de rutare, nu doar prin pașii obișnuiți.
 
 ## Bug-uri găsite — AMBELE REZOLVATE 20.08.2026
 
