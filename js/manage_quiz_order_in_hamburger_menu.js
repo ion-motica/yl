@@ -6,8 +6,8 @@
 window.QUIZ_MENU_TEXT = `
 ## Clasa 0 
 ## Clasa 1
-Cl. 1 - Rigle2
-T+ EFF — Adunare extended fact family2222
+Cl. 1 - Rigle
+T+ EFF — Adunare extended fact family
 T− EFF — Scădere extended fact family
 Tabla adunarii - Clasic - 1_10+1_10
 Tabla adunarii - 1..n + 1..n
@@ -15,16 +15,20 @@ Tabla adunarii Singapore 6=3+3|3+4
 Tabla adunarii Singapore 6=?+3
 Tabla adunarii - intrebari ajutatoare 3+?=5
 Tabla scaderii - intrebari ajutatoare 5-?=3
+Ecuatii cu 3 4 5 6 numere
 ## Clasa a 2-a
 Adunări succesive
 Tabla inmultirii - intrebari ajutatoare 5*?=15
 Tabla impartirii - intrebari ajutatoare 15:?=3
 T× EFF — Înmulțire extended fact family
 T÷ EFF — Împărțire extended fact family
+Ecuatii cu 3 4 5 6 numere
 ## Clasa a 3-a
+Ecuatii cu 3 4 5 6 numere
 ## Clasa a 4-a
 Navigare pre-ecuatii EFF
 Impartiri cu rest 1-10
+Ecuatii cu 3 4 5 6 numere
 ## Clasa a 5-a si dupa
 ## Divizibilitate
 Găsire divizori primi
@@ -33,7 +37,6 @@ Găsire divizori primi
 Sub sau lângă radical v1
 Bagare sub radical
 ##Ecuatii
-Ecuatii cu 3 4 5 6 numere
 T*/ 11-20 v2
 T*/ 11-20 v2 - Clonat - Modular
 T*/ 11-20 - v3 - train w eff si eq forms - jurnal
