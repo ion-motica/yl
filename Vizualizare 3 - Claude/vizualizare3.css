@@ -515,9 +515,49 @@ body {
 
 /* Titlul unei reprezentari, deasupra blocului ei. Antetul de sus ramane doar cu
    sursa: butoanele de sursa/import sunt ale paginii, nu ale unei reprezentari. */
+.viz3-reprezentare-cap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
 .viz3-reprezentare-titlu {
   font-size: 18px;
   margin: 0 0 10px;
+}
+
+/* „Mărime tabel: − +" langa titlul tablei. Butoanele sunt mari deliberat: se
+   apasa cu degetul pe telefon, nu cu mouse-ul (44px = tinta de atingere). */
+.viz3-zoom-tabla {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.viz3-zoom-eticheta {
+  font-size: 13px;
+  color: var(--viz3-text-slab);
+}
+
+.viz3-buton-zoom {
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  line-height: 1;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 8px;
+  background: var(--viz3-panou);
+  color: var(--viz3-text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.viz3-buton-zoom:active {
+  background: var(--viz3-albastru);
+  border-color: var(--viz3-albastru);
+  color: #fff;
 }
 
 /* Cate o sectiune per reprezentare bifata, una sub alta. Sunt fratii pe care ii

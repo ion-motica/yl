@@ -371,6 +371,13 @@
   // Mărimea de dinainte de debifarea foliilor, ca rebifarea lor să o pună la loc:
   // tabla singură se lățește pe tot ecranul, dar aia e mărimea ei, nu a foliilor.
   let dimensiuneInainteDeStrans = null;
+  // true după prima apăsare pe „Mărime tabel: − +". De-atunci mărimea o comandă
+  // userul: nu se mai potrivește singură pe lățimea ecranului, nici la rotire.
+  // Se uită la reîncărcarea paginii, ca orice alegere netransformată în default.
+  let dimensiuneAleasaManual = false;
+  // Cât crește/scade tabla la o apăsare. Multiplicativ, nu în pași fixi de px:
+  // așa un pas se simte la fel și pe telefon (tabla mică), și pe PC (tabla mare).
+  const PAS_ZOOM = 1.15;
   let vitezaReasezare = 300;
   let autoSecunde = 0;
   let ceasAuto = null;
@@ -425,6 +432,17 @@
     const disponibil = latimeDisponibila();
     if (!latime || !disponibil) return;
     puneDimensiuneFolie(Math.min(disponibil, latime));
+  }
+
+  // Butoanele „− +" de langa titlul tablei. Limitele sunt exact cele ale
+  // sliderului „Dimensiune folie": e aceeasi marime, comandata din doua locuri.
+  function schimbaMarimeaTablei(factor) {
+    if (!sliderDimensiune) return;
+    const min = Number(sliderDimensiune.slider.min) || 10;
+    const max = Number(sliderDimensiune.slider.max) || latimeTabla();
+    const acum = dimensiuneFolie ?? max;
+    dimensiuneAleasaManual = true;
+    puneDimensiuneFolie(Math.round(Math.min(max, Math.max(min, acum * factor))));
   }
 
   // Panza pe care plutesc aranjamentele: cat cere cel mai mare dintre ele.
@@ -1333,7 +1351,7 @@
       // incap patru folii pe panza.
       if (!foliiActive) {
         dimensiuneInainteDeStrans = dimensiuneFolie;
-        potrivesteDimensiuneaLaEcran();
+        if (!dimensiuneAleasaManual) potrivesteDimensiuneaLaEcran();
       } else if (dimensiuneInainteDeStrans !== null) {
         puneDimensiuneFolie(dimensiuneInainteDeStrans);
         dimensiuneInainteDeStrans = null;
@@ -2184,11 +2202,44 @@
     return antet;
   }
 
-  function construiesteTitluReprezentare(titluText) {
+  // Capul unei reprezentari: titlul ei si, daca are, controalele care se tin de
+  // el (la grila: „Mărime tabel: − +").
+  function construiesteTitluReprezentare(titluText, controale = null) {
+    const cap = document.createElement("div");
+    cap.className = "viz3-reprezentare-cap";
     const titlu = document.createElement("h1");
     titlu.className = "viz3-reprezentare-titlu";
     titlu.textContent = titluText;
-    return titlu;
+    cap.appendChild(titlu);
+    if (controale) cap.appendChild(controale);
+    return cap;
+  }
+
+  // „Mărime tabel: − +", langa titlul tablei. Butoanele sunt mari deliberat: se
+  // apasa cu degetul pe telefon. Prima apasare opreste potrivirea automata pe
+  // latimea ecranului pana la reincarcarea paginii — de-atunci marimea o comanzi
+  // tu, si nici rotirea telefonului n-o mai schimba.
+  function construiesteZoomTabla() {
+    const zona = document.createElement("div");
+    zona.className = "viz3-zoom-tabla";
+    const eticheta = document.createElement("span");
+    eticheta.className = "viz3-zoom-eticheta";
+    eticheta.textContent = "Mărime tabel:";
+    const buton = (semn, titlu, factor) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "viz3-buton-zoom";
+      b.textContent = semn;
+      b.title = titlu;
+      b.addEventListener("click", () => schimbaMarimeaTablei(factor));
+      return b;
+    };
+    zona.append(
+      eticheta,
+      buton("−", "Micșorează tabla", 1 / PAS_ZOOM),
+      buton("+", "Mărește tabla", PAS_ZOOM)
+    );
+    return zona;
   }
 
   // `container` = sectiunea proprie a reprezentarii, deja goala si deja pusa in
@@ -2197,7 +2248,10 @@
   function randeazaVizualizarea(container, model) {
     // Titlul urmeaza domeniul ales: catalogul curent isi stie intervalul.
     container.appendChild(
-      construiesteTitluReprezentare(`Starea curentă — tabla înmulțirii ${catalog.eticheta}`)
+      construiesteTitluReprezentare(
+        `Starea curentă — tabla înmulțirii ${catalog.eticheta}`,
+        construiesteZoomTabla()
+      )
     );
 
     // Tabla = 4 folii transparente suprapuse. Suprapuse arată exact ca tabla
@@ -2217,8 +2271,9 @@
     sincronizeazaPanza();
     sincronizeazaDimensiune();
     // Pornire cu foliile debifate (sau re-randare in starea asta): tabla singura
-    // se aseaza tot pe latimea disponibila.
-    if (!foliiActive) potrivesteDimensiuneaLaEcran();
+    // se aseaza tot pe latimea disponibila — daca userul n-a luat marimea pe mana
+    // lui din butoanele „− +".
+    if (!foliiActive && !dimensiuneAleasaManual) potrivesteDimensiuneaLaEcran();
     aplicaViteza();
     aplicaAranjament();
     // Masuram abia dupa ce browserul a asezat pagina: in timpul randarii,
@@ -2885,11 +2940,11 @@
   // fereastra, ca sa nu recalculam scara la fiecare pixel.
   let ceasRepotrivire = null;
   global.addEventListener?.("resize", () => {
-    if (foliiActive) return;
+    if (foliiActive || dimensiuneAleasaManual) return;
     if (ceasRepotrivire) clearTimeout(ceasRepotrivire);
     ceasRepotrivire = setTimeout(() => {
       ceasRepotrivire = null;
-      if (!foliiActive) potrivesteDimensiuneaLaEcran();
+      if (!foliiActive && !dimensiuneAleasaManual) potrivesteDimensiuneaLaEcran();
     }, 150);
   });
 
