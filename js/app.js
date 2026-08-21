@@ -463,27 +463,155 @@
     }
   }
 
+  function parseQuizMenuText(text) {
+    const groups = [{ title: null, items: [] }];
+    (text || "").split("\n").forEach((raw) => {
+      const line = raw.trim();
+      if (!line) return;
+      if (line.startsWith("##")) {
+        groups.push({ title: line.slice(2).trim(), items: [] });
+      } else {
+        groups[groups.length - 1].items.push(line);
+      }
+    });
+    return groups;
+  }
+
+  function createQuizButton(meta, extraClass) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = extraClass ? `quiz-picker-item ${extraClass}` : "quiz-picker-item";
+    btn.textContent = meta.title;
+    btn.title = meta.description || "";
+    btn.classList.toggle("active", meta.id === QuizRegistry.getActiveId());
+    btn.addEventListener("click", () => switchQuiz(meta.id));
+    return btn;
+  }
+
+  function createQuizPickerGroupTitle(text) {
+    const el = document.createElement("div");
+    el.className = "quiz-picker-group-title";
+    el.textContent = text;
+    return el;
+  }
+
+  function createUnmatchedMenuLine(text) {
+    const el = document.createElement("div");
+    el.className = "quiz-picker-item quiz-picker-item-unmatched";
+    el.textContent = text;
+    return el;
+  }
+
+  async function copyTextToClipboard(text) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) {
+      // continuă cu fallback-ul de mai jos
+    }
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    temp.style.position = "fixed";
+    temp.style.opacity = "0";
+    document.body.appendChild(temp);
+    temp.focus();
+    temp.select();
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (_) {
+      copied = false;
+    }
+    document.body.removeChild(temp);
+    return copied;
+  }
+
+  function buildMissingQuizzesSection(missingMetas) {
+    const fragment = document.createDocumentFragment();
+
+    const header = document.createElement("div");
+    header.className = "quiz-picker-missing-header";
+    header.appendChild(createQuizPickerGroupTitle("De introdus:"));
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "quiz-picker-copy-list";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", async () => {
+      const text = missingMetas.map((meta) => meta.title).join("\n");
+      const copied = await copyTextToClipboard(text);
+      copyBtn.textContent = copied ? "copiat!" : "eroare";
+      setTimeout(() => {
+        copyBtn.textContent = "Copy";
+      }, 1500);
+    });
+    header.appendChild(copyBtn);
+    fragment.appendChild(header);
+
+    missingMetas.forEach((meta) => fragment.appendChild(createQuizButton(meta, "quiz-picker-item-missing")));
+    return fragment;
+  }
+
   function buildQuizPicker() {
     dom.quizPickerListEl.replaceChildren();
-    QuizRegistry.list().forEach((meta) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "quiz-picker-item";
-      btn.textContent = meta.title;
-      btn.title = meta.description || "";
-      btn.classList.toggle("active", meta.id === QuizRegistry.getActiveId());
-      btn.addEventListener("click", () => switchQuiz(meta.id));
-      dom.quizPickerListEl.appendChild(btn);
+
+    const byTitle = new Map(QuizRegistry.list().map((meta) => [meta.title, meta]));
+    const matchedTitles = new Set();
+
+    parseQuizMenuText(window.QUIZ_MENU_TEXT).forEach((group) => {
+      if (group.title) dom.quizPickerListEl.appendChild(createQuizPickerGroupTitle(group.title));
+      group.items.forEach((line) => {
+        const meta = byTitle.get(line);
+        if (meta) {
+          matchedTitles.add(line);
+          dom.quizPickerListEl.appendChild(createQuizButton(meta));
+        } else {
+          dom.quizPickerListEl.appendChild(createUnmatchedMenuLine(line));
+        }
+      });
     });
+
+    const missing = QuizRegistry.list().filter((meta) => !matchedTitles.has(meta.title));
+    if (missing.length > 0) {
+      dom.quizPickerListEl.insertBefore(buildMissingQuizzesSection(missing), dom.quizPickerListEl.firstChild);
+    }
   }
 
   // ── Sertar mobil (Pasul 2a) ────────────────────────────────────────────
-  // Pe ecrane mici, quiz-urile/nivelurile stau într-un drawer deschis de ≡.
-  // Pe desktop butonul ≡ e ascuns prin CSS, deci codul rămâne inert acolo.
+  // Pe ecrane mici, quiz-urile/nivelurile stau într-un drawer deschis de butonul „Alege quiz”.
+  // Pe desktop acest buton e ascuns prin CSS, deci codul rămâne inert acolo.
   const menuToggleEl = document.getElementById("menu-toggle");
   const drawerBackdropEl = document.getElementById("drawer-backdrop");
   const drawerCloseEl = document.getElementById("drawer-close");
   const divMeniuEl = document.getElementById("divMeniu");
+
+  const MENU_TEXT_SCALE_KEY = "youlearn.menuTextScale";
+  const MENU_TEXT_SCALE_MIN = 0.2;
+  const MENU_TEXT_SCALE_MAX = 2;
+  const MENU_TEXT_SCALE_STEP = 0.1;
+
+  function setMenuTextScale(value) {
+    const clamped = Math.min(MENU_TEXT_SCALE_MAX, Math.max(MENU_TEXT_SCALE_MIN, value));
+    const rounded = Math.round(clamped * 100) / 100;
+    divMeniuEl.style.setProperty("--menu-text-scale", rounded);
+    localStorage.setItem(MENU_TEXT_SCALE_KEY, String(rounded));
+    return rounded;
+  }
+
+  function initMenuTextScale() {
+    const raw = localStorage.getItem(MENU_TEXT_SCALE_KEY);
+    const stored = raw === null ? NaN : Number(raw);
+    let scale = setMenuTextScale(Number.isFinite(stored) ? stored : 1);
+
+    document.getElementById("menu-text-size-dec")?.addEventListener("click", () => {
+      scale = setMenuTextScale(scale - MENU_TEXT_SCALE_STEP);
+    });
+    document.getElementById("menu-text-size-inc")?.addEventListener("click", () => {
+      scale = setMenuTextScale(scale + MENU_TEXT_SCALE_STEP);
+    });
+  }
 
   function setDrawer(open) {
     dom.gameEl.classList.toggle("drawer-open", open);
@@ -1214,6 +1342,7 @@
 
   applyQuizTitleDisplay();
   syncLayoutMode();
+  initMenuTextScale();
   buildQuizPicker();
   buildLevelPicker();
   applyLiftLayout();

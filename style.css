@@ -141,7 +141,8 @@ body {
 }
 
 .menu-toggle {
-  font-size: 2.7rem;
+  font-size: 1.1rem;
+  white-space: nowrap;
 }
 
 .cp-toggle {
@@ -280,28 +281,12 @@ body {
   background: rgba(26, 35, 50, 0.65);
 }
 
-.quiz-picker-summary {
-  cursor: pointer;
-  font-size: 0.78rem;
+.divMeniu-label {
+  margin: 0 0 0.3rem;
+  font-size: calc(1.36rem * var(--menu-text-scale, 1));
   font-weight: 700;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  list-style: none;
-  user-select: none;
-}
-
-.quiz-picker-summary::-webkit-details-marker {
-  display: none;
-}
-
-.quiz-picker-summary::before {
-  content: "▸ ";
-  color: var(--accent);
-}
-
-.quiz-picker[open] .quiz-picker-summary::before {
-  content: "▾ ";
+  letter-spacing: 0.02em;
 }
 
 .quiz-picker-list {
@@ -323,7 +308,7 @@ body {
   border-radius: 8px;
   background: var(--panel);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: calc(1.44rem * var(--menu-text-scale, 1));
   font-weight: 600;
   line-height: 1.25;
   cursor: pointer;
@@ -339,6 +324,84 @@ body {
   background: #243044;
   color: var(--text);
   box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.quiz-picker-group-title {
+  margin: 0.5rem 0 0.1rem;
+  font-size: calc(1.36rem * var(--menu-text-scale, 1));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.quiz-picker-group-title:first-child {
+  margin-top: 0;
+}
+
+.quiz-picker-missing-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.quiz-picker-missing-header .quiz-picker-group-title {
+  margin: 0;
+  text-transform: none;
+  color: var(--wrong);
+}
+
+.quiz-picker-missing-header .quiz-picker-copy-list {
+  align-self: auto;
+  flex-shrink: 0;
+  margin-bottom: 0;
+  border-color: var(--wrong);
+  color: var(--wrong);
+}
+
+.quiz-picker-missing-header .quiz-picker-copy-list:hover {
+  background: var(--wrong);
+  color: #fff;
+}
+
+.quiz-picker-item-missing {
+  border-color: var(--wrong);
+  color: var(--wrong);
+}
+
+.quiz-picker-item-missing:hover {
+  border-color: var(--wrong);
+  color: var(--text);
+}
+
+.quiz-picker-item-unmatched {
+  cursor: default;
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.quiz-picker-item-unmatched:hover {
+  border-color: #2d3d52;
+  color: var(--muted);
+}
+
+.quiz-picker-copy-list {
+  align-self: flex-start;
+  padding: 0.2rem 0.55rem;
+  margin-bottom: 0.15rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font-size: calc(1.3rem * var(--menu-text-scale, 1));
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quiz-picker-copy-list:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .level-picker {
@@ -357,7 +420,7 @@ body {
   max-width: 2.15rem;
   height: auto;
   aspect-ratio: 1;
-  font-size: 0.78rem;
+  font-size: calc(1.56rem * var(--menu-text-scale, 1));
 }
 
 .divMeniu .divButoaneNiveluri {
@@ -393,20 +456,43 @@ body {
   padding-right: 0;
 }
 
-.quiz-picker-summary {
-  pointer-events: none;
-  cursor: default;
-  margin-bottom: 0.35rem;
-}
-
-.quiz-picker-summary::before {
-  display: none;
-}
-
 .quiz-picker-item {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.menu-text-size-control {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.menu-text-size-label {
+  font-size: 1.44rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.menu-text-size-btn {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid #2d3d52;
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 1.44rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.menu-text-size-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .level-btn {
@@ -417,7 +503,7 @@ body {
   border-radius: 8px;
   background: var(--panel);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: calc(1.7rem * var(--menu-text-scale, 1));
   font-weight: 700;
   cursor: pointer;
 }

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Youlearn</title>
-    <link rel="stylesheet" href="style.css?v=92" />
+    <link rel="stylesheet" href="style.css?v=99" />
   </head>
   <body>
     <div id="game" class="game">
@@ -72,7 +72,7 @@
         <div id="div-strat-butoane" class="div-strat-butoane">
           <div class="butoane-sus">
             <div class="hud-left">
-              <button type="button" id="menu-toggle" class="menu-toggle" aria-label="Meniu" aria-expanded="false" title="Meniu">≡</button>
+              <button type="button" id="menu-toggle" class="menu-toggle" aria-label="Meniu" aria-expanded="false" title="Meniu">Alege quiz</button>
               <button type="button" id="cp-toggle" class="cp-toggle" aria-label="Panouri de control" aria-expanded="false" title="Panouri de control">CP</button>
             </div>
             <button type="button" id="play-pause" class="play-pause" aria-label="Pauză" title="Pauză (Space)">⏸</button>
@@ -94,14 +94,20 @@
 
       <!-- divMeniu = meniul. Overlay pe mobil; coloana 2 pe desktop. -->
       <aside id="divMeniu" class="divMeniu">
+        <div class="menu-text-size-control">
+          <span class="menu-text-size-label">Marime text:</span>
+          <button type="button" id="menu-text-size-dec" class="menu-text-size-btn" aria-label="Micșorează textul din meniu">−</button>
+          <button type="button" id="menu-text-size-inc" class="menu-text-size-btn" aria-label="Mărește textul din meniu">+</button>
+        </div>
         <div id="divButoaneNiveluri" class="divButoaneNiveluri">
+          <div class="divMeniu-label">Alegeti nivelul:</div>
           <div id="level-picker" class="level-picker" role="group" aria-label="Alege nivelul"></div>
         </div>
         <div id="divListaQuizuri" class="divListaQuizuri">
-          <details id="quiz-picker" class="quiz-picker" open>
-            <summary class="quiz-picker-summary">Quiz-uri</summary>
+          <div id="quiz-picker" class="quiz-picker">
+            <div class="divMeniu-label">Alegeti quizul:</div>
             <div id="quiz-picker-list" class="quiz-picker-list" role="listbox" aria-label="Lista quiz-uri"></div>
-          </details>
+          </div>
         </div>
       </aside>
 
@@ -209,6 +215,7 @@
     <script src="js/rigle/facte.js?v=2"></script>
     <script src="js/rigle/engine.js?v=35"></script>
     <script src="js/quizzes/rigle-cl1.js?v=9"></script>
-    <script src="js/app.js?v=80"></script>
+    <script src="js/manage_quiz_order_in_hamburger_menu.js?v=2"></script>
+    <script src="js/app.js?v=85"></script>
   </body>
 </html>
