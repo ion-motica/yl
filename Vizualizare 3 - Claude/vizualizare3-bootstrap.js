@@ -2662,6 +2662,40 @@
     return tr;
   }
 
+  // Tragere orizontala cu degetul/mouse-ul, 1:1, fara inertie: elementul se
+  // deruleaza exact cat s-a mutat pointerul, nu mai mult. Pointer Events prinde
+  // touch si mouse cu acelasi cod — nu sunt doua feature-uri, unul singur.
+  // `touch-action: pan-y` (in CSS) lasa scrollul vertical al paginii sa treaca
+  // neatins prin element; doar orizontala o comandam noi.
+  function activeazaTragereOrizontala(element) {
+    let pointerId = null;
+    let xPornire = 0;
+    let scrollPornire = 0;
+    element.addEventListener("pointerdown", (ev) => {
+      if (ev.button != null && ev.button !== 0) return; // doar click stanga/atingere/pen
+      pointerId = ev.pointerId;
+      xPornire = ev.clientX;
+      scrollPornire = element.scrollLeft;
+      // NotFoundError daca browserul nu mai considera pointerul activ (evenimente
+      // sintetice sau ordine neobisnuita) — tragerea tot merge, doar fara captura.
+      try {
+        element.setPointerCapture(pointerId);
+      } catch {}
+      element.classList.add("viz3-tragere-activa");
+    });
+    element.addEventListener("pointermove", (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      element.scrollLeft = scrollPornire - (ev.clientX - xPornire);
+    });
+    const opresteTragerea = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      pointerId = null;
+      element.classList.remove("viz3-tragere-activa");
+    };
+    element.addEventListener("pointerup", opresteTragerea);
+    element.addEventListener("pointercancel", opresteTragerea);
+  }
+
   // Ca si `randeazaVizualizarea`: primeste sectiunea proprie, deja goala. Oprirea
   // ceasurilor foliilor nu mai e treaba ei — grila poate fi bifata in acelasi
   // timp cu tabelul (vezi `opresteCeasurileFoliilor`).
@@ -2684,6 +2718,7 @@
 
     const scroll = document.createElement("div");
     scroll.className = "viz3-tabel-scroll";
+    activeazaTragereOrizontala(scroll);
     const tabel = document.createElement("table");
     tabel.className = "viz3-tabel";
 

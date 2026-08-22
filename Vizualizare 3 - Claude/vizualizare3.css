@@ -1058,6 +1058,16 @@ body {
 /* --- Tabelul "% fluență per subtablă" (axa 5) --- */
 .viz3-tabel-scroll {
   overflow-x: auto;
+  /* pan-y: scrollul vertical al paginii trece prin element neatins; orizontala
+     o comanda JS-ul (activeazaTragereOrizontala), 1:1 cu degetul/mouse-ul. */
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.viz3-tabel-scroll.viz3-tragere-activa {
+  cursor: grabbing;
+  /* Cat tragem, orice text selectat accidental (drag pe desktop) ar fi zgomot. */
+  user-select: none;
 }
 
 .viz3-tabel {
