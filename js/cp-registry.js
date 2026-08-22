@@ -47,51 +47,23 @@
     return stored;
   }
 
-  function ensurePrimaryPanelsFirst(order) {
-    let next = order;
-    if (panels.has("liftType")) {
-      const rest = next.filter((id) => id !== "liftType");
-      next = ["liftType", ...rest];
-    }
-    if (panels.has("general")) {
-      const rest = next.filter((id) => id !== "general");
-      next = ["general", ...rest];
-    }
-    if (panels.has("subquiz")) {
-      const rest = next.filter((id) => id !== "subquiz");
-      const insertAt = rest[0] === "general" ? 1 : 0;
-      next = [...rest.slice(0, insertAt), "subquiz", ...rest.slice(insertAt)];
-    }
-    if (panels.has("sq2EffVbs")) {
-      const rest = next.filter((id) => id !== "sq2EffVbs");
-      // La acest pas, "subquiz" nu mai e neaparat pe index 0 (poate fi dupa
-      // "general") — cautam pozitia lui reala, nu presupunem index fix.
-      const insertAt = rest.indexOf("subquiz") + 1;
-      next = [...rest.slice(0, insertAt), "sq2EffVbs", ...rest.slice(insertAt)];
-    }
-    return next;
-  }
-
+  // Ordinea salvata de utilizator e singura autoritate, iar getOrder() e strict
+  // citire: nu scrie in config si nu re-fixeaza niciun panou in fata. (Exact o
+  // astfel de "re-fixare" la fiecare citire anula orice reordonare manuala a
+  // panourilor general/subquiz/sq2EffVbs/liftType — si o si suprascria in
+  // localStorage, deci se pierdea si dupa refresh.) Panourile aparute intre timp,
+  // necunoscute ordinii salvate, se adauga la final; de acolo pot fi trase oriunde.
   function getOrder() {
     const Config = global.LayoutConfig;
-    let stored = Config && Config.get("cpOrder", null);
-    if (Array.isArray(stored) && stored.length) {
-      const migrated = normalizeStoredOrder(stored);
-      if (migrated !== stored && Config) {
-        Config.set("cpOrder", migrated);
-        stored = migrated;
-      }
-      const known = stored.filter((id) => panels.has(id));
-      panels.forEach((_v, id) => {
-        if (!known.includes(id)) known.push(id);
-      });
-      const ordered = ensurePrimaryPanelsFirst(known);
-      if (ordered.join("|") !== known.join("|") && Config) {
-        Config.set("cpOrder", ordered);
-      }
-      return ordered;
+    const stored = normalizeStoredOrder(Config && Config.get("cpOrder", null));
+    if (!Array.isArray(stored) || !stored.length) {
+      return DEFAULT_ORDER.filter((id) => panels.has(id));
     }
-    return DEFAULT_ORDER.filter((id) => panels.has(id));
+    const order = stored.filter((id) => panels.has(id));
+    panels.forEach((_v, id) => {
+      if (!order.includes(id)) order.push(id);
+    });
+    return order;
   }
 
   function list() {
