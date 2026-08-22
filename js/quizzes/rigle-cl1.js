@@ -58,6 +58,18 @@
   const getNumerotare = () => global.LayoutConfig?.get(NUMEROTARE_KEY, "dezactivat") ?? "dezactivat";
   const getRanduriInSus = () => global.LayoutConfig?.get(RANDURI_SUS_KEY, RANDURI_IMPLICIT) ?? RANDURI_IMPLICIT;
   const getRanduriInJos = () => global.LayoutConfig?.get(RANDURI_JOS_KEY, RANDURI_IMPLICIT) ?? RANDURI_IMPLICIT;
+
+  // CP — Bara cu mere: poziție față de numerotare (sub implicit/deasupra) + transparență.
+  const MERE_SUB_NUMEROTARE_KEY = "rigleMereSubNumerotare";
+  const MERE_TRANSPARENTA_KEY = "rigleMereTransparenta";
+  const MERE_TRANSPARENTA_IMPLICIT = 50;
+  const getMereSubNumerotare = () => global.LayoutConfig?.get(MERE_SUB_NUMEROTARE_KEY, true) !== false;
+  const getMereTransparenta = () =>
+    global.LayoutConfig?.get(MERE_TRANSPARENTA_KEY, MERE_TRANSPARENTA_IMPLICIT) ?? MERE_TRANSPARENTA_IMPLICIT;
+  function seteazaMereTransparenta(valoare) {
+    const v = Math.max(0, Math.min(100, Math.round(valoare)));
+    global.LayoutConfig?.set(MERE_TRANSPARENTA_KEY, v);
+  }
   function seteazaRanduriInSus(valoare) {
     const v = Math.max(1, Math.min(50, Math.round(valoare)));
     global.LayoutConfig?.set(RANDURI_SUS_KEY, v);
@@ -125,6 +137,8 @@
             numerotareRanduri: getNumerotare(),
             randuriInSus: getRanduriInSus(),
             randuriInJos: getRanduriInJos(),
+            mereSubNumerotare: getMereSubNumerotare(),
+            mereTransparenta: getMereTransparenta(),
             liftFundalTransparenta: getLiftTransparenta(),
             liftMargine: getLiftMargine(),
             fovButon: getFovButon(),
@@ -142,7 +156,8 @@
           mounted = null;
         },
 
-        // CP — Rigle: Grilă (linii), Poziție coloane (treime/spațiu), Suma maxima.
+        // CP — Rigle: Grilă (linii), Poziție coloane (treime/spațiu), Suma maxima,
+        // Numerotează rânduri, Bara cu mere (poziție/transparență), Lift, Etichete, Dara glorioasă.
         appendRigleControlPanel(mount) {
           if (!mount) return;
           mount.replaceChildren();
@@ -280,6 +295,24 @@
           });
           addStepper("Câte rânduri în jos", getRanduriInJos, seteazaRanduriInJos, 1, 50, () => {
             mounted?.setNumerotareRanduri({ randuriInJos: getRanduriInJos() });
+          });
+
+          const merePozTitle = document.createElement("p");
+          merePozTitle.className = "control-panel-lift-title";
+          merePozTitle.textContent = "Bara cu mere";
+          mount.appendChild(merePozTitle);
+
+          const mereSubAcum = getMereSubNumerotare();
+          addRadioRow("Sub numerotarea rândurilor", true, mereSubAcum, "rigle-mere-pozitie", () => {
+            global.LayoutConfig?.set(MERE_SUB_NUMEROTARE_KEY, true);
+            mounted?.setPozitieMere({ subNumerotare: true });
+          });
+          addRadioRow("Deasupra numerotării rândurilor", false, mereSubAcum, "rigle-mere-pozitie", () => {
+            global.LayoutConfig?.set(MERE_SUB_NUMEROTARE_KEY, false);
+            mounted?.setPozitieMere({ subNumerotare: false });
+          });
+          addStepper("Transparență bară mere", getMereTransparenta, seteazaMereTransparenta, 0, 100, () => {
+            mounted?.setPozitieMere({ transparenta: getMereTransparenta() });
           });
 
           const liftTitle = document.createElement("p");

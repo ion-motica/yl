@@ -9,7 +9,7 @@
  *
  *   RigleEngine.mount({ arenaEl, optionsEl }, config?)
  *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift, setFov,
- *         setDaraGlorioasa }
+ *         setDaraGlorioasa, setPozitieMere }
  *
  * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
  * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
@@ -134,13 +134,6 @@
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
-:root {
-  /* Alpha reglabil din DevTools — implicit opac (identic cu culorile hardcodate
-     dinainte). Rândul de mere e extras din .rigle-lift tocmai ca numerotarea
-     rândurilor să-l acopere fără truc de transparență — vezi .rigle-lift-row. */
-  --rigle-apple-rosu-bg: rgba(226, 59, 59, 1);
-  --rigle-apple-albastru-bg: rgba(47, 111, 224, 1);
-}
 .rigle-apple {
   position: relative;
   width: var(--cell);
@@ -150,10 +143,10 @@
   box-sizing: border-box;
 }
 .rigle-apple--rosu {
-  background: var(--rigle-apple-rosu-bg);
+  background: #e23b3b;
 }
 .rigle-apple--albastru {
-  background: var(--rigle-apple-albastru-bg);
+  background: #2f6fe0;
 }
 /* Halou neutru: disc deschis exact în spatele mărului, ca legibilitatea să nu
    depindă de culoarea fundalului (roșu/albastru sau altele, care se vor schimba). */
@@ -402,6 +395,9 @@
     numerotareRanduri: "dezactivat", // "dezactivat" | "toate" | "animat"
     randuriInSus: 10, // modul "animat": câte rânduri deasupra liftului rămân vizibile
     randuriInJos: 10, // modul "animat": câte rânduri sub lift rămân vizibile
+    mereSubNumerotare: true, // true = rândul de mere sub numerotare (numerotarea îl acoperă,
+    // implicit); false = deasupra (mere peste numerotare) — vezi setPozitieMere()
+    mereTransparenta: 50, // 0 = culori opace, 100 = complet transparente — la fel ca liftFundalTransparenta
     liftFundalTransparenta: 50, // 0 = alb opac, 100 = complet transparent
     liftMargine: true, // false = marginea liftului devine transparentă (nu dispare din layout)
     fovButon: true, // eticheta „n e prea mic/mare/corect" de pe buton
@@ -1388,10 +1384,46 @@
       if (typeof opts.desime === "number") cfg.daraDesime = Math.max(0, Math.min(100, opts.desime));
     }
 
+    // CP „Bara cu mere" — poziție (sub/deasupra numerotării) + transparență.
+    // Poziție: la z-index egal (amândouă 1 — vezi §5 RIGLE-REFERENCE), ordinea DOM
+    // decide cine picta deasupra: insertBefore mută rowEl/rowNumbersWrap unul
+    // relativ la celălalt, fără remount — mutarea unui nod existent păstrează
+    // starea (clase, listeners).
+    function aplicaPozitieMere() {
+      if (cfg.mereSubNumerotare) {
+        scene.insertBefore(rowEl, rowNumbersWrap);
+      } else {
+        scene.insertBefore(rowNumbersWrap, rowEl);
+      }
+    }
+    // Transparență: opacity pe rowEl (tot rândul), nu culoare rgba() pe fundal — un
+    // rgba() pe .rigle-apple--rosu/--albastru ar lăsa emoji-ul 🍏 (glif de font, imun
+    // la background/color) mereu opac. Aceeași formulă ca aplicaStilLift() (0=opac,
+    // 100=complet transparent).
+    function aplicaTransparentaMere() {
+      const alfa = (100 - Math.min(100, Math.max(0, cfg.mereTransparenta))) / 100;
+      rowEl.style.opacity = String(alfa); // pe tot rândul (fundal colorat + halou +
+      // emoji), nu doar pe culoarea de fundal — un rgba() pe fundal nu atinge emoji-ul
+      // (glif opac, randat de font, imun la background/color din CSS).
+    }
+    function setPozitieMere(opts) {
+      if (!opts) return;
+      if (typeof opts.subNumerotare === "boolean") {
+        cfg.mereSubNumerotare = opts.subNumerotare;
+        aplicaPozitieMere();
+      }
+      if (typeof opts.transparenta === "number") {
+        cfg.mereTransparenta = opts.transparenta;
+        aplicaTransparentaMere();
+      }
+    }
+
     // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi
     // diferite de a produce un fact. Fără callback (mount fără generator), se
     // folosesc valorile din cfg — comportament identic cu etapa 1.
     aplicaStilLift();
+    aplicaPozitieMere();
+    aplicaTransparentaMere();
     const factInitial = cfg.urmatorulFact
       ? cfg.urmatorulFact()
       : { intrebare: cfg.intrebare, grupe: cfg.grupe, latimiColoane: cfg.latimiColoane };
@@ -1486,6 +1518,7 @@
       setLift,
       setFov,
       setDaraGlorioasa,
+      setPozitieMere,
     };
   }
 

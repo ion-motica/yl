@@ -67,6 +67,7 @@ RigleEngine.mount(hosts, config) → {
   reporneste(),   // y=0 + cere fact nou prin cfg.urmatorulFact() + randează
   setNumerotareRanduri({ mod?, randuriInSus?, randuriInJos? }),  // live, §6 „Numerotează rânduri"
   setLift({ transparentaFundal?, margine? }),  // live, §6 „Lift"
+  setPozitieMere({ subNumerotare?, transparenta? }),  // live, §6 „Bara cu mere"
 }
 ```
 
@@ -305,7 +306,7 @@ când se deschide panoul CP în timp ce Rigle e quiz-ul activ (mecanism generic 
 `cp-shell.js`, adăugat pentru toate panourile per-quiz — nu e specific implementării
 Rigle, dar Rigle îl moștenește automat prin flag).
 
-Panoul are 5 secțiuni:
+Panoul are 6 secțiuni:
 
 **„Grila"** — 2 bife independente (pot fi ambele ON/OFF):
 
@@ -363,6 +364,25 @@ fiecărui rând se ajustează continuu pe măsură ce liftul coboară, nu doar o
 celulă parcursă (era vizibil brusc înainte de corectare). La schimbare de coloană,
 fereastra veche se golește explicit (altfel ar rămâne vizibilă pe coloana părăsită).
 
+**„Bara cu mere"** — 2 radio exclusive, `name="rigle-mere-pozitie"`, plus un stepper:
+
+| Opțiune | Implicit | Valoare `rigleMereSubNumerotare` |
+|---|---|---|
+| Sub numerotarea rândurilor | ON (implicit) | `true` |
+| Deasupra numerotării rândurilor | OFF | `false` |
+
+| Câmp | Interval | Implicit | Cheie `LayoutConfig` |
+|---|---|---|---|
+| Transparență bară mere | stepper 0-100 | `50` | `rigleMereTransparenta` |
+
+Poziția e o mutare DOM (`insertBefore` pe `rowEl`/`rowNumbersWrap` unul relativ la
+celălalt în `.rigle-scene`), nu un z-index diferit — amândouă rămân z-index 1; ordinea
+DOM decide cine picta deasupra (§5). Transparența scrie `rowEl.style.opacity` (aceeași
+formulă alfa ca la „Lift") pe **tot** rândul, nu `rgba()` doar pe culoarea de fundal —
+un fundal translucid nu ar atinge emoji-ul 🍏 (glif de font, randat opac, imun la
+`background`/`color` din CSS); `opacity` pe container fondează fundalul colorat, haloul
+și emoji-ul într-un singur strat, care se estompează uniform.
+
 **„Lift"** — transparența fundalului alb + afișarea marginii:
 
 | Câmp | Interval/tip | Implicit | Cheie `LayoutConfig` |
@@ -376,9 +396,9 @@ fereastra veche se golește explicit (altfel ar rămâne vizibilă pe coloana p�
 `transparent`), ca să nu strice invariantul de la §5 „Mismatch" (care presupune
 padding+border constante).
 
-Toate 5 secțiunile sunt **live** (`setGridLines` / `setColumnLayout` / `reporneste` /
-`setNumerotareRanduri` / `setLift`, fără remount) și **persistă** între reload-uri, la
-fel ca celelalte bife simple din CP (ex. „Afiseaza Timpi raspuns").
+Toate 6 secțiunile sunt **live** (`setGridLines` / `setColumnLayout` / `reporneste` /
+`setNumerotareRanduri` / `setPozitieMere` / `setLift`, fără remount) și **persistă**
+între reload-uri, la fel ca celelalte bife simple din CP (ex. „Afiseaza Timpi raspuns").
 
 `rigle` a fost adăugat explicit în `DEFAULT_ORDER` din `cp-registry.js` — fără el,
 panoul nu ar apărea deloc la un `localStorage` curat (doar la useri cu o ordine CP deja
@@ -398,6 +418,8 @@ salvată, unde intră automat la coadă).
 | `rigleNumerotare` | numerotare rânduri: `"dezactivat"`\|`"toate"`\|`"animat"` | `"dezactivat"` |
 | `rigleRanduriInSus` | modul „animat": câte rânduri deasupra liftului rămân vizibile | `10` |
 | `rigleRanduriInJos` | modul „animat": câte rânduri sub lift rămân vizibile | `10` |
+| `rigleMereSubNumerotare` | bara de mere sub (`true`) vs. deasupra (`false`) numerotării | `true` |
+| `rigleMereTransparenta` | transparența culorilor merelor (0-100) | `50` |
 | `rigleLiftTransparentaFundal` | transparența fundalului alb al liftului (0-100) | `50` |
 | `rigleLiftMargine` | afișează marginea neagră a liftului | `true` |
 | `cpOrder` | ordinea panourilor CP (globală, nu doar Rigle) | — |
