@@ -1983,7 +1983,7 @@
           return;
         }
 
-        axa.optiuni.forEach((opt) => {
+        optiuniAfisate(axa).forEach((opt) => {
           const input = document.createElement("input");
           input.type = axa.tip_selectie === "multipla" ? "checkbox" : "radio";
           input.name = `${etapa.etapa}-${axa.id}`;
@@ -2033,7 +2033,25 @@
           const rand = optiune(opt.eticheta, elemente);
           if (opt.dezactivata) rand.classList.add("viz3-dezactivata");
 
-          grup.appendChild(rand);
+          // Optiunile functionale ale Reprezentarii sunt trasabile: primesc un
+          // maner dedicat si un rand-container propriu, ca sa nu se confunde
+          // apasarea manerului cu bifarea (vezi activeazaTragereOptiuniReprezentare).
+          // Cele „vor urma" raman rand-uri simple, fixe.
+          if (axa === axaVizualizare && !opt.dezactivata) {
+            const container = document.createElement("div");
+            container.className = "viz3-rand-reprezentare";
+            container.dataset.optiuneId = opt.id;
+            const maner = document.createElement("button");
+            maner.type = "button";
+            maner.className = "viz3-maner-tragere";
+            maner.textContent = "⠿";
+            maner.setAttribute("aria-label", `Reordonează: ${opt.eticheta}`);
+            maner.title = "Trage pentru a reordona";
+            container.append(maner, rand);
+            grup.appendChild(container);
+          } else {
+            grup.appendChild(rand);
+          }
           if (campuriInterval) grup.appendChild(campuriInterval.element);
         });
 
@@ -2043,6 +2061,8 @@
           nota.dataset.notaAxa = axa.id;
           grup.appendChild(nota);
         }
+
+        if (axa === axaVizualizare) activeazaTragereOptiuniReprezentare(grup);
 
         tinta.appendChild(grup);
       });
@@ -3125,15 +3145,43 @@
   const axaVizualizare = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "vizualizare");
   const axaAdancime = axe.flatMap((etapa) => etapa.axe).find((a) => a.id === "adancime_foto");
 
-  // Ordinea reprezentarilor e mereu cea din definitii, oricare ar fi ordinea in
-  // care le-a bifat userul: filtram lista de optiuni, nu o lista de bifari. Cand
-  // bifele vor deveni reordonabile prin drag & drop, D&D-ul va permuta chiar
-  // ordinea optiunilor — asta ramane singura sursa de adevar pentru ordine.
+  // Ordinea reprezentarilor FUNCTIONALE — cele „vor urma" raman fixe, la coada
+  // listei din CP (vezi `optiuniAfisate`), nu intra in ordinea asta. Porneste din
+  // combinatia salvata (asa ramane si ordinea trasa candva de user), altfel din
+  // definitii; o optiune functionala noua, aparuta dupa ce s-a salvat ceva, intra
+  // la coada, in ordinea ei din definitii — nu dispare.
+  function idOptiuniFunctionale() {
+    return (axaVizualizare?.optiuni ?? []).filter((o) => !o.dezactivata).map((o) => o.id);
+  }
+
+  function ordineFunctionalaDePornire() {
+    const dinDefinitii = idOptiuniFunctionale();
+    const salvata = citesteReprezentariDefaultSalvate().filter((id) => dinDefinitii.includes(id));
+    if (salvata.length === 0) return dinDefinitii;
+    const ramase = dinDefinitii.filter((id) => !salvata.includes(id));
+    return [...salvata, ...ramase];
+  }
+
+  // Singura sursa de adevar pentru ordine. Tragerea (drag & drop, maner dedicat)
+  // o permuta direct, la sfarsitul tragerii — vezi activeazaTragereOptiuniReprezentare.
+  let ordineFunctionale = ordineFunctionalaDePornire();
+
+  // Filtreaza si ordoneaza dupa `ordineFunctionale`, oricare ar fi ordinea in care
+  // s-au bifat optiunile.
   function inOrdineaDefinitiilor(idOptiuni) {
     const cerute = new Set(idOptiuni);
-    return (axaVizualizare?.optiuni ?? [])
-      .filter((o) => !o.dezactivata && cerute.has(o.id))
-      .map((o) => o.id);
+    return ordineFunctionale.filter((id) => cerute.has(id));
+  }
+
+  // Ordinea de afisat in CP: functionalele, in ordinea trasa, apoi cele
+  // „vor urma" la coada, fixe (nu se trag). Pt. orice alta axa, neschimbata.
+  function optiuniAfisate(axa) {
+    if (axa !== axaVizualizare) return axa.optiuni;
+    const functionale = ordineFunctionale
+      .map((id) => axa.optiuni.find((o) => o.id === id))
+      .filter(Boolean);
+    const dezactivate = axa.optiuni.filter((o) => o.dezactivata);
+    return [...functionale, ...dezactivate];
   }
 
   // Defaultul salvat are prioritate, dar numai pentru optiunile care inca exista
@@ -3192,6 +3240,99 @@
     salveazaReprezentariDefault(reprezentariDefault);
     actualizeazaButonDefaultReprezentari();
   }
+
+  // Alunecarea unui rand deplasat de o tragere, de la pozitia veche la cea noua
+  // (FLIP: se citeste pozitia INAINTE de schimbare, apoi se aplica un transform
+  // care il tine vizual la vechiul loc, si se elibereaza intr-un frame urmator —
+  // saltul devine alunecare). `deltaY` = cat s-a mutat randul (vechi minus nou).
+  function animeazaAlunecarea(rand, deltaY) {
+    if (!deltaY) return;
+    rand.style.transition = "none";
+    rand.style.transform = `translateY(${deltaY}px)`;
+    requestAnimationFrame(() => {
+      rand.style.transition = "transform 150ms ease";
+      rand.style.transform = "";
+    });
+  }
+
+  // Tragere verticala cu maner dedicat (⠿), doar intre optiunile FUNCTIONALE ale
+  // Reprezentarii — cele „vor urma" raman fixe, nu au maner. Acelasi mecanism
+  // (Pointer Events) ca la tabelul de fluenta: touch si mouse cu un singur cod.
+  // Randul tras urmareste degetul/mouse-ul 1:1; cand centrul lui trece de
+  // mijlocul unui vecin, se schimba locul in DOM. Ordinea reala (`ordineFunctionale`)
+  // si re-randarea tablei se actualizeaza o singura data, la sfarsitul tragerii —
+  // nu la fiecare pixel, ca la re-potrivirea tablei pe ecran.
+  function activeazaTragereOptiuniReprezentare(grup) {
+    const randuri = () => [...grup.querySelectorAll(".viz3-rand-reprezentare")];
+    let randTras = null;
+    let pointerId = null;
+    let yPornire = 0;
+
+    function laPointerDown(ev) {
+      if (ev.button != null && ev.button !== 0) return;
+      const rand = ev.currentTarget.closest(".viz3-rand-reprezentare");
+      if (!rand) return;
+      randTras = rand;
+      pointerId = ev.pointerId;
+      yPornire = ev.clientY;
+      try {
+        rand.setPointerCapture(pointerId);
+      } catch {}
+      rand.classList.add("viz3-tras");
+    }
+
+    function laPointerMove(ev) {
+      if (!randTras || ev.pointerId !== pointerId) return;
+      randTras.style.transform = `translateY(${ev.clientY - yPornire}px)`;
+
+      const toate = randuri();
+      const index = toate.indexOf(randTras);
+      const rectTras = randTras.getBoundingClientRect();
+      const centruTras = rectTras.top + rectTras.height / 2;
+
+      if (index > 0) {
+        const vecin = toate[index - 1];
+        const rectVecin = vecin.getBoundingClientRect();
+        if (centruTras < rectVecin.top + rectVecin.height / 2) {
+          grup.insertBefore(randTras, vecin);
+          yPornire -= rectVecin.height; // continuitate: randul tras nu sare
+          animeazaAlunecarea(vecin, rectVecin.top - vecin.getBoundingClientRect().top);
+          return;
+        }
+      }
+      if (index < toate.length - 1) {
+        const vecin = toate[index + 1];
+        const rectVecin = vecin.getBoundingClientRect();
+        if (centruTras > rectVecin.top + rectVecin.height / 2) {
+          grup.insertBefore(vecin, randTras);
+          yPornire += rectVecin.height;
+          animeazaAlunecarea(vecin, rectVecin.top - vecin.getBoundingClientRect().top);
+        }
+      }
+    }
+
+    function laPointerUp(ev) {
+      if (!randTras || ev.pointerId !== pointerId) return;
+      randTras.classList.remove("viz3-tras");
+      randTras.style.transform = "";
+      pointerId = null;
+      randTras = null;
+      // Ordinea noua = ordinea din DOM acum. Se propaga in starea reala si se
+      // re-randeaza tabla o singura data (nu in timpul tragerii).
+      ordineFunctionale = randuri().map((r) => r.dataset.optiuneId);
+      reprezentariActive = inOrdineaDefinitiilor(reprezentariActive);
+      actualizeazaButonDefaultReprezentari();
+      rerandeaza();
+    }
+
+    randuri().forEach((rand) => {
+      rand.querySelector(".viz3-maner-tragere")?.addEventListener("pointerdown", laPointerDown);
+    });
+    grup.addEventListener("pointermove", laPointerMove);
+    grup.addEventListener("pointerup", laPointerUp);
+    grup.addEventListener("pointercancel", laPointerUp);
+  }
+
   let adancimeActiva = axaAdancime?.optiuni.find((o) => o.activa)?.adancime ?? 5;
   // true doar dupa ce userul bifeaza manual o alta adancime decat cea
   // recomandata; se reseteaza la fiecare deschidere a tabelului, schimbare de

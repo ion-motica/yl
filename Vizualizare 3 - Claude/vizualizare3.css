@@ -309,6 +309,51 @@ body {
   color: var(--viz3-text-slab);
 }
 
+/* Randul unei optiuni functionale din Reprezentare + manerul ei de tragere
+   (drag & drop, reordonare). Manerul sta in fata bifei, ca tinta de atingere
+   separata: apasarea lui nu bifeaza/debifeaza optiunea. */
+.viz3-rand-reprezentare {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.viz3-rand-reprezentare .viz3-optiune {
+  flex: 1;
+}
+
+.viz3-maner-tragere {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  border: 1px solid var(--viz3-bordura);
+  border-radius: 6px;
+  background: var(--viz3-panou);
+  color: var(--viz3-text-slab);
+  cursor: grab;
+  /* Tragerea e verticala si o comanda JS-ul; touch-action: none lasa gestul
+     intreg noua, ca sertarul CP-ului sa nu incerce sa se deruleze in acelasi timp. */
+  touch-action: none;
+  user-select: none;
+}
+
+.viz3-rand-reprezentare.viz3-tras {
+  position: relative;
+  z-index: 5;
+}
+
+.viz3-rand-reprezentare.viz3-tras .viz3-maner-tragere {
+  cursor: grabbing;
+  background: var(--viz3-albastru);
+  color: #fff;
+  border-color: var(--viz3-albastru);
+}
+
 /* Subsecție distinctă în interiorul unei etape: un panou recesat, cu titlu.
    Ține opțiunile reprezentării alese (deocamdată doar Grila). */
 .viz3-subsectiune {
