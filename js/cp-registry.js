@@ -26,7 +26,6 @@
       title: def.title || def.id,
       isEnabled: typeof def.isEnabled === "function" ? def.isEnabled : () => true,
       quizSpecific: def.quizSpecific === true,
-      quizFallback: def.quizFallback === true,
     });
   }
 

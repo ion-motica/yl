@@ -731,6 +731,10 @@
       engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
     }
     renderProgress();
+    // Pe desktop CP e andocat vizibil, deci schimbarea quizului deruleaza direct
+    // la sectiunea lui; pe mobil CP e overlay inchis, ramane pe fluxul existent
+    // (deschidere din [CP] -> openCpToActiveQuizSection, aceeasi regula).
+    if (!isMobileLayout()) cpShell?.scrollToActiveQuizSection();
   }
 
   function restartActiveRound() {
@@ -942,7 +946,6 @@
     id: "aam",
     title: "CP — Acolada Axa Mere",
     isEnabled: () => aamCpEnabled,
-    quizFallback: true,
   });
   CpRegistry.register({
     id: "debug",

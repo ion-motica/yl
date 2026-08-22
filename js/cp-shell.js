@@ -77,12 +77,13 @@
       scrollEl.scrollTo({ top: 0, behavior: "smooth" });
     }
 
-    // La deschiderea CP din butonul dedicat: sare direct la sectiunea proprie a
-    // quizului activ (daca are una); altfel, doar daca nu are, cade pe AAM.
+    // Regula unificata PC/telefon: la deschiderea CP din butonul dedicat (telefon)
+    // sau la schimbarea quizului (PC), sare la sectiunea proprie a quizului activ
+    // (daca are una), altfel cade pe "CP - General".
     function scrollToActiveQuizSection() {
       const list = Registry.list();
       const primary = list.find((def) => def.quizSpecific && def.isEnabled());
-      const target = primary || list.find((def) => def.quizFallback && def.isEnabled());
+      const target = primary || list.find((def) => def.id === "general" && def.isEnabled());
       if (target) scrollToPanel(target.id, true);
     }
 
