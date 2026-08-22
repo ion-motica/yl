@@ -95,16 +95,28 @@
   animation: rigle-blink 0.6s ease-in-out infinite; /* continuu, spre deosebire de
     .rigle-btn-mismatch--corect (static) — cerință explicită a userului. */
 }
+/* Rândul de mere NU mai e copil al .rigle-lift (era, până la cererea explicită
+   „mere sub numerotare"): .rigle-lift are z-index:2 și creează context de
+   stivuire propriu — orice copil al lui, indiferent ce z-index i-ai da, tot
+   picta deasupra fraților lui .rigle-lift (deci și deasupra .rigle-row-numbers,
+   z-index:1), fiindcă un z-index pe un descendent contează doar ÎN INTERIORUL
+   contextului părintelui, nu față de frații părintelui. Soluție reală: rowEl e
+   acum frate al lui .rigle-lift în .rigle-scene, cu propriul z-index:1 — la egalitate
+   cu .rigle-row-numbers, ordinea decide cine picta deasupra: rowEl e adăugat
+   ÎNAINTEA lui .rigle-row-numbers în DOM (vezi mount()), deci numerotarea (mai
+   târziu în DOM) îl acoperă. Poziția (left/top) nu mai vine gratis din flex-ul
+   liftului — se scrie explicit din JS, sincron, la fiecare punct unde se scrie și
+   lift.style.left/top (computeGeometry, tick, selectColumn, coborârea glorioasă),
+   folosind rowOffsetTop = distanța verticală constantă lift→rând (cache-uită, nu
+   remăsurată la fiecare cadru). */
 .rigle-lift-row {
+  position: absolute;
+  z-index: 1;
   display: flex;
-  align-self: flex-start;
-  margin-left: -6px; /* -(padding 4px + border 2px ale .rigle-lift, v. LIFT_INSET
-    din JS) — pinează marginea stângă a rândului de mere la colțul stâng al
-    liftului (0 = colX[colIndex]), indiferent de lățimea liftului. Înainte se
-    baza pe centrarea flex + suprapunerea simetrică (gotcha #5) — funcționa doar
-    fiindcă rândul avea aproximativ aceeași lățime ca liftul; de când liftul se
-    poate lăți ca să încapă întrebarea, cele două lățimi pot diferi, deci ancorarea
-    trebuie explicită, nu bazată pe coincidență. */
+}
+.rigle-lift-row--ready {
+  transition: left 0.35s ease; /* aceeași tranziție ca .rigle-lift--ready, ca
+    rândul de mere să gliseze sincron cu cutia liftului, nu decuplat. */
 }
 /* „Prea puțin"/„prea mult" — dreptunghi portocaliu clipitor, copil al .rigle-lift,
    poziționat analitic (nu măsurat) relativ la colțul liftului — vezi
@@ -122,6 +134,13 @@
   0%, 100% { opacity: 0.5; }
   50% { opacity: 1; }
 }
+:root {
+  /* Alpha reglabil din DevTools — implicit opac (identic cu culorile hardcodate
+     dinainte). Rândul de mere e extras din .rigle-lift tocmai ca numerotarea
+     rândurilor să-l acopere fără truc de transparență — vezi .rigle-lift-row. */
+  --rigle-apple-rosu-bg: rgba(226, 59, 59, 1);
+  --rigle-apple-albastru-bg: rgba(47, 111, 224, 1);
+}
 .rigle-apple {
   position: relative;
   width: var(--cell);
@@ -131,10 +150,10 @@
   box-sizing: border-box;
 }
 .rigle-apple--rosu {
-  background: #e23b3b;
+  background: var(--rigle-apple-rosu-bg);
 }
 .rigle-apple--albastru {
-  background: #2f6fe0;
+  background: var(--rigle-apple-albastru-bg);
 }
 /* Halou neutru: disc deschis exact în spatele mărului, ca legibilitatea să nu
    depindă de culoarea fundalului (roșu/albastru sau altele, care se vor schimba). */
@@ -394,6 +413,7 @@
   };
 
   const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
+  const LIFT_ROW_GAP = 4; // .rigle-lift { gap: 4px } — spațiul dintre qEl și fostul loc al rândului de mere
   const ETICHETA_GAP = 5; // px sub cifra butonului (~0.3rem, cât era gap-ul flex înainte) — v. reglajEticheta
   const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
   const NUMEROTARE_CULOARE_STATICA = "rgba(70, 120, 190, 0.65)"; // modul "toate rândurile"
@@ -464,11 +484,14 @@
     lift.className = "rigle-lift";
     const qEl = document.createElement("div");
     qEl.className = "rigle-lift-q";
+    // rowEl (rândul de mere) NU e copil al lift — vezi comentariul CSS de la
+    // .rigle-lift-row pentru de ce (context de stivuire). E frate al lui lift în
+    // scene, poziționat independent din JS.
     const rowEl = document.createElement("div");
     rowEl.className = "rigle-lift-row";
     const mismatchEl = document.createElement("div");
     mismatchEl.className = "rigle-lift-mismatch";
-    lift.append(qEl, rowEl, mismatchEl);
+    lift.append(qEl, mismatchEl);
 
     const gridEl = document.createElement("div");
     gridEl.className = "rigle-grid";
@@ -485,7 +508,9 @@
     const fovZburatorEl = document.createElement("div");
     fovZburatorEl.className = "rigle-fov-zburator";
 
-    scene.append(columnsWrap, rowNumbersWrap, lift, gridEl, fovLiftEl, fovZburatorEl);
+    // rowEl ÎNAINTEA lui rowNumbersWrap — la z-index egal (1), DOM mai târziu
+    // câștigă, deci numerotarea (rowNumbersWrap) picta deasupra rândului de mere.
+    scene.append(columnsWrap, rowEl, rowNumbersWrap, lift, gridEl, fovLiftEl, fovZburatorEl);
     arenaEl.appendChild(scene);
 
     // ── Bara de butoane proprie a m2, în stratul de butoane (peste scenă). ──
@@ -502,6 +527,10 @@
     // după fiecare scriere de lift.style.top ar forța recalcul de layout la 60fps.
     let liftW = 0; // lățimea liftului, cache-uită în reglajLift() — la fel ca liftH, ca
     // actualizeazaPozitieFovLift() (rulează per frame) să nu citească lift.offsetWidth.
+    let rowOffsetTop = 0; // distanța verticală constantă lift.top → rowEl.top (rândul de
+    // mere, acum frate independent al lui lift, nu copil) — recalculată doar în
+    // computeGeometry() (depinde de qEl.offsetHeight, care nu se schimbă per cadru,
+    // doar la fact nou/resize), citită fără remăsurare în tick()/coborârea glorioasă.
     let travel = 1;
     let colEls = [];
     let myButtons = [];
@@ -699,6 +728,14 @@
 
       lift.style.left = `${colX[colIndex]}px`;
       lift.style.top = `${Math.min(y, travel)}px`;
+
+      // rowEl urmează lift — qEl are text final (randeazaFact rulează înaintea lui
+      // computeGeometry), deci qEl.offsetHeight e stabil aici. Calculat ÎNAINTE de
+      // reglajTextSiDivuriPortocaliiSiVerzi(), fiindcă actualizeazaMismatch() (chemată
+      // din ea) are nevoie de rowOffsetTop deja proaspăt.
+      rowOffsetTop = LIFT_INSET + qEl.offsetHeight + LIFT_ROW_GAP;
+      rowEl.style.left = `${colX[colIndex]}px`;
+      rowEl.style.top = `${Math.min(y, travel) + rowOffsetTop}px`;
 
       randeazaNumerotare(H);
       reglajTextSiDivuriPortocaliiSiVerzi();
@@ -1061,6 +1098,7 @@
       const t = Math.min(1, coborareGlorioasaTimp / COBORARE_GLORIOASA_DURATA);
       y = coborareGlorioasaYStart + (travel - coborareGlorioasaYStart) * t;
       lift.style.top = `${y}px`;
+      rowEl.style.top = `${y + rowOffsetTop}px`;
       const yFrontSus = coborareGlorioasaYStart - (coborareGlorioasaYStart - coborareGlorioasaYTintaSus) * t;
 
       const desime = Math.max(0, Math.min(100, cfg.daraDesime));
@@ -1089,8 +1127,11 @@
     // Coordonate calculate analitic, nu măsurate — lift.style.left = colX[colIndex],
     // deci în sistemul de coordonate al liftului (0 = marginea lui stângă), coloana
     // se termină la latimeColoana*cell, indiferent de padding-ul intern al liftului.
-    // top-ul rândului de mere SE măsoară (rowEl.offsetTop/Height), fiindcă depinde de
-    // înălțimea randată a textului întrebării — nu are o formulă simplă. Bara e
+    // top-ul rândului de mere vine din rowOffsetTop (cache-uit în computeGeometry,
+    // v. definiția lui) — NU din rowEl.offsetTop: de când rowEl e frate al lui lift
+    // (nu copil), offsetTop al lui rowEl e relativ la scene, nu la lift, și
+    // mismatchEl e poziționat în coordonate lift-locale. rowEl.offsetHeight rămâne
+    // măsurat direct (înălțimea intrinsecă nu depinde de cine e părintele). Bara e
     // centrată pe axa verticală a rândului de mere — cu o excepție: la sumă mică
     // (<=5) și coloană mai îngustă, rândul de mere e prea scund/aglomerat ca bara
     // centrată să nu se suprapună vizibil peste mere, deci rămâne SUB rând, ca înainte.
@@ -1103,7 +1144,7 @@
         return;
       }
       mismatchEl.style.display = "block";
-      const centruRand = rowEl.offsetTop + rowEl.offsetHeight / 2;
+      const centruRand = rowOffsetTop + rowEl.offsetHeight / 2;
       if (latimeColoana > totalMere) {
         // coloana mai lată — celule goale în continuarea rândului de mere
         actualizeazaEtichetaButon("mare");
@@ -1118,7 +1159,7 @@
         const h = Math.max(cell, mismatchMinH);
         mismatchEl.style.left = `${latimeColoana * cell}px`;
         mismatchEl.style.width = `${(totalMere - latimeColoana) * cell}px`;
-        const top = totalMere <= 5 ? rowEl.offsetTop + rowEl.offsetHeight : centruRand - h / 2;
+        const top = totalMere <= 5 ? rowOffsetTop + rowEl.offsetHeight : centruRand - h / 2;
         mismatchEl.style.top = `${top}px`;
         mismatchEl.style.height = `${h}px`;
       }
@@ -1206,6 +1247,7 @@
       }
       colIndex = idx;
       lift.style.left = `${colX[colIndex]}px`; // glisare orizontală (tranziția CSS)
+      rowEl.style.left = `${colX[colIndex]}px`; // sincron cu lift — v. .rigle-lift-row--ready
       actualizeazaNumerotareAnimata();
       actualizeazaMismatch();
       porneșteFovLift(); // la FIECARE apăsare — corect sau greșit, mutare reală sau re-apăsare
@@ -1266,8 +1308,12 @@
     // Se scoate clasa înainte de randare, se pune la loc pe rAF (ca la mount).
     function schimbaFact(fact) {
       lift.classList.remove("rigle-lift--ready");
+      rowEl.classList.remove("rigle-lift-row--ready");
       randeazaFact(fact);
-      requestAnimationFrame(() => lift.classList.add("rigle-lift--ready"));
+      requestAnimationFrame(() => {
+        lift.classList.add("rigle-lift--ready");
+        rowEl.classList.add("rigle-lift-row--ready");
+      });
     }
 
     function faNouFact() {
@@ -1350,9 +1396,12 @@
       ? cfg.urmatorulFact()
       : { intrebare: cfg.intrebare, grupe: cfg.grupe, latimiColoane: cfg.latimiColoane };
     randeazaFact(factInitial);
-    // Activăm tranziția orizontală abia după prima așezare, ca liftul să nu
-    // gliseze din colț la pornire.
-    requestAnimationFrame(() => lift.classList.add("rigle-lift--ready"));
+    // Activăm tranziția orizontală abia după prima așezare, ca liftul (și rândul
+    // de mere, sincron) să nu gliseze din colț la pornire.
+    requestAnimationFrame(() => {
+      lift.classList.add("rigle-lift--ready");
+      rowEl.classList.add("rigle-lift-row--ready");
+    });
 
     // ── Taste 1/2/3 → coloana 1/2/3 (poziții stânga→dreapta). ──
     // Space/p/P NU se tratează aici: falling-engine.js are deja un listener de
@@ -1389,6 +1438,7 @@
             faNouFact();
           }
           lift.style.top = `${y}px`;
+          rowEl.style.top = `${y + rowOffsetTop}px`;
         }
         actualizeazaNumerotareAnimata();
         if (fovVizibil) {

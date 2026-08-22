@@ -190,14 +190,38 @@ lift mai lat decât orice coloană.
 
 ## 5. Layout vizual și geometrie
 
-**Straturi** în `.rigle-scene` (jos → sus, z-index crescător):
+**Straturi** în `.rigle-scene` (jos → sus, z-index crescător; la z egal, ordinea DOM
+decide — elementul mai târziu în DOM picta deasupra):
 
 | z | Element | Note |
 |---|---|---|
 | — | `.rigle-scene` (paper) | fundal `#fbfbf3`, `overflow: hidden`, `--cell` = lățimea unei celule |
 | 1 | `.rigle-columns` → `.rigle-col` × 3 | galbene, pe **toată** înălțimea `#arena` |
-| 2 | `.rigle-lift` | text „2+1=?" + rând de `.rigle-apple` |
+| 1 | `.rigle-lift-row` → `.rigle-apple` × n | rândul de mere — **frate** al lui `.rigle-lift`, nu copil (vezi mai jos) |
+| 1 | `.rigle-row-numbers` → `.rigle-row` | numerotarea rândurilor (CP), DOM după `.rigle-lift-row` → o acoperă |
+| 2 | `.rigle-lift` | text „2+1=?" + `.rigle-lift-mismatch` (rândul de mere NU mai e aici) |
 | 3 | `.rigle-grid` | **doar linii**, peste tot — inclusiv peste coloane și peste lift |
+
+**De ce rândul de mere e frate, nu copil al liftului** (cerință explicită: mere
+*sub* numerotarea rândurilor): `.rigle-lift` are `position:absolute` + `z-index:2`,
+deci creează propriul context de stivuire — orice copil al lui, indiferent ce
+z-index i-ai da, tot picta deasupra fraților lui `.rigle-lift` (deci și deasupra
+`.rigle-row-numbers`, z:1), fiindcă z-index-ul unui descendent contează doar ÎN
+INTERIORUL contextului părintelui, niciodată față de frații părintelui — o
+limitare CSS reală (stacking context), nu un bug de implementare. Soluție:
+`rowEl` a fost extras ca frate al lui `.rigle-lift` în `.rigle-scene`, cu propriul
+`z-index:1` (egal cu `.rigle-row-numbers`, dar înaintea lui în DOM, deci acoperit
+de el). Poziția (`left`/`top`) nu mai vine gratis din flex-ul liftului — se scrie
+explicit din JS, sincron, la fiecare punct unde se scrie și `lift.style.left/top`
+(`computeGeometry`, `tick`, `selectColumn`, coborârea glorioasă), folosind
+`rowOffsetTop` (distanța verticală constantă lift→rând: `LIFT_INSET + qEl.offsetHeight
++ 4`, cache-uită în `computeGeometry()`, NU remăsurată per cadru). Tranziția CSS de
+glisare orizontală (`.rigle-lift-row--ready`, oglindă la `.rigle-lift--ready`) e
+comutată în aceleași locuri ca la lift, ca cele două să gliseze sincron la schimbarea
+coloanei. `actualizeazaMismatch()` (poziționează `.rigle-lift-mismatch`, care RĂMÂNE
+copil al liftului) folosește `rowOffsetTop` în loc de `rowEl.offsetTop` — de când
+`rowEl` nu mai e copil al liftului, `offsetTop`-ul lui ar fi relativ la scenă, nu la
+lift, și ar strica formula analitică din §9 gotcha 11.
 
 Coloanele și traseul liftului merg de la marginea de sus la cea de jos a `#arena` —
 curg pe sub bara de sus (≡/CP/⏸) și pe sub bara de butoane (butoanele au fundal
