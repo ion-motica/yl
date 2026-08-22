@@ -2,6 +2,7 @@
 cd /d "C:\Users\I\Projects\Youlearn.com"
 start "" http://127.0.0.1:8770
 python -m http.server 8770 --bind 127.0.0.1
+pause
 
 REM rem inseman comentariu de o line in .bat, cica nu e multiline
 REM 

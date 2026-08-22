@@ -1,7 +1,14 @@
 @echo off
 cd /d "C:\Users\I\Projects\Youlearn.com"
-python -m http.server 8000
-ipconfig
+echo.
+echo IP-ul PC-ului (cauta adaptorul retelei tale - WiFi sau Ethernet - si IPv4 de sub el):
+ipconfig | findstr /i "adapter IPv4"
+echo.
+echo Foloseste IP-ul de forma 192.168.x.x . NU pe cel de 100.x (ala e de la VPN, daca e pornit).
+echo Pe telefon (aceeasi retea WiFi, cu WiFi-ul PORNIT pe telefon), deschide: http://IP-UL-DE-MAI-SUS:8000
+echo.
+python -m http.server 8000 --bind 0.0.0.0
+pause
 
 REM Prescurtat:
 REM deci e un proiect in html intr-un folder pe pc. actualizat periodic. cum il pot vedea pe telefon?
