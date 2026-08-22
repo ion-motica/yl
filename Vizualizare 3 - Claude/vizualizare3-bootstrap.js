@@ -2387,12 +2387,15 @@
   // numarul coloanei curente cu al coloanei PRECEDENTE (nu exista goluri pe
   // randurile astea, deci referinta e mereu vecina imediata, spre deosebire de
   // procente unde se sare peste celule nedisplayate).
-  function construiesteRandStare({ eticheta, numere, clasa }) {
+  // `claseCap` = culoarea starii pe eticheta randului (th-ul din stanga), nu pe
+  // celulele cu numere (alea au deja propriul lor scor de incredere/heat).
+  function construiesteRandStare({ eticheta, numere, clasa, claseCap }) {
     const tr = document.createElement("tr");
     tr.className = clasa;
     const cap = document.createElement("th");
     cap.scope = "row";
     cap.textContent = eticheta;
+    if (claseCap) cap.classList.add(claseCap);
     tr.appendChild(cap);
     let anterior = null;
     numere.forEach((n) => {
@@ -2450,11 +2453,36 @@
     tbody.appendChild(randGol());
 
     tbody.appendChild(randTitluSet("Setul 1 - Pt programator"));
-    const trNetestat = construiesteRandStare({ eticheta: "netestat", numere: netestat, clasa: "viz3-tabel-stare" });
-    const trAbiaInceput = construiesteRandStare({ eticheta: "abia_inceput", numere: abiaInceput, clasa: "viz3-tabel-stare" });
-    const trNuIlStie = construiesteRandStare({ eticheta: "nu_il_stie", numere: nuIlStie, clasa: "viz3-tabel-stare" });
-    const trInLucru = construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" });
-    const trFluent = construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" });
+    const trNetestat = construiesteRandStare({
+      eticheta: "netestat",
+      numere: netestat,
+      clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-rosu",
+    });
+    const trAbiaInceput = construiesteRandStare({
+      eticheta: "abia_inceput",
+      numere: abiaInceput,
+      clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-oranj",
+    });
+    const trNuIlStie = construiesteRandStare({
+      eticheta: "nu_il_stie",
+      numere: nuIlStie,
+      clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-galben",
+    });
+    const trInLucru = construiesteRandStare({
+      eticheta: "in_lucru",
+      numere: inLucru,
+      clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-verde",
+    });
+    const trFluent = construiesteRandStare({
+      eticheta: "fluent",
+      numere: fluent,
+      clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-albastru",
+    });
     tbody.append(trNetestat, trAbiaInceput, trNuIlStie, trInLucru, trFluent);
     tbody.appendChild(
       construiesteRandNumere("suma", aduna(netestat, abiaInceput, nuIlStie, inLucru, fluent), "viz3-tabel-suma")
@@ -2465,9 +2493,20 @@
       eticheta: "netestat + abia_inceput + nu_il_stie",
       numere: comasat,
       clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-ruginiu",
     });
-    const trInLucru2 = construiesteRandStare({ eticheta: "in_lucru", numere: inLucru, clasa: "viz3-tabel-stare" });
-    const trFluent2 = construiesteRandStare({ eticheta: "fluent", numere: fluent, clasa: "viz3-tabel-stare" });
+    const trInLucru2 = construiesteRandStare({
+      eticheta: "in_lucru",
+      numere: inLucru,
+      clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-verde",
+    });
+    const trFluent2 = construiesteRandStare({
+      eticheta: "fluent",
+      numere: fluent,
+      clasa: "viz3-tabel-stare",
+      claseCap: "viz3-eticheta-stare-albastru",
+    });
     tbody.append(trComasat, trInLucru2, trFluent2);
     tbody.appendChild(construiesteRandNumere("suma", aduna(comasat, inLucru, fluent), "viz3-tabel-suma"));
 

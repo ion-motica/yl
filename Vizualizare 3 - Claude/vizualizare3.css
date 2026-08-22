@@ -1448,6 +1448,46 @@ body {
   padding-bottom: 8px;
 }
 
+/* Eticheta (th-ul din stanga) unui rand de stare, colorata cu culoarea starii
+   ei — EXACT variabilele din banda stivuita (STACAT_SEGMENTE), neatinse, ca
+   sa arate identic cu graficul. Doar eticheta; celulele cu numere isi au deja
+   propriul scor de incredere. Selector lung din acelasi motiv ca la titlul de
+   set mai sus: ".viz3-tabel tbody th" (clasa+2 elemente) trebuie intrecut in
+   specificitate.
+   Text negru simplu, fara contur — culoarea de fundal ramane neatinsa. */
+.viz3-tabel tbody th.viz3-eticheta-stare-rosu,
+.viz3-tabel tbody th.viz3-eticheta-stare-oranj,
+.viz3-tabel tbody th.viz3-eticheta-stare-galben,
+.viz3-tabel tbody th.viz3-eticheta-stare-verde,
+.viz3-tabel tbody th.viz3-eticheta-stare-albastru,
+.viz3-tabel tbody th.viz3-eticheta-stare-ruginiu {
+  color: #000;
+}
+
+.viz3-tabel tbody th.viz3-eticheta-stare-rosu {
+  background: var(--viz3-stacat-rosu);
+}
+
+.viz3-tabel tbody th.viz3-eticheta-stare-oranj {
+  background: var(--viz3-stacat-oranj);
+}
+
+.viz3-tabel tbody th.viz3-eticheta-stare-galben {
+  background: var(--viz3-stacat-galben);
+}
+
+.viz3-tabel tbody th.viz3-eticheta-stare-verde {
+  background: var(--viz3-stacat-verde);
+}
+
+.viz3-tabel tbody th.viz3-eticheta-stare-albastru {
+  background: var(--viz3-stacat-albastru);
+}
+
+.viz3-tabel tbody th.viz3-eticheta-stare-ruginiu {
+  background: var(--viz3-stacat-ruginiu);
+}
+
 /* Numerele CENTRATE (spre deosebire de procente, aliniate la dreapta): sageata
    (adaugaSageataCelula) sta absolut pe muchia stanga a celulei, in afara
    fluxului normal, deci nu impinge/muta numarul - centrarea e sigura, nu
