@@ -12,6 +12,7 @@
     "preEquationNav",
     "equationTonomat",
     "rigle",
+    "rigleTabla110",
     "liftType",
     "debug",
     "lift",

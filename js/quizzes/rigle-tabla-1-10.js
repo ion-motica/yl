@@ -1,0 +1,436 @@
+/**
+ * Quiz „Adunari cu coloane - Tabla adunarii 1-10" — clonă a „Adunari cu coloane
+ * verticale" (`rigle-cl1.js`), pe același motor (`window.RigleEngine`, `window.RigleFacte`).
+ *
+ * Zero cod nou de motor — doar altă înregistrare `QuizRegistry` + panou CP propriu,
+ * cu chei `LayoutConfig` separate (prefix `rigleT110`), ca reglajele celor două
+ * quiz-uri (grilă, numerotare, mere, lift etc.) să nu se suprascrie reciproc.
+ * Vezi `documente de referinta/RIGLE-REFERENCE.md` pentru arhitectura motorului.
+ */
+(function (global) {
+  "use strict";
+
+  const CONFIG_ETAPA1 = {
+    obiect: "🍏",
+    coloanaInitialaIndex: 1, // a doua coloană (mijloc); lățimile sunt aleatoare, deci
+    // e un index, nu o lățime — vezi RigleFacte.
+    vitezaCoborare: 34,
+  };
+
+  // CP — Grilă: persistă în LayoutConfig, ca celelalte bife simple din CP.
+  const GRID_VERTICAL_KEY = "rigleT110GridVertical";
+  const GRID_ORIZONTAL_KEY = "rigleT110GridOrizontal";
+  const getGridVertical = () => global.LayoutConfig?.get(GRID_VERTICAL_KEY, true) !== false;
+  const getGridOrizontal = () => global.LayoutConfig?.get(GRID_ORIZONTAL_KEY, false) === true;
+
+  // CP — Poziție coloane: treime din spațiu (implicit) vs. proporțional (spațiu).
+  const COL_TREIME_KEY = "rigleT110ColoaneTreime";
+  const getColoaneTreime = () => global.LayoutConfig?.get(COL_TREIME_KEY, true) !== false;
+
+  // CP — Suma maxima: interval [min, max] pentru suma factului (a+b=suma).
+  const SUMA_MIN_KEY = "rigleT110SumaMin";
+  const SUMA_MAX_KEY = "rigleT110SumaMax";
+  const SUMA_MIN_IMPLICIT = 2;
+  const SUMA_MAX_IMPLICIT = 5;
+  const getSumaMin = () => global.LayoutConfig?.get(SUMA_MIN_KEY, SUMA_MIN_IMPLICIT) ?? SUMA_MIN_IMPLICIT;
+  const getSumaMax = () => global.LayoutConfig?.get(SUMA_MAX_KEY, SUMA_MAX_IMPLICIT) ?? SUMA_MAX_IMPLICIT;
+  const clampSuma = (v) => Math.min(30, Math.max(1, v));
+
+  // Dacă x>y, y e împins în sus ca să rămână x<=y (și simetric) — decizia 1c din plan.
+  function seteazaSumaMin(valoare) {
+    const min = clampSuma(valoare);
+    const max = Math.max(getSumaMax(), min);
+    global.LayoutConfig?.set(SUMA_MIN_KEY, min);
+    global.LayoutConfig?.set(SUMA_MAX_KEY, max);
+  }
+  function seteazaSumaMax(valoare) {
+    const max = clampSuma(valoare);
+    const min = Math.min(getSumaMin(), max);
+    global.LayoutConfig?.set(SUMA_MIN_KEY, min);
+    global.LayoutConfig?.set(SUMA_MAX_KEY, max);
+  }
+
+  // CP — Numerotează rânduri din coloane: "dezactivat" | "toate" | "animat".
+  const NUMEROTARE_KEY = "rigleT110Numerotare";
+  const RANDURI_SUS_KEY = "rigleT110RanduriInSus";
+  const RANDURI_JOS_KEY = "rigleT110RanduriInJos";
+  const RANDURI_IMPLICIT = 10;
+  const getNumerotare = () => global.LayoutConfig?.get(NUMEROTARE_KEY, "dezactivat") ?? "dezactivat";
+  const getRanduriInSus = () => global.LayoutConfig?.get(RANDURI_SUS_KEY, RANDURI_IMPLICIT) ?? RANDURI_IMPLICIT;
+  const getRanduriInJos = () => global.LayoutConfig?.get(RANDURI_JOS_KEY, RANDURI_IMPLICIT) ?? RANDURI_IMPLICIT;
+
+  // CP — Bara cu mere: poziție față de numerotare (sub implicit/deasupra) + transparență.
+  const MERE_SUB_NUMEROTARE_KEY = "rigleT110MereSubNumerotare";
+  const MERE_TRANSPARENTA_KEY = "rigleT110MereTransparenta";
+  const MERE_TRANSPARENTA_IMPLICIT = 50;
+  const getMereSubNumerotare = () => global.LayoutConfig?.get(MERE_SUB_NUMEROTARE_KEY, true) !== false;
+  const getMereTransparenta = () =>
+    global.LayoutConfig?.get(MERE_TRANSPARENTA_KEY, MERE_TRANSPARENTA_IMPLICIT) ?? MERE_TRANSPARENTA_IMPLICIT;
+  function seteazaMereTransparenta(valoare) {
+    const v = Math.max(0, Math.min(100, Math.round(valoare)));
+    global.LayoutConfig?.set(MERE_TRANSPARENTA_KEY, v);
+  }
+  function seteazaRanduriInSus(valoare) {
+    const v = Math.max(1, Math.min(50, Math.round(valoare)));
+    global.LayoutConfig?.set(RANDURI_SUS_KEY, v);
+  }
+  function seteazaRanduriInJos(valoare) {
+    const v = Math.max(1, Math.min(50, Math.round(valoare)));
+    global.LayoutConfig?.set(RANDURI_JOS_KEY, v);
+  }
+
+  // CP — Lift: transparență fundal alb + afișare margine.
+  const LIFT_TRANSPARENTA_KEY = "rigleT110LiftTransparentaFundal";
+  const LIFT_MARGINE_KEY = "rigleT110LiftMargine";
+  const LIFT_TRANSPARENTA_IMPLICIT = 50;
+  const getLiftTransparenta = () =>
+    global.LayoutConfig?.get(LIFT_TRANSPARENTA_KEY, LIFT_TRANSPARENTA_IMPLICIT) ?? LIFT_TRANSPARENTA_IMPLICIT;
+  const getLiftMargine = () => global.LayoutConfig?.get(LIFT_MARGINE_KEY, true) !== false;
+  function seteazaLiftTransparenta(valoare) {
+    const v = Math.max(0, Math.min(100, Math.round(valoare)));
+    global.LayoutConfig?.set(LIFT_TRANSPARENTA_KEY, v);
+  }
+
+  // CP — Etichete (FOV Feedback Oranj Verde): pe buton / pe lift / animație pt. corect.
+  const FOV_BUTON_KEY = "rigleT110FovButon";
+  const FOV_LIFT_KEY = "rigleT110FovLift";
+  const FOV_LIFT_CORECT_KEY = "rigleT110FovLiftAnimatieCorect";
+  const FOV_LIFT_VITEZA_KEY = "rigleT110FovLiftDivizorViteza";
+  const FOV_LIFT_VITEZA_IMPLICIT = 1; // 1 = viteza actuală, 10 = de 10x mai încet
+  const getFovButon = () => global.LayoutConfig?.get(FOV_BUTON_KEY, true) !== false;
+  const getFovLift = () => global.LayoutConfig?.get(FOV_LIFT_KEY, true) !== false;
+  const getFovLiftCorect = () => global.LayoutConfig?.get(FOV_LIFT_CORECT_KEY, true) !== false;
+  const getFovLiftViteza = () =>
+    global.LayoutConfig?.get(FOV_LIFT_VITEZA_KEY, FOV_LIFT_VITEZA_IMPLICIT) ?? FOV_LIFT_VITEZA_IMPLICIT;
+
+  // CP — Dara glorioasă: Lungime (0-10, cât de sus ajunge frontul de sus) / Desime
+  // (0-100, cât de dese sunt dreptunghiurile — 100 = cadru lângă cadru).
+  const DARA_LUNGIME_KEY = "rigleT110DaraLungime";
+  const DARA_DESIME_KEY = "rigleT110DaraDesime";
+  const DARA_LUNGIME_IMPLICIT = 10;
+  const DARA_DESIME_IMPLICIT = 50;
+  const getDaraLungime = () => global.LayoutConfig?.get(DARA_LUNGIME_KEY, DARA_LUNGIME_IMPLICIT) ?? DARA_LUNGIME_IMPLICIT;
+  const getDaraDesime = () => global.LayoutConfig?.get(DARA_DESIME_KEY, DARA_DESIME_IMPLICIT) ?? DARA_DESIME_IMPLICIT;
+
+  global.QuizRegistry.register({
+    id: "rigle-tabla-1-10",
+    title: "Adunari cu coloane - Tabla adunarii 1-10",
+    description: "Măsoară suma de obiecte cu rigle (coloane). Facte a+b=? variabile.",
+    order: 99, // ultimul în meniu; nu devine quiz implicit
+    create() {
+      let mounted = null;
+
+      const urmatorulFact = () =>
+        global.RigleFacte.genereazaFact({ sumaMin: getSumaMin(), sumaMax: getSumaMax() });
+
+      return {
+        customEngine: true,
+        // Ține motorul 1 (FallingEngine) în standby cât timp Rigle e activ.
+        isCompleted: () => true,
+
+        mountArena(hosts) {
+          if (mounted) mounted.destroy();
+          const cfg = Object.assign({}, CONFIG_ETAPA1, {
+            gridVertical: getGridVertical(),
+            gridOrizontal: getGridOrizontal(),
+            pozitieTreime: getColoaneTreime(),
+            numerotareRanduri: getNumerotare(),
+            randuriInSus: getRanduriInSus(),
+            randuriInJos: getRanduriInJos(),
+            mereSubNumerotare: getMereSubNumerotare(),
+            mereTransparenta: getMereTransparenta(),
+            liftFundalTransparenta: getLiftTransparenta(),
+            liftMargine: getLiftMargine(),
+            fovButon: getFovButon(),
+            fovLift: getFovLift(),
+            fovLiftAnimatieCorect: getFovLiftCorect(),
+            fovLiftDivizorViteza: getFovLiftViteza(),
+            daraLungime: getDaraLungime(),
+            daraDesime: getDaraDesime(),
+            urmatorulFact,
+          });
+          mounted = global.RigleEngine.mount(hosts, cfg);
+        },
+        unmountArena() {
+          if (mounted) mounted.destroy();
+          mounted = null;
+        },
+
+        // CP — Tabla adunarii 1-10: Grilă (linii), Poziție coloane (treime/spațiu), Suma maxima,
+        // Numerotează rânduri, Bara cu mere (poziție/transparență), Lift, Etichete, Dara glorioasă.
+        appendRigleTabla110ControlPanel(mount) {
+          if (!mount) return;
+          mount.replaceChildren();
+
+          const title = document.createElement("p");
+          title.className = "control-panel-lift-title";
+          title.textContent = "Grila";
+          mount.appendChild(title);
+
+          const addRow = (labelText, checked, onChange) => {
+            const row = document.createElement("label");
+            row.className = "control-panel-lift-row";
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.checked = checked;
+            input.addEventListener("change", () => onChange(input.checked));
+            const span = document.createElement("span");
+            span.textContent = labelText;
+            row.append(input, span);
+            mount.appendChild(row);
+          };
+
+          addRow("Vertical", getGridVertical(), (checked) => {
+            global.LayoutConfig?.set(GRID_VERTICAL_KEY, checked);
+            mounted?.setGridLines({ vertical: checked });
+          });
+          addRow("Orizontal", getGridOrizontal(), (checked) => {
+            global.LayoutConfig?.set(GRID_ORIZONTAL_KEY, checked);
+            mounted?.setGridLines({ orizontal: checked });
+          });
+
+          const posTitle = document.createElement("p");
+          posTitle.className = "control-panel-lift-title";
+          posTitle.textContent = "Poziție coloane";
+          mount.appendChild(posTitle);
+
+          const addRadioRow = (labelText, value, currentValue, groupName, onChange) => {
+            const row = document.createElement("label");
+            row.className = "control-panel-lift-row";
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = groupName;
+            input.checked = value === currentValue;
+            input.addEventListener("change", onChange);
+            const span = document.createElement("span");
+            span.textContent = labelText;
+            row.append(input, span);
+            mount.appendChild(row);
+          };
+
+          const treimeAcum = getColoaneTreime();
+          addRadioRow("Fiecare coloană are o treime din spațiu", true, treimeAcum, "rigleT110-col-pozitie", () => {
+            global.LayoutConfig?.set(COL_TREIME_KEY, true);
+            mounted?.setColumnLayout({ treime: true });
+          });
+          addRadioRow("În funcție de spațiu", false, treimeAcum, "rigleT110-col-pozitie", () => {
+            global.LayoutConfig?.set(COL_TREIME_KEY, false);
+            mounted?.setColumnLayout({ treime: false });
+          });
+
+          const sumaTitle = document.createElement("p");
+          sumaTitle.className = "control-panel-lift-title";
+          sumaTitle.textContent = "Suma maxima";
+          mount.appendChild(sumaTitle);
+
+          let minInput = null;
+          let maxInput = null;
+
+          const addStepper = (labelText, getValue, onApply, min, max, dupaAplicare) => {
+            const field = document.createElement("div");
+            field.className = "control-panel-lift-field pre-eq-stepper-field";
+            const label = document.createElement("label");
+            label.textContent = labelText;
+            const controls = document.createElement("div");
+            controls.className = "pre-eq-stepper";
+            const minus = document.createElement("button");
+            minus.type = "button";
+            minus.textContent = "-";
+            const input = document.createElement("input");
+            input.type = "number";
+            input.min = String(min);
+            input.max = String(max);
+            input.step = "1";
+            input.value = String(getValue());
+            const plus = document.createElement("button");
+            plus.type = "button";
+            plus.textContent = "+";
+
+            const apply = (valoare) => {
+              onApply(Number(valoare));
+              input.value = String(getValue());
+              dupaAplicare?.();
+            };
+
+            minus.addEventListener("click", () => apply(Number(input.value) - 1));
+            plus.addEventListener("click", () => apply(Number(input.value) + 1));
+            input.addEventListener("change", () => apply(input.value));
+
+            controls.append(minus, input, plus);
+            field.append(label, controls);
+            mount.appendChild(field);
+            return input;
+          };
+
+          minInput = addStepper("Minim", getSumaMin, seteazaSumaMin, 1, 30, () => {
+            maxInput.value = String(getSumaMax());
+            mounted?.reporneste();
+          });
+          maxInput = addStepper("Maxim", getSumaMax, seteazaSumaMax, 1, 30, () => {
+            minInput.value = String(getSumaMin());
+            mounted?.reporneste();
+          });
+
+          const numTitle = document.createElement("p");
+          numTitle.className = "control-panel-lift-title";
+          numTitle.textContent = "Numerotează rânduri din coloane";
+          mount.appendChild(numTitle);
+
+          const numerotareAcum = getNumerotare();
+          addRadioRow("Dezactivat", "dezactivat", numerotareAcum, "rigleT110-numerotare", () => {
+            global.LayoutConfig?.set(NUMEROTARE_KEY, "dezactivat");
+            mounted?.setNumerotareRanduri({ mod: "dezactivat" });
+          });
+          addRadioRow("Pe toate rândurile", "toate", numerotareAcum, "rigleT110-numerotare", () => {
+            global.LayoutConfig?.set(NUMEROTARE_KEY, "toate");
+            mounted?.setNumerotareRanduri({ mod: "toate" });
+          });
+          addRadioRow("Animat fade-in pe coloana curentă", "animat", numerotareAcum, "rigleT110-numerotare", () => {
+            global.LayoutConfig?.set(NUMEROTARE_KEY, "animat");
+            mounted?.setNumerotareRanduri({ mod: "animat" });
+          });
+
+          addStepper("Câte rânduri în sus", getRanduriInSus, seteazaRanduriInSus, 1, 50, () => {
+            mounted?.setNumerotareRanduri({ randuriInSus: getRanduriInSus() });
+          });
+          addStepper("Câte rânduri în jos", getRanduriInJos, seteazaRanduriInJos, 1, 50, () => {
+            mounted?.setNumerotareRanduri({ randuriInJos: getRanduriInJos() });
+          });
+
+          const merePozTitle = document.createElement("p");
+          merePozTitle.className = "control-panel-lift-title";
+          merePozTitle.textContent = "Bara cu mere";
+          mount.appendChild(merePozTitle);
+
+          const mereSubAcum = getMereSubNumerotare();
+          addRadioRow("Sub numerotarea rândurilor", true, mereSubAcum, "rigleT110-mere-pozitie", () => {
+            global.LayoutConfig?.set(MERE_SUB_NUMEROTARE_KEY, true);
+            mounted?.setPozitieMere({ subNumerotare: true });
+          });
+          addRadioRow("Deasupra numerotării rândurilor", false, mereSubAcum, "rigleT110-mere-pozitie", () => {
+            global.LayoutConfig?.set(MERE_SUB_NUMEROTARE_KEY, false);
+            mounted?.setPozitieMere({ subNumerotare: false });
+          });
+          addStepper("Transparență bară mere", getMereTransparenta, seteazaMereTransparenta, 0, 100, () => {
+            mounted?.setPozitieMere({ transparenta: getMereTransparenta() });
+          });
+
+          const liftTitle = document.createElement("p");
+          liftTitle.className = "control-panel-lift-title";
+          liftTitle.textContent = "Lift";
+          mount.appendChild(liftTitle);
+
+          addStepper("Transparență fundal alb lift", getLiftTransparenta, seteazaLiftTransparenta, 0, 100, () => {
+            mounted?.setLift({ transparentaFundal: getLiftTransparenta() });
+          });
+          addRow("Afișează marginea liftului", getLiftMargine(), (checked) => {
+            global.LayoutConfig?.set(LIFT_MARGINE_KEY, checked);
+            mounted?.setLift({ margine: checked });
+          });
+
+          const fovTitle = document.createElement("p");
+          fovTitle.className = "control-panel-lift-title";
+          fovTitle.textContent = "Etichete (FOV Feedback Oranj Verde)";
+          mount.appendChild(fovTitle);
+
+          addRow("Pe buton", getFovButon(), (checked) => {
+            global.LayoutConfig?.set(FOV_BUTON_KEY, checked);
+            mounted?.setFov({ buton: checked });
+          });
+          addRow("Pe lift", getFovLift(), (checked) => {
+            global.LayoutConfig?.set(FOV_LIFT_KEY, checked);
+            mounted?.setFov({ lift: checked });
+          });
+          addRow("Cu animație pt. corect", getFovLiftCorect(), (checked) => {
+            global.LayoutConfig?.set(FOV_LIFT_CORECT_KEY, checked);
+            mounted?.setFov({ animatieCorect: checked });
+          });
+
+          const vitezaRow = document.createElement("div");
+          vitezaRow.className = "control-panel-lift-field";
+          const vitezaLabel = document.createElement("label");
+          vitezaLabel.textContent = "Viteza pătrățelului";
+          const vitezaSlider = document.createElement("input");
+          vitezaSlider.type = "range";
+          vitezaSlider.min = "1";
+          vitezaSlider.max = "10";
+          vitezaSlider.step = "1";
+          vitezaSlider.value = String(getFovLiftViteza());
+          const vitezaOut = document.createElement("span");
+          vitezaOut.className = "control-panel-lift-slider-out";
+          const descrieViteza = (v) => (Number(v) <= 1 ? "viteza actuală" : `de ${v}× mai încet`);
+          vitezaOut.textContent = descrieViteza(vitezaSlider.value);
+          vitezaSlider.addEventListener("input", () => {
+            const v = Number(vitezaSlider.value);
+            global.LayoutConfig?.set(FOV_LIFT_VITEZA_KEY, v);
+            vitezaOut.textContent = descrieViteza(v);
+            mounted?.setFov({ divizorViteza: v });
+          });
+          vitezaRow.append(vitezaLabel, vitezaSlider, vitezaOut);
+          mount.appendChild(vitezaRow);
+
+          const daraTitle = document.createElement("p");
+          daraTitle.className = "control-panel-lift-title";
+          daraTitle.textContent = "Dara glorioasă";
+          mount.appendChild(daraTitle);
+
+          const lungimeRow = document.createElement("div");
+          lungimeRow.className = "control-panel-lift-field";
+          const lungimeLabel = document.createElement("label");
+          lungimeLabel.textContent = "Lungime dara";
+          const lungimeSlider = document.createElement("input");
+          lungimeSlider.type = "range";
+          lungimeSlider.min = "0";
+          lungimeSlider.max = "10";
+          lungimeSlider.step = "1";
+          lungimeSlider.value = String(getDaraLungime());
+          const lungimeOut = document.createElement("span");
+          lungimeOut.className = "control-panel-lift-slider-out";
+          lungimeOut.textContent = lungimeSlider.value;
+          lungimeSlider.addEventListener("input", () => {
+            const v = Number(lungimeSlider.value);
+            global.LayoutConfig?.set(DARA_LUNGIME_KEY, v);
+            lungimeOut.textContent = String(v);
+            mounted?.setDaraGlorioasa({ lungime: v });
+          });
+          lungimeRow.append(lungimeLabel, lungimeSlider, lungimeOut);
+          mount.appendChild(lungimeRow);
+
+          const desimeRow = document.createElement("div");
+          desimeRow.className = "control-panel-lift-field";
+          const desimeLabel = document.createElement("label");
+          desimeLabel.textContent = "Desime dara";
+          const desimeSlider = document.createElement("input");
+          desimeSlider.type = "range";
+          desimeSlider.min = "0";
+          desimeSlider.max = "100";
+          desimeSlider.step = "1";
+          desimeSlider.value = String(getDaraDesime());
+          const desimeOut = document.createElement("span");
+          desimeOut.className = "control-panel-lift-slider-out";
+          desimeOut.textContent = desimeSlider.value;
+          desimeSlider.addEventListener("input", () => {
+            const v = Number(desimeSlider.value);
+            global.LayoutConfig?.set(DARA_DESIME_KEY, v);
+            desimeOut.textContent = String(v);
+            mounted?.setDaraGlorioasa({ desime: v });
+          });
+          desimeRow.append(desimeLabel, desimeSlider, desimeOut);
+          mount.appendChild(desimeRow);
+        },
+
+        // Stub-uri minime pentru orice apel neguardat din HUD.
+        getLevel: () => 1,
+        getMinLevel: () => 1,
+        getMaxLevel: () => 1,
+        getLevelLabel: () => "",
+        getLevelButtonTitle: () => "",
+        switchLevel: () => "",
+        pickNextRound: () => null,
+        beginRound: () => ({}),
+        onAnswer() {},
+        onTimeout() {},
+      };
+    },
+  });
+})(window);

@@ -435,10 +435,11 @@ validare, deci n-are ce să rețină.
 |---|---|
 | `js/rigle/facte.js` | Generator pur de facte: `RigleFacte.genereazaFact()` / `.alegeVariante()`, zero DOM, zero `LayoutConfig`. |
 | `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, numerotare rânduri, mismatch „prea mult/puțin", stil lift, pauză proprie, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste/setNumerotareRanduri/setLift. |
-| `js/quizzes/rigle-cl1.js` | Înregistrare quiz în `QuizRegistry`, config, callback `urmatorulFact`, contract `customEngine`, panoul CP. |
-| `js/app.js` | 5 branch-uri `customEngine` (mount/unmount + guard-uri) + `renderRiglePanel()`. |
-| `js/cp-registry.js` | `"rigle"` în `DEFAULT_ORDER`. |
-| `index.html` | `<script>` pentru `facte.js` → `engine.js` → `rigle-cl1.js` (ordinea contează), înainte de `app.js`. |
+| `js/quizzes/rigle-cl1.js` | Înregistrare quiz „Adunari cu coloane verticale" în `QuizRegistry`, config, callback `urmatorulFact`, contract `customEngine`, panoul CP (`appendRigleControlPanel`, chei `LayoutConfig` prefix `rigle`). |
+| `js/quizzes/rigle-tabla-1-10.js` | Clonă a `rigle-cl1.js` — quiz „Adunari cu coloane - Tabla adunarii 1-10", **același** `RigleEngine`/`RigleFacte`, propriile chei `LayoutConfig` (prefix `rigleT110`) și propriul panou CP (`appendRigleTabla110ControlPanel`) — reglajele nu se amestecă cu cele ale originalului. Prima dovadă reală că motorul e config-driven fără cod nou (§3). |
+| `js/app.js` | 5 branch-uri `customEngine` (mount/unmount + guard-uri, generice — nu știu care quiz Rigle e activ) + `renderRiglePanel()`/`renderRigleTabla110Panel()` (câte una per clonă, hardcodate pe metoda ei). |
+| `js/cp-registry.js` | `"rigle"` și `"rigleTabla110"` în `DEFAULT_ORDER`. |
+| `index.html` | `<script>` pentru `facte.js` → `engine.js` → `rigle-cl1.js` → `rigle-tabla-1-10.js` (ordinea contează), înainte de `app.js`. |
 | `tests/rigle-facte.test.js` | Teste pentru `facte.js` (distribuția pozițiilor, cazuri-limită sumă 2/30) — `node --test`. |
 | `js/rigle/SPEC-etapa1.md` | Specificația inițială de implementare (istoric — vezi secțiunea 11). |
 | `js/rigle/PLAN-etapa2-variatie-facte.md` | Plan facte variabile + variante (istoric — implementat, vezi secțiunea 11). |

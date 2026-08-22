@@ -6,6 +6,7 @@
 window.QUIZ_MENU_TEXT = `
 ## Clasa 0
 Adunari cu coloane verticale
+Adunari cu coloane - Tabla adunarii 1-10
 ## Clasa 1
 T+ EFF — Adunare extended fact family
 T− EFF — Scădere extended fact family

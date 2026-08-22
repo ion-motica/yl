@@ -744,6 +744,7 @@
     renderSq3FactorGroupsPanel();
     renderSq5FluentPartyPanel();
     renderRiglePanel();
+    renderRigleTabla110Panel();
     renderArenaActions();
     aamArena?.reset();
     buildQuizPicker();
@@ -830,6 +831,14 @@
     mount.replaceChildren();
     if (typeof quiz?.appendRigleControlPanel !== "function") return;
     quiz.appendRigleControlPanel(mount);
+  }
+
+  function renderRigleTabla110Panel() {
+    const mount = cpShell?.getMountEl("rigleTabla110");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendRigleTabla110ControlPanel !== "function") return;
+    quiz.appendRigleTabla110ControlPanel(mount);
   }
 
   function renderPreEquationNavigationPanel() {
@@ -934,6 +943,12 @@
     quizSpecific: true,
   });
   CpRegistry.register({
+    id: "rigleTabla110",
+    title: "CP — Tabla adunarii 1-10",
+    isEnabled: () => typeof quiz?.appendRigleTabla110ControlPanel === "function",
+    quizSpecific: true,
+  });
+  CpRegistry.register({
     id: "preEquationNav",
     title: "CP - Pre-ecuatii",
     isEnabled: () =>
@@ -998,6 +1013,7 @@
   renderSq3FactorGroupsPanel();
   renderSq5FluentPartyPanel();
   renderRiglePanel();
+  renderRigleTabla110Panel();
 
   function syncResponseTimesInput() {
     if (responseTimesInput) responseTimesInput.checked = showResponseTimes;
