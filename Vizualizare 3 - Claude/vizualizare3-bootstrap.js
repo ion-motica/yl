@@ -2418,7 +2418,7 @@
   // Intoarce { set1, set2 }: randurile <tr> de stare ale fiecarui set, in ordine
   // (primul = varful benzii, ultimul = baza) - le foloseste randeazaGraficeStacate
   // ca sa gaseasca celulele-ancora fara sa caute prin DOM dupa clase.
-  function construiesteBlocuriStari(tbody, stariPeMomente, numarColoane) {
+  function construiesteBlocuriStari(tbody, stariPeMomente, numarColoane, antete) {
     if (!stariPeMomente.length) return null;
     const numere = (cheie) => stariPeMomente.map((coloana) => coloana.contor[cheie]);
     const aduna = (...serii) => serii[0].map((_, idx) => serii.reduce((t, s) => t + s[idx], 0));
@@ -2487,6 +2487,10 @@
     tbody.appendChild(
       construiesteRandNumere("suma", aduna(netestat, abiaInceput, nuIlStie, inLucru, fluent), "viz3-tabel-suma")
     );
+
+    // A treia aparitie a randului "Data:" — intre Setul 1 si Setul 2, ca userul
+    // sa vada etichetele si aici fara sa deruleze inapoi la capul tabelului.
+    tbody.appendChild(construiesteRandDateDuplicat(antete));
 
     tbody.appendChild(randTitluSet("Setul 2 - Pt parinte si elev"));
     const trComasat = construiesteRandStare({
@@ -2603,6 +2607,163 @@
   // reconstruim segmentele - vezi listenerul de "resize" mai jos).
   let benziGraficStacatAtual = { set1: [], set2: [] };
 
+  // Numarul fiecarui rand de stare paraseste celula lui de tabel si se muta la
+  // marginea de sus a segmentului "lui" din banda stivuita a coloanei —
+  // geometria e masurata direct din tdSus/tdJos (aceleasi celule pe care le
+  // foloseste si ancora), NU din ancora insasi, ca sa functioneze indiferent
+  // daca bifa "Grafic pt 1/2" (banda vizuala) e pornita sau nu — cele doua
+  // bife nu se leaga una de alta.
+  // Sageata NU calatoreste cu numarul: ramane pe linia verticala naturala a
+  // coloanei (acolo unde ar fi stat numarul fara nicio rezolvare de
+  // suprapunere), doar la aceeasi inaltime (Y) ca numarul ei — altfel, cand
+  // rezolvarea suprapunerilor deplaseaza numarul lateral, sageata ar deriva
+  // odata cu el si n-ar mai marca linia coloanei. E un div propriu, exclus din
+  // clusterizare (vezi rezolvaSuprapunerileNumerePeBanda).
+  // Un numar 0 nu mai apare deloc (nici in celula, nici pe banda) — un segment
+  // de inaltime 0 n-are o pozitie interesanta de aratat.
+  let numerePeBandaAtual = []; // [{ el, tdSus, tdJos, fractiuneInainte }] - pt. resize + cluster
+  let sagetiPeBandaAtual = []; // idem, dar exclus din clusterizare
+
+  // `randuri` = randurile <tr> de stare ale UNUI set, in ordinea STACAT_SEGMENTE
+  // (primul rand = varful benzii). tdSus/tdJos sunt aceleasi pt. toate randurile
+  // setului (ancora acoperea deja tot blocul) - doar fractiunea difera per rand.
+  // Intoarce { numere, sageti } — apelantul le concateneaza separat in cele doua
+  // liste de mai sus.
+  function randeazaNumerePeBandaSet(tabel, benziSet, randuri, segmenteDef, stariPeMomente) {
+    if (!benziSet || !randuri || randuri.length !== segmenteDef.length) return { numere: [], sageti: [] };
+    const rTabel = tabel.getBoundingClientRect();
+    const numere = [];
+    const sageti = [];
+    benziSet.forEach(({ tdSus, tdJos }, i) => {
+      const coloana = stariPeMomente[i];
+      if (!coloana) return;
+      const contor = coloana.contor;
+      const suma = segmenteDef.reduce((t, s) => t + valoareSegmentStacat(contor, s.cheie), 0);
+      const latimeColoana = tdSus.getBoundingClientRect().width;
+      let cumulat = 0; // suma segmentelor DINAINTEA celui curent, in stiva
+      segmenteDef.forEach((seg, k) => {
+        const valoare = valoareSegmentStacat(contor, seg.cheie);
+        const td = randuri[k].children[i + 1]; // +1: fara th-ul etichetei
+        if (!td) return;
+        // Extrage sageata (daca exista) INAINTE sa golim celula — celula insasi
+        // ramane in tabel (fundal/bordura/scop de randare), doar continutul ei
+        // vizibil se muta. `textContent = ""` detaseaza si sageata, dar
+        // referinta JS de mai jos tot o poate re-atasa in alta parte.
+        const sageata = td.querySelector(".viz3-sageata-sus, .viz3-sageata-jos");
+        td.textContent = "";
+        const fractiuneInainte = suma > 0 ? cumulat / suma : 0;
+        cumulat += valoare;
+        if (valoare === 0 || suma <= 0) return;
+
+        // Fara latime fortata: divul se intinde exact cat textul lui (natural,
+        // shrink-to-fit) — asa masuratorile de suprapunere (rezolvaSuprapunerileNumerePeBanda)
+        // lucreaza cu cifrele scrise efectiv, nu cu latimea intregii coloane.
+        const el = document.createElement("div");
+        el.className = "viz3-numar-pe-banda";
+        el.appendChild(document.createTextNode(String(valoare)));
+        tabel.appendChild(el);
+        pozitioneazaNumarPeBanda(el, tdSus, tdJos, fractiuneInainte, rTabel);
+        centreazaOrizontalNumarPeBanda(el, tdSus, rTabel); // implicit: centrat pe coloana
+        numere.push({ el, tdSus, tdJos, fractiuneInainte });
+
+        if (sageata) {
+          const wrap = document.createElement("div");
+          wrap.className = "viz3-numar-pe-banda viz3-numar-pe-banda-sageata";
+          wrap.style.width = `${latimeColoana}px`;
+          wrap.appendChild(sageata);
+          tabel.appendChild(wrap);
+          pozitioneazaNumarPeBanda(wrap, tdSus, tdJos, fractiuneInainte, rTabel);
+          sageti.push({ el: wrap, tdSus, tdJos, fractiuneInainte });
+        }
+      });
+    });
+    return { numere, sageti };
+  }
+
+  function pozitioneazaNumarPeBanda(el, tdSus, tdJos, fractiuneInainte, rTabel) {
+    const rSus = tdSus.getBoundingClientRect();
+    const rJos = tdJos.getBoundingClientRect();
+    el.style.top = `${rSus.top - rTabel.top + fractiuneInainte * (rJos.bottom - rSus.top)}px`;
+    el.style.left = `${rSus.left - rTabel.left}px`;
+  }
+
+  // Pozitia implicita (fara nicio suprapunere de rezolvat): numarul, la latimea
+  // lui naturala, centrat pe coloana — la fel cum arata cand nu exista niciun
+  // cluster. `el` trebuie sa fie deja in DOM (are nevoie de latimea reala).
+  function centreazaOrizontalNumarPeBanda(el, tdSus, rTabel) {
+    const rCol = tdSus.getBoundingClientRect();
+    const latimeText = el.getBoundingClientRect().width;
+    el.style.left = `${rCol.left - rTabel.left + (rCol.width - latimeText) / 2}px`;
+  }
+
+  // Sub cat de multe px de suprapunere REALA (text peste text, nu marginile
+  // divului) nu facem nimic — decizia userului: „daca cifrele scrise nu se
+  // ating, nu defaza". `getBoundingClientRect().height` pe div masoara insa
+  // inaltimea de linie a fontului (line-height), nu inaltimea vizibila a
+  // cifrelor — un font are intotdeauna niste spatiu "mort" deasupra/dedesubt
+  // (ascent/descent), care nu se poate scoate exact din CSS fara sa masori
+  // glife individual (nu exista o formula universala, variaza pe font).
+  // `line-height: 1` de mai jos (regula .viz3-numar-pe-banda) strange cat se
+  // poate strange din CSS; restul discrepantei e valoarea de aici, calibrata
+  // EMPIRIC cu userul (22.08.2026, pe jurnal real, din consola browserului —
+  // vezi global.viz3NumerePeBanda.setToleranta mai jos). `let`, nu `const`: tot
+  // se poate recalibra live daca alt font/marime schimba discrepanta.
+  let TOLERANTA_SUPRAPUNERE_PX = 9;
+
+  // Cand 2+ numere de pe ACEEASI coloana se suprapun pe verticala mai mult
+  // decat toleranta (segmente mici, alaturate in stiva), le despartim pe
+  // orizontala — dar MINIM: le imbinam cap la cap (tangente, latimea lor
+  // naturala, nu felii egale din toata coloana), ca grup centrat simetric fata
+  // de axul coloanei. Cel de JOS din stiva (cel mai mare top) cel mai la
+  // STANGA, cel de SUS din stiva (cel mai mic top) cel mai la DREAPTA. Y-ul
+  // (pozitia cu sens) nu se atinge, doar left. Grupare dupa `tdSus`: acelasi
+  // obiect td == aceeasi coloana + acelasi Set — Setul 1 si Setul 2 nu se ating
+  // niciodata (benzile lor n-au cum sa se suprapuna pe verticala), deci nu
+  // clusterizeaza impreuna.
+  function rezolvaSuprapunerileNumerePeBanda(numere, tabel) {
+    const rTabel = tabel.getBoundingClientRect();
+    const peColoana = new Map();
+    numere.forEach((n) => {
+      if (!peColoana.has(n.tdSus)) peColoana.set(n.tdSus, []);
+      peColoana.get(n.tdSus).push(n);
+    });
+    peColoana.forEach((lista, tdSus) => {
+      lista.sort((a, b) => parseFloat(a.el.style.top) - parseFloat(b.el.style.top));
+      const rCol = tdSus.getBoundingClientRect();
+      const colCentru = rCol.left - rTabel.left + rCol.width / 2;
+      let cluster = [];
+      let clusterJos = -Infinity;
+      function rezolvaCluster() {
+        if (cluster.length >= 2) {
+          // `cluster` e sortat crescator dupa top (varf -> baza stivei);
+          // inversat = baza -> varf = exact ordinea stanga -> dreapta ceruta.
+          const inOrdine = [...cluster].reverse();
+          const latimi = inOrdine.map((n) => n.el.getBoundingClientRect().width);
+          const latimeTotala = latimi.reduce((t, l) => t + l, 0);
+          let x = colCentru - latimeTotala / 2;
+          inOrdine.forEach((n, idx) => {
+            n.el.style.left = `${x}px`;
+            x += latimi[idx];
+          });
+        }
+        // cluster.length < 2: numarul singur ramane exact cum a fost centrat
+        // la creare (centreazaOrizontalNumarPeBanda) — nimic de facut aici.
+        cluster = [];
+      }
+      lista.forEach((n) => {
+        const top = parseFloat(n.el.style.top);
+        const jos = top + n.el.getBoundingClientRect().height;
+        if (cluster.length && top >= clusterJos - TOLERANTA_SUPRAPUNERE_PX) {
+          rezolvaCluster();
+          clusterJos = -Infinity;
+        }
+        cluster.push(n);
+        clusterJos = Math.max(clusterJos, jos);
+      });
+      rezolvaCluster();
+    });
+  }
+
   // Apelata DUPA ce tabelul e in DOM (are nevoie de layout real ca sa masoare).
   function randeazaGraficeStacate(tabel, randuriStari, stariPeMomente) {
     benziGraficStacatAtual = { set1: [], set2: [] };
@@ -2627,11 +2788,42 @@
   // existente, in caz ca latimile coloanelor raspund la viewport. Debounce -
   // "resize" poate trage rafale de evenimente.
   let ceasResizeGraficStacat = null;
+  // Re-centreaza toate numerele/sagetile pe banda (pozitia "fara niciun
+  // cluster") si reia clusterizarea de la zero — acelasi rezultat ca o randare
+  // proaspata, fara sa recitim datele. Folosita si la resize, si de
+  // global.viz3NumerePeBanda.setToleranta (calibrare live din consola).
+  function recalculeazaNumerePeBanda() {
+    if (!tabelFluentaAtual || !(numerePeBandaAtual.length || sagetiPeBandaAtual.length)) return;
+    const rTabel = tabelFluentaAtual.getBoundingClientRect();
+    numerePeBandaAtual.forEach(({ el, tdSus, tdJos, fractiuneInainte }) => {
+      pozitioneazaNumarPeBanda(el, tdSus, tdJos, fractiuneInainte, rTabel);
+      centreazaOrizontalNumarPeBanda(el, tdSus, rTabel);
+    });
+    sagetiPeBandaAtual.forEach(({ el, tdSus, tdJos, fractiuneInainte }) => {
+      pozitioneazaNumarPeBanda(el, tdSus, tdJos, fractiuneInainte, rTabel);
+    });
+    rezolvaSuprapunerileNumerePeBanda(numerePeBandaAtual, tabelFluentaAtual);
+  }
+
+  // Calibrare live, din consola browserului (F12), fara sa umblam prin CP:
+  //   viz3NumerePeBanda.getToleranta()        -> valoarea curenta (px)
+  //   viz3NumerePeBanda.setToleranta(6)        -> o schimba SI re-randeaza pe loc
+  // Nu supravietuieste unui refresh (e in memorie) — cand cadem de acord pe o
+  // valoare, o mutam in cod ca implicit.
+  global.viz3NumerePeBanda = {
+    getToleranta: () => TOLERANTA_SUPRAPUNERE_PX,
+    setToleranta(px) {
+      TOLERANTA_SUPRAPUNERE_PX = px;
+      recalculeazaNumerePeBanda();
+    },
+  };
+
   function repozitioneazaGraficeStacate() {
     if (!tabelFluentaAtual) return;
     [...benziGraficStacatAtual.set1, ...benziGraficStacatAtual.set2].forEach(({ ancora, tdSus, tdJos }) => {
       pozitioneazaAncoraStacat(ancora, tdSus, tdJos, tabelFluentaAtual);
     });
+    recalculeazaNumerePeBanda();
   }
   window.addEventListener("resize", () => {
     clearTimeout(ceasResizeGraficStacat);
@@ -2873,7 +3065,12 @@
           )
         );
         tbody.appendChild(construiesteRandDateDuplicat(model.antete));
-        randuriStariAtual = construiesteBlocuriStari(tbody, model.stari_pe_momente, model.antete.length);
+        randuriStariAtual = construiesteBlocuriStari(
+          tbody,
+          model.stari_pe_momente,
+          model.antete.length,
+          model.antete
+        );
       }
     });
 
@@ -2889,6 +3086,28 @@
     // (layout real) - vezi randeazaGraficeStacate.
     randeazaGraficeStacate(tabel, randuriStariAtual, model.stari_pe_momente);
     aplicaOptiuniGraficStacat();
+    // Toate randurile, ambele seturi — vezi randeazaNumerePeBandaSet.
+    numerePeBandaAtual = [];
+    sagetiPeBandaAtual = [];
+    if (numerePeBandaActiv && randuriStariAtual) {
+      const rezSet1 = randeazaNumerePeBandaSet(
+        tabel,
+        benziGraficStacatAtual.set1,
+        randuriStariAtual.set1,
+        STACAT_SEGMENTE.set1,
+        model.stari_pe_momente
+      );
+      const rezSet2 = randeazaNumerePeBandaSet(
+        tabel,
+        benziGraficStacatAtual.set2,
+        randuriStariAtual.set2,
+        STACAT_SEGMENTE.set2,
+        model.stari_pe_momente
+      );
+      numerePeBandaAtual = [...rezSet1.numere, ...rezSet2.numere];
+      sagetiPeBandaAtual = [...rezSet1.sageti, ...rezSet2.sageti];
+      rezolvaSuprapunerileNumerePeBanda(numerePeBandaAtual, tabel);
+    }
     // Deschide pe coloanele recente (dreapta), nu pe cele mai vechi — acolo
     // majoritatea rândurilor sunt goale. `scrollWidth` e corect abia dupa ce
     // browserul a asezat tabelul, nu in timpul randarii (ca la masoaraTitlurile).
@@ -3415,6 +3634,11 @@
   // fie exista in DOM, fie nu.
   let afiseazaTabelRecomandare = true;
 
+  // Bifa "Pune numerele sub marginea benzii lor" — toate randurile de stare,
+  // ambele seturi (vezi randeazaNumerePeBandaSet). Ca si mai sus, schimbarea
+  // re-randeaza intreg tabelul (structura celulei se schimba, nu doar o clasa CSS).
+  let numerePeBandaActiv = true;
+
   // Pur prezentare: clase + variabile CSS pe tabelul curent. Nu atinge modelul
   // motorului. No-op cand tabelul nu exista inca (ex. la construirea CP-ului).
   function aplicaOptiuniProgresTabel() {
@@ -3933,6 +4157,10 @@
     }
     if (preset === "afiseaza_tabel_recomandare_activ") {
       afiseazaTabelRecomandare = ev.target.checked;
+      rerandeaza();
+    }
+    if (preset === "numere_pe_banda_activ") {
+      numerePeBandaActiv = ev.target.checked;
       rerandeaza();
     }
   });

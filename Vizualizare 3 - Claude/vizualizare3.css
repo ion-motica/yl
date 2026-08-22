@@ -1547,6 +1547,48 @@ body {
   display: block;
 }
 
+/* Numarul mutat pe banda (bifa "Pune numerele sub marginea benzii lor", toate
+   randurile, ambele seturi) — copil DIRECT al <table>, ca ancora, cu geometria
+   masurata in JS (randeazaNumerePeBandaSet). Fara latime/inaltime fixe: se
+   intinde exact cat textul lui (natural) — rezolvarea suprapunerilor
+   (rezolvaSuprapunerileNumerePeBanda) masoara latimea/inaltimea REALA a
+   textului, nu o cutie artificiala, ca doi vecini care de fapt nu se ating sa
+   nu fie despartiti degeaba. `position: absolute` e si ancora de pozitionare
+   a sagetii, in wrapperul ei (mai jos). Z-index implicit (0): peste ancora
+   benzii (-1). `line-height: 1`: strange cutia cat se poate din CSS, cat mai
+   aproape de inaltimea vizibila a cifrelor — un font tot pastreaza niste
+   spatiu propriu (ascent/descent) care nu se poate scoate exact fara sa
+   masori glife individual; restul discrepantei e compensat empiric in JS
+   (TOLERANTA_SUPRAPUNERE_PX, calibrabil live din consola — vezi comentariul
+   de acolo). */
+.viz3-numar-pe-banda {
+  position: absolute;
+  text-align: center;
+  font-size: var(--viz3-tabel-font);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Wrapperul sagetii (nu mai calatoreste cu numarul, ramane pe linia verticala
+   a coloanei — vezi randeazaNumerePeBandaSet): are nevoie de o inaltime
+   explicita, spre deosebire de numar, fiindca singurul ei continut (sageata)
+   e position:absolute si nu contribuie la inaltimea normala a parintelui —
+   fara asta, `top: 50%` de mai jos s-ar rezolva la 0. */
+.viz3-numar-pe-banda-sageata {
+  height: 1.3em;
+}
+
+/* Sageata, in noul ei wrapper: centrata pe inaltimea de-o linie de mai sus, nu
+   pe inaltimea unei celule intregi de tabel (regula de baza, gandita pt. acolo
+   unde sageata inca traieste intr-un <td> normal). */
+.viz3-numar-pe-banda-sageata .viz3-sageata-sus,
+.viz3-numar-pe-banda-sageata .viz3-sageata-jos {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 /* Banda vizibila, in interiorul ancorei: latime/pozitie/opacitate din
    variabile CSS comune ambelor seturi, exact ca la ".viz3-bara" dintr-o
    singura celula - doar ca "100%" se raporteaza acum la ancora masurata

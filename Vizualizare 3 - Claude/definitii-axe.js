@@ -380,7 +380,7 @@
         },
         {
           id: "grafic_stacat_stari",
-          eticheta: "Grafic stacked pt stări",
+          eticheta: "Stacked color bar pt stari",
           subsectiune: "tabel_optiuni",
           // Control special, ca "progres_tabel": doua comutatoare independente
           // (Setul 1 / Setul 2, nu se exclud) + UN SINGUR set de reglaje comun
@@ -389,8 +389,8 @@
           // randeazaControlGraficStacat (bootstrap).
           tip_control: "grafic_stacat_stari",
           optiuni: [
-            { id: "set1", eticheta: "Grafic pt 1 (Setul 1)", activa: true },
-            { id: "set2", eticheta: "Grafic pt 2 (Setul 2)", activa: true },
+            { id: "set1", eticheta: "Stacked color bar 1", activa: true },
+            { id: "set2", eticheta: "Stacked color bar 2", activa: true },
           ],
           // Fara reglaj de inaltime: inaltimea benzii vine din pozitia
           // randurilor (de la varful "netestat"/comasat pana la baza lui
@@ -425,6 +425,22 @@
               pas: 1,
               implicit: 88,
               unitate: "%",
+            },
+          ],
+        },
+        {
+          // Toate randurile, ambele seturi (vezi randeazaNumerePeBandaSet).
+          // Langa "Stacked color bar pt stari", fiindca ii foloseste geometria
+          // (tdSus/tdJos) ca reper — dar functioneaza independent de ea.
+          id: "numere_pe_banda",
+          eticheta: "Poziționare numere",
+          subsectiune: "tabel_optiuni",
+          tip_selectie: "multipla",
+          optiuni: [
+            {
+              id: "activ",
+              eticheta: "Pune numerele sub marginea benzii lor",
+              activa: true,
             },
           ],
         },
