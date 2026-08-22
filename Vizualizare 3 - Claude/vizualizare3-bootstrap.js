@@ -3370,6 +3370,12 @@
   let graficStacatPozitie = 50;
   let graficStacatOpacitate = 88;
 
+  // Bifa "Afișează Tabel pt. recomandare adâncime per fact" (ultima din 5.2).
+  // Schimbarea ei re-randeaza (vezi delegarea de change), nu doar comuta o clasa
+  // pe tabelul deja randat, ca la sageti/bara: blocul intreg (tabel + legenda)
+  // fie exista in DOM, fie nu.
+  let afiseazaTabelRecomandare = true;
+
   // Pur prezentare: clase + variabile CSS pe tabelul curent. Nu atinge modelul
   // motorului. No-op cand tabelul nu exista inca (ex. la construirea CP-ului).
   function aplicaOptiuniProgresTabel() {
@@ -3765,7 +3771,9 @@
       : motor.construiesteModelTabelFluenta({ inregistrari, catalog, adancime: adancimeActiva, praguri });
     randeazaTabelFluenta(sectiune, model);
     actualizeazaMarcajeRecomandareAdancime(recomandare);
-    if (model.antete.length > 0) randeazaTabelRecomandareAdancime(sectiune, recomandare, axaAdancime);
+    if (afiseazaTabelRecomandare && model.antete.length > 0) {
+      randeazaTabelRecomandareAdancime(sectiune, recomandare, axaAdancime);
+    }
   }
 
   function randeazaBlocGrila(sectiune, inregistrari) {
@@ -3882,6 +3890,10 @@
     if (preset.startsWith("adancime_foto_") && ev.target.checked) {
       adancimeActiva = adancimeDinOptiune(preset.slice("adancime_foto_".length));
       adancimeAlesaManual = true;
+      rerandeaza();
+    }
+    if (preset === "afiseaza_tabel_recomandare_activ") {
+      afiseazaTabelRecomandare = ev.target.checked;
       rerandeaza();
     }
   });

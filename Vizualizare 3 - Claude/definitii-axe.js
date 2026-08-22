@@ -428,6 +428,19 @@
             },
           ],
         },
+        {
+          id: "afiseaza_tabel_recomandare",
+          eticheta: "Tabel de recomandare adâncime",
+          subsectiune: "tabel_optiuni",
+          tip_selectie: "multipla",
+          optiuni: [
+            {
+              id: "activ",
+              eticheta: "Afișează Tabel pt. recomandare adâncime per fact",
+              activa: true,
+            },
+          ],
+        },
       ],
     },
   ];

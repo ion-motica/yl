@@ -1343,13 +1343,32 @@ body {
   color: var(--viz3-text-slab);
 }
 
+/* Termen + definitie pe acelasi rand (nu unul sub altul): dt/dd inline, iar
+   `::before` pe dt e blocul care forteaza un rand nou intre perechi — dt insusi
+   ramane inline, ca dd sa-i continue direct textul. */
 .viz3-legenda-recomandare dt {
+  display: inline;
   font-weight: 600;
+}
+
+.viz3-legenda-recomandare dt::before {
+  content: "";
+  display: block;
   margin-top: 8px;
 }
 
+.viz3-legenda-recomandare dt:first-of-type::before {
+  margin-top: 0;
+}
+
+.viz3-legenda-recomandare dt::after {
+  content: ": ";
+  font-weight: 400;
+}
+
 .viz3-legenda-recomandare dd {
-  margin: 2px 0 0;
+  display: inline;
+  margin: 0;
 }
 
 .viz3-tabel-total td {
