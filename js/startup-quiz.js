@@ -6,12 +6,6 @@
 
   const Config = global.LayoutConfig;
 
-  function listQuizOptions() {
-    const Registry = global.QuizRegistry;
-    if (!Registry) return [];
-    return Registry.list().map((meta) => ({ id: meta.id, title: meta.title }));
-  }
-
   function getStoredQuizId() {
     const stored = Config?.get(STORAGE_KEY, null);
     if (typeof stored === "string" && stored) return stored;
@@ -115,7 +109,9 @@
 
   /**
    * @param {HTMLElement} mount
-   * @param {{ onChange?: (quizId: string) => void }} opts
+   * @param {{ options: {id: string, title: string}[], onChange?: (quizId: string) => void }} opts
+   *   options vine de la caller, deja in ordinea din "Alege quiz" — controlul nu
+   *   ghiceste singur ordinea din Registry.
    */
   function appendStartupQuizControl(mount, opts) {
     const Registry = global.QuizRegistry;
@@ -130,7 +126,7 @@
     const select = document.createElement("select");
     select.className = "control-panel-startup-quiz-select";
 
-    const options = listQuizOptions();
+    const options = Array.isArray(opts?.options) ? opts.options : [];
     const storedId = getStoredQuizId();
     let selectedExists = false;
 

@@ -579,6 +579,32 @@
     }
   }
 
+  // Aceeasi ordine ca in "Alege quiz" (QUIZ_MENU_TEXT), dar plata: fara titluri
+  // de grupa, fiecare quiz o singura data (un titlu poate fi listat sub mai
+  // multe clase in meniu — pastram doar prima aparitie). Quizurile neintroduse
+  // inca in QUIZ_MENU_TEXT se adauga la final, in ordinea din Registry.
+  function getQuizMenuOrder() {
+    const byTitle = new Map(QuizRegistry.list().map((meta) => [meta.title, meta]));
+    const seen = new Set();
+    const ordered = [];
+    parseQuizMenuText(window.QUIZ_MENU_TEXT).forEach((group) => {
+      group.items.forEach((line) => {
+        const meta = byTitle.get(line);
+        if (meta && !seen.has(meta.id)) {
+          seen.add(meta.id);
+          ordered.push({ id: meta.id, title: meta.title });
+        }
+      });
+    });
+    QuizRegistry.list().forEach((meta) => {
+      if (!seen.has(meta.id)) {
+        seen.add(meta.id);
+        ordered.push({ id: meta.id, title: meta.title });
+      }
+    });
+    return ordered;
+  }
+
   // ── Sertar mobil (Pasul 2a) ────────────────────────────────────────────
   // Pe ecrane mici, quiz-urile/nivelurile stau într-un drawer deschis de butonul „Alege quiz”.
   // Pe desktop acest buton e ascuns prin CSS, deci codul rămâne inert acolo.
@@ -998,6 +1024,13 @@
     row.append(input, span);
     mount.appendChild(row);
     syncResponseTimesInput();
+
+    window.StartupQuiz?.appendStartupQuizControl(mount, {
+      options: getQuizMenuOrder(),
+      onChange: (id) => {
+        if (engine) switchQuiz(id);
+      },
+    });
   })();
 
   // Stratul „tip lift” = doar prezentare: (a) clasa de mod pe #game și (b) unde
@@ -1144,12 +1177,6 @@
         liftTypeControl?.syncUi?.();
         applyLiftLayout();
         window.AsnwOnboarding?.sync?.();
-      },
-    });
-
-    window.StartupQuiz?.appendStartupQuizControl(mount, {
-      onChange: (id) => {
-        if (engine) switchQuiz(id);
       },
     });
 
