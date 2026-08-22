@@ -102,7 +102,7 @@
 
   global.QuizRegistry.register({
     id: "rigle-cl1",
-    title: "Cl. 1 - Rigle",
+    title: "Adunari cu coloane verticale",
     description: "Măsoară suma de obiecte cu rigle (coloane). Facte a+b=? variabile.",
     order: 99, // ultimul în meniu; nu devine quiz implicit
     create() {

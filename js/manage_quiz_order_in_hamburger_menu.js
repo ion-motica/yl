@@ -4,9 +4,9 @@
 // - același titlu poate apărea de mai multe ori, în grupe diferite
 // - un titlu care nu se potrivește cu niciun quiz real apare gri, neclickabil, exact unde l-ai scris
 window.QUIZ_MENU_TEXT = `
-## Clasa 0 
+## Clasa 0
+Adunari cu coloane verticale
 ## Clasa 1
-Cl. 1 - Rigle
 T+ EFF — Adunare extended fact family
 T− EFF — Scădere extended fact family
 Tabla adunarii - Clasic - 1_10+1_10
