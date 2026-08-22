@@ -1395,4 +1395,12 @@
   });
 
   desktopGridMq.addEventListener("change", applyDesktopGrid);
+
+  // La pornirea aplicatiei (nu doar la schimbarea ulterioara a quizului): CP,
+  // pe desktop, sare direct la sectiunea quizului de pornire, daca are una.
+  // Trebuie sa fie ultimul pas — inainte de asta, panourile CP inca isi umplu
+  // continutul (inaltimi incomplete) si divCp inca isi schimba parintele prin
+  // applyDesktopGrid(), asa ca orice masuratoare de scroll facuta mai devreme
+  // ar calcula pozitii gresite.
+  if (!isMobileLayout()) cpShell?.scrollToActiveQuizSection();
 })();
