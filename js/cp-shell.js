@@ -53,18 +53,31 @@
       return mounts.get(id) || null;
     }
 
+    // Randul din TOC ramane vizibil mereu (drag&drop functioneaza si dezactivat);
+    // doar eticheta primeste sufixul "(alt quiz)" cat timp panoul nu se aplica
+    // quizului activ.
+    function tocLabel(def, enabled) {
+      return enabled ? def.title : `${def.title} (alt quiz)`;
+    }
+
     function setPanelEnabled(id, enabled) {
+      const def = Registry.get(id);
       const row = tocEl.querySelector(`.cp-toc-row[data-cp-id="${id}"]`);
       const tocItem = row?.querySelector(".cp-toc-item");
       const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
       row?.classList.toggle("is-disabled", !enabled);
-      section?.classList.toggle("is-disabled", !enabled);
-      if (tocItem) tocItem.disabled = !enabled;
+      // Sectiunea (titlu galben + continut) dispare complet cat timp panoul nu
+      // se aplica quizului activ — nu ramane ca stub dimat.
+      if (section) section.hidden = !enabled;
+      if (tocItem) {
+        tocItem.disabled = !enabled;
+        if (def) tocItem.textContent = tocLabel(def, enabled);
+      }
     }
 
     function scrollToPanel(id, instant) {
       const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
-      if (!section || section.classList.contains("is-disabled")) return;
+      if (!section || section.hidden) return;
       // .cp-scroll e singurul container cu scroll — nu scrollIntoView (ar mișca și pagina).
       const top =
         section.getBoundingClientRect().top -
@@ -163,7 +176,7 @@
       const tocBtn = document.createElement("button");
       tocBtn.type = "button";
       tocBtn.className = "cp-toc-item";
-      tocBtn.textContent = def.title;
+      tocBtn.textContent = tocLabel(def, enabled);
       tocBtn.disabled = !enabled;
       tocBtn.addEventListener("click", () => scrollToPanel(def.id));
 
@@ -190,7 +203,7 @@
         section.className = "cp-section";
         section.dataset.cpId = def.id;
         section.id = `cp-section-${def.id}`;
-        section.classList.toggle("is-disabled", !enabled);
+        section.hidden = !enabled;
 
         const heading = document.createElement("h2");
         heading.className = "cp-section-heading";
