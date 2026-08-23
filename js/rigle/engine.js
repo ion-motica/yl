@@ -208,9 +208,19 @@
   margin-top: auto;
   position: relative;
   width: 100%;
-  height: clamp(126px, 25dvh, 252px);
+  height: var(--rigle-inaltime-butoane);
   box-sizing: border-box;
   pointer-events: none;
+}
+/* Înălțimea barei de butoane, expusă ca variabilă pe #game (.rigle-active) fiindcă
+   #arena NU se termină deasupra barei — bara stă ÎNĂUNTRUL casetei arenei (verificat:
+   arena 0-655, butoane 491-655). Deci orice suprapunere care vrea să stea DEASUPRA
+   butoanelor se ancorează cu "bottom: calc(var(--rigle-inaltime-butoane) + gap)", nu
+   cu "bottom: 0" pe arenă — care ar cădea peste butoane. Variabilă, nu valoarea
+   repetată: 25dvh se schimbă la rotire/redimensionare, iar o copie ar rămâne în urmă.
+   Folosită azi de eticheta de subquiz din js/quizzes/rigle-tabla-1-10.js. */
+.rigle-active {
+  --rigle-inaltime-butoane: clamp(126px, 25dvh, 252px);
 }
 .rigle-btn {
   pointer-events: auto;
@@ -422,6 +432,7 @@
   const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
   const LIFT_ROW_GAP = 4; // .rigle-lift { gap: 4px } — spațiul dintre qEl și fostul loc al rândului de mere
   const ETICHETA_GAP = 5; // px sub cifra butonului (~0.3rem, cât era gap-ul flex înainte) — v. reglajEticheta
+  const GOL_INTRE_COLOANE = 1; // celule de grilă goale garantate între două coloane vecine
   const NUMEROTARE_HUE_APROAPE = 205; // albastru, la rândul liftului
   const NUMEROTARE_HUE_DEPARTE = 320; // roz-magenta, la marginea ferestrei (modul "animat")
 
@@ -694,7 +705,14 @@
         // exacți de `cell` — marginile coloanei coincid cu liniile grilei.
         const n = cfg.latimiColoane.length;
         const thirdW = W / n;
-        const cellsPerThird = Math.max(Math.max(...cfg.latimiColoane), totalMere);
+        // `+ GOL_INTRE_COLOANE`: fără el, coloana cea mai lată umple exact slotul ei
+        // (lățime == cellsPerThird ⇒ spațiu zero după ea) și se LIPEȘTE de vecina din
+        // dreapta — se întâmpla la fiecare fact unde cea mai lată nu era ultima, iar
+        // copilul nu mai vedea unde se termină una și începe cealaltă. Slotul e cu o
+        // celulă mai lat decât cea mai lată coloană, deci rămâne garantat minim un
+        // rând de grilă gol între oricare două coloane. Invariantul de la gotcha #4
+        // se păstrează: colX rămâne multiplu întreg de `cell`.
+        const cellsPerThird = Math.max(Math.max(...cfg.latimiColoane), totalMere) + GOL_INTRE_COLOANE;
         cell = Math.max(1, Math.floor(thirdW / cellsPerThird));
         colX = cfg.latimiColoane.map((_, i) => i * cellsPerThird * cell);
       } else {

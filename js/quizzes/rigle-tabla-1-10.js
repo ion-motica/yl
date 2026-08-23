@@ -1,10 +1,18 @@
 /**
  * Quiz „Adunari cu coloane - Tabla adunarii 1-10" — clonă a „Adunari cu coloane
  * verticale" (`rigle-cl1.js`), pe același motor (`window.RigleEngine`), dar cu
- * generator de facte propriu: 10 niveluri, nivelul N = x+N, x=0-10 (11 ture/nivel,
- * INLOCUIESTE „Suma maxima" — decizie explicită, nu coexistă). Reintroducere peste
- * 2-3 ture la răspuns greșit, avans automat de nivel după 11 ture indiferent de
- * corectitudine. Chei `LayoutConfig` separate (prefix `rigleT110`), panou CP propriu.
+ * generator de facte propriu: 10 niveluri, nivelul N = x+N, x=0-10 (INLOCUIESTE
+ * „Suma maxima" — decizie explicită, nu coexistă). Chei `LayoutConfig` separate
+ * (prefix `rigleT110`), panou CP propriu.
+ *
+ * Un NIVEL = o rută completă de subquizuri, rulată de
+ * `window.Orchestrator3Coloane` (`js/rigle/orchestrator-3-coloane.js`, separat
+ * dinadins de orchestratorul comun — vezi motivul acolo): „sq coloane fixe" (5
+ * ture, același set de 3 coloane) → „sq bază" (4 ture, coloane noi la fiecare
+ * tură) = 9 ture. Lungimea nivelului se DERIVĂ din rută; subquizurile sunt cârje
+ * temporare, deci scoaterea uneia = ștergi id-ul din `RUTA`. Avansul de nivel se
+ * face la rută completă, indiferent de corectitudine; la nivelul 10 jocul se
+ * oprește („Joc finalizat.").
  *
  * Corectitudinea per apăsare (numărul apăsării în tur, „turCorect" = doar prima
  * apăsare contează) vine din `window.Motor3Butoane` (M3B) — folosit AICI doar ca
@@ -191,20 +199,22 @@
     create() {
       let mounted = null;
 
-      // ── Niveluri: nivelul N = x+N, x=0-10 (11 ture/nivel). Stare în memorie, ca
-      // la addition-table-range.js — NU persistă în LayoutConfig, resetează la
+      // ── Niveluri: nivelul N = x+N, x=0-10. Stare în memorie, ca la
+      // addition-table-range.js — NU persistă în LayoutConfig, resetează la
       // fiecare reselectare a quizului (nu doar la reload).
-      const TURE_PER_NIVEL = 4; // deocamdată redus de la 11 (=x 0..10) — testare/reglaj ritm
+      //
+      // Un nivel = o RUTĂ completă de subquizuri (vezi RUTA mai jos), nu un număr
+      // fix de ture: lungimea nivelului se derivă din rută (5+4=9 azi).
       const NIVEL_MAX = 10;
+      const TURE_SQ_COLOANE_FIXE = 5;
+      const TURE_SQ_BAZA = 4;
       const REINTRODUCERE_MIN_TURE = 2;
       const REINTRODUCERE_MAX_TURE = 3;
       const FEREASTRA_INTRODUCERE = 4; // „cele mai mici 4 facts nelucrate"
+      const LATIMI_IMPRASTIERE_MAX = 4; // max − min între cele 3 lățimi fixe
 
       let nivelCurent = 1;
-      let turIndexInNivel = 0; // câte facte s-au arătat deja la nivelul curent
-      let xLucrateInNivel = new Set(); // x introduse măcar o dată la nivelul curent
-      let coadaReintroducere = []; // [{ x, turePanaLaReintroducere }]
-      let factCurent = null; // { x, nivel, suma, intrebare, latimiColoane }
+      let factCurent = null; // { x, nivel, suma, intrebare, grupe, latimiColoane }
       let factAfisatLa = 0; // Date.now() la afișarea factului curent
 
       // ── Flash „Felicitări! Next level!" la avans de nivel — text și stil
@@ -310,6 +320,51 @@
         document.head.appendChild(style);
       }
 
+      // ── Eticheta cu subquizul activ — bandă text imediat DEASUPRA butoanelor.
+      // Suprapunere, nu rând nou: zero impact pe layout. Poate atinge liftul la
+      // aterizare, care ajunge tot acolo — acceptat, se vede la folosire dacă
+      // deranjează. z-index 5 = peste conținutul scenei (max 4), sub banner (20),
+      // deci „Joc finalizat." o estompează, n-o ascunde.
+      //
+      // ATENȚIE la ancorare: `bottom: 0` pe #arena NU e deasupra butoanelor — bara
+      // de butoane stă ÎNĂUNTRUL casetei arenei (verificat live: arena 0-655, bara
+      // 491-655), deci ar cădea peste ele. De-aia se scade înălțimea barei, luată
+      // din variabila expusă de engine.js (`--rigle-inaltime-butoane`) — nu o copie
+      // a lui `clamp(126px, 25dvh, 252px)`, care ar rămâne în urmă la rotire.
+      const ETICHETA_SQ_STYLE_ID = "rigle-t110-eticheta-sq-style";
+      function injecteazaStilEtichetaSq() {
+        if (document.getElementById(ETICHETA_SQ_STYLE_ID)) return;
+        const style = document.createElement("style");
+        style.id = ETICHETA_SQ_STYLE_ID;
+        style.textContent = `
+.rigle-t110-eticheta-sq {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--rigle-inaltime-butoane, 126px) + 4px);
+  z-index: 5;
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+  /* Fundal propriu, nu doar text: eticheta stă peste coloane, care pot fi de orice
+     culoare (CP „Culori") și pot avea numerotarea pornită — fără el, textul devine
+     ilizibil sau chiar invizibil pe o coloană deschisă la culoare. */
+  background: rgba(15, 20, 25, 0.55);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #cbd5e1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+`;
+        document.head.appendChild(style);
+      }
+
+      let etichetaSqEl = null;
+      function actualizeazaEtichetaSq() {
+        if (etichetaSqEl) etichetaSqEl.textContent = orchestrator.numeCurent();
+      }
+
       let bannerEl = null;
       function flashNivelBanner(text) {
         if (!bannerEl) return;
@@ -333,15 +388,10 @@
         bannerEl?.classList.remove("show");
       }
 
-      function resetStareNivel() {
-        turIndexInNivel = 0;
-        xLucrateInNivel = new Set();
-        coadaReintroducere = [];
-      }
-
       function seteazaNivelCurent(valoare) {
         nivelCurent = Math.max(1, Math.min(NIVEL_MAX, Math.round(valoare)));
-        resetStareNivel();
+        contextNivel.xLucrate.clear();
+        orchestrator.reseteaza(); // ruta repornește de la primul subquiz
         if (jocFinalizat) {
           jocFinalizat = false;
           ascundeJocFinalizat();
@@ -350,59 +400,199 @@
         mounted?.reporneste();
       }
 
-      // Reintroducerile scadente au prioritate (FIFO); altfel, aleator din cele
-      // mai mici 4 valori x încă nearătate la acest nivel.
-      function alegeXUrmator() {
-        coadaReintroducere.forEach((intrare) => {
-          intrare.turePanaLaReintroducere -= 1;
-        });
-        const scadentIndex = coadaReintroducere.findIndex((intrare) => intrare.turePanaLaReintroducere <= 0);
-        if (scadentIndex >= 0) {
-          const [scadent] = coadaReintroducere.splice(scadentIndex, 1);
-          return scadent.x;
+      // ── Rută de subquizuri. Un nivel = o rută completă. Ruta e DATE, nu cod:
+      // subquizurile sunt cârje temporare la care se renunță pe drumul spre fluență,
+      // deci scoaterea uneia = ștergi id-ul de aici, iar nivelul se scurtează singur
+      // (lungimea se derivă din rută). Vezi js/rigle/orchestrator-3-coloane.js.
+      const RUTA = ["coloane-fixe", "baza"];
+
+      // Stare partajată la nivel de NIVEL, nu de subquiz: cerință explicită ca „sq
+      // bază să știe ce s-a lucrat în sq other" — deci evidența stă în context,
+      // citită de oricine, nu transferată de la un subquiz la altul. Identitatea
+      // obiectului ȘI a Set-ului rămâne stabilă (`.clear()`, nu reasignare):
+      // subquizurile create la începutul rutei țin o referință la el.
+      const contextNivel = {
+        getNivel: () => nivelCurent,
+        xLucrate: new Set(), // valorile x arătate măcar o dată la nivelul curent
+      };
+
+      function amesteca(lista) {
+        for (let i = lista.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [lista[i], lista[j]] = [lista[j], lista[i]];
         }
-        const nelucrate = [];
-        for (let x = 0; x <= 10; x++) {
-          if (!xLucrateInNivel.has(x)) nelucrate.push(x);
-        }
-        // Apărare — nu ar trebui atins: TURE_PER_NIVEL garantează avans de nivel
-        // înainte ca toate cele 11 valori să fie epuizate.
-        if (nelucrate.length === 0) return Math.floor(Math.random() * 11);
-        const fereastra = nelucrate.slice(0, FEREASTRA_INTRODUCERE);
-        return fereastra[Math.floor(Math.random() * fereastra.length)];
+        return lista;
       }
 
-      function urmatorulFact() {
-        turIndexInNivel += 1;
-        if (turIndexInNivel > TURE_PER_NIVEL) {
-          if (nivelCurent >= NIVEL_MAX) {
-            // Ultimul nivel, ultima tură — jocul se oprește, nu mai wrap-uiește la 1.
-            jocFinalizat = true;
-            mounted?.setOpritDefinitiv(true);
-            aratajocFinalizat();
-            return null; // schimbaFact() nu rulează (engine.js: `if (fact) schimbaFact(fact)`) —
-            // ultimul fact rămâne randat sub suprapunerea „Joc finalizat.".
-          }
-          nivelCurent += 1;
-          turIndexInNivel = 1;
-          xLucrateInNivel = new Set();
-          coadaReintroducere = [];
-          flashNivelBanner("Felicitări! Next level!");
-        }
-        const x = alegeXUrmator();
-        xLucrateInNivel.add(x);
-        const suma = x + nivelCurent;
-        const { latimiColoane } = global.RigleFacte.alegeVariante(suma);
-        factCurent = { x, nivel: nivelCurent, suma, intrebare: `${x}+${nivelCurent}=?`, latimiColoane };
-        factAfisatLa = Date.now();
-        motorRaspuns?.laAfisareaIntrebarii();
+      // Forma comună a unui fact, ca ambele subquizuri să producă exact același
+      // obiect. Motorul primește doar intrebare/grupe/latimiColoane; x/nivel/suma
+      // sunt pentru jurnal, ținute în factCurent.
+      function construiesteFact(x, nivel, latimiColoane) {
         return {
-          intrebare: factCurent.intrebare,
+          x,
+          nivel,
+          suma: x + nivel,
+          intrebare: `${x}+${nivel}=?`,
           grupe: [
             { n: x, fundal: "rosu" },
-            { n: nivelCurent, fundal: "albastru" },
+            { n: nivel, fundal: "albastru" },
           ],
           latimiColoane,
+        };
+      }
+
+      // ── sq bază — comportamentul original: x din cele mai mici FEREASTRA_INTRODUCERE
+      // valori încă nelucrate la nivelul curent, cu recozile scadente pe primul loc.
+      // Lățimile le alege RigleFacte per fact, deci coloanele se schimbă la fiecare
+      // tură — exact opusul lui „coloane fixe".
+      function creeazaSqBaza(context) {
+        const coadaReintroducere = []; // [{ x, turePanaLaReintroducere }]
+
+        function alegeXUrmator() {
+          coadaReintroducere.forEach((intrare) => {
+            intrare.turePanaLaReintroducere -= 1;
+          });
+          const scadentIndex = coadaReintroducere.findIndex((i) => i.turePanaLaReintroducere <= 0);
+          if (scadentIndex >= 0) return coadaReintroducere.splice(scadentIndex, 1)[0].x;
+
+          const nelucrate = [];
+          for (let x = 0; x <= 10; x++) {
+            if (!context.xLucrate.has(x)) nelucrate.push(x);
+          }
+          // Apărare — nu ar trebui atins: ruta avansează nivelul cu mult înainte ca
+          // toate cele 11 valori să fie epuizate (5+4 ture, 11 valori).
+          if (nelucrate.length === 0) return Math.floor(Math.random() * 11);
+          const fereastra = nelucrate.slice(0, FEREASTRA_INTRODUCERE);
+          return fereastra[Math.floor(Math.random() * fereastra.length)];
+        }
+
+        return {
+          urmatorulFact() {
+            const nivel = context.getNivel();
+            const x = alegeXUrmator();
+            context.xLucrate.add(x);
+            const { latimiColoane } = global.RigleFacte.alegeVariante(x + nivel);
+            return construiesteFact(x, nivel, latimiColoane);
+          },
+          laApasare({ corect, turCorect, x }) {
+            if (!corect || turCorect) return; // rezolvat, dar nu din prima → se reia
+            const intarziere =
+              REINTRODUCERE_MIN_TURE +
+              Math.floor(Math.random() * (REINTRODUCERE_MAX_TURE - REINTRODUCERE_MIN_TURE + 1));
+            coadaReintroducere.push({ x, turePanaLaReintroducere: intarziere });
+          },
+        };
+      }
+
+      // ── sq coloane fixe — ACELAȘI set de 3 coloane pe toate cele 5 ture.
+      //
+      // Aritmetica închide setul la exact 3 facts: la nivelul N, x∈[0,10] ⇒ suma
+      // ∈ [N, N+10]; răspunsul trebuie să fie una dintre lățimile fixe, deci fiecare
+      // lățime w dă exact un fact, x = w − N. 5 ture din 3 facts ⇒ 2 se repetă —
+      // acceptat explicit: nu e o limitare de implementare, e a+b=? cu un singur
+      // termen liber.
+      //
+      // Coloanele stau fix toate cele 5 ture (nu se amestecă între ture). Nu e o
+      // scurtătură pentru copil: cele 3 facts merg fiecare pe altă coloană, deci
+      // coloana corectă se schimbă de la tură la tură, iar bara de mere se schimbă
+      // vizibil — tot trebuie măsurat, doar riglele devin familiare.
+      function creeazaSqColoaneFixe(context) {
+        const nivel = context.getNivel();
+        const latimiColoane = alegeLatimiFixe(nivel);
+        const xDisponibile = latimiColoane.map((w) => w - nivel);
+        const ordine = amesteca([...xDisponibile]); // turele 1-3: fiecare fact o dată
+        const gresite = []; // ratate din prima apăsare — prioritare la turele 4-5
+        let ultimulX = null; // pentru regula anti-repetare
+
+        return {
+          urmatorulFact() {
+            let x;
+            if (ordine.length) {
+              x = ordine.shift(); // turele 1-3 sunt distincte prin construcție
+            } else {
+              // Turele 4-5. Prioritate celor ratate din prima apăsare, dar NICIODATĂ
+              // aceeași valoare de două ori la rând: cu coloanele fixe, un fact repetat
+              // imediat nu mai cere măsurat, e doar „apasă iar acolo". Dacă singurul
+              // candidat prioritar e chiar cel tocmai arătat, se amână o tură (rămâne
+              // în coadă). Cu 3 facts distincte există mereu o alternativă; `pool`
+              // nefiltrat e doar plasa de siguranță.
+              const idxGresit = gresite.findIndex((v) => v !== ultimulX);
+              if (idxGresit >= 0) {
+                x = gresite.splice(idxGresit, 1)[0];
+              } else {
+                const altele = xDisponibile.filter((v) => v !== ultimulX);
+                const pool = altele.length ? altele : xDisponibile;
+                x = pool[Math.floor(Math.random() * pool.length)];
+              }
+            }
+            ultimulX = x;
+            context.xLucrate.add(x);
+            return construiesteFact(x, nivel, latimiColoane);
+          },
+          laApasare({ corect, turCorect, x }) {
+            if (!corect || turCorect) return;
+            if (!gresite.includes(x)) gresite.push(x);
+          },
+        };
+      }
+
+      // 3 lățimi distincte, apropiate între ele, în ordine aleatoare stânga-dreapta.
+      // Intervalul permis la nivelul N e [N, N+10] (din x=0..10); alegem în el o
+      // fereastră de LATIMI_IMPRASTIERE_MAX+1 valori și tragem 3. Fără pas constant
+      // impus și fără sortare — dar o progresie ieșită din întâmplare ({6,7,8}) NU se
+      // respinge: „nici căutată, nici interzisă".
+      function alegeLatimiFixe(nivel) {
+        const min = nivel;
+        const max = nivel + 10;
+        const fereastra = Math.min(LATIMI_IMPRASTIERE_MAX, max - min);
+        const start = min + Math.floor(Math.random() * (max - min - fereastra + 1));
+        const candidate = [];
+        for (let w = start; w <= start + fereastra; w++) candidate.push(w);
+        return amesteca(candidate).slice(0, 3);
+      }
+
+      // Ruta completă = nivel terminat. Aici se face ce însemna înainte
+      // „turIndexInNivel > TURE_PER_NIVEL": avans de nivel, sau oprire la 10.
+      function laRutaCompleta() {
+        if (nivelCurent >= NIVEL_MAX) {
+          jocFinalizat = true;
+          mounted?.setOpritDefinitiv(true);
+          aratajocFinalizat();
+          return false; // orchestratorul întoarce null → motorul păstrează ultimul fact
+        }
+        nivelCurent += 1;
+        contextNivel.xLucrate.clear();
+        flashNivelBanner("Felicitări! Next level!");
+        return true;
+      }
+
+      const orchestrator = global.Orchestrator3Coloane.creeaza({
+        context: contextNivel,
+        ruta: RUTA,
+        laRutaCompleta,
+        definitii: [
+          {
+            id: "coloane-fixe",
+            nume: "sq coloane fixe",
+            ture: TURE_SQ_COLOANE_FIXE,
+            creeaza: creeazaSqColoaneFixe,
+          },
+          { id: "baza", nume: "sq bază", ture: TURE_SQ_BAZA, creeaza: creeazaSqBaza },
+        ],
+      });
+
+      function urmatorulFact() {
+        const fact = orchestrator.urmatorulFact();
+        if (!fact) return null; // „Joc finalizat." — engine.js: `if (fact) schimbaFact(fact)`,
+        // deci ultimul fact rămâne randat sub suprapunere.
+        factCurent = fact;
+        factAfisatLa = Date.now();
+        motorRaspuns?.laAfisareaIntrebarii();
+        actualizeazaEtichetaSq();
+        return {
+          intrebare: fact.intrebare,
+          grupe: fact.grupe,
+          latimiColoane: fact.latimiColoane,
         };
       }
 
@@ -456,7 +646,7 @@
         global.JurnalIntrebari?.inregistreazaIntrebare({
           data_ora_ro: dataOraBucuresti(new Date(factAfisatLa)),
           quiz_name: "Adunari cu coloane - Tabla adunarii 1-10",
-          subquiz_name: null,
+          subquiz_name: orchestrator.numeCurent(),
           intrebare: factCurent.intrebare,
           raspuns: String(latime),
           a_raspuns_corect: corect,
@@ -464,7 +654,7 @@
           durata_raspuns_secunde: Math.round((Date.now() - factAfisatLa) / 100) / 10,
           fact: `${factCurent.x}+${factCurent.nivel}`,
           quiz_id: "rigle-tabla-1-10",
-          subquiz_id: null,
+          subquiz_id: orchestrator.idCurent(),
           fact_id: `nivel${factCurent.nivel}-x${factCurent.x}`,
           eq_form: "a+b=?",
           pozitie_buton_apasat_pt_raspuns: idx + 1,
@@ -474,11 +664,16 @@
           extra: { nivel: factCurent.nivel, x: factCurent.x },
         });
 
-        if (corect && !ctx.turCorect) {
-          const tureIntarziere =
-            REINTRODUCERE_MIN_TURE + Math.floor(Math.random() * (REINTRODUCERE_MAX_TURE - REINTRODUCERE_MIN_TURE + 1));
-          coadaReintroducere.push({ x: factCurent.x, turePanaLaReintroducere: tureIntarziere });
-        }
+        // Bookkeeping-ul propriu al subquizului activ (recoadă la „bază", listă de
+        // greșite la „coloane fixe") — fiecare decide singur ce face cu apăsarea.
+        orchestrator.laApasare({
+          idx,
+          corect,
+          latime,
+          x: factCurent.x,
+          numarApasare: ctx.numarApasare,
+          turCorect: ctx.turCorect,
+        });
       }
 
       return {
@@ -511,6 +706,16 @@
           mounted = global.RigleEngine.mount(hosts, cfg);
           mounted.setCuloriTema(toateCuloriTema());
 
+          // Ordinea de adăugare = ordinea de pictare între frați: eticheta întâi,
+          // bannerul peste ea (are oricum z-index 20).
+          injecteazaStilEtichetaSq();
+          if (!etichetaSqEl) {
+            etichetaSqEl = document.createElement("div");
+            etichetaSqEl.className = "rigle-t110-eticheta-sq";
+          }
+          hosts.arenaEl?.appendChild(etichetaSqEl);
+          actualizeazaEtichetaSq(); // primul fact s-a produs deja, în mount()
+
           injecteazaStilBanner();
           if (!bannerEl) {
             bannerEl = document.createElement("div");
@@ -521,6 +726,7 @@
         unmountArena() {
           if (mounted) mounted.destroy();
           mounted = null;
+          etichetaSqEl?.remove();
           bannerEl?.remove();
         },
 
