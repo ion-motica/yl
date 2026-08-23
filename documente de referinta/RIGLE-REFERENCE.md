@@ -66,7 +66,8 @@ RigleEngine.mount(hosts, config) → {
   setColumnLayout({ treime? }),
   reporneste(),   // y=0 + cere fact nou prin cfg.urmatorulFact() + randează
   setNumerotareRanduri({ mod?, randuriInSus?, randuriInJos? }),  // live, §6 „Numerotează rânduri"
-  setLift({ transparentaFundal?, margine? }),  // live, §6 „Lift"
+  setLift({ transparentaFundal?, margine?, pornire? }),  // live, §6 „Lift". `pornire`
+                             // se aplică de la următorul fact, nu retroactiv — vezi mai jos.
   setPozitieMere({ subNumerotare?, transparenta? }),  // live, §6 „Bara cu mere"
   setOpritDefinitiv(bool),  // stop dur (fall + butoane + taste 1/2/3), NU pauza
                              // userului — nu atinge is-paused/„PAUZĂ". Folosit de
@@ -141,6 +142,10 @@ restaurează exact `display`-ul reținut pe fiecare element ascuns, scoate clasa
   gridOrizontal: true,
   pozitieTreime: true,      // true = fiecare coloană o treime din spațiu; false = proporțional
   urmatorulFact: () => RigleFacte.genereazaFact({ sumaMin, sumaMax }),  // (§4, RigleFacte)
+  liftPornire: null,        // unde reapare liftul la FIECARE fact nou (vezi §5 „Pornirea liftului"):
+                             //   null = nu se atinge colIndex — rămâne pe ultima coloană apăsată
+                             //          (comportamentul istoric; `rigle-cl1.js` nu trimite opțiunea)
+                             //   "coloana2" / "intreColoane" — vezi §6 „Lift".
   onSelectColumn: null,     // opțional — ({idx, corect, totalMere, latime}) => void, apelat la
                              // FIECARE apăsare de coloană, înaintea efectelor vizuale. Neapelat
                              // dacă lipsește (rigle-cl1.js nu-l furnizează — zero regresie).
@@ -441,6 +446,31 @@ un fundal translucid nu ar atinge emoji-ul 🍏 (glif de font, randat opac, imun
 |---|---|---|---|
 | Transparență fundal alb lift | stepper 0-100 | `50` | `rigleLiftTransparentaFundal` |
 | Afișează marginea liftului | bifă | ON | `rigleLiftMargine` |
+
+**„Comportament initial lift"** — 2 radio, la finalul secțiunii „Lift", **doar la
+`rigle-tabla-1-10.js`** (`rigleT110LiftPornire`, implicit `"coloana2"`), 23.08.2026:
+
+| Opțiune | `cfg.liftPornire` | Ce face |
+|---|---|---|
+| Întotdeauna pe coloana 2 (implicit) | `"coloana2"` | La fiecare fact nou liftul revine pe coloana din mijloc. |
+| Între 2 coloane | `"intreColoane"` | Liftul coboară pe linia dintre două coloane, **fără nicio coloană aleasă**; prima apăsare (buton sau tastă 1/2/3) îl mută pe coloană, apoi totul e normal. Golul alternează la fiecare fact: c1-c2, c2-c3, c1-c2… |
+
+**Atenție — „Întotdeauna pe coloana 2" NU e comportamentul istoric**, e o schimbare.
+Verificat empiric înainte de implementare: motorul nu reseta niciodată `colIndex` la
+fact nou, deci liftul **rămânea pe ultima coloană apăsată** (apeși coloana 1 ⇒ factul
+următor pornește tot de pe 1); `coloanaInitialaIndex` conta doar la primul fact.
+Comportamentul vechi e păstrat de `cfg.liftPornire = null`, adică exact ce folosește
+`rigle-cl1.js` — zero regresie acolo (verificat live).
+
+Poziția „între coloane" e **mijlocul golului dintre coloanele vecine**, cu rândul de
+mere centrat pe el — NU treimea arenei (`W/3`): coloanele nu-și umplu treimea (lățimi
+diferite + golul garantat de o celulă, v. §5), deci `W/3` cade fix pe marginea stângă a
+coloanei următoare, adică **pe** ea, nu între. `colIndex = -1` e starea „nicio coloană
+aleasă"; tot codul care indexează cu `colIndex` (FOV, dâra glorioasă, eticheta de pe
+buton) pornește **doar** din `selectColumn()`, care setează mereu un index valid — de
+aceea starea cere gărzi doar în cele două locuri care rulează și fără apăsare:
+`xLiftCurent()` (poziționarea) și `actualizeazaMismatch()` (care ascunde bara portocalie
+și eticheta cât nu există coloană de comparat).
 
 `transparență=50` → `background: rgba(255,255,255,0.5)` (`alfa = (100-transparență)/100`
 — 100 = complet transparent, 0 = alb opac). Bifa „margine" **nu** schimbă

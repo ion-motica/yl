@@ -80,6 +80,13 @@
   const getLiftTransparenta = () =>
     global.LayoutConfig?.get(LIFT_TRANSPARENTA_KEY, LIFT_TRANSPARENTA_IMPLICIT) ?? LIFT_TRANSPARENTA_IMPLICIT;
   const getLiftMargine = () => global.LayoutConfig?.get(LIFT_MARGINE_KEY, true) !== false;
+
+  // CP — Lift, „Comportament initial lift": unde reapare liftul la fiecare fact nou.
+  // Implicit „coloana2" — ATENȚIE, e o schimbare față de comportamentul istoric al
+  // motorului (`liftPornire: null`), unde liftul rămânea pe ultima coloană apăsată.
+  // `rigle-cl1.js` nu trimite opțiunea, deci păstrează comportamentul vechi.
+  const LIFT_PORNIRE_KEY = "rigleT110LiftPornire";
+  const getLiftPornire = () => global.LayoutConfig?.get(LIFT_PORNIRE_KEY, "coloana2") ?? "coloana2";
   function seteazaLiftTransparenta(valoare) {
     const v = Math.max(0, Math.min(100, Math.round(valoare)));
     global.LayoutConfig?.set(LIFT_TRANSPARENTA_KEY, v);
@@ -694,6 +701,7 @@
             mereTransparenta: getMereTransparenta(),
             liftFundalTransparenta: getLiftTransparenta(),
             liftMargine: getLiftMargine(),
+            liftPornire: getLiftPornire(),
             fovButon: getFovButon(),
             fovLift: getFovLift(),
             fovLiftAnimatieCorect: getFovLiftCorect(),
@@ -884,6 +892,21 @@
           addRow("Afișează marginea liftului", getLiftMargine(), (checked) => {
             global.LayoutConfig?.set(LIFT_MARGINE_KEY, checked);
             mounted?.setLift({ margine: checked });
+          });
+
+          const pornireLabel = document.createElement("p");
+          pornireLabel.className = "control-panel-lift-field";
+          pornireLabel.textContent = "Comportament initial lift:";
+          mount.appendChild(pornireLabel);
+
+          const pornireAcum = getLiftPornire();
+          addRadioRow("Întotdeauna pe coloana 2", "coloana2", pornireAcum, "rigleT110-lift-pornire", () => {
+            global.LayoutConfig?.set(LIFT_PORNIRE_KEY, "coloana2");
+            mounted?.setLift({ pornire: "coloana2" });
+          });
+          addRadioRow("Între 2 coloane", "intreColoane", pornireAcum, "rigleT110-lift-pornire", () => {
+            global.LayoutConfig?.set(LIFT_PORNIRE_KEY, "intreColoane");
+            mounted?.setLift({ pornire: "intreColoane" });
           });
 
           const fovTitle = document.createElement("p");

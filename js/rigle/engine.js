@@ -414,6 +414,11 @@
     mereTransparenta: 50, // 0 = culori opace, 100 = complet transparente — la fel ca liftFundalTransparenta
     liftFundalTransparenta: 50, // 0 = alb opac, 100 = complet transparent
     liftMargine: true, // false = marginea liftului devine transparentă (nu dispare din layout)
+    liftPornire: null, // unde reapare liftul la FIECARE fact nou:
+    //   null            = nu se atinge — rămâne pe ultima coloană apăsată (istoric, rigle-cl1)
+    //   "coloana2"      = revine mereu pe coloana din mijloc
+    //   "intreColoane"  = coboară pe linia dintre două coloane, alternând golul, fără
+    //                     nicio coloană aleasă; prima apăsare îl mută pe coloană
     fovButon: true, // eticheta „n e prea mic/mare/corect" de pe buton
     fovLift: true, // pătrățelul zburător + caseta de sub lift
     fovLiftAnimatieCorect: true, // continuarea spre „?" (doar la coloana corectă)
@@ -556,6 +561,13 @@
     let opritDefinitiv = false; // stop dur, distinct de pauza userului (fără suprapunerea
     // vizuală „PAUZĂ" — vezi setOpritDefinitiv). Folosit de quiz-uri cu „joc finalizat".
     const playPauseBtn = document.getElementById("play-pause");
+    // -1 = „între coloane", stare validă doar cu cfg.liftPornire === "intreColoane":
+    // liftul coboară pe linia dintre două coloane, fără nicio coloană aleasă, până la
+    // prima apăsare. Tot codul care indexează cu colIndex (FOV, dâra glorioasă,
+    // eticheta de pe buton) pornește DOAR din selectColumn(), care setează mereu un
+    // index valid — de-aia starea asta nu cere gărzi decât în cele două locuri care
+    // rulează și fără apăsare: poziționarea (xLiftCurent) și actualizeazaMismatch().
+    let liniaIntre = -1; // golul pe care coboară liftul: 0 = c1-c2, 1 = c2-c3
     let colIndex = cfg.coloanaInitialaIndex;
     if (colIndex < 0 || colIndex >= cfg.latimiColoane.length) {
       colIndex = Math.floor(cfg.latimiColoane.length / 2);
@@ -608,6 +620,19 @@
       cfg.grupe = fact.grupe;
       cfg.latimiColoane = fact.latimiColoane;
       totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0);
+
+      // Poziția de pornire a liftului pentru factul ăsta — vezi cfg.liftPornire.
+      // `null` (implicit, cazul rigle-cl1.js) nu atinge colIndex: liftul rămâne pe
+      // ultima coloană apăsată, comportamentul dintotdeauna.
+      if (cfg.liftPornire === "coloana2") {
+        colIndex = Math.min(1, cfg.latimiColoane.length - 1);
+      } else if (cfg.liftPornire === "intreColoane") {
+        // Alternează linia la fiecare fact (0 = golul c1-c2, 1 = golul c2-c3); -1 la
+        // primul fact ⇒ începe cu golul din stânga. colIndex = -1 e starea „nicio
+        // coloană aleasă" — prima apăsare o încheie, prin selectColumn().
+        liniaIntre = liniaIntre === 0 ? 1 : 0;
+        colIndex = -1;
+      }
 
       // 0. FOV Lift: fact nou = stare complet nouă (idempotență) — nicio cursă veche
       // supraviețuiește (vezi razgandire-ieftina.md §5). necunoscutaEl e recreat mai jos,
@@ -760,7 +785,7 @@
       liftH = lift.offsetHeight || cell * 2.4;
       travel = Math.max(1, H - liftH);
 
-      lift.style.left = `${colX[colIndex]}px`;
+      lift.style.left = `${xLiftCurent()}px`;
       lift.style.top = `${Math.min(y, travel)}px`;
 
       // rowEl urmează lift — qEl are text final (randeazaFact rulează înaintea lui
@@ -768,7 +793,7 @@
       // reglajTextSiDivuriPortocaliiSiVerzi(), fiindcă actualizeazaMismatch() (chemată
       // din ea) are nevoie de rowOffsetTop deja proaspăt.
       rowOffsetTop = LIFT_INSET + qEl.offsetHeight + LIFT_ROW_GAP;
-      rowEl.style.left = `${colX[colIndex]}px`;
+      rowEl.style.left = `${xLiftCurent()}px`;
       rowEl.style.top = `${Math.min(y, travel) + rowOffsetTop}px`;
 
       randeazaNumerotare(H);
@@ -1170,7 +1195,29 @@
     // (<=5) și coloană mai îngustă, rândul de mere e prea scund/aglomerat ca bara
     // centrată să nu se suprapună vizibil peste mere, deci rămâne SUB rând, ca înainte.
 
+    // X-ul (marginea stângă) al liftului ȘI al rândului de mere — folosesc mereu
+    // aceeași valoare, ca să gliseze sincron. Normal = marginea stângă a coloanei
+    // curente. „Între coloane" (colIndex < 0): rândul de mere se CENTREAZĂ pe mijlocul
+    // golului dintre două coloane vecine, ca să se vadă calare pe linie, la egală
+    // distanță de ambele rigle. Mijlocul golului, NU treimea arenei (W/3): coloanele
+    // nu-și umplu treimea (au lățimi diferite + golul garantat de o celulă), deci W/3
+    // cade de fapt pe marginea stângă a coloanei următoare — adică PE ea, nu între.
+    function xLiftCurent() {
+      if (colIndex >= 0) return colX[colIndex];
+      if (colX.length < 2) return colX[0] ?? 0;
+      const i = Math.min(Math.max(liniaIntre, 0), colX.length - 2);
+      const mijlocGol = (colX[i] + cfg.latimiColoane[i] * cell + colX[i + 1]) / 2;
+      return mijlocGol - (totalMere * cell) / 2;
+    }
+
     function actualizeazaMismatch() {
+      // Între coloane: rândul de mere n-are cu ce fi comparat — nici bara portocalie,
+      // nici eticheta de pe buton n-au sens până la prima apăsare.
+      if (colIndex < 0) {
+        mismatchEl.style.display = "none";
+        actualizeazaEtichetaButon(null);
+        return;
+      }
       const latimeColoana = cfg.latimiColoane[colIndex];
       if (latimeColoana === totalMere) {
         mismatchEl.style.display = "none";
@@ -1287,9 +1334,9 @@
           randEl.style.opacity = "0";
         });
       }
-      colIndex = idx;
-      lift.style.left = `${colX[colIndex]}px`; // glisare orizontală (tranziția CSS)
-      rowEl.style.left = `${colX[colIndex]}px`; // sincron cu lift — v. .rigle-lift-row--ready
+      colIndex = idx; // încheie și starea „între coloane", dacă era activă
+      lift.style.left = `${xLiftCurent()}px`; // glisare orizontală (tranziția CSS)
+      rowEl.style.left = `${xLiftCurent()}px`; // sincron cu lift — v. .rigle-lift-row--ready
       actualizeazaNumerotareAnimata();
       actualizeazaMismatch();
       porneșteFovLift(); // la FIECARE apăsare — corect sau greșit, mutare reală sau re-apăsare
@@ -1407,6 +1454,13 @@
       if (!opts) return;
       if (typeof opts.transparentaFundal === "number") cfg.liftFundalTransparenta = opts.transparentaFundal;
       if (typeof opts.margine === "boolean") cfg.liftMargine = opts.margine;
+      if (typeof opts.pornire === "string" || opts.pornire === null) {
+        cfg.liftPornire = opts.pornire;
+        // Fără remount, dar nici retroactiv pe factul curent: noua poziție de pornire
+        // se aplică de la următorul fact (randeazaFact). Altfel liftul ar sări din
+        // dreptul coloanei deja alese, în mijlocul unei întrebări la care copilul
+        // tocmai se uită.
+      }
       aplicaStilLift();
     }
 
