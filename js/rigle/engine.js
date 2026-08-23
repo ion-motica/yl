@@ -9,7 +9,8 @@
  *
  *   RigleEngine.mount({ arenaEl, optionsEl }, config?)
  *     → { destroy, setGridLines, setColumnLayout, reporneste, setNumerotareRanduri, setLift, setFov,
- *         setDaraGlorioasa, setPozitieMere }
+ *         setDaraGlorioasa, setPozitieMere, setOpritDefinitiv,
+ *         setCuloriTema({ fundal?, coloane?, valoriButoane?, grila?, numereColoane? }) }
  *
  * `arenaEl` = #arena (scena m2). `optionsEl` = #options (slotul m1, doar ca reper
  * pentru stratul de butoane = părintele lui) — NU e reutilizat, doar suprimat.
@@ -26,7 +27,7 @@
   overflow: hidden;
   --cell: 32px;
   font-family: system-ui, sans-serif;
-  background: #fbfbf3;
+  background: var(--rigle-culoare-fundal, #fbfbf3);
 }
 /* Suprapunere „PAUZĂ" — propria copie a lui .game.is-paused .div-strat-anunturi::after
    din style.css, fiindcă acel element e unul dintre copiii #arena pe care Rigle îi
@@ -53,7 +54,7 @@
 }
 .rigle-col {
   position: absolute;
-  background: #ffe14d;
+  background: var(--rigle-culoare-coloane, #ffe14d);
   border: 1px solid #e6c02a;
   border-radius: 6px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
@@ -225,7 +226,7 @@
   border: 2px solid rgba(61, 156, 245, 0.55);
   border-radius: 10px;
   background: rgba(20, 28, 40, 0.16); /* mai transparent cu 60% fata de 0.4 */
-  color: #e8eef5;
+  color: var(--rigle-culoare-valori-butoane, #e8eef5);
   cursor: pointer;
   box-sizing: border-box;
   font: inherit;
@@ -376,6 +377,9 @@
     document.head.appendChild(style);
   }
 
+  const GRID_LINE_COLOR = "rgba(70, 120, 190, 0.28)"; // culoare implicită linii grilă — vezi cfg.culoareGrila
+  const NUMEROTARE_CULOARE_STATICA = "rgba(70, 120, 190, 0.65)"; // implicit modul "toate rândurile" — vezi cfg.culoareNumerotare
+
   const DEFAULTS = {
     // intrebare/grupe/latimiColoane: folosite doar dacă NU se dă `urmatorulFact`
     // (fallback pentru un mount fără generator — vezi factInitial mai jos).
@@ -406,13 +410,18 @@
     fovLiftDivizorViteza: 1, // 1 = viteza actuală, 10 = de 10x mai încet (CP slider)
     daraLungime: 10, // 0-10; 10 = frontul de sus al dârei ajunge la marginea de sus a arenei
     daraDesime: 50, // 0-100; 100 = dreptunghiuri cadru lângă cadru (fără gol)
+    onSelectColumn: null, // ({idx, corect, totalMere, latime}) => void — opțional, apelat la
+    // FIECARE apăsare de coloană (selectColumn), înaintea efectelor vizuale. Neapelat
+    // dacă lipsește — zero regresie pentru quiz-uri care nu-l furnizează.
+    culoareGrila: GRID_LINE_COLOR, // liniile de grilă (vertical+orizontal, aceeași culoare) — setCuloriTema({grila})
+    culoareNumerotare: NUMEROTARE_CULOARE_STATICA, // cifrele din coloane, DOAR modul „toate
+    // rândurile" — modul „animat" își păstrează gradientul HSL propriu (NUMEROTARE_HUE_*),
+    // neatins — e un mecanism vizual diferit (distanță până la lift), nu „o culoare".
   };
 
   const LIFT_INSET = 6; // padding (4px) + border (2px) ale .rigle-lift — v. lift.style.width și .rigle-lift-row
   const LIFT_ROW_GAP = 4; // .rigle-lift { gap: 4px } — spațiul dintre qEl și fostul loc al rândului de mere
   const ETICHETA_GAP = 5; // px sub cifra butonului (~0.3rem, cât era gap-ul flex înainte) — v. reglajEticheta
-  const GRID_LINE = "rgba(70, 120, 190, 0.28) 1px, transparent 1px";
-  const NUMEROTARE_CULOARE_STATICA = "rgba(70, 120, 190, 0.65)"; // modul "toate rândurile"
   const NUMEROTARE_HUE_APROAPE = 205; // albastru, la rândul liftului
   const NUMEROTARE_HUE_DEPARTE = 320; // roz-magenta, la marginea ferestrei (modul "animat")
 
@@ -533,6 +542,8 @@
     let rowEls = []; // rowEls[coloană][rând] = elementul .rigle-row (numerotare)
     let necunoscutaEl = null; // span-ul „?" din întrebare — recreat la fiecare fact (randeazaFact)
     let paused = false;
+    let opritDefinitiv = false; // stop dur, distinct de pauza userului (fără suprapunerea
+    // vizuală „PAUZĂ" — vezi setOpritDefinitiv). Folosit de quiz-uri cu „joc finalizat".
     const playPauseBtn = document.getElementById("play-pause");
     let colIndex = cfg.coloanaInitialaIndex;
     if (colIndex < 0 || colIndex >= cfg.latimiColoane.length) {
@@ -659,7 +670,16 @@
     }
 
     function computeGeometry() {
-      const arenaRect = arenaEl.getBoundingClientRect();
+      // Scena pornește sub bara de sus (Alege quiz/CP/Pauză), nu pe sub ea —
+      // măsurată live (nu hardcodată), ca să rămână corectă indiferent de
+      // dimensiunea reală a barei. `.butoane-sus` e unic în DOM (bara fixă a
+      // shell-ului), nu ceva specific Rigle. `inset:0` din CSS dă deja
+      // right/bottom/left:0 — setăm doar `top`, `height` rezultă din
+      // constrângerea top+bottom (position:absolute).
+      const barSus = document.querySelector(".butoane-sus");
+      scene.style.top = `${barSus ? barSus.getBoundingClientRect().height : 0}px`;
+
+      const arenaRect = scene.getBoundingClientRect();
       const W = arenaRect.width || 360;
       const H = arenaRect.height || 720;
       // Coloanele și traseul liftului merg de la marginea de sus la cea de jos a
@@ -1188,7 +1208,7 @@
             randEl.appendChild(cifraEl);
           }
           if (cfg.numerotareRanduri === "toate") {
-            randEl.style.color = NUMEROTARE_CULOARE_STATICA;
+            randEl.style.color = cfg.culoareNumerotare;
             randEl.style.opacity = "1";
           } else {
             randEl.style.opacity = "0"; // "animat" — actualizeazaNumerotareAnimata() decide
@@ -1236,6 +1256,14 @@
 
     function selectColumn(idx) {
       if (idx < 0 || idx >= colX.length) return;
+      if (opritDefinitiv) return; // butoanele sunt oricum disabled — gardă și pt. apăsare programatică
+      const corect = cfg.latimiColoane[idx] === totalMere;
+      // Hook opțional (implicit null — vezi DEFAULTS) — apelat AICI, înaintea
+      // oricărui efect vizual, ca semnalul „a fost corect?" să fie disponibil
+      // uniform, indiferent de cfg.fovLift (care doar întârzie coborârea
+      // glorioasă, nu și corectitudinea logică a apăsării). Zero efect asupra
+      // quiz-urilor care nu-l furnizează (ex. rigle-cl1.js).
+      cfg.onSelectColumn?.({ idx, corect, totalMere, latime: cfg.latimiColoane[idx] });
       if (cfg.numerotareRanduri === "animat" && rowEls[colIndex]) {
         rowEls[colIndex].forEach((randEl) => {
           randEl.style.opacity = "0";
@@ -1249,7 +1277,7 @@
       porneșteFovLift(); // la FIECARE apăsare — corect sau greșit, mutare reală sau re-apăsare
       // Coborâre glorioasă: dacă „Pe lift" e oprit, nu există nicio cursă FOV al cărei
       // final s-o declanșeze (vezi avanseazaFovLift) — pornește direct aici.
-      if (!cfg.fovLift && cfg.latimiColoane[idx] === totalMere) {
+      if (!cfg.fovLift && corect) {
         porneșteCoborareaGlorioasa();
       }
     }
@@ -1268,7 +1296,18 @@
       // Dacă e activă coborârea glorioasă, butoanele rămân blocate chiar la unpauzare —
       // altfel copilul ar putea schimba coloana în mijlocul tranziției spre factul nou.
       myButtons.forEach((btn) => {
-        btn.disabled = paused || coborareGlorioasaActiva;
+        btn.disabled = paused || opritDefinitiv || coborareGlorioasaActiva;
+      });
+    }
+
+    // Stop dur (nu pauza userului): oprește bucla de coborâre + blochează butoanele/
+    // tastele, dar NU atinge `is-paused` — quiz-ul care cere stopul își arată propriul
+    // mesaj (ex. „Joc finalizat."), nu suprapunerea genrică „PAUZĂ". setOpritDefinitiv(false)
+    // reia normal (folosit la reselectarea manuală a unui nivel după finalizare).
+    function setOpritDefinitiv(val) {
+      opritDefinitiv = val === true;
+      myButtons.forEach((btn) => {
+        btn.disabled = paused || opritDefinitiv || coborareGlorioasaActiva;
       });
     }
 
@@ -1279,8 +1318,9 @@
 
     function applyGridLines() {
       const parts = [];
-      if (cfg.gridVertical) parts.push(`linear-gradient(to right, ${GRID_LINE})`);
-      if (cfg.gridOrizontal) parts.push(`linear-gradient(to bottom, ${GRID_LINE})`);
+      const stop = `${cfg.culoareGrila} 1px, transparent 1px`;
+      if (cfg.gridVertical) parts.push(`linear-gradient(to right, ${stop})`);
+      if (cfg.gridOrizontal) parts.push(`linear-gradient(to bottom, ${stop})`);
       gridEl.style.backgroundImage = parts.length ? parts.join(", ") : "none";
     }
 
@@ -1418,6 +1458,39 @@
       }
     }
 
+    // CP „Culori" (doar tabla-1-10) — 5 elemente colorabile, 2 mecanisme diferite:
+    // fundal/coloane/valoriButoane sunt 3 variabile CSS aplicate pe gameEl (#game),
+    // strămoș comun al lui scene (fundal/coloane) ȘI al lui buttonsBar (valori
+    // butoane) — cele două trăiesc în subarbori DOM diferite (scene e în arenaEl,
+    // buttonsBar e în butoaneLayer), deci proprietatea trebuie setată mai sus, nu
+    // pe scene. Fallback-ul din CSS (#fbfbf3/#ffe14d/#e8eef5) rămâne implicit dacă
+    // nu se cheamă niciodată — zero regresie pt. rigle-cl1, care nu apelează asta.
+    // grila/numereColoane sunt scrise direct pe cfg (ca orice altă opțiune CP) —
+    // gridEl/rowNumbersWrap sunt deja în subarborele lui scene, n-au nevoie de
+    // variabilă CSS pe gameEl.
+    function setCuloriTema(opts) {
+      if (!opts) return;
+      if (gameEl) {
+        if (typeof opts.fundal === "string") gameEl.style.setProperty("--rigle-culoare-fundal", opts.fundal);
+        if (typeof opts.coloane === "string") gameEl.style.setProperty("--rigle-culoare-coloane", opts.coloane);
+        if (typeof opts.valoriButoane === "string") {
+          gameEl.style.setProperty("--rigle-culoare-valori-butoane", opts.valoriButoane);
+        }
+      }
+      // Grila și numerotarea nu trec prin CSS custom properties (nu au nevoie —
+      // gridEl/rowNumbersWrap sunt în același subarbore ca scene, spre deosebire de
+      // buttonsBar): se scriu direct pe cfg, ca orice altă opțiune CP, și se re-aplică
+      // prin funcțiile deja existente (fără remount).
+      if (typeof opts.grila === "string") {
+        cfg.culoareGrila = opts.grila;
+        applyGridLines();
+      }
+      if (typeof opts.numereColoane === "string") {
+        cfg.culoareNumerotare = opts.numereColoane;
+        computeGeometry(); // rebuild rânduri cu noua culoare statică — la fel ca setNumerotareRanduri()
+      }
+    }
+
     // Factul inițial vine din același callback ca la wrap, ca să nu existe două căi
     // diferite de a produce un fact. Fără callback (mount fără generator), se
     // folosesc valorile din cfg — comportament identic cu etapa 1.
@@ -1447,7 +1520,7 @@
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
         return;
       }
-      if (paused || coborareGlorioasaActiva) return; // fără schimbare de coloană cât timp e pauză/coboară glorios
+      if (paused || opritDefinitiv || coborareGlorioasaActiva) return; // fără schimbare de coloană cât timp e pauză/oprit/coboară glorios
       const idx = ["1", "2", "3"].indexOf(e.key);
       if (idx >= 0 && idx < colX.length) selectColumn(idx);
     };
@@ -1460,7 +1533,7 @@
       if (!lastTs) lastTs = ts;
       const dt = Math.min((ts - lastTs) / 1000, 0.05);
       lastTs = ts;
-      if (!paused) {
+      if (!paused && !opritDefinitiv) {
         if (coborareGlorioasaActiva) {
           avanseazaCoborareaGlorioasa(dt);
         } else {
@@ -1503,6 +1576,10 @@
       if (gameEl) {
         gameEl.classList.remove("rigle-active");
         gameEl.classList.remove("is-paused"); // nu lăsăm starea de pauză să "scurgă" spre motorul 1
+        // nu lăsăm culorile custom să „scurgă" spre următorul quiz montat pe gameEl
+        gameEl.style.removeProperty("--rigle-culoare-fundal");
+        gameEl.style.removeProperty("--rigle-culoare-coloane");
+        gameEl.style.removeProperty("--rigle-culoare-valori-butoane");
       }
       restoreList.forEach(({ el, prev }) => {
         el.style.display = prev;
@@ -1519,6 +1596,8 @@
       setFov,
       setDaraGlorioasa,
       setPozitieMere,
+      setOpritDefinitiv,
+      setCuloriTema,
     };
   }
 

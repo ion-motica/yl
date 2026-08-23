@@ -304,6 +304,17 @@
     }
   }
 
+  // Extras din renderProgress() ca să poată rula și pt. quiz-uri customEngine cu
+  // niveluri reale (ex. rigle-tabla-1-10.js) — renderProgress() iese devreme pt.
+  // orice customEngine (m1-specific: streak/combo/response-times), dar starea
+  // „activ" a butoanelor de nivel nu depinde de nimic din asta.
+  function syncLevelPickerActive() {
+    if (typeof quiz?.getLevel !== "function") return;
+    dom.levelPickerEl.querySelectorAll(".level-btn").forEach((btn) => {
+      btn.classList.toggle("active", Number(btn.dataset.level) === quiz.getLevel());
+    });
+  }
+
   function renderProgress() {
     if (!quiz) return;
     if (quiz.customEngine) {
@@ -374,9 +385,7 @@
       renderPreEquationNavigationPanel();
     }
 
-    dom.levelPickerEl.querySelectorAll(".level-btn").forEach((btn) => {
-      btn.classList.toggle("active", Number(btn.dataset.level) === quiz.getLevel());
-    });
+    syncLevelPickerActive();
 
     renderInfo11_20();
     renderSubquizStartControl();
@@ -400,8 +409,14 @@
       resetResponseTimesSession();
       lastGreenCells = null;
       lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
-      engine.startRound(quiz.beginRound(quiz.pickNextRound()));
+      // customEngine nu trece prin engine.startRound (Rigle: switchLevel() de mai sus
+      // deja a aplicat totul, prin propriul mounted.reporneste()) — vezi cele 5
+      // branch-uri customEngine deja existente, RIGLE-REFERENCE §2; ăsta e al 6-lea.
+      if (!quiz.customEngine) {
+        engine.startRound(quiz.beginRound(quiz.pickNextRound()));
+      }
       renderProgress();
+      syncLevelPickerActive();
       renderPreEquationNavigationPanel();
     });
     return btn;
@@ -449,8 +464,11 @@
 
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
-    if (quiz?.customEngine) return;
-    const maxLevel = quiz.getMaxLevel();
+    const maxLevel = typeof quiz?.getMaxLevel === "function" ? quiz.getMaxLevel() : 1;
+    // customEngine sare peste picker DOAR dacă n-are niveluri reale (maxLevel<=1,
+    // cazul rigle-cl1.js) — un customEngine cu maxLevel>1 (rigle-tabla-1-10.js) îl
+    // primește ca orice alt quiz, vezi createLevelButton pt. garda pe partea de click.
+    if (quiz?.customEngine && maxLevel <= 1) return;
     dom.levelPickerEl.style.display = "flex";
     dom.levelPickerEl.style.flexWrap = "wrap";
     dom.levelPickerEl.style.justifyContent = "center";
@@ -461,6 +479,7 @@
     for (let lv = 1; lv <= maxLevel; lv++) {
       dom.levelPickerEl.appendChild(createLevelButton(lv));
     }
+    syncLevelPickerActive();
   }
 
   function parseQuizMenuText(text) {

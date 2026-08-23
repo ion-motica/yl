@@ -68,8 +68,39 @@ RigleEngine.mount(hosts, config) → {
   setNumerotareRanduri({ mod?, randuriInSus?, randuriInJos? }),  // live, §6 „Numerotează rânduri"
   setLift({ transparentaFundal?, margine? }),  // live, §6 „Lift"
   setPozitieMere({ subNumerotare?, transparenta? }),  // live, §6 „Bara cu mere"
+  setOpritDefinitiv(bool),  // stop dur (fall + butoane + taste 1/2/3), NU pauza
+                             // userului — nu atinge is-paused/„PAUZĂ". Folosit de
+                             // rigle-tabla-1-10.js pt. „Joc finalizat." la nivel 10.
+  setCuloriTema({ fundal?, coloane?, valoriButoane?, grila?, numereColoane? }),  // live,
+                             // §6 „Culori" — vezi și paragraful de mai jos (2 mecanisme).
 }
 ```
+
+`setCuloriTema` combină **două mecanisme diferite**, după element:
+
+- `fundal`/`coloane`/`valoriButoane` — variabile CSS. NU se setează pe `scene` (ar fi
+  natural, dar greșit): `scene` (`.rigle-scene`, în `arenaEl`) și `buttonsBar`
+  (`.rigle-buttons`, în `#div-strat-butoane`, altundeva în DOM) sunt în **subarbori
+  diferiți**, fără relație strămoș-descendent — o variabilă CSS setată pe `scene` NU ar
+  ajunge la `.rigle-btn`. De-aia se setează pe `gameEl` (`#game`), strămoș comun al
+  amândurora. CSS-ul citește `var(--rigle-culoare-fundal, #fbfbf3)` (idem
+  `--rigle-culoare-coloane` pe `.rigle-col`, `--rigle-culoare-valori-butoane` pe
+  `.rigle-btn`, moștenit de `.rigle-btn-num`) — dacă `setCuloriTema` nu e apelat
+  niciodată (cazul `rigle-cl1.js`), fallback-ul CSS păstrează culorile hard-codate
+  originale, zero regresie. La `destroy()`, cele 3 proprietăți se elimină explicit de pe
+  `gameEl` (`removeProperty`) — altfel ar „scurge" spre următorul quiz montat pe `gameEl`
+  (inclusiv `rigle-cl1.js`, care folosește aceleași clase CSS).
+- `grila`/`numereColoane` — scrise direct pe `cfg.culoareGrila`/`cfg.culoareNumerotare`
+  (ca orice altă opțiune CP), reaplicate prin `applyGridLines()`/`computeGeometry()`, nu
+  prin CSS custom properties — `gridEl`/`rowNumbersWrap` sunt deja în subarborele lui
+  `scene`, n-au nevoie de o variabilă pe `gameEl`. Nu necesită cleanup la `destroy()`:
+  `cfg` e reconstruit de la zero din `DEFAULTS` la fiecare `mount()`, spre deosebire de
+  `gameEl`, care e un element DOM **partajat** între mount-uri succesive. Implicit
+  `rgba(70, 120, 190, 0.28)`/`rgba(70, 120, 190, 0.65)` — deliberat translucide (linii
+  de grilă/cifre subtile, nu solide); `numereColoane` afectează DOAR modul „toate
+  rândurile" din §6 „Numerotează rânduri" — modul „animat" își păstrează gradientul HSL
+  propriu (`NUMEROTARE_HUE_APROAPE`/`NUMEROTARE_HUE_DEPARTE`), neatins, un mecanism
+  vizual diferit (distanță până la lift), nu „o culoare" pe care s-o suprascrii.
 
 `hosts = { arenaEl, optionsEl, gameEl }`:
 
@@ -110,6 +141,10 @@ restaurează exact `display`-ul reținut pe fiecare element ascuns, scoate clasa
   gridOrizontal: true,
   pozitieTreime: true,      // true = fiecare coloană o treime din spațiu; false = proporțional
   urmatorulFact: () => RigleFacte.genereazaFact({ sumaMin, sumaMax }),  // (§4, RigleFacte)
+  onSelectColumn: null,     // opțional — ({idx, corect, totalMere, latime}) => void, apelat la
+                             // FIECARE apăsare de coloană, înaintea efectelor vizuale. Neapelat
+                             // dacă lipsește (rigle-cl1.js nu-l furnizează — zero regresie).
+                             // Folosit de rigle-tabla-1-10.js pt. niveluri + jurnal, §8.
 }
 ```
 
@@ -191,13 +226,23 @@ lift mai lat decât orice coloană.
 
 ## 5. Layout vizual și geometrie
 
+**Scena pornește SUB bara de sus** (Alege quiz/CP/Pauză), nu pe sub ea:
+`computeGeometry()` măsoară live `.butoane-sus.getBoundingClientRect().height` și
+scrie `scene.style.top = <înălțimea ei>px` la fiecare recalcul (fact nou, resize,
+schimbare mod) — `height` rezultă singur din constrângerea top+bottom
+(`position:absolute`, `inset:0` din CSS dă deja `right/bottom/left:0`). De-aici
+încolo, `computeGeometry()` citește dimensiunile din `scene.getBoundingClientRect()`,
+**nu** din `arenaEl` — cele două nu mai coincid. `.butoane-sus` e unic în DOM (bara
+fixă a shell-ului aplicației), nu ceva specific Rigle; măsurat live, nu hardcodat,
+ca să rămână corect indiferent de mărimea reală a barei.
+
 **Straturi** în `.rigle-scene` (jos → sus, z-index crescător; la z egal, ordinea DOM
 decide — elementul mai târziu în DOM picta deasupra):
 
 | z | Element | Note |
 |---|---|---|
 | — | `.rigle-scene` (paper) | fundal `#fbfbf3`, `overflow: hidden`, `--cell` = lățimea unei celule |
-| 1 | `.rigle-columns` → `.rigle-col` × 3 | galbene, pe **toată** înălțimea `#arena` |
+| 1 | `.rigle-columns` → `.rigle-col` × 3 | galbene, pe **toată** înălțimea scenei (sub bara de sus, nu și pe sub ea) |
 | 1 | `.rigle-lift-row` → `.rigle-apple` × n | rândul de mere — **frate** al lui `.rigle-lift`, nu copil (vezi mai jos) |
 | 1 | `.rigle-row-numbers` → `.rigle-row` | numerotarea rândurilor (CP), DOM după `.rigle-lift-row` → o acoperă |
 | 2 | `.rigle-lift` | text „2+1=?" + `.rigle-lift-mismatch` (rândul de mere NU mai e aici) |
@@ -436,7 +481,7 @@ validare, deci n-are ce să rețină.
 | `js/rigle/facte.js` | Generator pur de facte: `RigleFacte.genereazaFact()` / `.alegeVariante()`, zero DOM, zero `LayoutConfig`. |
 | `js/rigle/engine.js` | Motorul m2: stil injectat, scenă, geometrie, coborâre, glisare, grilă, numerotare rânduri, mismatch „prea mult/puțin", stil lift, pauză proprie, randare din fact, mount/destroy/setGridLines/setColumnLayout/reporneste/setNumerotareRanduri/setLift. |
 | `js/quizzes/rigle-cl1.js` | Înregistrare quiz „Adunari cu coloane verticale" în `QuizRegistry`, config, callback `urmatorulFact`, contract `customEngine`, panoul CP (`appendRigleControlPanel`, chei `LayoutConfig` prefix `rigle`). |
-| `js/quizzes/rigle-tabla-1-10.js` | Clonă a `rigle-cl1.js` — quiz „Adunari cu coloane - Tabla adunarii 1-10", **același** `RigleEngine`/`RigleFacte`, propriile chei `LayoutConfig` (prefix `rigleT110`) și propriul panou CP (`appendRigleTabla110ControlPanel`) — reglajele nu se amestecă cu cele ale originalului. Prima dovadă reală că motorul e config-driven fără cod nou (§3). |
+| `js/quizzes/rigle-tabla-1-10.js` | Clonă a `rigle-cl1.js` — quiz „Adunari cu coloane - Tabla adunarii 1-10", **același** `RigleEngine`, propriile chei `LayoutConfig` (prefix `rigleT110`) și propriul panou CP (`appendRigleTabla110ControlPanel`) — reglajele nu se amestecă cu cele ale originalului. **Nu mai folosește `RigleFacte`/„Suma maxima"** — generator propriu, 10 niveluri (nivelul N = x+N, x=0-10, `TURE_PER_NIVEL=4` — **deliberat decuplat** de cele 11 valori posibile ale lui x, redus de la 11 la 4 ca reglaj de ritm, 22.08.2026; reintroducere peste 2-3 ture la răspuns greșit, avans automat de nivel după `TURE_PER_NIVEL` ture indiferent de corectitudine; nivelul NU persistă, resetează la reselectarea quizului, ca la `addition-table-range.js`). Corectitudinea per apăsare vine din `window.Motor3Butoane` (M3B), folosit AICI ca bibliotecă pură de bookkeeping — Rigle tot NU trece prin `falling-engine.js`. Fiecare apăsare se loghează direct în `window.JurnalIntrebari.inregistreazaIntrebare(...)` (18 câmpuri; `subquiz_name`/`subquiz_id`/`hints_aratate_pt_raspuns` rămân `null` — nu au corespondent la Rigle). La avans de nivel: flash propriu (`.rigle-t110-nivel-banner`, element separat adăugat în `hosts.arenaEl`, NU `#level-banner` din `#arena` — Rigle îl ascunde la mount, la fel ca „PAUZĂ", §9) cu textul „Felicitări! Next level!" — text și stil CSS copiate de la `addition-table-range.js`/`.level-banner`. **Niveluri REALE** (nu doar stub-uri): `getLevel`/`getMaxLevel`/`getLevelLabel`/`getLevelButtonTitle`/`switchLevel` sunt conectate la starea internă — butoanele standard din „Alege quiz" → „Alegeti nivelul:" (`app.js: buildLevelPicker`) merg direct pe acest quiz (22.08.2026: eticheta permanentă „Nivel N" din colțul stânga-sus + stepper-ul CP „Nivel curent" au fost SCOASE, înlocuite de butoanele standard — aveau o desincronizare reală, stepperul CP nu se actualiza când nivelul se schimba din altă parte). **La finalul nivelului 10**: `urmatorulFact()` NU mai wrap-uiește la 1 — cheamă `mounted.setOpritDefinitiv(true)` (nou în `engine.js`, vezi §3: stop dur, distinct de pauza userului, NU declanșează suprapunerea „PAUZĂ") și arată permanent „Joc finalizat." pe același `.rigle-t110-nivel-banner` (fără auto-ascundere). Alegerea manuală a altui nivel (buton standard sau `switchLevel`) anulează starea de finalizare (`setOpritDefinitiv(false)`, ascunde bannerul, repornește). **CP — secțiunea „Culori"** (22.08.2026, doar aici — NU pe `rigle-cl1.js`): radio „Element:" cu 3 opțiuni (Fundal `.rigle-scene`/Coloane `.rigle-col`/Valori butoane `.rigle-btn` — text, moștenit de `.rigle-btn-num`), `input[type=color]` sub radio, live prin `mounted.setCuloriTema({...})` (§3) — pe schimbare de radio, picker-ul își reafișează valoarea curentă a elementului nou selectat (fără să schimbe nimic). „Save Color": adaugă culoarea curent previzualizată într-o paletă personală, max. 10 sloturi, independentă de elemente/scheme (`rigleT110PaletaCuloriSalvate`) — plină, butonul nu mai adaugă (nu suprascrie, nu rotește); un slot completat e el însuși clickabil, aplică acea culoare pe elementul curent selectat. „Save current color scheme": grupează cele 3 culori active ACUM într-un preset (`{id, fundal, coloane, valoriButoane}`, `rigleT110SchemeCulori`), afișat ca rând cu 3 pătrățele + See/Edit/Delete — See **și** Edit aplică live cele 3 culori ale presetului (identice azi; „Edit" nu deschide un mod de rescriere-în-loc, doar un alias — dacă apare nevoia de editare reală, desparte comportamentul); Delete scoate presetul din listă. Cele 5 culori active persistă individual (`rigleT110Culoare_fundal`/`_coloane`/`_valoriButoane`/`_grila`/`_numereColoane`), aplicate la fiecare `mountArena()` prin `mounted.setCuloriTema(toateCuloriTema())` — generic, pe toate elementele din `ELEMENTE_CULOARE`, nu doar la interacțiune cu CP, ca prima randare să fie deja corectă. **„Grila" (linii verticale+orizontale, aceeași culoare) și „Numere din coloane"** (22.08.2026, extensie a listei „Element:"): la introducere, implicit-ul lor era `rgba(...)` translucid — IDENTIC cu constantele originale din engine.js (`GRID_LINE_COLOR`/`NUMEROTARE_CULOARE_STATICA`), nu o aproximare hex — ca „niciodată salvat" să nu forțeze opacitate completă la fiecare mount; doar `input[type=color]` (care nu acceptă alpha) primea o conversie hex DOAR pt. afișare (`cssColorToHex()`, prin parserul de culori al browser-ului, nu regex pe rgba). **23.08.2026: toate 5 valorile `implicit` din `ELEMENTE_CULOARE` au fost înlocuite** cu o schemă aleasă de user prin CP și codificată direct (nu doar salvată în propriul `localStorage`) — Fundal `#000040`, Coloane `#0c1d94`, Valori butoane `#e8eef5` (neschimbat), Grila `#305506`, Numere din coloane `#fdec73` — toate opace acum (Grila/Numere din coloane și-au pierdut transparența implicită, schimbare intenționată). O valoare deja salvată în `LayoutConfig` de un user care a personalizat din CP rămâne prioritară față de acest implicit (neafectată de schimbare — `getCuloareElement` citește mereu salvatul înaintea lui `def.implicit`). Scheme salvate ÎNAINTE de această extensie au doar 3 câmpuri — `aplicaSchema()`/randarea rândului de pătrățele ignoră (nu suprascriu cu `undefined`, care ar ȘTERGE cheia din `LayoutConfig`) elementele lipsă dintr-un preset vechi. Singurul cod nou de motor: `cfg.onSelectColumn` + `setOpritDefinitiv` + `setCuloriTema` (vezi §3) — restul rămâne config-driven. |
 | `js/app.js` | 5 branch-uri `customEngine` (mount/unmount + guard-uri, generice — nu știu care quiz Rigle e activ) + `renderRiglePanel()`/`renderRigleTabla110Panel()` (câte una per clonă, hardcodate pe metoda ei). |
 | `js/cp-registry.js` | `"rigle"` și `"rigleTabla110"` în `DEFAULT_ORDER`. |
 | `index.html` | `<script>` pentru `facte.js` → `engine.js` → `rigle-cl1.js` → `rigle-tabla-1-10.js` (ordinea contează), înainte de `app.js`. |
