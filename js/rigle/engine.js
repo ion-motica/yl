@@ -55,7 +55,15 @@
 .rigle-col {
   position: absolute;
   background: var(--rigle-culoare-coloane, #ffe14d);
-  border: 1px solid #e6c02a;
+  /* FĂRĂ border-color aici — conturul se desenează pe canvas-ul grilei
+     (randeazaContureColoane, după liniile de grilă), nu ca border CSS. Border-ul CSS
+     dădea o linie vizibilă DOAR pe marginea dreaptă a fiecărei coloane (gotcha #15):
+     marginea stângă a border-ului crește spre dreapta, la fel ca linia de grilă de la
+     aceeași coordonată — grila (desenată peste) o acoperea complet; marginea dreaptă
+     crește spre stânga, direcție opusă liniei de grilă de-acolo — nu se ating, deci
+     rămânea vizibilă. border-width rămâne (afectează box-sizing), doar culoarea
+     dispare. */
+  border: 1px solid transparent;
   border-radius: 6px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
@@ -178,8 +186,10 @@
   font-size: calc(var(--cell) * 0.74);
   line-height: 1;
 }
-/* Grila de caiet = DOAR linii, strat de sus peste tot (paper, coloane, lift).
-   background-image e setat din JS (applyGridLines), în funcție de vertical/orizontal. */
+/* Grila de caiet = DOAR linii, strat de sus peste tot (paper, coloane, lift). E un
+   <canvas> (nu div cu background-image repetat — vezi randeazaGrila() pt. motiv),
+   desenat din JS, în funcție de vertical/orizontal. Dimensiunea reală (width/height,
+   atribute, nu CSS) o dă randeazaGrila(); inset:0 îi dă doar mărimea de afișare. */
 .rigle-grid {
   position: absolute;
   inset: 0;
@@ -451,6 +461,7 @@
   const LIFT_ROW_GAP = 4; // .rigle-lift { gap: 4px } — spațiul dintre qEl și fostul loc al rândului de mere
   const ETICHETA_GAP = 5; // px sub cifra butonului (~0.3rem, cât era gap-ul flex înainte) — v. reglajEticheta
   const GOL_INTRE_COLOANE = 1; // celule de grilă goale garantate între două coloane vecine
+  const CULOARE_MARGINE_COLOANA = "#e6c02a"; // conturul coloanei, desenat pe canvas — vezi gotcha #15
   const NUMEROTARE_HUE_APROAPE = 205; // albastru, la rândul liftului
   const NUMEROTARE_HUE_DEPARTE = 320; // roz-magenta, la marginea ferestrei (modul "animat")
 
@@ -527,8 +538,11 @@
     mismatchEl.className = "rigle-lift-mismatch";
     lift.append(qEl, mismatchEl);
 
-    const gridEl = document.createElement("div");
+    // Canvas, nu div cu background-image repetat — vezi randeazaGrila() pentru motiv
+    // (banding la scară mare, cauzat de compozitorul GPU, nu de geometria calculată).
+    const gridEl = document.createElement("canvas");
     gridEl.className = "rigle-grid";
+    const gridCtx = gridEl.getContext("2d");
 
     // FOV Lift — create o dată la mount, ca restul scenei; conținutul/poziția li se
     // schimbă din JS (porneșteFovLift/actualizeazaPozitieFovLift), nu se recreează.
@@ -555,6 +569,9 @@
     // ── Geometrie + stare ──
     let cell = 32;
     let colX = [];
+    let margin = 0; // spațiul înaintea primei coloane (mod „în funcție de spațiu"; 0 în
+    // „treime") — hoist din computeGeometry(), citit și de randeazaGrila(), care poate
+    // rula independent de ea (setGridLines/setCuloriTema, fără recalcul de geometrie).
     let mismatchMinH = 0; // prag minim înălțime pt. bara portocalie „coloană mai îngustă" — vezi computeGeometry()
     let liftH = 0; // înălțimea liftului, calculată doar în computeGeometry() — actualizeazaNumerotareAnimata()
     // (rulează per frame, în tick()) o citește de aici, NU din lift.offsetHeight: o citire de layout
@@ -739,9 +756,11 @@
       const arenaRect = scene.getBoundingClientRect();
       const W = arenaRect.width || 360;
       const H = arenaRect.height || 720;
+      sceneW = W; // hoist devreme — randeazaGrila(), mai jos în aceeași funcție, are
+      sceneH = H; // nevoie de ele pentru dimensiunea canvas-ului, înainte de secțiunea lift.
       // Coloanele și traseul liftului merg de la marginea de sus la cea de jos a
       // #arena (curg pe sub bara de sus și pe sub butoane).
-      let margin = 0;
+      margin = 0;
 
       if (cfg.pozitieTreime) {
         // Fiecare coloană = 1/N din lățimea arenei. `cellsPerThird` = nr. de celule
@@ -786,9 +805,7 @@
       mismatchMinH = Math.max(1, Math.floor(W / cfg.latimiColoane.length / SUMA_REFERINTA_MIN_H));
 
       scene.style.setProperty("--cell", `${cell}px`);
-      gridEl.style.backgroundSize = `${cell}px ${cell}px`;
-      gridEl.style.backgroundPosition = `${margin}px 0px`;
-      applyGridLines();
+      randeazaGrila();
 
       colEls.forEach((el, i) => {
         el.style.left = `${colX[i]}px`;
@@ -804,8 +821,6 @@
       });
 
       liftH = lift.offsetHeight || cell * 2.4;
-      sceneW = W;
-      sceneH = H;
       recalculeazaCursa();
 
       lift.style.top = `${Math.min(y, travel)}px`;
@@ -1455,19 +1470,76 @@
     }
     if (playPauseBtn) playPauseBtn.addEventListener("click", onPlayPauseClick);
 
-    function applyGridLines() {
-      const parts = [];
-      const stop = `${cfg.culoareGrila} 1px, transparent 1px`;
-      if (cfg.gridVertical) parts.push(`linear-gradient(to right, ${stop})`);
-      if (cfg.gridOrizontal) parts.push(`linear-gradient(to bottom, ${stop})`);
-      gridEl.style.backgroundImage = parts.length ? parts.join(", ") : "none";
+    // Desenată pe canvas, nu ca `background-image` repetat (cum era înainte) — vezi
+    // RIGLE-REFERENCE.md gotcha #14 pentru investigația completă. Pe scurt: un model
+    // CSS repetat de zeci de ori e evaluat de compozitorul browserului (de regulă pe
+    // GPU, în precizie redusă); eroarea se acumulează cu fiecare repetare, deci liniile
+    // ies clare aproape de originea modelului și tot mai neuniforme mai departe de ea —
+    // verificat empiric (linii orizontale clare sus, spălăcite jos, în ACEEAȘI captură).
+    // Nicio valoare trimisă din JS, oricât de exactă, nu putea repara asta: eroarea
+    // apare DUPĂ ce `cell`/`background-position` ajung la browser. Pe canvas fiecare
+    // linie e desenată o singură dată, la coordonata fizică pe care i-o dau eu — nu mai
+    // există „model repetat" de acumulat eroare pe el.
+    function randeazaGrila() {
+      const dpr = window.devicePixelRatio || 1;
+      const wPx = Math.max(1, Math.round(sceneW * dpr));
+      const hPx = Math.max(1, Math.round(sceneH * dpr));
+      // Redimensionarea unui canvas îi golește conținutul — evităm s-o facem când
+      // dimensiunea n-a diferit (rezize-ul e apelat des: fiecare fact, fiecare
+      // schimbare de layout din CP).
+      if (gridEl.width !== wPx) gridEl.width = wPx;
+      if (gridEl.height !== hPx) gridEl.height = hPx;
+
+      gridCtx.clearRect(0, 0, wPx, hPx);
+
+      if (cfg.gridVertical || cfg.gridOrizontal) {
+        gridCtx.fillStyle = cfg.culoareGrila;
+        // Grosimea liniei, rotunjită independent la pixeli fizici — la fel ca poziția
+        // fiecărei linii mai jos, nu printr-o valoare CSS trimisă înainte.
+        const grosime = Math.max(1, Math.round(dpr));
+        if (cfg.gridVertical) {
+          for (let x = margin; x <= sceneW + 0.01; x += cell) {
+            gridCtx.fillRect(Math.round(x * dpr), 0, grosime, hPx);
+          }
+        }
+        if (cfg.gridOrizontal) {
+          for (let y = 0; y <= sceneH + 0.01; y += cell) {
+            gridCtx.fillRect(0, Math.round(y * dpr), wPx, grosime);
+          }
+        }
+      }
+
+      randeazaContureColoane(dpr, hPx);
+    }
+
+    // Conturul coloanelor — desenat AICI, DUPĂ liniile de grilă, pe ACELAȘI canvas, ca
+    // să fie mereu PESTE ele, simetric pe ambele margini (gotcha #15: cu bordura CSS de
+    // dinainte, marginea stângă a fiecărei coloane era acoperită de linia de grilă de
+    // la aceeași coordonată — amândouă cresc spre dreapta, deci ocupă aceiași pixeli —
+    // în timp ce marginea dreaptă, care cu border-box crește spre STÂNGA/interior, nu
+    // se atingea deloc cu linia de grilă de-acolo și rămânea singura vizibilă). Aici
+    // ambele margini folosesc aceeași logică (interior, de la xStanga/xDreapta), deci
+    // sunt simetrice prin construcție — și, fiind desenate ultimele, acoperă grila.
+    // Necondiționat de cfg.gridVertical/gridOrizontal: conturul coloanei nu ține de
+    // bifele „Grilă" din CP, la fel cum bordura CSS de dinainte era mereu vizibilă.
+    function randeazaContureColoane(dpr, hPx) {
+      gridCtx.fillStyle = CULOARE_MARGINE_COLOANA;
+      const grosime = Math.max(1, Math.round(dpr));
+      cfg.latimiColoane.forEach((w, i) => {
+        const xStanga = Math.round(colX[i] * dpr);
+        const xDreapta = Math.round((colX[i] + w * cell) * dpr);
+        gridCtx.fillRect(xStanga, 0, grosime, hPx); // margine stângă, spre interior
+        gridCtx.fillRect(xDreapta - grosime, 0, grosime, hPx); // margine dreaptă, spre interior
+        gridCtx.fillRect(xStanga, 0, xDreapta - xStanga, grosime); // sus
+        gridCtx.fillRect(xStanga, hPx - grosime, xDreapta - xStanga, grosime); // jos
+      });
     }
 
     function setGridLines(opts) {
       if (!opts) return;
       if (typeof opts.vertical === "boolean") cfg.gridVertical = opts.vertical;
       if (typeof opts.orizontal === "boolean") cfg.gridOrizontal = opts.orizontal;
-      applyGridLines();
+      randeazaGrila();
     }
 
     function setColumnLayout(opts) {
@@ -1630,7 +1702,7 @@
       // prin funcțiile deja existente (fără remount).
       if (typeof opts.grila === "string") {
         cfg.culoareGrila = opts.grila;
-        applyGridLines();
+        randeazaGrila();
       }
       if (typeof opts.numereColoane === "string") {
         cfg.culoareNumerotare = opts.numereColoane;

@@ -93,7 +93,7 @@ RigleEngine.mount(hosts, config) → {
   `gameEl` (`removeProperty`) — altfel ar „scurge" spre următorul quiz montat pe `gameEl`
   (inclusiv `rigle-cl1.js`, care folosește aceleași clase CSS).
 - `grila`/`numereColoane` — scrise direct pe `cfg.culoareGrila`/`cfg.culoareNumerotare`
-  (ca orice altă opțiune CP), reaplicate prin `applyGridLines()`/`computeGeometry()`, nu
+  (ca orice altă opțiune CP), reaplicate prin `randeazaGrila()`/`computeGeometry()`, nu
   prin CSS custom properties — `gridEl`/`rowNumbersWrap` sunt deja în subarborele lui
   `scene`, n-au nevoie de o variabilă pe `gameEl`. Nu necesită cleanup la `destroy()`:
   `cfg` e reconstruit de la zero din `DEFAULTS` la fiecare `mount()`, spre deosebire de
@@ -255,7 +255,7 @@ decide — elementul mai târziu în DOM picta deasupra):
 | 1 | `.rigle-lift-row` → `.rigle-apple` × n | rândul de mere — **frate** al lui `.rigle-lift`, nu copil (vezi mai jos) |
 | 1 | `.rigle-row-numbers` → `.rigle-row` | numerotarea rândurilor (CP), DOM după `.rigle-lift-row` → o acoperă |
 | 2 | `.rigle-lift` | text „2+1=?" + `.rigle-lift-mismatch` (rândul de mere NU mai e aici) |
-| 3 | `.rigle-grid` | **doar linii**, peste tot — inclusiv peste coloane și peste lift |
+| 3 | `.rigle-grid` (`<canvas>`) | **doar linii**, peste tot — inclusiv peste coloane și peste lift; desenat pe canvas, nu `background-image` — vezi gotcha #14 |
 
 **De ce rândul de mere e frate, nu copil al liftului** (cerință explicită: mere
 *sub* numerotarea rândurilor): `.rigle-lift` are `position:absolute` + `z-index:2`,
@@ -651,6 +651,80 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
     **aceeași** cu `height`-ul lui `.rigle-buttons` — nu copia valoarea, `25dvh` se
     schimbă la rotire/redimensionare și copia ar rămâne în urmă (verificat: la bară de
     164px→250px, eticheta rămâne fix la 4px deasupra).
+14. **Grila se desena neuniform (linii orizontale clare sus, spălăcite jos, în ACEEAȘI
+    captură) — motorul are acum grilă pe `<canvas>`, nu `background-image` repetat**
+    (raportat 25.08.2026, cu 2 rânduri de capturi). Istoricul e important, fiindcă
+    prima reparație a fost insuficientă — nu de aruncat din memorie:
+    - **Diagnostic 1 (corect, dar incomplet):** geometria era exactă — verificat
+      înainte de orice modificare: coloanele la 0/11/22 celule fix, cifrele
+      numerotării exact o celulă, `background-position` 0. Nimic greșit în calcule.
+    - **Fix 1 (insuficient):** aliniat `cell`/`margin`/grosimea liniei la pixeli
+      FIZICI întregi (`laPixeliFizici()`, acum șters). Ipoteza: la DPR fracționar
+      (1.25), o celulă de 9px CSS = 11,25 px fizici, fiecare repetare a dalei
+      `background-size` cade pe altă fracțiune de pixel. Reducea vizibil problema,
+      dar userul a raportat din nou banding **după Ctrl+F5** (deci nu era cache) —
+      fix-ul nu elimina cauza, doar o atenua.
+    - **Diagnostic 2 (cauza reală):** un `background-image` repetat de zeci de ori
+      pe o suprafață mare e evaluat de compozitorul browserului (de regulă GPU, în
+      precizie redusă, ~float32); eroarea se ACUMULEAZĂ cu fiecare repetare — de-aia
+      liniile ies clare aproape de originea modelului (`background-position`) și tot
+      mai neuniforme mai departe de ea, în ACEEAȘI randare. Nicio valoare trimisă din
+      JS, oricât de exactă, nu putea repara asta: eroarea apare DUPĂ ce `cell`/
+      `background-position` ajung la browser — verificat că propriul calcul se
+      întorcea exact (`Math.floor(x*1.25)/1.25 * 1.25` exact întreg, testat cu node).
+    - **Fix 2 (definitiv):** `.rigle-grid` a devenit `<canvas>` (`gridEl` +
+      `gridCtx`, `randeazaGrila()` înlocuiește `applyGridLines()`). Fiecare linie se
+      desenează O SINGURĂ DATĂ, cu `fillRect` la o coordonată fizică rotunjită
+      independent (`Math.round(x * dpr)`) — nu mai există „model repetat" pe care să
+      se acumuleze eroare. `laPixeliFizici()` a devenit inutilă (motivul ei era
+      strict despre dala repetată) și a fost ștearsă; `cell`/`margin` s-au întors la
+      formulele simple dinainte (`Math.floor`/`Math.round`, fără aliniere la DPR) —
+      nu mai contează pentru grilă, iar pentru coloane/butoane (elemente simple, nu
+      modele repetate) n-a fost niciodată problema.
+    - **Verificat prin citire de pixeli, nu capturi** (`canvas.getContext("2d").
+      getImageData()`): pe 37 de linii verticale × toată înălțimea (717 px fizici,
+      eșantionat din 7 în 7) și 64 de linii orizontale × toată lățimea — ZERO variații
+      de alpha. Capturile de ecran mint la decupare/scalare (verificat separat: două
+      decupaje din aceeași imagine pot părea că au celule de forme diferite doar din
+      cauza redimensionării) — pixelii citiți din canvas nu.
+    - Se aplică ambelor quizuri Rigle (motor comun).
+    **Atenție la măsurare (rămâne valabil):** `getBoundingClientRect()` întoarce
+    valori cu zgomot de virgulă mobilă (`135.99999904632568` în loc de `136`), deci
+    un test „poziția × DPR e întreagă?" pe rect dă fals-negativ — verifică pe
+    `el.style.left` (elemente poziționate din JS) sau, pt. canvas, pe pixelii citiți
+    din `getImageData()`, nu pe `getBoundingClientRect()`.
+15. **Bordura `.rigle-col` apărea DOAR pe marginea dreaptă a fiecărei coloane, pe
+    toate coloanele — cauză geometrică, nu de precizie** (raportat 25.08.2026, imediat
+    după gotcha #14, cu 2 capturi arătând aceeași linie chihlimbarie `#e6c02a` pe toate
+    3 coloanele; userul a corectat explicit diagnosticul inițial „compozitor GPU" ca
+    supra-complicat — cauza era la o comandă concretă, nu la o teorie). Border-ul CSS
+    (`border: 1px solid #e6c02a`, `box-sizing: border-box`) se desenează SPRE INTERIORUL
+    box-ului de la fiecare margine: marginea stângă ocupă pixelii `[left, left+bw)` —
+    crește spre DREAPTA; marginea dreaptă ocupă `[left+width-bw, left+width)` — crește
+    spre STÂNGA. Linia de grilă de pe canvas (gotcha #14), la aceeași coordonată, crește
+    mereu spre dreapta (`fillRect(x, y, grosime, h)`). La marginea stângă a coloanei,
+    border-ul și linia de grilă ocupă EXACT aceiași pixeli (amândouă cresc spre
+    dreapta) — grila (desenată peste, z-index mai mare) acoperea complet border-ul. La
+    marginea dreaptă, border-ul crește spre stânga iar linia de grilă de-acolo crește
+    spre dreapta — ocupă pixeli ADIACENȚI, NU se ating — border-ul rămânea singurul
+    vizibil. Verificat cu node înainte de reparație (nu doar presupus): ambele margini
+    ale oricărei coloane cad pe multipli întregi de `cell` (deci matematic „la fel"),
+    ceea ce a arătat că asimetria nu putea veni din calculul de poziție, ci din
+    DIRECȚIA de desenare a border-ului CSS vs. a liniei de grilă.
+    **Reparat mutând conturul pe același canvas ca grila** (`randeazaContureColoane()`,
+    apelată necondiționat la finalul `randeazaGrila()`, DUPĂ liniile de grilă — deci
+    mereu PESTE ele, pe ambele margini deopotrivă, simetric prin construcție: aceeași
+    logică „spre interior" aplicată identic la stânga și la dreapta). `.rigle-col` CSS
+    păstrează `border: 1px solid transparent` (doar pt. `box-sizing`, culoarea a
+    dispărut) — `border-radius: 6px` rămâne (rotunjește fundalul), dar conturul desenat
+    pe canvas are colțuri drepte — mic compromis vizual acceptat, necerut de user.
+    Culoarea (`CULOARE_MARGINE_COLOANA = "#e6c02a"`) a rămas hard-codată, ca înainte —
+    nu ține de CP „Culori" (acela are `grila`, un element separat). Necondiționat de
+    `cfg.gridVertical`/`gridOrizontal`: conturul coloanei nu ține de bifele „Grilă",
+    la fel cum border-ul CSS de dinainte era mereu vizibil, indiferent de ele.
+    **Verificat prin citire de pixeli** pe toate 3 coloanele, ambele margini, la 2
+    configurații diferite de lățimi: exact `rgb(230,192,42,255)`, fără excepție.
+    Se aplică ambelor quizuri Rigle (motor comun).
 
 ---
 
