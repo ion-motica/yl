@@ -72,9 +72,14 @@
   align-items: center;
   gap: 4px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  transform-origin: left top; /* scalarea din CP „Dimensiune initiala lift" crește spre
+    dreapta/jos din colțul stâng-sus, deci "left"/"top" rămân marginea vizuală reală —
+    altfel poziționarea analitică de mai jos ar trebui să compenseze originea. */
 }
 .rigle-lift--ready {
-  transition: left 0.35s ease;
+  /* "transform" intră în tranziție ca micșorarea 2×→1× de la prima apăsare să curgă
+     odată cu glisarea spre coloană — o singură mișcare, nu două. */
+  transition: left 0.35s ease, transform 0.35s ease;
 }
 .rigle-lift-q {
   font-weight: 800;
@@ -114,10 +119,15 @@
   position: absolute;
   z-index: 1;
   display: flex;
+  transform-origin: left top;
 }
 .rigle-lift-row--ready {
-  transition: left 0.35s ease; /* aceeași tranziție ca .rigle-lift--ready, ca
-    rândul de mere să gliseze sincron cu cutia liftului, nu decuplat. */
+  /* aceeași tranziție ca .rigle-lift--ready, ca rândul de mere să gliseze sincron cu
+     cutia liftului, nu decuplat. "top" NU se tranziționează dinadins: e rescris la
+     fiecare cadru de tick(), o tranziție l-ar face să rămână permanent în urmă. De-aia
+     decalajul vertical la scalare merge prin translateY din transform (care SE
+     tranziționează), nu prin "top" — vezi aplicaTransformariLift(). */
+  transition: left 0.35s ease, transform 0.35s ease;
 }
 /* „Prea puțin"/„prea mult" — dreptunghi portocaliu clipitor, copil al .rigle-lift,
    poziționat analitic (nu măsurat) relativ la colțul liftului — vezi
@@ -414,6 +424,9 @@
     mereTransparenta: 50, // 0 = culori opace, 100 = complet transparente — la fel ca liftFundalTransparenta
     liftFundalTransparenta: 50, // 0 = alb opac, 100 = complet transparent
     liftMargine: true, // false = marginea liftului devine transparentă (nu dispare din layout)
+    liftScalaInitiala: 1, // cât de mare reapare liftul (cutie + întrebare + mere) la
+    // FIECARE fact nou; revine animat la 1 de la prima apăsare. 1 = neschimbat
+    // (implicit, deci zero efect pt. rigle-cl1.js), 2 = dublu.
     liftPornire: null, // unde reapare liftul la FIECARE fact nou:
     //   null            = nu se atinge — rămâne pe ultima coloană apăsată (istoric, rigle-cl1)
     //   "coloana2"      = revine mereu pe coloana din mijloc
@@ -568,6 +581,9 @@
     // index valid — de-aia starea asta nu cere gărzi decât în cele două locuri care
     // rulează și fără apăsare: poziționarea (xLiftCurent) și actualizeazaMismatch().
     let liniaIntre = -1; // golul pe care coboară liftul: 0 = c1-c2, 1 = c2-c3
+    let scalaLift = 1; // scala curentă a ansamblului lift+mere; cade la 1 la prima apăsare
+    let sceneW = 0; // lățimea scenei, reținută în computeGeometry — folosită de clamp-ul
+    let sceneH = 0; // orizontal și de recalculeazaCursa(), care rulează și în afara ei
     let colIndex = cfg.coloanaInitialaIndex;
     if (colIndex < 0 || colIndex >= cfg.latimiColoane.length) {
       colIndex = Math.floor(cfg.latimiColoane.length / 2);
@@ -620,6 +636,11 @@
       cfg.grupe = fact.grupe;
       cfg.latimiColoane = fact.latimiColoane;
       totalMere = cfg.grupe.reduce((sum, g) => sum + g.n, 0);
+
+      // Dimensiunea de pornire — axă independentă de poziție (vezi cfg.liftScalaInitiala).
+      // computeGeometry(), chemată la finalul randării, aplică transform-ul și recalculează
+      // cursa pentru noua scală.
+      scalaLift = cfg.liftScalaInitiala > 1 ? cfg.liftScalaInitiala : 1;
 
       // Poziția de pornire a liftului pentru factul ăsta — vezi cfg.liftPornire.
       // `null` (implicit, cazul rigle-cl1.js) nu atinge colIndex: liftul rămâne pe
@@ -783,9 +804,10 @@
       });
 
       liftH = lift.offsetHeight || cell * 2.4;
-      travel = Math.max(1, H - liftH);
+      sceneW = W;
+      sceneH = H;
+      recalculeazaCursa();
 
-      lift.style.left = `${xLiftCurent()}px`;
       lift.style.top = `${Math.min(y, travel)}px`;
 
       // rowEl urmează lift — qEl are text final (randeazaFact rulează înaintea lui
@@ -793,11 +815,18 @@
       // reglajTextSiDivuriPortocaliiSiVerzi(), fiindcă actualizeazaMismatch() (chemată
       // din ea) are nevoie de rowOffsetTop deja proaspăt.
       rowOffsetTop = LIFT_INSET + qEl.offsetHeight + LIFT_ROW_GAP;
-      rowEl.style.left = `${xLiftCurent()}px`;
       rowEl.style.top = `${Math.min(y, travel) + rowOffsetTop}px`;
 
       randeazaNumerotare(H);
       reglajTextSiDivuriPortocaliiSiVerzi();
+
+      // Orizontala se scrie ABIA aici, după reglajLift(): centrarea și clamp-ul din
+      // xLiftCurent() au nevoie de `liftW` proaspăt, iar reglajLift() îl calculează
+      // în reglajTextSiDivuriPortocaliiSiVerzi(). Verticala (top/rowOffsetTop) rămâne
+      // mai sus — actualizeazaMismatch(), chemată tot de acolo, o citește deja.
+      aplicaTransformariLift();
+      lift.style.left = `${xLiftCurent()}px`;
+      rowEl.style.left = `${xLiftCurent()}px`;
     }
 
     // ── Reglaj text/cutii — un singur loc pentru „încape textul în cutia lui?" ──
@@ -1202,12 +1231,50 @@
     // distanță de ambele rigle. Mijlocul golului, NU treimea arenei (W/3): coloanele
     // nu-și umplu treimea (au lățimi diferite + golul garantat de o celulă), deci W/3
     // cade de fapt pe marginea stângă a coloanei următoare — adică PE ea, nu între.
+    // Mărit, ansamblul se CENTREAZĂ pe reperul lui (coloană sau gol) în loc să stea cu
+    // marginea stângă pe el, și e împins spre centru dacă iese din scenă. Clamp-ul se
+    // aplică DOAR cât e mărit: la scala 1 poziționarea rămâne bit-identică cu cea
+    // dinainte, deci zero regresie (inclusiv rigle-cl1.js, care nu scalează niciodată).
     function xLiftCurent() {
-      if (colIndex >= 0) return colX[colIndex];
-      if (colX.length < 2) return colX[0] ?? 0;
-      const i = Math.min(Math.max(liniaIntre, 0), colX.length - 2);
-      const mijlocGol = (colX[i] + cfg.latimiColoane[i] * cell + colX[i + 1]) / 2;
-      return mijlocGol - (totalMere * cell) / 2;
+      const latimeRand = totalMere * cell;
+      let x;
+      if (colIndex >= 0) {
+        x =
+          scalaLift === 1
+            ? colX[colIndex]
+            : colX[colIndex] + (cfg.latimiColoane[colIndex] * cell) / 2 - (latimeRand * scalaLift) / 2;
+      } else if (colX.length < 2) {
+        x = colX[0] ?? 0;
+      } else {
+        const i = Math.min(Math.max(liniaIntre, 0), colX.length - 2);
+        const mijlocGol = (colX[i] + cfg.latimiColoane[i] * cell + colX[i + 1]) / 2;
+        x = mijlocGol - (latimeRand * scalaLift) / 2;
+      }
+      if (scalaLift === 1) return x;
+      // Lățimea vizuală = a cutiei, care e cea mai lată dintre mere și text (reglajLift).
+      // Dacă nici așa nu încape (sume foarte mari), rămâne lipit stânga și iese dreapta —
+      // preferabil unei micșorări automate care ar contrazice opțiunea aleasă din CP.
+      const latimeVizuala = Math.max(liftW, latimeRand) * scalaLift;
+      if (latimeVizuala >= sceneW) return 0;
+      return Math.max(0, Math.min(x, sceneW - latimeVizuala));
+    }
+
+    // Scalarea merge prin transform, nu prin lățimi/font-size recalculate: o singură
+    // proprietate animabilă acoperă cutia, textul întrebării ȘI merele deodată.
+    // Rândul de mere primește în plus un translateY, fiindcă `top`-ul lui e rescris la
+    // fiecare cadru de tick() și nu poate fi tranziționat — vezi .rigle-lift-row--ready.
+    function aplicaTransformariLift() {
+      lift.style.transform = scalaLift === 1 ? "" : `scale(${scalaLift})`;
+      rowEl.style.transform =
+        scalaLift === 1 ? "" : `translateY(${rowOffsetTop * (scalaLift - 1)}px) scale(${scalaLift})`;
+    }
+
+    // Cursa se scurtează cu cât liftul e mai mare — cerință explicită („uniform, cursa
+    // mai scurtă"): cutia trebuie să se oprească tot la marginea de jos a scenei, iar
+    // înălțimea ei vizuală e liftH * scalaLift (offsetHeight nu vede transform-ul).
+    // Apelată și din selectColumn, unde scala cade la 1 fără o recalculare de geometrie.
+    function recalculeazaCursa() {
+      travel = Math.max(1, sceneH - liftH * scalaLift);
     }
 
     function actualizeazaMismatch() {
@@ -1335,6 +1402,13 @@
         });
       }
       colIndex = idx; // încheie și starea „între coloane", dacă era activă
+      // Prima apăsare încheie și mărirea: micșorarea la 1 curge în aceeași tranziție de
+      // 0.35s cu glisarea spre coloană. Cursa se relaxează la loc (lift mai mic ⇒ mai
+      // mult drum până jos), deci trebuie recalculată aici, nu abia la următoarea
+      // computeGeometry.
+      scalaLift = 1;
+      recalculeazaCursa();
+      aplicaTransformariLift();
       lift.style.left = `${xLiftCurent()}px`; // glisare orizontală (tranziția CSS)
       rowEl.style.left = `${xLiftCurent()}px`; // sincron cu lift — v. .rigle-lift-row--ready
       actualizeazaNumerotareAnimata();
@@ -1454,6 +1528,7 @@
       if (!opts) return;
       if (typeof opts.transparentaFundal === "number") cfg.liftFundalTransparenta = opts.transparentaFundal;
       if (typeof opts.margine === "boolean") cfg.liftMargine = opts.margine;
+      if (typeof opts.scalaInitiala === "number") cfg.liftScalaInitiala = opts.scalaInitiala;
       if (typeof opts.pornire === "string" || opts.pornire === null) {
         cfg.liftPornire = opts.pornire;
         // Fără remount, dar nici retroactiv pe factul curent: noua poziție de pornire

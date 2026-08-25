@@ -87,6 +87,11 @@
   // `rigle-cl1.js` nu trimite opțiunea, deci păstrează comportamentul vechi.
   const LIFT_PORNIRE_KEY = "rigleT110LiftPornire";
   const getLiftPornire = () => global.LayoutConfig?.get(LIFT_PORNIRE_KEY, "coloana2") ?? "coloana2";
+
+  // CP — Lift, „Dimensiune initiala lift": cât de mare reapare ansamblul lift+mere la
+  // fiecare fact; revine animat la 1 de la prima apăsare. Implicit 2 (cerut explicit).
+  const LIFT_SCALA_KEY = "rigleT110LiftScalaInitiala";
+  const getLiftScala = () => (global.LayoutConfig?.get(LIFT_SCALA_KEY, 2) === 1 ? 1 : 2);
   function seteazaLiftTransparenta(valoare) {
     const v = Math.max(0, Math.min(100, Math.round(valoare)));
     global.LayoutConfig?.set(LIFT_TRANSPARENTA_KEY, v);
@@ -702,6 +707,7 @@
             liftFundalTransparenta: getLiftTransparenta(),
             liftMargine: getLiftMargine(),
             liftPornire: getLiftPornire(),
+            liftScalaInitiala: getLiftScala(),
             fovButon: getFovButon(),
             fovLift: getFovLift(),
             fovLiftAnimatieCorect: getFovLiftCorect(),
@@ -907,6 +913,21 @@
           addRadioRow("Între 2 coloane", "intreColoane", pornireAcum, "rigleT110-lift-pornire", () => {
             global.LayoutConfig?.set(LIFT_PORNIRE_KEY, "intreColoane");
             mounted?.setLift({ pornire: "intreColoane" });
+          });
+
+          const scalaLabel = document.createElement("p");
+          scalaLabel.className = "control-panel-lift-field";
+          scalaLabel.textContent = "Dimensiune initiala lift:";
+          mount.appendChild(scalaLabel);
+
+          const scalaAcum = getLiftScala();
+          addRadioRow("Normala", 1, scalaAcum, "rigleT110-lift-scala", () => {
+            global.LayoutConfig?.set(LIFT_SCALA_KEY, 1);
+            mounted?.setLift({ scalaInitiala: 1 });
+          });
+          addRadioRow("Dubla", 2, scalaAcum, "rigleT110-lift-scala", () => {
+            global.LayoutConfig?.set(LIFT_SCALA_KEY, 2);
+            mounted?.setLift({ scalaInitiala: 2 });
           });
 
           const fovTitle = document.createElement("p");

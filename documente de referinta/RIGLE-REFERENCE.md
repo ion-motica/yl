@@ -66,8 +66,9 @@ RigleEngine.mount(hosts, config) → {
   setColumnLayout({ treime? }),
   reporneste(),   // y=0 + cere fact nou prin cfg.urmatorulFact() + randează
   setNumerotareRanduri({ mod?, randuriInSus?, randuriInJos? }),  // live, §6 „Numerotează rânduri"
-  setLift({ transparentaFundal?, margine?, pornire? }),  // live, §6 „Lift". `pornire`
-                             // se aplică de la următorul fact, nu retroactiv — vezi mai jos.
+  setLift({ transparentaFundal?, margine?, pornire?, scalaInitiala? }),  // live, §6 „Lift".
+                             // `pornire`/`scalaInitiala` se aplică de la următorul fact,
+                             // nu retroactiv — vezi mai jos.
   setPozitieMere({ subNumerotare?, transparenta? }),  // live, §6 „Bara cu mere"
   setOpritDefinitiv(bool),  // stop dur (fall + butoane + taste 1/2/3), NU pauza
                              // userului — nu atinge is-paused/„PAUZĂ". Folosit de
@@ -142,6 +143,9 @@ restaurează exact `display`-ul reținut pe fiecare element ascuns, scoate clasa
   gridOrizontal: true,
   pozitieTreime: true,      // true = fiecare coloană o treime din spațiu; false = proporțional
   urmatorulFact: () => RigleFacte.genereazaFact({ sumaMin, sumaMax }),  // (§4, RigleFacte)
+  liftScalaInitiala: 1,     // cât de mare reapare ansamblul lift+mere la fiecare fact
+                             // (1 = neschimbat, deci zero efect pt. rigle-cl1.js; 2 = dublu).
+                             // Revine animat la 1 de la prima apăsare — vezi §6 „Lift".
   liftPornire: null,        // unde reapare liftul la FIECARE fact nou (vezi §5 „Pornirea liftului"):
                              //   null = nu se atinge colIndex — rămâne pe ultima coloană apăsată
                              //          (comportamentul istoric; `rigle-cl1.js` nu trimite opțiunea)
@@ -471,6 +475,34 @@ buton) pornește **doar** din `selectColumn()`, care setează mereu un index val
 aceea starea cere gărzi doar în cele două locuri care rulează și fără apăsare:
 `xLiftCurent()` (poziționarea) și `actualizeazaMismatch()` (care ascunde bara portocalie
 și eticheta cât nu există coloană de comparat).
+
+**„Dimensiune initiala lift"** — 2 radio, tot la finalul secțiunii „Lift", tot doar la
+`rigle-tabla-1-10.js` (`rigleT110LiftScalaInitiala`, implicit **2**), 23.08.2026:
+`Normala` (`cfg.liftScalaInitiala = 1`) / `Dubla` (`= 2`). La fiecare fact nou ansamblul
+lift+mere reapare la scala aleasă și **revine la 1 de la prima apăsare**, în aceeași
+tranziție de 0.35s cu glisarea spre coloană — o singură mișcare, nu două. Axă
+independentă de „Comportament initial lift": se combină liber.
+
+Detalii care nu se ghicesc din cod:
+- Scalarea merge prin `transform: scale()` pe `.rigle-lift` și `.rigle-lift-row`, cu
+  `transform-origin: left top`, **nu** prin lățimi/font-size recalculate: o singură
+  proprietate animabilă acoperă cutia, textul întrebării ȘI merele. `offsetHeight`/
+  `offsetWidth` NU văd transform-ul, de-aia `liftH`/`liftW` rămân nescalate și se
+  înmulțesc explicit cu `scalaLift` unde contează.
+- Rândul de mere primește `translateY(rowOffsetTop * (scala − 1))` pe lângă `scale()`.
+  Motivul: `top`-ul lui e rescris la fiecare cadru din `tick()`, deci **nu** poate fi
+  tranziționat — dacă decalajul vertical ar merge prin `top`, rândul ar sări instant în
+  sus în timp ce cutia se micșorează lin. Prin transform, ambele curg în aceeași tranziție.
+- Mărit, ansamblul se **centrează** pe reperul lui (coloana sau golul), în loc să stea cu
+  marginea stângă pe el, și e împins spre centru dacă ar ieși din scenă. Clamp-ul se
+  aplică **doar** cât `scalaLift !== 1`, ca poziționarea la scala 1 să rămână bit-identică
+  cu cea dinainte. Dacă nici centrat nu încape (sume foarte mari), rămâne lipit stânga și
+  iese în dreapta — nu se micșorează automat, ar contrazice opțiunea din CP.
+  Verificat pe 60 de probe (2 moduri × 10 niveluri × 3): 6 clamp-uri reale, 0 ieșiri din scenă.
+- Cursa se scurtează cât e mărit (`travel = sceneH − liftH * scalaLift`) — cerință
+  explicită. `recalculeazaCursa()` rulează și din `selectColumn()`, nu doar din
+  `computeGeometry()`: la micșorare cursa se relaxează la loc imediat, altfel liftul s-ar
+  opri prematur până la următorul recalcul de geometrie.
 
 `transparență=50` → `background: rgba(255,255,255,0.5)` (`alfa = (100-transparență)/100`
 — 100 = complet transparent, 0 = alb opac). Bifa „margine" **nu** schimbă
