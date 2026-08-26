@@ -752,6 +752,32 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
     a canvas-ului** (`canvas.getBoundingClientRect()`, raportul `cr.width/canvas.width`)
     cu **pozițiile reale ale elementelor DOM** — două surse independente, nu formula
     proprie cu ea însăși.
+17. **`z-index` negativ pe `.rigle-grid` a făcut grila să dispară COMPLET (nu doar sub
+    coloane) — cauza era `.rigle-scene`, nu grila** (25.08.2026: cerere „grila în
+    fundal" → implementat `z-index: -1` → raportat „acum nu văd grila deloc", cu
+    captură confirmând dispariția totală, inclusiv în golurile dintre coloane, unde
+    nimic n-ar fi trebuit s-o acopere). `.rigle-scene` are `position: absolute` dar
+    **fără** `z-index` propriu (`auto`) — conform spec CSS, un element poziționat cu
+    `z-index:auto` **nu-și creează propriul context de stivuire**. Deci `z-index`-urile
+    copiilor ei (grilă, coloane, lift) nu se comparau între ele, ci cu orice altceva mai
+    sus în arbore, la prima ascendență cu context real de stivuire — o valoare negativă
+    a împins grila sub un strat opac de undeva mult mai sus, invizibil oriunde, nu doar
+    sub coloane. **Verificat live înainte de reparație** (nu presupus): setând temporar
+    `scene.style.zIndex = "0"` direct în consolă, grila a reapărut instant — vizibilă în
+    goluri, ascunsă sub coloane — confirmând că problema era contextul lipsă, nu
+    valoarea `-1` în sine. Bug-ul exista **dinainte**, tăcut: cu valori pozitive mici
+    (1-4, cum aveau grila/coloanele/liftul până acum), „scăpatul" din scenă nu se vedea,
+    fiindcă acele numere ieșeau oricum deasupra a orice s-ar fi nimerit mai sus în
+    arbore — abia negativul l-a scos la iveală.
+    **Reparat cu `isolation: isolate` pe `.rigle-scene`** (nu `z-index: 0` — acela ar fi
+    putut muta scena față de PROPRII ei frați din `#arena`; `isolation: isolate` forțează
+    un context de stivuire nou fără alt efect secundar). Cu asta, `z-index`-urile
+    interne (grilă, coloane, lift, FOV) redevin corect izolate, indiferent de valoare.
+    **Decizia finală de design** (după testarea variantei „fundal"): grila a rămas
+    „strat de sus peste tot" (z-index 3, ca înainte de 25.08.2026) — varianta „fundal"
+    a fost respinsă explicit, fiindcă face grila inutilă exact unde contează, peste
+    coloanele opace, unde copilul numără pătrățele ca să măsoare. Conturul coloanelor
+    (gotcha #15) e pe același canvas, deci urmează automat aceeași decizie.
 
 ---
 

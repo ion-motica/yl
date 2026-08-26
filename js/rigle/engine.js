@@ -25,6 +25,17 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* isolation:isolate = forțează un context de stivuire PROPRIU pt. scenă, fără să-i
+     schimbe poziția față de proprii frați (spre deosebire de a-i da un z-index numeric,
+     care ar face-o și pe asta). Fără el, .rigle-scene are position:absolute dar
+     z-index:auto — deci NU crea context propriu — iar z-index-urile copiilor ei
+     (grila, coloanele, liftul) nu se comparau între ele, ci cu orice altceva mai sus
+     în arbore, oriunde s-ar fi nimerit prima ascendență cu context real. Descoperit
+     25.08.2026: grila cu z-index negativ (gotcha #17) a „scăpat" din scenă și a
+     dispărut complet — nu doar sub coloane, ci sub tot. Cu pozitive mici (1-4), coincidea
+     să iasă deasupra oricum, deci bug-ul exista mereu, tăcut, doar nu avea cum să se
+     vadă până la o valoare negativă. */
+  isolation: isolate;
   --cell: 32px;
   font-family: system-ui, sans-serif;
   background: var(--rigle-culoare-fundal, #fbfbf3);
@@ -186,10 +197,15 @@
   font-size: calc(var(--cell) * 0.74);
   line-height: 1;
 }
-/* Grila de caiet = DOAR linii, strat de sus peste tot (paper, coloane, lift). E un
-   <canvas> (nu div cu background-image repetat — vezi randeazaGrila() pt. motiv),
-   desenat din JS, în funcție de vertical/orizontal. Dimensiunea reală (width/height,
-   atribute, nu CSS) o dă randeazaGrila(); inset:0 îi dă doar mărimea de afișare. */
+/* Grila de caiet = DOAR linii, strat de SUS peste tot (paper, coloane, lift, mere,
+   inclusiv conturul coloanelor desenat tot aici — randeazaContureColoane()). Testat și
+   varianta „fundal" (25.08.2026, la cerere) — respinsă: grila devine inutilă exact
+   unde contează, peste coloanele opace, unde copilul numără pătrățele ca să măsoare.
+   Vezi gotcha #17 pt. bug-ul real întâlnit pe drum (z-index negativ „scăpat" din scenă,
+   nu problema de fond a cererii). E un <canvas> (nu div cu background-image repetat —
+   vezi randeazaGrila() pt. motiv), desenat din JS, în funcție de vertical/orizontal.
+   Dimensiunea reală (width/height, atribute, nu CSS) o dă randeazaGrila(); inset:0 îi
+   dă doar mărimea de afișare. */
 .rigle-grid {
   position: absolute;
   inset: 0;
