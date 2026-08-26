@@ -80,7 +80,11 @@
 }
 .rigle-lift {
   position: absolute;
-  z-index: 2;
+  z-index: 5; /* deasupra grilei (3) — cerere explicită (25.08.2026): grila trebuie
+    să rămână un strat vizual (peste coloane), dar liftul și merele nu trebuie
+    acoperite de ea. Gap-ul față de .rigle-lift-row (4) e păstrat identic cu cel
+    dinainte (lift stătea cu un nivel deasupra rândului de mere) — nu se atingeau
+    vizual, dar invariantul e păstrat din prudență. */
   box-sizing: border-box;
   background: #ffffff;
   border: 2px solid #3a4a63;
@@ -136,7 +140,7 @@
    remăsurată la fiecare cadru). */
 .rigle-lift-row {
   position: absolute;
-  z-index: 1;
+  z-index: 4; /* deasupra grilei (3), sub lift (5) — cerere 25.08.2026, vezi .rigle-lift */
   display: flex;
   transform-origin: left top;
 }
@@ -148,17 +152,34 @@
      tranziționează), nu prin "top" — vezi aplicaTransformariLift(). */
   transition: left 0.35s ease, transform 0.35s ease;
 }
-/* „Prea puțin"/„prea mult" — dreptunghi portocaliu clipitor, copil al .rigle-lift,
-   poziționat analitic (nu măsurat) relativ la colțul liftului — vezi
-   actualizeazaMismatch() în JS. Ascuns implicit (display none), afișat doar când
-   lățimea coloanei ≠ totalMere. */
+/* „Prea puțin"/„prea mult" — dreptunghi portocaliu clipitor. NU mai e copil al
+   .rigle-lift (era, până la cererea explicită „lift+mere peste grilă, dreptunghiul
+   SUB grilă" — 25.08.2026): un copil oricât de negativ i-ai da z-index-ul, tot
+   pictează deasupra fraților lui .rigle-lift, din același motiv documentat mai sus la
+   .rigle-lift-row (z-index-ul unui descendent contează doar ÎN INTERIORUL contextului
+   părintelui). Acum e frate independent al lui .rigle-lift în .rigle-scene, cu
+   z-index sub grilă — poziționat analitic în coordonate DE SCENĂ (nu lift-locale),
+   compuse din poziția curentă a liftului + un offset local cache-uit — vezi
+   mismatchLocalLeft/Top și actualizeazaMismatch() în JS. Ascuns implicit (display
+   none), afișat doar când lățimea coloanei ≠ totalMere. */
 .rigle-lift-mismatch {
   position: absolute;
+  z-index: 2; /* sub grila (3), deasupra coloanelor/numerotării (1) — cerere 25.08.2026 */
   display: none;
   background: #ff9800;
   border-radius: 4px;
   animation: rigle-blink 0.6s ease-in-out infinite;
   pointer-events: none;
+}
+.rigle-lift-mismatch--ready {
+  /* Fără asta, de când mismatchEl e frate (nu copil) al lui lift: poziția lui se scrie
+     direct, instant, cu JS (xLiftCurent() întoarce ținta finală, nu o valoare
+     intermediară) — ar sări brusc la stânga/dreapta în timp ce lift/rowEl alunecă lin
+     spre aceeași țintă (tranziția LOR de 0.35s). Copil fiind, mișcarea venea gratis
+     odată cu părintele; frate fiind, are nevoie de propria tranziție, gată la fel
+     (adăugată pe rAF, ca la .rigle-lift--ready — nu de la prima așezare, ca să nu
+     alunece din colț la pornire). */
+  transition: left 0.35s ease;
 }
 @keyframes rigle-blink {
   0%, 100% { opacity: 0.5; }
@@ -197,15 +218,17 @@
   font-size: calc(var(--cell) * 0.74);
   line-height: 1;
 }
-/* Grila de caiet = DOAR linii, strat de SUS peste tot (paper, coloane, lift, mere,
-   inclusiv conturul coloanelor desenat tot aici — randeazaContureColoane()). Testat și
-   varianta „fundal" (25.08.2026, la cerere) — respinsă: grila devine inutilă exact
-   unde contează, peste coloanele opace, unde copilul numără pătrățele ca să măsoare.
-   Vezi gotcha #17 pt. bug-ul real întâlnit pe drum (z-index negativ „scăpat" din scenă,
-   nu problema de fond a cererii). E un <canvas> (nu div cu background-image repetat —
-   vezi randeazaGrila() pt. motiv), desenat din JS, în funcție de vertical/orizontal.
-   Dimensiunea reală (width/height, atribute, nu CSS) o dă randeazaGrila(); inset:0 îi
-   dă doar mărimea de afișare. */
+/* Grila de caiet = DOAR linii, peste paper/coloane/numerotare (inclusiv conturul
+   coloanelor desenat tot aici — randeazaContureColoane()), dar SUB lift/mere/
+   dreptunghiul portocaliu de mismatch (25.08.2026, cerere explicită — vezi
+   .rigle-lift, .rigle-lift-row, .rigle-lift-mismatch pt. z-index-urile exacte).
+   Testat și varianta „fundal" (tot 25.08.2026) — respinsă: grila devine inutilă
+   exact unde contează, peste coloanele opace, unde copilul numără pătrățele ca să
+   măsoare. Vezi gotcha #17 pt. bug-ul real întâlnit pe drum (z-index negativ „scăpat"
+   din scenă, nu problema de fond a cererii). E un <canvas> (nu div cu background-image
+   repetat — vezi randeazaGrila() pt. motiv), desenat din JS, în funcție de
+   vertical/orizontal. Dimensiunea reală (width/height, atribute, nu CSS) o dă
+   randeazaGrila(); inset:0 îi dă doar mărimea de afișare. */
 .rigle-grid {
   position: absolute;
   inset: 0;
@@ -340,7 +363,7 @@
    (actualizeazaPozitieFovLift/avanseazaFovLift), nu prin ancorare CSS la lift. */
 .rigle-fov-lift {
   position: absolute;
-  z-index: 4; /* peste .rigle-grid (3) și .rigle-lift (2) */
+  z-index: 6; /* peste .rigle-grid (3) și .rigle-lift (5) — vezi .rigle-lift pt. de ce 5 */
   display: none;
   box-sizing: border-box;
   background: #ffffff;
@@ -375,7 +398,7 @@
 }
 .rigle-fov-zburator {
   position: absolute;
-  z-index: 5;
+  z-index: 7; /* peste .rigle-fov-lift (6) — păstrează gap-ul de dinainte */
   display: none;
   align-items: center;
   justify-content: center;
@@ -402,7 +425,9 @@
    fiindcă numărul de urme variază cu durata cadrului și cu bifele CP. */
 .rigle-glorie-dara {
   position: absolute;
-  z-index: 1; /* sub .rigle-lift (2) — se vede „în urmă", nu peste el */
+  z-index: 1; /* sub .rigle-lift (acum 5) — se vede „în urmă", nu peste el. Rămâne și
+    sub grilă (3), neschimbat — userul a cerut explicit doar lift+mere peste grilă,
+    dara n-a fost menționată. */
   box-sizing: border-box;
   border-width: 3px;
   border-style: solid;
@@ -559,7 +584,10 @@
     rowEl.className = "rigle-lift-row";
     const mismatchEl = document.createElement("div");
     mismatchEl.className = "rigle-lift-mismatch";
-    lift.append(qEl, mismatchEl);
+    lift.append(qEl);
+    // mismatchEl NU mai e copil al lui lift — e adăugat mai jos, ca frate în scene
+    // (vezi comentariul CSS de la .rigle-lift-mismatch pt. motiv: z-index-ul unui
+    // copil nu poate „ieși" sub un frate al părintelui lui).
 
     // Canvas, nu div cu background-image repetat — vezi randeazaGrila() pentru motiv
     // (banding la scară mare, cauzat de compozitorul GPU, nu de geometria calculată).
@@ -581,7 +609,7 @@
 
     // rowEl ÎNAINTEA lui rowNumbersWrap — la z-index egal (1), DOM mai târziu
     // câștigă, deci numerotarea (rowNumbersWrap) picta deasupra rândului de mere.
-    scene.append(columnsWrap, rowEl, rowNumbersWrap, lift, gridEl, fovLiftEl, fovZburatorEl);
+    scene.append(columnsWrap, rowEl, rowNumbersWrap, lift, mismatchEl, gridEl, fovLiftEl, fovZburatorEl);
     arenaEl.appendChild(scene);
 
     // ── Bara de butoane proprie a m2, în stratul de butoane (peste scenă). ──
@@ -605,6 +633,15 @@
     // mere, acum frate independent al lui lift, nu copil) — recalculată doar în
     // computeGeometry() (depinde de qEl.offsetHeight, care nu se schimbă per cadru,
     // doar la fact nou/resize), citită fără remăsurare în tick()/coborârea glorioasă.
+    // mismatchLocalLeft/Top: la fel ca rowOffsetTop, dar pt. dreptunghiul portocaliu
+    // (mismatchEl, tot frate independent al lui lift, nu copil — vezi motivul la CSS
+    // .rigle-lift-mismatch). Coordonate LIFT-locale, NEscălate — recalculate doar în
+    // actualizeazaMismatch() (depind de totalMere/lățimea coloanei, nu de cadru); la
+    // fiecare cadru (tick/coborârea glorioasă), poziția finală se recompune din ele +
+    // poziția curentă a liftului (xLiftCurent()/y) + scalaLift, fără să ruleze din nou
+    // toată logica „prea mult/prea puțin".
+    let mismatchLocalLeft = 0;
+    let mismatchLocalTop = 0;
     let travel = 1;
     let colEls = [];
     let myButtons = [];
@@ -1225,6 +1262,7 @@
       y = coborareGlorioasaYStart + (travel - coborareGlorioasaYStart) * t;
       lift.style.top = `${y}px`;
       rowEl.style.top = `${y + rowOffsetTop}px`;
+      pozitioneazaMismatchTop(y); // urmărește căderea, fără să recalculeze offset-ul local
       const yFrontSus = coborareGlorioasaYStart - (coborareGlorioasaYStart - coborareGlorioasaYTintaSus) * t;
 
       const desime = Math.max(0, Math.min(100, cfg.daraDesime));
@@ -1315,6 +1353,23 @@
       travel = Math.max(1, sceneH - liftH * scalaLift);
     }
 
+    // Scrie poziția FINALĂ (coordonate de scenă) a lui mismatchEl din offset-ul local
+    // cache-uit (mismatchLocalLeft/Top, calculate în actualizeazaMismatch) + poziția
+    // CURENTĂ a liftului. Reutilizată de actualizeazaMismatch() (după ce recalculează
+    // offset-ul) ȘI, doar pt. top, de tick()/avanseazaCoborareaGlorioasa() (care nu
+    // recalculează offset-ul — doar urmăresc căderea, la fel ca rowEl). scalaLift
+    // multiplică offset-ul local, ca dreptunghiul să crească vizual odată cu liftul
+    // mărit (2×) din CP „Dimensiune initiala lift" — fără asta, ar rămâne la mărimea
+    // „normală" cât timp liftul din jurul lui e dublu.
+    function pozitioneazaMismatchLeft() {
+      if (mismatchEl.style.display === "none") return;
+      mismatchEl.style.left = `${xLiftCurent() + mismatchLocalLeft * scalaLift}px`;
+    }
+    function pozitioneazaMismatchTop(liftTopCurent) {
+      if (mismatchEl.style.display === "none") return;
+      mismatchEl.style.top = `${liftTopCurent + mismatchLocalTop * scalaLift}px`;
+    }
+
     function actualizeazaMismatch() {
       // Între coloane: rândul de mere n-are cu ce fi comparat — nici bara portocalie,
       // nici eticheta de pe buton n-au sens până la prima apăsare.
@@ -1331,24 +1386,32 @@
       }
       mismatchEl.style.display = "block";
       const centruRand = rowOffsetTop + rowEl.offsetHeight / 2;
+      let localW;
       if (latimeColoana > totalMere) {
         // coloana mai lată — celule goale în continuarea rândului de mere
         actualizeazaEtichetaButon("mare");
         const h = Math.max(rowEl.offsetHeight, mismatchMinH);
-        mismatchEl.style.left = `${totalMere * cell}px`;
-        mismatchEl.style.width = `${(latimeColoana - totalMere) * cell}px`;
-        mismatchEl.style.top = `${centruRand - h / 2}px`;
-        mismatchEl.style.height = `${h}px`;
+        mismatchLocalLeft = totalMere * cell;
+        localW = (latimeColoana - totalMere) * cell;
+        mismatchLocalTop = centruRand - h / 2;
+        mismatchEl.style.height = `${h * scalaLift}px`;
       } else {
         // coloana mai îngustă — mere care ies peste marginea galbenă
         actualizeazaEtichetaButon("mic");
         const h = Math.max(cell, mismatchMinH);
-        mismatchEl.style.left = `${latimeColoana * cell}px`;
-        mismatchEl.style.width = `${(totalMere - latimeColoana) * cell}px`;
-        const top = totalMere <= 5 ? rowOffsetTop + rowEl.offsetHeight : centruRand - h / 2;
-        mismatchEl.style.top = `${top}px`;
-        mismatchEl.style.height = `${h}px`;
+        mismatchLocalLeft = latimeColoana * cell;
+        localW = (totalMere - latimeColoana) * cell;
+        mismatchLocalTop = totalMere <= 5 ? rowOffsetTop + rowEl.offsetHeight : centruRand - h / 2;
+        mismatchEl.style.height = `${h * scalaLift}px`;
       }
+      mismatchEl.style.width = `${localW * scalaLift}px`;
+      // Coordonate de SCENĂ, nu lift-locale (mismatchEl e frate al lui lift, nu copil
+      // — vezi comentariul CSS): compune offset-ul local de mai sus cu poziția curentă
+      // a liftului. `Math.min(y, travel)` = aceeași formulă ca lift.style.top oriunde
+      // altundeva în afara coborârii glorioase (unde actualizeazaMismatch() oricum nu
+      // rulează — vezi tick()/avanseazaCoborareaGlorioasa() pt. urmărirea per-cadru).
+      pozitioneazaMismatchLeft();
+      pozitioneazaMismatchTop(Math.min(y, travel));
     }
 
     // Rebuild complet al numerotării (nu update parțial): un .rigle-row pe fiecare
@@ -1579,10 +1642,12 @@
     function schimbaFact(fact) {
       lift.classList.remove("rigle-lift--ready");
       rowEl.classList.remove("rigle-lift-row--ready");
+      mismatchEl.classList.remove("rigle-lift-mismatch--ready");
       randeazaFact(fact);
       requestAnimationFrame(() => {
         lift.classList.add("rigle-lift--ready");
         rowEl.classList.add("rigle-lift-row--ready");
+        mismatchEl.classList.add("rigle-lift-mismatch--ready");
       });
     }
 
@@ -1748,6 +1813,7 @@
     requestAnimationFrame(() => {
       lift.classList.add("rigle-lift--ready");
       rowEl.classList.add("rigle-lift-row--ready");
+      mismatchEl.classList.add("rigle-lift-mismatch--ready");
     });
 
     // ── Taste 1/2/3 → coloana 1/2/3 (poziții stânga→dreapta). ──
@@ -1786,6 +1852,7 @@
           }
           lift.style.top = `${y}px`;
           rowEl.style.top = `${y + rowOffsetTop}px`;
+          pozitioneazaMismatchTop(y); // urmărește căderea, fără să recalculeze offset-ul local
         }
         actualizeazaNumerotareAnimata();
         if (fovVizibil) {

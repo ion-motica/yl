@@ -250,33 +250,39 @@ decide — elementul mai târziu în DOM picta deasupra):
 
 | z | Element | Note |
 |---|---|---|
-| — | `.rigle-scene` (paper) | fundal `#fbfbf3`, `overflow: hidden`, `--cell` = lățimea unei celule |
+| — | `.rigle-scene` (paper) | fundal `#fbfbf3`, `overflow: hidden`, `isolation: isolate` (gotcha #17), `--cell` = lățimea unei celule |
 | 1 | `.rigle-columns` → `.rigle-col` × 3 | galbene, pe **toată** înălțimea scenei (sub bara de sus, nu și pe sub ea) |
-| 1 | `.rigle-lift-row` → `.rigle-apple` × n | rândul de mere — **frate** al lui `.rigle-lift`, nu copil (vezi mai jos) |
-| 1 | `.rigle-row-numbers` → `.rigle-row` | numerotarea rândurilor (CP), DOM după `.rigle-lift-row` → o acoperă |
-| 2 | `.rigle-lift` | text „2+1=?" + `.rigle-lift-mismatch` (rândul de mere NU mai e aici) |
-| 3 | `.rigle-grid` (`<canvas>`) | **doar linii**, peste tot — inclusiv peste coloane și peste lift; desenat pe canvas, nu `background-image` — vezi gotcha #14 |
+| 1 | `.rigle-row-numbers` → `.rigle-row` | numerotarea rândurilor (CP), DOM după `.rigle-columns` → o acoperă |
+| 2 | `.rigle-lift-mismatch` | dreptunghiul portocaliu „prea mult/prea puțin" — **frate** al lui `.rigle-lift`, nu copil (vezi gotcha #18) |
+| 3 | `.rigle-grid` (`<canvas>`) | **doar linii** + conturul coloanelor (`randeazaContureColoane`) — peste coloane/numerotare/mismatch, dar SUB lift/mere (25.08.2026, gotcha #18); desenat pe canvas, nu `background-image` — vezi gotcha #14 |
+| 4 | `.rigle-lift-row` → `.rigle-apple` × n | rândul de mere — **frate** al lui `.rigle-lift`, nu copil (vezi mai jos) |
+| 5 | `.rigle-lift` | text „2+1=?" (rândul de mere ȘI dreptunghiul de mismatch NU mai sunt aici) |
+| 6 | `.rigle-fov-lift` | eticheta „N e prea mic/mare/corect" de lângă lift |
+| 7 | `.rigle-fov-zburator` | pătrățelul zburător (FOV Lift) |
 
-**De ce rândul de mere e frate, nu copil al liftului** (cerință explicită: mere
-*sub* numerotarea rândurilor): `.rigle-lift` are `position:absolute` + `z-index:2`,
-deci creează propriul context de stivuire — orice copil al lui, indiferent ce
-z-index i-ai da, tot picta deasupra fraților lui `.rigle-lift` (deci și deasupra
-`.rigle-row-numbers`, z:1), fiindcă z-index-ul unui descendent contează doar ÎN
-INTERIORUL contextului părintelui, niciodată față de frații părintelui — o
-limitare CSS reală (stacking context), nu un bug de implementare. Soluție:
-`rowEl` a fost extras ca frate al lui `.rigle-lift` în `.rigle-scene`, cu propriul
-`z-index:1` (egal cu `.rigle-row-numbers`, dar înaintea lui în DOM, deci acoperit
-de el). Poziția (`left`/`top`) nu mai vine gratis din flex-ul liftului — se scrie
-explicit din JS, sincron, la fiecare punct unde se scrie și `lift.style.left/top`
-(`computeGeometry`, `tick`, `selectColumn`, coborârea glorioasă), folosind
-`rowOffsetTop` (distanța verticală constantă lift→rând: `LIFT_INSET + qEl.offsetHeight
-+ 4`, cache-uită în `computeGeometry()`, NU remăsurată per cadru). Tranziția CSS de
-glisare orizontală (`.rigle-lift-row--ready`, oglindă la `.rigle-lift--ready`) e
-comutată în aceleași locuri ca la lift, ca cele două să gliseze sincron la schimbarea
-coloanei. `actualizeazaMismatch()` (poziționează `.rigle-lift-mismatch`, care RĂMÂNE
-copil al liftului) folosește `rowOffsetTop` în loc de `rowEl.offsetTop` — de când
-`rowEl` nu mai e copil al liftului, `offsetTop`-ul lui ar fi relativ la scenă, nu la
-lift, și ar strica formula analitică din §9 gotcha 11.
+**De ce rândul de mere (și, din 25.08.2026, dreptunghiul de mismatch) sunt frați, nu
+copii ai liftului** (cerință explicită, de două ori: întâi „mere sub numerotarea
+rândurilor", apoi „lift+mere peste grilă, dreptunghiul SUB grilă"): `.rigle-lift` are
+`position:absolute` + `z-index` propriu, deci creează context de stivuire — orice
+copil al lui, indiferent ce z-index i-ai da, tot pictează deasupra FRAȚILOR lui
+`.rigle-lift` (deci nu poate ajunge, de ex., sub `.rigle-grid`, care e frate al
+liftului, nu descendent), fiindcă z-index-ul unui descendent contează doar ÎN
+INTERIORUL contextului părintelui, niciodată față de frații părintelui — o limitare
+CSS reală (stacking context), nu un bug de implementare. Soluție, aplicată identic de
+două ori: elementul e extras ca frate al lui `.rigle-lift` în `.rigle-scene`, cu
+propriul z-index. Poziția (`left`/`top`) nu mai vine gratis din flex-ul/coordonatele
+liftului — se scrie explicit din JS, sincron, la fiecare punct unde se scrie și
+`lift.style.left/top` (`computeGeometry`, `tick`, `selectColumn`, coborârea
+glorioasă).
+
+Pentru `rowEl` (mere): folosește `rowOffsetTop` (distanța verticală constantă
+lift→rând: `LIFT_INSET + qEl.offsetHeight + 4`, cache-uită în `computeGeometry()`, NU
+remăsurată per cadru). Tranziția CSS de glisare orizontală (`.rigle-lift-row--ready`,
+oglindă la `.rigle-lift--ready`) e comutată în aceleași locuri ca la lift.
+
+Pentru `mismatchEl` (dreptunghiul portocaliu) — vezi gotcha #18 pentru detalii și
+pentru o a doua capcană găsită pe drum (desincronizare de tranziție, nu doar de
+poziție).
 
 Coloanele și traseul liftului merg de la marginea de sus la cea de jos a `#arena` —
 curg pe sub bara de sus (≡/CP/⏸) și pe sub bara de butoane (butoanele au fundal
@@ -773,11 +779,50 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
     putut muta scena față de PROPRII ei frați din `#arena`; `isolation: isolate` forțează
     un context de stivuire nou fără alt efect secundar). Cu asta, `z-index`-urile
     interne (grilă, coloane, lift, FOV) redevin corect izolate, indiferent de valoare.
-    **Decizia finală de design** (după testarea variantei „fundal"): grila a rămas
-    „strat de sus peste tot" (z-index 3, ca înainte de 25.08.2026) — varianta „fundal"
-    a fost respinsă explicit, fiindcă face grila inutilă exact unde contează, peste
-    coloanele opace, unde copilul numără pătrățele ca să măsoare. Conturul coloanelor
-    (gotcha #15) e pe același canvas, deci urmează automat aceeași decizie.
+    **Decizia de design** (după testarea variantei „fundal"): varianta „fundal" a fost
+    respinsă explicit, fiindcă face grila inutilă exact unde contează, peste coloanele
+    opace, unde copilul numără pătrățele ca să măsoare — grila a rămas z-index 3, peste
+    coloane/numerotare. Dar imediat după (aceeași zi), o cerere separată a scos
+    lift/mere/mismatch de sub ea — vezi gotcha #18 pentru forma finală (grila nu mai e
+    „peste tot", doar peste coloane/numerotare/conturul lor).
+18. **„Lift+mere peste grilă, dreptunghiul portocaliu SUB ea" — o cerere simplă, o
+    restructurare reală** (25.08.2026, imediat după gotcha #17). Grila (z-index 3) era
+    deasupra liftului (2) și a rândului de mere (1) — cerință: inversează asta, DAR
+    dreptunghiul de mismatch (copil al liftului până atunci) trebuie să rămână sub
+    grilă. Un copil nu poate ieși sub un frate al părintelui lui (aceeași limitare de
+    stivuire ca la gotcha „rândul de mere e frate, nu copil", mai sus) — dacă liftul
+    urcă deasupra grilei, orice-i e copil urcă silit cu el. Soluție: `mismatchEl`
+    extras ca frate al lui `.rigle-lift` în `.rigle-scene` (a doua oară, după `rowEl`),
+    cu z-index propriu (2, sub grilă). Z-index-urile finale:
+    coloane/numerotare (1) < mismatch (2) < grilă (3) < mere (4) < lift (5) <
+    FOV lift (6) < FOV zburător (7) — FOV a trebuit și el urcat, ca să rămână deasupra
+    liftului (invariant preexistent, nu cerut explicit acum, dar păstrat din prudență).
+    **A doua capcană, mai subtilă — desincronizare de TRANZIȚIE, nu doar de poziție.**
+    Cât timp `mismatchEl` era copil, se mișca „gratis" cu liftul (glisarea orizontală
+    de 0,35s a liftului mișca automat tot ce era înăuntru). Ca frate, poziția lui se
+    scrie direct din JS (`xLiftCurent()` întoarce ținta FINALĂ, nu o valoare
+    intermediară) — fără o tranziție proprie, ar SĂRI instant la noua poziție în timp
+    ce lift/rowEl alunecă lin spre aceeași țintă, o desincronizare vizibilă. Găsită la
+    verificare (nu presupusă): am eșantionat poziția din 60 în 60ms în timpul
+    glisării și am văzut `mmLeft` constant deasupra/dedesubtul lui `liftLeft` cu o
+    diferență care se schimbă — semn că nu se mișcă împreună. Reparat adăugând
+    `.rigle-lift-mismatch--ready` (`transition: left 0.35s ease`), comutată exact ca
+    `.rigle-lift--ready`/`.rigle-lift-row--ready` (scoasă înainte de `randeazaFact`,
+    pusă la loc pe `requestAnimationFrame`, ca să nu alunece din colț la MOUNT).
+    **Poziționare, complet**: `mismatchLocalLeft`/`mismatchLocalTop` (variabile cache,
+    lângă `rowOffsetTop`) rețin offset-ul NEscălat, relativ la lift, calculat doar în
+    `actualizeazaMismatch()` (depinde de `totalMere`/lățimea coloanei, nu de cadru).
+    Poziția FINALĂ = `xLiftCurent()`/`Math.min(y,travel)` (poziția curentă a liftului)
+    `+ offset_local * scalaLift` — multiplicarea cu `scalaLift` (nu un `transform:
+    scale()` separat, ca la `rowEl`) reproduce matematic exact ce ar fi dat un copil
+    scalat de la originea liftului (`final = origine + local*scală`), mai simplu de
+    verificat pe două axe decât compensarea prin `translateX/Y` folosită la `rowEl`
+    (care are nevoie de ea doar pe verticală, fiindcă orizontal nu are niciun offset
+    față de lift). `pozitioneazaMismatchTop(y)` se cheamă separat, din `tick()` și
+    `avanseazaCoborareaGlorioasa()` — la fel ca `rowEl.style.top`, NU recalculează
+    logica „prea mult/prea puțin", doar reaplică offset-ul deja cache-uit peste noua
+    poziție a liftului, ca mismatch-ul să urmărească vizual căderea continuă fără
+    costul unui recalcul complet la fiecare cadru.
 
 ---
 
