@@ -725,6 +725,33 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
     **Verificat prin citire de pixeli** pe toate 3 coloanele, ambele margini, la 2
     configurații diferite de lățimi: exact `rgb(230,192,42,255)`, fără excepție.
     Se aplică ambelor quizuri Rigle (motor comun).
+16. **`<canvas>` NU se întinde cu `inset: 0` — are nevoie de `width/height: 100%`**
+    (raportat 25.08.2026: pe telefon „grila nu se mai potriveste deloc" cu coloanele,
+    liftul și conturul). `canvas` e element **replaced** (ca `img`/`video`): are mărime
+    naturală proprie — dimensiunea bitmap-ului, interpretată în px CSS — iar
+    `position:absolute; inset:0` **nu** o suprascrie, cum făcea la `<div>`-ul cu
+    `background-image` de dinainte. Am schimbat div→canvas păstrând aceeași clasă CSS,
+    fără să știu că regula se comportă diferit pe alt tip de element. Efect: bitmap-ul
+    e `sceneW * dpr` lat, dar se AFIȘA la `sceneW * dpr` px CSS (nu `sceneW`), deci tot
+    ce desenam pe canvas apărea deplasat cu **factorul dpr**, proporțional cu distanța
+    față de marginea stângă. Măsurat pe mobil (dpr 2): scena 375×668, caseta canvas-ului
+    750×1336; coloana 2 la 117px CSS, dar conturul ei desenat apărea la 234px —
+    **decalaj 117px**; coloana 3, decalaj 234px. Prima coloană părea mereu corectă
+    (0 × dpr = 0), de-aia bug-ul se citea ca „merge pe PC". Pe desktop dpr era 1.25,
+    deci eroarea de 25% se pierdea vizual într-o grilă deasă; pe telefon (dpr 2-3) sare
+    în ochi. **NU e un bug de mobil — e același bug peste tot, doar amplificat de dpr.**
+    Reparat adăugând `width: 100%; height: 100%` pe `.rigle-grid` (bitmap-ul rămâne la
+    `dpr`, doar caseta de afișare e forțată la mărimea scenei). Verificat după reparație:
+    caseta canvas = exact caseta scenei, 1 px bitmap = `1/dpr` px CSS, decalaj max **0px**
+    pe mobil (dpr 2) ȘI pe desktop, la ambele quizuri Rigle.
+    **Lecție de verificare (importantă):** verificarea inițială „prin citirea pixelilor"
+    a ratat complet bug-ul fiindcă era **circulară** — citeam bitmap-ul la poziția
+    `round(colX * dpr)`, exact formula cu care desenam, deci se potrivea mereu. Dovedea
+    doar că aritmetica mea e consecventă cu ea însăși, nu că rezultatul ajunge pe ecran
+    peste coloane. Ca să fie validă, verificarea trebuie să compare **geometria AFIȘATĂ
+    a canvas-ului** (`canvas.getBoundingClientRect()`, raportul `cr.width/canvas.width`)
+    cu **pozițiile reale ale elementelor DOM** — două surse independente, nu formula
+    proprie cu ea însăși.
 
 ---
 

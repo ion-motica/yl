@@ -193,6 +193,13 @@
 .rigle-grid {
   position: absolute;
   inset: 0;
+  /* OBLIGATORIU pe canvas, nu doar inset:0 (gotcha #16): canvas e element "replaced",
+     ca img/video — are mărime naturală proprie (bitmap-ul, in px CSS), iar inset:0 NU
+     o suprascrie, cum făcea la div-ul cu background-image de dinainte. Fără astea,
+     canvas-ul se afișa la mărimea bitmap-ului (dublu la dpr 2), deci tot ce desenam pe
+     el apărea deplasat cu factorul dpr față de coloanele din DOM. */
+  width: 100%;
+  height: 100%;
   z-index: 3;
   pointer-events: none;
 }
