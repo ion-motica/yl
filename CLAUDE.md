@@ -28,6 +28,7 @@ deja l-a scris.
 | Acolade (axa numerelor) | `documente de referinta/referinta acolade - text.md` |
 | Quiz nou / modificare quiz existent | `documente de referinta/QUIZ-SPEC-SABLON.md` |
 | Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
+| Titluri secțiuni CP (panou nou/existent) | `documente de referinta/standard-titluri-cp.md` |
 | Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |
 | `numaraTICs()` (scris/împrumut) | `js/numara-tics.js`, `tests/numara-tics.test.js` |
 | Deschidere Codex browser local | `Codex docs/Deschidere Codex browser - referinta pt Codex.md` |
