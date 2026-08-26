@@ -53,11 +53,19 @@
       return mounts.get(id) || null;
     }
 
+    // Titlul unui panou e fie un string static, fie o functie () => string —
+    // cazul panourilor comune mai multor quizuri (ex. "Subquiz"), unde titlul
+    // trebuie sa reflecte quizul activ, nu poate fi fixat o singura data.
+    function resolveTitle(def) {
+      return typeof def.title === "function" ? def.title() : def.title;
+    }
+
     // Randul din TOC ramane vizibil mereu (drag&drop functioneaza si dezactivat);
     // doar eticheta primeste sufixul "(alt quiz)" cat timp panoul nu se aplica
     // quizului activ.
     function tocLabel(def, enabled) {
-      return enabled ? def.title : `${def.title} (alt quiz)`;
+      const title = resolveTitle(def);
+      return enabled ? title : `${title} (alt quiz)`;
     }
 
     function setPanelEnabled(id, enabled) {
@@ -65,6 +73,7 @@
       const row = tocEl.querySelector(`.cp-toc-row[data-cp-id="${id}"]`);
       const tocItem = row?.querySelector(".cp-toc-item");
       const section = sectionsEl.querySelector(`[data-cp-id="${id}"]`);
+      const heading = section?.querySelector(".cp-section-heading");
       row?.classList.toggle("is-disabled", !enabled);
       // Sectiunea (titlu galben + continut) dispare complet cat timp panoul nu
       // se aplica quizului activ — nu ramane ca stub dimat.
@@ -73,6 +82,11 @@
         tocItem.disabled = !enabled;
         if (def) tocItem.textContent = tocLabel(def, enabled);
       }
+      // Titlul din corpul panoului (heading) se recalculeaza aici si nu doar in
+      // build(): la schimbarea quizului activ, refreshEnabledStates() apeleaza
+      // asta pentru fiecare panou — singurul loc unde un titlu dinamic (Subquiz)
+      // ar redeveni corect, altfel ar ramane inghetat pe quizul anterior.
+      if (heading && def) heading.textContent = resolveTitle(def);
     }
 
     function scrollToPanel(id, instant) {
@@ -169,7 +183,7 @@
       const handle = document.createElement("button");
       handle.type = "button";
       handle.className = "cp-toc-drag";
-      handle.setAttribute("aria-label", `Reordonează „${def.title}” (trage)`);
+      handle.setAttribute("aria-label", `Reordonează „${resolveTitle(def)}” (trage)`);
       handle.textContent = "⠿";
       handle.addEventListener("pointerdown", (e) => startDrag(e, def.id));
 
@@ -207,7 +221,7 @@
 
         const heading = document.createElement("h2");
         heading.className = "cp-section-heading";
-        heading.textContent = def.title;
+        heading.textContent = resolveTitle(def);
         section.appendChild(heading);
 
         const body = document.createElement("div");

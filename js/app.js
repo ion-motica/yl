@@ -937,6 +937,15 @@
   quiz.setOnFluentaReady?.(() => restartActiveRound());
   applyRequestedQuizConfig();
 
+  // Titlul "Subquiz" e comun mai multor quizuri (getSubquizStartOptions apare in
+  // 4 fisiere din js/quizzes/) — nu exista UN titlu exact de quiz de fixat static,
+  // deci se recalculeaza din quizul activ de fiecare data cand e citit (vezi
+  // resolveTitle() din cp-shell.js, apelat si la fiecare switchQuiz -> refreshEnabledStates).
+  function subquizPanelTitle() {
+    const activeMeta = QuizRegistry.get(QuizRegistry.getActiveId());
+    return `CP - ${activeMeta?.title || "Subquiz"} — Subquiz`;
+  }
+
   let aamCpEnabled = false;
   CpRegistry.register({
     id: "general",
@@ -945,50 +954,51 @@
   });
   CpRegistry.register({
     id: "subquiz",
-    title: "CP — Subquiz",
+    title: subquizPanelTitle,
     isEnabled: () => typeof quiz?.getSubquizStartOptions === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "equationTonomat",
-    title: "CP - Ecuatii",
+    title: "CP - Ecuatii cu 3 4 5 6 numere",
     isEnabled: () => typeof quiz?.appendTonomatControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "rigle",
-    title: "CP — Rigle",
+    title: "CP - Adunari cu coloane verticale",
     isEnabled: () => typeof quiz?.appendRigleControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "rigleTabla110",
-    title: "CP — Tabla adunarii 1-10",
+    title: "CP - Adunari cu coloane - Tabla adunarii 1-10",
     isEnabled: () => typeof quiz?.appendRigleTabla110ControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "preEquationNav",
-    title: "CP - Pre-ecuatii",
+    title: "CP - Navigare pre-ecuatii EFF",
     isEnabled: () =>
       typeof quiz?.appendPreEquationNavigationControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "sq2EffVbs",
-    title: "CP — SQ2 EFF VBS",
+    title: "CP - T*/ 11-20 - v3 - train w eff si eq forms - jurnal",
     isEnabled: () => typeof quiz?.appendSq2ControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "sq3FactorGroups",
-    title: "CP — SQ3",
+    title: "CP - T*/ 11-20 - v4 - bag toate in joc, intensiv multipli 2 3 4 — SQ3",
     isEnabled: () => typeof quiz?.appendSq3ControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "sq5FluentParty",
-    title: "CP — SQ5 Fluent party",
+    title:
+      "CP - T*/ 11-20 - v4 - bag toate in joc, intensiv multipli 2 3 4 — SQ5 Fluent party",
     isEnabled: () => typeof quiz?.appendSq5ControlPanel === "function",
     quizSpecific: true,
   });

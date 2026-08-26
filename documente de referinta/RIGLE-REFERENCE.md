@@ -352,7 +352,7 @@ Apelat din `computeGeometry()` (fact/resize/mod) și din `selectColumn()`.
 
 ---
 
-## 6. Panoul CP — „CP — Rigle"
+## 6. Panoul CP — „CP - Adunari cu coloane verticale"
 
 Urmează exact convenția panourilor CP per-quiz deja existente (`equationTonomat`,
 `preEquationNav`, `sq2EffVbs`): quiz-ul expune `appendRigleControlPanel(mount)`, iar
@@ -362,13 +362,13 @@ Urmează exact convenția panourilor CP per-quiz deja existente (`equationTonoma
 ```js
 CpRegistry.register({
   id: "rigle",
-  title: "CP — Rigle",
+  title: "CP - Adunari cu coloane verticale",
   isEnabled: () => typeof quiz?.appendRigleControlPanel === "function",
   quizSpecific: true,
 });
 ```
 
-`quizSpecific: true` face ca `CpShell` să facă **auto-scroll** la secțiunea „CP — Rigle"
+`quizSpecific: true` face ca `CpShell` să facă **auto-scroll** la secțiunea „CP - Adunari cu coloane verticale"
 când se deschide panoul CP în timp ce Rigle e quiz-ul activ (mecanism generic din
 `cp-shell.js`, adăugat pentru toate panourile per-quiz — nu e specific implementării
 Rigle, dar Rigle îl moștenește automat prin flag).
