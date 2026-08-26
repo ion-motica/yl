@@ -20,6 +20,26 @@
 
   const STYLE_ID = "rigle-styles";
 
+  // Toate z-index-urile scenei Rigle, adunate aici — schimbă valorile în apelul de mai
+  // jos, nu umblând prin CSS. Parametrii au implicit valorile curente (24.08.2026);
+  // apelul fără argumente le păstrează neschimbate, e doar o adunare de referințe.
+  function zIndexRigle({
+    pauza = 10,
+    fovZburator = 7,
+    fovLift = 6,
+    lift = 5,
+    mereRow = 4,
+    grid = 3,
+    mismatch = 2,
+    coloane = 1,
+    rowNumbers = 1,
+    appleEmoji = 1,
+    glorieDara = 1,
+  } = {}) {
+    return { pauza, fovZburator, fovLift, lift, mereRow, grid, mismatch, coloane, rowNumbers, appleEmoji, glorieDara };
+  }
+  const Z = zIndexRigle();
+
   const CSS = `
 .rigle-scene {
   position: absolute;
@@ -47,7 +67,7 @@
   content: "PAUZĂ";
   position: absolute;
   inset: 0;
-  z-index: 10;
+  z-index: ${Z.pauza};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,7 +80,7 @@
 .rigle-columns {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: ${Z.coloane};
   pointer-events: none;
 }
 .rigle-col {
@@ -80,7 +100,7 @@
 }
 .rigle-lift {
   position: absolute;
-  z-index: 5; /* deasupra grilei (3) — cerere explicită (25.08.2026): grila trebuie
+  z-index: ${Z.lift}; /* deasupra grilei (3) — cerere explicită (25.08.2026): grila trebuie
     să rămână un strat vizual (peste coloane), dar liftul și merele nu trebuie
     acoperite de ea. Gap-ul față de .rigle-lift-row (4) e păstrat identic cu cel
     dinainte (lift stătea cu un nivel deasupra rândului de mere) — nu se atingeau
@@ -140,7 +160,7 @@
    remăsurată la fiecare cadru). */
 .rigle-lift-row {
   position: absolute;
-  z-index: 4; /* deasupra grilei (3), sub lift (5) — cerere 25.08.2026, vezi .rigle-lift */
+  z-index: ${Z.mereRow}; /* deasupra grilei (3), sub lift (5) — cerere 25.08.2026, vezi .rigle-lift */
   display: flex;
   transform-origin: left top;
 }
@@ -164,7 +184,7 @@
    none), afișat doar când lățimea coloanei ≠ totalMere. */
 .rigle-lift-mismatch {
   position: absolute;
-  z-index: 2; /* sub grila (3), deasupra coloanelor/numerotării (1) — cerere 25.08.2026 */
+  z-index: ${Z.mismatch}; /* sub grila (3), deasupra coloanelor/numerotării (1) — cerere 25.08.2026 */
   display: none;
   background: #ff9800;
   border-radius: 4px;
@@ -214,7 +234,7 @@
 }
 .rigle-apple-emoji {
   position: relative;
-  z-index: 1;
+  z-index: ${Z.appleEmoji};
   font-size: calc(var(--cell) * 0.74);
   line-height: 1;
 }
@@ -239,7 +259,7 @@
      el apărea deplasat cu factorul dpr față de coloanele din DOM. */
   width: 100%;
   height: 100%;
-  z-index: 3;
+  z-index: ${Z.grid};
   pointer-events: none;
 }
 /* Numerotarea rândurilor (CP „Numerotează rânduri din coloane") — peste coloane,
@@ -249,7 +269,7 @@
 .rigle-row-numbers {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: ${Z.rowNumbers};
   pointer-events: none;
 }
 .rigle-row {
@@ -363,7 +383,7 @@
    (actualizeazaPozitieFovLift/avanseazaFovLift), nu prin ancorare CSS la lift. */
 .rigle-fov-lift {
   position: absolute;
-  z-index: 6; /* peste .rigle-grid (3) și .rigle-lift (5) — vezi .rigle-lift pt. de ce 5 */
+  z-index: ${Z.fovLift}; /* peste .rigle-grid (3) și .rigle-lift (5) — vezi .rigle-lift pt. de ce 5 */
   display: none;
   box-sizing: border-box;
   background: #ffffff;
@@ -398,7 +418,7 @@
 }
 .rigle-fov-zburator {
   position: absolute;
-  z-index: 7; /* peste .rigle-fov-lift (6) — păstrează gap-ul de dinainte */
+  z-index: ${Z.fovZburator}; /* peste .rigle-fov-lift (6) — păstrează gap-ul de dinainte */
   display: none;
   align-items: center;
   justify-content: center;
@@ -425,7 +445,7 @@
    fiindcă numărul de urme variază cu durata cadrului și cu bifele CP. */
 .rigle-glorie-dara {
   position: absolute;
-  z-index: 1; /* sub .rigle-lift (acum 5) — se vede „în urmă", nu peste el. Rămâne și
+  z-index: ${Z.glorieDara}; /* sub .rigle-lift (acum 5) — se vede „în urmă", nu peste el. Rămâne și
     sub grilă (3), neschimbat — userul a cerut explicit doar lift+mere peste grilă,
     dara n-a fost menționată. */
   box-sizing: border-box;

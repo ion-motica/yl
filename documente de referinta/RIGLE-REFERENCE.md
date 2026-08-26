@@ -823,6 +823,12 @@ Stilul e injectat din JS (`injectStyles()`, ca la `facts din coloane animate`) �
     logica „prea mult/prea puțin", doar reaplică offset-ul deja cache-uit peste noua
     poziție a liftului, ca mismatch-ul să urmărească vizual căderea continuă fără
     costul unui recalcul complet la fiecare cadru.
+19. **Toate z-index-urile scenei sunt adunate în `zIndexRigle()`** (25.08.2026, cerere
+    explicită „ca să poți modifica ușor" — refactor pur, `const Z = zIndexRigle();`,
+    fără nicio schimbare de valoare/comportament, verificat: toate z-index-urile
+    calculate identice cu înainte). Schimbă valorile ACOLO (parametrii funcției), nu
+    umblând prin CSS — tabelul de straturi de mai sus rămâne descrierea ordinii
+    RELATIVE, dar sursa de-adevăr pentru valorile EXACTE e acum funcția, nu CSS-ul.
 
 ---
 
