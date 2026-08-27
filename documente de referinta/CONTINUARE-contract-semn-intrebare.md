@@ -50,6 +50,18 @@ Nu sunt grupate „quiz nou / preexistent / cele 4" — gruparea reală e:
 3. **Quizul se revelează singur, motorul nu intervine** — Împărțiri la numere prime, Tabla
    adunarii - Clasic, Tabla adunarii - 1..n + 1..n. Își scriu propriul `promptHtml` cu
    răspunsul înăuntru; motorul detectează (`resultAlreadyRevealed`) și se retrage.
+4. **Nu se revelează niciodată** — formatul `fg-stack` (T*/ 11-20 - v4, Subquiz 3: grup de
+   factori). Descoperit în discuția de continuare, lipsea din lista de mai sus.
+   `stateHasQuestionMark` are un `if` explicit care întoarce `false`, deci motorul nici nu
+   ajunge la calea de marcaj. `?`-ul rândului curent e caracter brut, fără niciun tag.
+
+   **Atenție la motivul din cod:** comentariul justifică opt-out-ul cu „i-ar sparge rândurile
+   într-o singură linie" — motivul acela **nu mai e valabil**, exact asta a reparat
+   `revealAnswerInPlace` (modifică doar nodul slotului, nu rescrie tot `promptHtml`-ul).
+   Ce rămâne valabil e decizia pedagogică din `PLAN-v4-subquiz3-grupuri-factori.md` §2.8
+   („toate rândurile arată `?`", cu varianta care arată rezultatele notată ca idee de viitor
+   în §9). Azi cele două — constrângere tehnică moartă și decizie de design vie — stau lipite
+   în același `return false`.
 
 ## De ce quizul de azi n-a primit automat `q-mark`
 
@@ -126,3 +138,59 @@ proprii, deci nu e doar o schimbare de clasă CSS.
 
 **Unde se scrie contractul, după decizii:** în `AGENTS.md`, lângă secțiunea existentă
 „Contractul de răspuns la quiz/subquiz" — nu doar în cod.
+
+## Continuarea discuției — ce s-a stabilit, ce rămâne
+
+> Discuție, **nimic implementat**. Userul nu a aprobat încă scrierea de cod.
+
+### Forma contractului (stabilit de user)
+
+O **singură** funcție, transmisă de quiz către motor **ca parametru** al unei funcții cerute
+de motor: `functieDinArenaEngine(..., functieDefinirePlaceholder(), ...)`.
+
+- **Obligatorie și explicită.** Fără fallback tacit „dacă quizul nu zice nimic, presupun
+  generica". Quizul o declară chiar și când e fix funcția generică. Efect: un quiz nou nu
+  poate să *uite* — divergența nu mai poate intra din neatenție, care e exact cum au apărut
+  cele 3-4 variante de azi.
+- **Acoperă toate formele de întrebare** — simplă, compusă, tabel, stack. Fără excepții,
+  fără categorii speciale.
+- **Locul funcției generice:** lângă celelalte utilitare comune de quiz, **nu** exportată din
+  `js/falling-engine.js`.
+
+### Definiția care face contractul să funcționeze
+
+**Placeholder = locul unde se pune una din cele 3 valori de pe butoanele de răspuns.**
+De obicei caracterul `?`, dar userul poate alege altceva.
+
+Criteriul ăsta rezolvă cazul `fg-stack`, unde pe ecran sunt **două** `?`: rândul curent
+(`14*5=?`) e placeholder — primește una din cele 3 valori; al doilea (`14*15=?`) e o
+întrebare viitoare, nu placeholder.
+
+### Cele două axe — de ținut minte, se confundă ușor
+
+| axă | întrebare | acoperită de contract acum? |
+|---|---|---|
+| **A. marcajul** | unde e locul care primește una din cele 3 valori? | **da**, peste tot |
+| **B. politica de revelare** | se arată acolo răspunsul, sau rămâne `?`? | nu, rămâne cum e |
+
+Confuzia lor a produs, în discuție, o „a treia stare" inventată degeaba (`fg-stack` are
+placeholder, doar că alege să nu-l reveleze — nu e absență de placeholder). Contractul
+acoperă acum **doar axa A**.
+
+### De revenit după ce se închide contractul `?`
+
+1. **`singapore-bond` și `division-eq`** (axa B + unificarea vizuală, decizia 3 de mai sus).
+   Sunt lăsate deoparte **intenționat**: la ele revelarea scrie și câmpuri de stare proprii
+   (`bondRevealedAddend`, `revealedQuotient`), citite de alt cod — nu e doar schimbare de
+   clasă CSS. Se reiau după.
+2. **`fg-stack`** — de despărțit constrângerea tehnică moartă de decizia de design vie
+   (vezi varianta 4 de mai sus).
+
+### Rămân de decis
+
+- **Semnătura funcției.** Fără argumente (întoarce marcajul gata făcut) sau cu? Userul a zis
+  că semnul poate fi și altceva decât `?` — de lămurit dacă asta înseamnă *argument* al
+  funcției generice, sau *altă funcție* declarată de quiz.
+- **Numele clasei.** `q-mark` (există în 3 locuri + interogat de `js/asnw-onboarding.js:378`)
+  vs. `question-to-reveal` (doar în quizul cu tabel). Decizia elimină selectorul compus
+  `.question-to-reveal, .q-mark` din `revealAnswerInPlace`.
