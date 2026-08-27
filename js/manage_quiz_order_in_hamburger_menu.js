@@ -7,6 +7,7 @@ window.QUIZ_MENU_TEXT = `
 ## Clasa 0
 Adunari cu coloane verticale
 Adunari cu coloane - Tabla adunarii 1-10
+Numaram din 2 in 2 - inainte si inapoi
 ## Clasa 1
 T+ EFF — Adunare extended fact family
 T− EFF — Scădere extended fact family

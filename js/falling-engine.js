@@ -11,6 +11,14 @@
   const FALL_SPEED = 54;
   const RISE_TRAVEL_S = 0.5;
   const DEFAULT_REVEAL_HOLD_MS = 160;
+  // Slot dedicat pentru revelarea raspunsului "in loc". Un quiz care isi
+  // construieste singur `promptHtml` (tabel, randuri multiple, stiluri inline)
+  // pune semnul intrebarii intr-un
+  //   <span class="question-to-reveal">?</span>
+  // iar motorul ii schimba, la raspuns corect, DOAR continutul acelui span —
+  // fara sa reconstruiasca tot promptul din `state.prompt` (text simplu), cum
+  // face `buildRevealedState`. Vezi `revealAnswerInPlace`.
+  const REVEAL_SLOT_CLASS = "question-to-reveal";
   const BOUNCE_UP = 48;
   // După bounce, liftul trebuie să ajungă clar deasupra jumătății traseului
   // (y = fracție × travelSpan; sub 0.5 = în jumătatea de sus).
@@ -469,9 +477,12 @@
         // singura linie, vezi PLAN-v4-subquiz3-grupuri-factori.md §2.8).
         return false;
       }
+      const html = String(state.promptHtml ?? "");
+      // Slotul dedicat conteaza si cand promptul-text nu are deloc "?" (quiz
+      // care isi construieste singur promptHtml si tine textul simplu pt loguri).
+      if (html.includes(REVEAL_SLOT_CLASS)) return true;
       const raw = String(state.prompt ?? "");
       if (raw.includes("?")) return true;
-      const html = String(state.promptHtml ?? "");
       return html.includes("q-mark") || html.includes("q-q");
     }
 
@@ -497,6 +508,25 @@
         return a.dividend === b.dividend && a.divisor === b.divisor;
       }
       return String(a.prompt) === String(b.prompt);
+    }
+
+    // Revelare "in loc": cauta slotul dedicat in DOM-ul DEJA randat si ii
+    // schimba doar continutul (+ clasa de highlight), fara sa atinga restul
+    // structurii. Alternativa veche (`buildRevealedState` + `renderRound`)
+    // reconstruieste promptul din `state.prompt` — textul SIMPLU de fallback —
+    // deci pierde orice promptHtml custom (tabel, randuri, stiluri inline) pe
+    // durata revelarii: un flash vizibil, raportat de user (28.08.2026) la
+    // quizul "Numaram din 2 in 2".
+    //
+    // Intoarce true daca a revelat in loc; false => apelantul cade pe calea
+    // veche, neschimbata (quizurile care nu folosesc slotul nu simt nimic).
+    function revealAnswerInPlace(answer) {
+      const slot = dom.topNumberEl?.querySelector(`.${REVEAL_SLOT_CLASS}`);
+      if (!slot) return false;
+      slot.textContent = String(answer ?? "").trim();
+      slot.classList.add("q-correct");
+      fitNumberText(dom.topNumberEl);
+      return true;
     }
 
     function buildRevealedState(state, answer) {
@@ -895,12 +925,18 @@
         !resultAlreadyRevealed(result, beforeState);
 
       if (needsEngineReveal) {
-        const revealState = buildRevealedState(beforeState, chosenAnswer);
-        renderRound({
-          ...revealState,
-          options: beforeState.options,
-          correctIndex: beforeState.correctIndex,
-        });
+        // Intai calea "in loc" (pastreaza promptHtml-ul custom randat); daca
+        // quizul nu are slotul dedicat, calea veche, neschimbata.
+        if (revealAnswerInPlace(chosenAnswer)) {
+          lastRoundState = { ...beforeState, answerRevealed: true };
+        } else {
+          const revealState = buildRevealedState(beforeState, chosenAnswer);
+          renderRound({
+            ...revealState,
+            options: beforeState.options,
+            correctIndex: beforeState.correctIndex,
+          });
+        }
         const holdMs =
           result.promptHoldMs ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS;
         setInputEnabled(false);
