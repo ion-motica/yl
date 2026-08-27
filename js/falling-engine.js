@@ -518,12 +518,30 @@
     // durata revelarii: un flash vizibil, raportat de user (28.08.2026) la
     // quizul "Numaram din 2 in 2".
     //
+    // Acopera TOATE quizurile fara nicio modificare per quiz: `.q-mark` e deja
+    // marcajul standard al semnului de intrebare din proiect — motorul insusi il
+    // pune pe orice prompt-text simplu (vezi `renderRound`), iar cele doua quizuri
+    // care isi scriu singure promptHtml-ul (bagare-sub-radical.js, adica "Bagare
+    // sub radical", si sub-sau-langa-radical.js, adica "Sub sau lângă radical v1")
+    // folosesc exact aceeasi clasa. `REVEAL_SLOT_CLASS` ramane pentru cazuri ca
+    // "Numaram din 2 in 2", unde slotul e o celula de tabel, nu un `.q-mark`.
+    //
+    // Formatele speciale (`singapore-bond`, `division-eq`) sunt lasate INTENTIONAT
+    // pe calea veche: revelarea lor scrie campuri de stare proprii
+    // (`bondRevealedAddend`, `revealedQuotient`) citite si de alt cod, nu doar
+    // textul de pe ecran. `fg-stack` nu revela deloc (vezi `stateHasQuestionMark`).
+    //
     // Intoarce true daca a revelat in loc; false => apelantul cade pe calea
-    // veche, neschimbata (quizurile care nu folosesc slotul nu simt nimic).
-    function revealAnswerInPlace(answer) {
-      const slot = dom.topNumberEl?.querySelector(`.${REVEAL_SLOT_CLASS}`);
+    // veche, neschimbata.
+    function revealAnswerInPlace(state, answer) {
+      if (state?.questionFormat) return false;
+      const slot = dom.topNumberEl?.querySelector(`.${REVEAL_SLOT_CLASS}, .q-mark`);
       if (!slot) return false;
       slot.textContent = String(answer ?? "").trim();
+      // Dupa revelare nu mai e un semn de intrebare: scoatem marcajul, ca restul
+      // codului care cauta `.q-mark` (ex. manuta din js/asnw-onboarding.js) sa nu
+      // pointeze spre un slot care arata deja raspunsul.
+      slot.classList.remove("q-mark");
       slot.classList.add("q-correct");
       fitNumberText(dom.topNumberEl);
       return true;
@@ -927,7 +945,7 @@
       if (needsEngineReveal) {
         // Intai calea "in loc" (pastreaza promptHtml-ul custom randat); daca
         // quizul nu are slotul dedicat, calea veche, neschimbata.
-        if (revealAnswerInPlace(chosenAnswer)) {
+        if (revealAnswerInPlace(beforeState, chosenAnswer)) {
           lastRoundState = { ...beforeState, answerRevealed: true };
         } else {
           const revealState = buildRevealedState(beforeState, chosenAnswer);
