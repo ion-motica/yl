@@ -139,9 +139,27 @@ ca stack vertical (exemplu la A=11, fg `3 6 9`):
 9*11=?
 ```
 
-- **Toate rândurile arată `?`.** (Varianta în care rândurile deja rezolvate își arată
-  rezultatul — 33, 66, 99 — e reținută explicit ca idee de viitor, inclusiv pentru
-  tabla 1-10; vezi §9.)
+- **Toate rândurile arată `?`** *cât timp întrebarea e deschisă*. (Varianta în care
+  rândurile deja rezolvate își arată rezultatul — 33, 66, 99 — rămâne idee de viitor,
+  inclusiv pentru tabla 1-10; vezi §9.)
+- **Placeholderul e unul singur: rândul curent.** El primește una din cele 3 valori de
+  pe butoane, deci e marcat prin contractul comun (`js/placeholder-raspuns.js`) și apare
+  galben, ca în restul aplicației. Celelalte rânduri arată tot `?`, dar sunt întrebări
+  **viitoare**, nu placeholdere — rămân text simplu, nemarcat.
+- **La răspuns corect, răspunsul se dezvăluie** în locul lui `?`, **doar la rândul
+  curent**, iar **stack-ul rămâne întreg pe ecran** (decis 27.08.2026, după ce userul a
+  văzut rezultatul).
+
+  > Regula asta ÎNLOCUIEȘTE formularea inițială „stack-ul nu dezvăluie niciodată nimic".
+  > Motivul: în realitate motorul dezvăluia deja — dar prost. Ramura de opt-out din
+  > `stateHasQuestionMark` (`questionFormat === "fg-stack"`) era **cod mort**: quizul
+  > trece prin `SubquizDefinition`, iar `view()` nu pasează `questionFormat` mai departe.
+  > Fără un slot marcat în DOM, revelarea cădea pe `buildRevealedState`, care
+  > reconstruia promptul din `prompt` — textul pe un singur rând — și prăbușea stack-ul
+  > la o linie, vizibil ca un flash. Marcarea rândului curent i-a dat motorului slotul,
+  > deci acum schimbă doar conținutul lui.
+  >
+  > Regresia e acoperită de `tests/falling-engine-reveal-stack.test.js`.
 - **Ordinea rândurilor: fixă crescătoare** după factorul din grup (3, 6, 9), indiferent
   de ordinea în care sunt efectiv întrebate.
 - **Forma de ecuație e uniformă pe tot stack-ul** și se rotește periodic: toate

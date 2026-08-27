@@ -488,20 +488,22 @@
       if (state.questionFormat === "division-eq") {
         return state.revealedQuotient == null && !String(state.promptHtml ?? "").includes("q-correct");
       }
-      if (state.questionFormat === "fg-stack") {
-        // Stack cu mai multe randuri (grup de factori). Randul curent ARE
-        // placeholder — quizul il marcheaza prin contractul comun — dar
-        // raspunsul nu se dezvaluie NICIODATA acolo. E o DECIZIE de design, nu
-        // o limitare tehnica: `PLAN-v4-subquiz3-grupuri-factori.md` §2.8 cere
-        // ca toate randurile sa arate "?" (varianta in care randurile rezolvate
-        // isi arata rezultatul e retinuta ca idee de viitor, §9).
-        //
-        // Comentariul de dinainte motiva asta cu "ar sparge randurile intr-o
-        // singura linie". Motivul acela a MURIT odata cu `revealAnswerInPlace`,
-        // care schimba doar nodul slotului in loc sa reconstruiasca promptul.
-        // Cele doua stateau lipite aici si faceau decizia sa para constrangere.
-        return false;
-      }
+      // NU exista aici o ramura pentru `fg-stack` (stack-ul din "T*/ 11-20 - v4",
+      // Subquiz 3). A existat una, care intorcea `false` ca sa opreasca revelarea,
+      // dar era COD MORT: quizul trece prin `SubquizDefinition`, iar `view()`
+      // (js/subquiz/subquiz-definition.js) nu paseaza mai departe `questionFormat`,
+      // deci conditia nu s-a potrivit niciodata.
+      //
+      // Consecinta reala, raportata de user (27.08.2026): starea ajungea pe calea
+      // generica de mai jos, `prompt` fiind textul pe UN SINGUR RAND ("11*9=?"),
+      // iar cum stack-ul nu avea niciun slot marcat in DOM, `revealAnswerInPlace`
+      // esua si se cadea pe `buildRevealedState` — care reconstruia promptul din
+      // acel text si PRABUSEA stack-ul la o linie, vizibil ca un flash.
+      //
+      // Reparat marcand randul curent din stack (vezi renderStackHtml in
+      // js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js): motorul
+      // gaseste slotul si schimba doar continutul lui, deci stack-ul ramane intreg
+      // si raspunsul apare doar la randul activ.
       const placeholder = placeholderRaspuns();
       const html = String(state.promptHtml ?? "");
       // Clasa conteaza si cand promptul-text nu are deloc semnul (quiz care isi
@@ -553,7 +555,7 @@
     // Formatele speciale (`singapore-bond`, `division-eq`) sunt lasate INTENTIONAT
     // pe calea veche: revelarea lor scrie campuri de stare proprii
     // (`bondRevealedAddend`, `revealedQuotient`) citite si de alt cod, nu doar
-    // textul de pe ecran. `fg-stack` nu revela deloc (vezi `stateHasQuestionMark`).
+    // textul de pe ecran.
     //
     // Intoarce true daca a revelat in loc; false => apelantul cade pe calea
     // veche, neschimbata.

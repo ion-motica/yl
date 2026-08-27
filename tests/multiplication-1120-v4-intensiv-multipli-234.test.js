@@ -391,19 +391,20 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     );
   });
 
-  it("stack: raspunsul NU se dezvaluie niciodata — decizie de design (§2.8), nu limitare tehnica", () => {
+  it("stack: intrebarea urmatoare vine tot ca stack intreg, nu ca o singura linie", () => {
     const quiz = setupQuiz({ fluentaSursa: { scorPtFact: () => 0 } });
     let round = quiz.beginRound();
     for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
     const trigger = answerCorrect(quiz, round);
     assert.equal(trigger.metadata.subquiz, SQ3_ID);
 
+    const randuriInainte = [...trigger.promptHtml.matchAll(/class="fg-stack-row/g)].length;
     const after = answerCorrect(quiz, trigger);
-    assert.ok(
-      !String(after.promptHtml).includes("q-correct"),
-      "in stack nu se dezvaluie raspunsul in niciun rand"
-    );
-    assert.ok(after.promptHtml.includes("?"), "randurile arata in continuare '?'");
+    const randuriDupa = [...String(after.promptHtml).matchAll(/class="fg-stack-row/g)].length;
+    assert.equal(randuriDupa, randuriInainte, "stack-ul isi pastreaza randurile intre intrebari");
+
+    // Revelarea propriu-zisa (raspunsul pus in locul lui "?", cu stack-ul intact)
+    // o face motorul, in DOM — vezi tests/falling-engine-reveal-stack.test.js.
   });
 
   it("criteriul 15: cadenta de rotire — 0 pastreaza aceeasi forma, 1 schimba forma la fiecare intrebare", () => {
