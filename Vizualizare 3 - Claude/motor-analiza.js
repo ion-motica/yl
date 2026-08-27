@@ -759,8 +759,15 @@
     const ziuaCurenta = ziuaAzi();
     const antete = momente.map((k) => {
       const dataOraRo = valide[k - 1].data_ora_ro;
+      // Ultima poza (k === B) se eticheteaza "acum", nu cu data ei — vezi
+      // PLAN-tabel-fotografii.md, `antet(k)`. Randarea pune in antet DOAR
+      // `eticheta` (vizualizare3-bootstrap.js, construiesteCeluleAntetDate),
+      // deci fara conditia asta cuvantul "acum" nu apare nicaieri in tabel,
+      // desi flagul `este_acum` de mai jos era deja corect.
+      // `este_azi` e alt lucru: ziua calendaristica de azi, nu ultima poza —
+      // ultima poza poate fi de acum o saptamana.
       return {
-        eticheta: formateazaZiuaAntet(dataOraRo),
+        eticheta: k === B ? "acum" : formateazaZiuaAntet(dataOraRo),
         este_acum: k === B,
         este_azi: ziDin(dataOraRo) === ziuaCurenta,
       };
