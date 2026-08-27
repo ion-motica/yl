@@ -2058,7 +2058,11 @@ body {
   white-space: nowrap;
 }
 
-.q-mark {
+/* Placeholderul de raspuns: locul din intrebare care primeste una din cele 3
+   valori de pe butoane. Clasa e pusa de js/placeholder-raspuns.js, singurul loc
+   care o construieste. NU se confunda cu `.aam-q-mark` de mai sus (ilustratia de
+   arena), care doar contine acelasi subsir. */
+.placeholder-pt-raspuns {
   color: var(--win);
   font-weight: 800;
 }

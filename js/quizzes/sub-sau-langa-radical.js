@@ -30,8 +30,13 @@
     5: ["L3-IN-1", "L3-OUT-1", "L3-OUT-2", "L3-OUT-3"],
   };
 
+  // Acelasi handler pe care quizul il declara motorului (vezi obiectul returnat
+  // de `create`), ca marcajul din promptHtml si cel cautat de motor la revelare
+  // sa nu poata diverge. Vezi js/placeholder-raspuns.js.
+  const placeholder = global.PlaceholderRaspuns.creeaza("?");
+
   function qMarkHtml() {
-    return '<span class="q-mark">?</span>';
+    return placeholder.marcaj();
   }
 
   function renderSqrt(contentHtml) {
@@ -457,6 +462,7 @@
         return pickNewQuestion();
       },
 
+      placeholderRaspuns: placeholder,
       beginRound(next) {
         current = next ?? pickNewQuestion();
         sincronizeazaOrchestratorul();

@@ -46,6 +46,7 @@ function setupLocalStorage() {
 
 const SCRIPTURI_COMUNE = [
   "js/utils.js",
+  "js/placeholder-raspuns.js",
   "js/progress-display.js",
   "js/quiz-registry.js",
   "js/fact-catalog.js",

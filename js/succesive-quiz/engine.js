@@ -449,6 +449,7 @@
         return null;
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound() {
         return startSeries();
       },

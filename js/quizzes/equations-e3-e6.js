@@ -857,6 +857,7 @@
       // Calea reala (falling-engine.js, `result.nextRound ?? beginRound(pickNextRound())`)
       // nu atinge niciodata ramura defensiva — `next` e mereu ori absent, ori
       // rezultatul unui `pickNewQuestion()` anterior, cu `.correct` intact.
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound(next) {
         current = typeof next?.correct === "number" ? next : pickNewQuestion();
         sincronizeazaOrchestratorul();

@@ -20,6 +20,22 @@
   const RUN_DELAY_MS = 500;
   const HINT_MESSAGE = "Alege numarul.";
 
+  // Cazul in care un quiz are nevoie de alta STRUCTURA in jurul placeholderului,
+  // nu de alt semn: aici celula are fundal galben, iar motorul adauga la revelare
+  // clasa `.q-correct` (text galben) — galben pe galben ar fi invizibil. Stilul
+  // inline are prioritate fata de clasa si pastreaza contrastul.
+  //
+  // Se porneste de la handlerul generic si se suprascrie DOAR `marcaj`: semnul,
+  // cautarea si inlocuirea raman comune, deci nu pot diverge de restul quizurilor.
+  // Vezi js/placeholder-raspuns.js.
+  const placeholderGeneric = global.PlaceholderRaspuns.creeaza("?");
+  const placeholder = {
+    ...placeholderGeneric,
+    marcaj: () =>
+      `<span class="${placeholderGeneric.clasa}" style="color:var(--bg);">` +
+      `${placeholderGeneric.semn}</span>`,
+  };
+
   function createNumarareCuPasQuiz(config = {}) {
     const { shuffle } = global.GameUtils;
 
@@ -144,14 +160,9 @@
       const indexCurent = valori.indexOf(pozitieCurenta);
       const celule = valori.map((valoare, i) => {
         if (valoare === pozitieCurenta) {
-          // `question-to-reveal` = slotul pe care motorul il completeaza IN LOC
-          // la raspuns corect (vezi REVEAL_SLOT_CLASS in js/falling-engine.js).
-          // `color` inline pe span: motorul adauga si clasa `.q-correct` (text
-          // galben), care pe fundalul galben al celulei ar fi invizibil —
-          // stilul inline are prioritate fata de clasa si pastreaza contrastul.
           return (
             `<td id="span${valoare}" style="${STIL_CELULA_RASPUNS}">` +
-            `<span class="question-to-reveal" style="color:var(--bg);">?</span>` +
+            placeholder.marcaj() +
             `</td>`
           );
         }
@@ -273,6 +284,7 @@
         return null;
       },
 
+      placeholderRaspuns: placeholder,
       beginRound() {
         pregatesteRunda();
         return rundaView();

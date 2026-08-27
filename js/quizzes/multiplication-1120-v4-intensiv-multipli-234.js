@@ -2186,6 +2186,7 @@
         onFluentaReadyCallback = typeof callback === "function" ? callback : null;
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound(next) {
         return next ?? beginRoute();
       },

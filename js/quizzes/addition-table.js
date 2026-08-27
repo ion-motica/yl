@@ -600,6 +600,7 @@
         this.resetLevelState();
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound({ fact, combo, bucket } = pickRoundStart()) {
         mistakes.startRun();
         return beginFactRound(fact, combo, bucket);

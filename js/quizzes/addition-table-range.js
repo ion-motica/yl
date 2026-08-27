@@ -434,6 +434,7 @@
         recentQuestionIds.length = 0;
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound({ fact, combo } = pickRoundStart()) {
         return beginFactRound(fact, combo);
       },

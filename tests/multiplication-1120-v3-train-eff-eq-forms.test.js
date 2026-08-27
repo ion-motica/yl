@@ -29,6 +29,7 @@ function setupQuiz({ shuffle = (items) => [...items], random = () => 0 } = {}) {
 
   [
     "js/utils.js",
+    "js/placeholder-raspuns.js",
     "js/progress-display.js",
     "js/quiz-registry.js",
     "js/fact-catalog.js",

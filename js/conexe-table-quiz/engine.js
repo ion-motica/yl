@@ -629,6 +629,7 @@
         return message;
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound() {
         resetSessionForLevel();
         blockMode = "m1";

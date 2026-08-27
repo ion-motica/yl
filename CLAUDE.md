@@ -27,7 +27,7 @@ deja l-a scris.
 | Profil ASNW (arena simplă pt. new user) | `Documentatie Profil ASNW - arena simpla pt new user.md` |
 | Acolade (axa numerelor) | `documente de referinta/referinta acolade - text.md` |
 | Quiz nou / modificare quiz existent | `documente de referinta/QUIZ-SPEC-SABLON.md` |
-| Semnul de întrebare (`?`) — marcaj, revelare, contract (discuție deschisă) | `documente de referinta/CONTINUARE-contract-semn-intrebare.md` |
+| Placeholder de răspuns (semnul `?`) — contract, marcaj, revelare | `js/placeholder-raspuns.js`, `tests/placeholder-raspuns.test.js`, `documente de referinta/CONTINUARE-contract-semn-intrebare.md` |
 | Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
 | Titluri secțiuni CP (panou nou/existent) | `documente de referinta/standard-titluri-cp.md` |
 | Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |

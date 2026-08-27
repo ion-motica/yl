@@ -321,6 +321,7 @@
         return ProgressDisplay.fromMistakeProgress(mistakes.getProgressView(progressOpts()));
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound({ startNum, combo } = pickRoundStart()) {
         if (isBelowLevelFloor(startNum)) {
           return this.beginRound(pickRoundStart());

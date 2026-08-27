@@ -465,6 +465,7 @@
         return message;
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound() {
         return startTurn();
       },

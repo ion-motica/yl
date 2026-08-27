@@ -235,7 +235,28 @@ care primește una din cele 3 valori), nu cum arată.
 altceva (ilustrația de arenă). Un find/replace orb pe `"q-mark"` o strică. Redenumirea se
 face pe potriviri delimitate.
 
-### Stare: toate deciziile sunt luate
+### Stare: IMPLEMENTAT (axa A)
 
-Contractul e complet specificat. **Nu s-a scris niciun cod** — se așteaptă aprobarea
-explicită a userului pentru implementare.
+Contractul e scris în `AGENTS.md`, secțiunea „Contractul placeholderului de răspuns", iar
+implementarea comună e în `js/placeholder-raspuns.js` (teste:
+`tests/placeholder-raspuns.test.js`).
+
+**Ce s-a făcut:**
+
+- utilitar comun nou, lângă celelalte utilitare de quiz; semnul e argument, handlerul deține
+  tot pasul „text → HTML marcat";
+- motorul nu mai hardcodează semnul în niciun loc; cele trei logici care se contraziceau merg
+  acum prin același handler;
+- clasa redenumită în `placeholder-pt-raspuns`, inclusiv în `style.css` și în consumatorul din
+  `js/asnw-onboarding.js` (care altfel s-ar fi rupt tăcut);
+- declarație obligatorie în 19 producători de quiz + cele 3 quizuri care hardcodau marcajul;
+- selectorul compus `.question-to-reveal, .q-mark` a dispărut.
+
+**Verificat:** 213/213 teste portabile (baseline era 206 + 7 teste noi) și un test funcțional în
+browser pe toate cele 27 de quizuri înregistrate — 25 randează cu contract, 2 sunt `customEngine`.
+La quizul cu tabel, revelarea păstrează tabelul (bugul cu flash rămâne reparat); la „Ecuatii"
+rezultatul e identic cu cel dinainte (`<span class="q-correct">6</span> = 2 + 4`).
+
+**Notă:** `npm test` rulează un singur fișier de test, iar 31 din ~50 de teste hardcodează calea
+Windows `C:/Users/I/Projects/Youlearn.com`, deci nu rulează pe alt sistem. Verificarea completă
+s-a făcut pe cele 17 portabile.

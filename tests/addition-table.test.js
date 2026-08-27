@@ -17,6 +17,7 @@ function setupQuiz({ deterministic = true } = {}) {
   globalThis.window = globalThis;
   [
     "js/utils.js",
+    "js/placeholder-raspuns.js",
     "js/fact-catalog.js",
     "js/fact-store.js",
     "js/fact-stats.js",

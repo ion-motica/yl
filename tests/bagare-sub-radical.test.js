@@ -29,6 +29,7 @@ function setupQuiz({ deterministic = true } = {}) {
   globalThis.window = globalThis;
   [
     "js/utils.js",
+    "js/placeholder-raspuns.js",
     "js/progress-display.js",
     "js/quiz-registry.js",
     "js/subquiz/item-generator.js",

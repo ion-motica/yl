@@ -530,6 +530,7 @@
         return beginSeriesA();
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound(next) {
         return next ?? beginSeriesA();
       },

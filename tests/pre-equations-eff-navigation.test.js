@@ -18,6 +18,7 @@ function setupQuiz() {
   globalThis.alert = () => {};
   [
     "js/utils.js",
+    "js/placeholder-raspuns.js",
     "js/progress-display.js",
     "js/quiz-registry.js",
     "js/subquiz/item-generator.js",

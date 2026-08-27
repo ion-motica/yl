@@ -11,14 +11,13 @@
   const FALL_SPEED = 54;
   const RISE_TRAVEL_S = 0.5;
   const DEFAULT_REVEAL_HOLD_MS = 160;
-  // Slot dedicat pentru revelarea raspunsului "in loc". Un quiz care isi
-  // construieste singur `promptHtml` (tabel, randuri multiple, stiluri inline)
-  // pune semnul intrebarii intr-un
-  //   <span class="question-to-reveal">?</span>
-  // iar motorul ii schimba, la raspuns corect, DOAR continutul acelui span —
-  // fara sa reconstruiasca tot promptul din `state.prompt` (text simplu), cum
-  // face `buildRevealedState`. Vezi `revealAnswerInPlace`.
-  const REVEAL_SLOT_CLASS = "question-to-reveal";
+  // Placeholderul de raspuns (locul care primeste una din cele 3 valori de pe
+  // butoane) NU mai e cunoscut aici. Fiecare quiz il declara explicit, prin
+  // `placeholderRaspuns` — vezi `js/placeholder-raspuns.js` si
+  // `documente de referinta/CONTINUARE-contract-semn-intrebare.md`.
+  //
+  // Inainte, motorul hardcoda "?" in trei locuri, cu logici care se contraziceau
+  // (unul il cauta, altul il inlocuia pe primul, al treilea le marca pe toate).
   const BOUNCE_UP = 48;
   // După bounce, liftul trebuie să ajungă clar deasupra jumătății traseului
   // (y = fracție × travelSpan; sub 0.5 = în jumătatea de sus).
@@ -36,6 +35,25 @@
   function FallingEngine(config) {
     const dom = config.dom;
     const getQuiz = config.getQuiz;
+
+    // Contractul placeholderului: OBLIGATORIU si EXPLICIT, fara fallback tacit.
+    // Un quiz care nu-l declara opreste randarea cu o eroare care spune exact ce
+    // lipseste — asa un quiz nou nu poate sa "uite", iar divergenta (trei clase
+    // diferite pentru acelasi lucru) nu mai poate intra din neatentie.
+    // Vezi `js/placeholder-raspuns.js`.
+    function placeholderRaspuns() {
+      const p = getQuiz()?.placeholderRaspuns;
+      if (!p) {
+        throw new Error(
+          "FallingEngine: quizul nu declara `placeholderRaspuns`. Fiecare quiz " +
+            "trebuie sa-l declare explicit, chiar si cand e handlerul generic: " +
+            '`placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?")`. ' +
+            "Vezi js/placeholder-raspuns.js si documente de referinta/" +
+            "CONTINUARE-contract-semn-intrebare.md."
+        );
+      }
+      return p;
+    }
     let fallY = 0;
     let boxH = BOX_MIN;
     // Înălțimea reală a scenei (arena), citită din DOM. Pe desktop = 420px
@@ -477,13 +495,15 @@
         // singura linie, vezi PLAN-v4-subquiz3-grupuri-factori.md §2.8).
         return false;
       }
+      const placeholder = placeholderRaspuns();
       const html = String(state.promptHtml ?? "");
-      // Slotul dedicat conteaza si cand promptul-text nu are deloc "?" (quiz
-      // care isi construieste singur promptHtml si tine textul simplu pt loguri).
-      if (html.includes(REVEAL_SLOT_CLASS)) return true;
-      const raw = String(state.prompt ?? "");
-      if (raw.includes("?")) return true;
-      return html.includes("q-mark") || html.includes("q-q");
+      // Clasa conteaza si cand promptul-text nu are deloc semnul (quiz care isi
+      // construieste singur promptHtml si tine textul simplu doar pentru loguri).
+      if (html.includes(placeholder.clasa)) return true;
+      if (placeholder.are(state.prompt)) return true;
+      // `q-q` = formatul `division-eq`, lasat intentionat pe calea veche pana la
+      // pasul urmator (vezi CONTINUARE-contract-semn-intrebare.md).
+      return html.includes("q-q");
     }
 
     function resultAlreadyRevealed(result, beforeState) {
@@ -518,13 +538,10 @@
     // durata revelarii: un flash vizibil, raportat de user (28.08.2026) la
     // quizul "Numaram din 2 in 2".
     //
-    // Acopera TOATE quizurile fara nicio modificare per quiz: `.q-mark` e deja
-    // marcajul standard al semnului de intrebare din proiect — motorul insusi il
-    // pune pe orice prompt-text simplu (vezi `renderRound`), iar cele doua quizuri
-    // care isi scriu singure promptHtml-ul (bagare-sub-radical.js, adica "Bagare
-    // sub radical", si sub-sau-langa-radical.js, adica "Sub sau lângă radical v1")
-    // folosesc exact aceeasi clasa. `REVEAL_SLOT_CLASS` ramane pentru cazuri ca
-    // "Numaram din 2 in 2", unde slotul e o celula de tabel, nu un `.q-mark`.
+    // Acopera TOATE quizurile printr-un singur selector: clasa placeholderului,
+    // declarata de quiz. Inainte erau doua clase cautate deodata
+    // (`.question-to-reveal, .q-mark`), pentru ca fiecare quiz isi alesese numele
+    // singur — exact divergenta pe care contractul o elimina.
     //
     // Formatele speciale (`singapore-bond`, `division-eq`) sunt lasate INTENTIONAT
     // pe calea veche: revelarea lor scrie campuri de stare proprii
@@ -535,13 +552,14 @@
     // veche, neschimbata.
     function revealAnswerInPlace(state, answer) {
       if (state?.questionFormat) return false;
-      const slot = dom.topNumberEl?.querySelector(`.${REVEAL_SLOT_CLASS}, .q-mark`);
+      const placeholder = placeholderRaspuns();
+      const slot = dom.topNumberEl?.querySelector(`.${placeholder.clasa}`);
       if (!slot) return false;
       slot.textContent = String(answer ?? "").trim();
-      // Dupa revelare nu mai e un semn de intrebare: scoatem marcajul, ca restul
-      // codului care cauta `.q-mark` (ex. manuta din js/asnw-onboarding.js) sa nu
-      // pointeze spre un slot care arata deja raspunsul.
-      slot.classList.remove("q-mark");
+      // Dupa revelare nu mai e un placeholder: scoatem clasa, ca restul codului
+      // care o cauta (ex. manuta din js/asnw-onboarding.js) sa nu pointeze spre
+      // un slot care arata deja raspunsul.
+      slot.classList.remove(placeholder.clasa);
       slot.classList.add("q-correct");
       fitNumberText(dom.topNumberEl);
       return true;
@@ -562,13 +580,17 @@
         return revealed;
       }
 
+      // Aceeasi logica pentru text si pentru HTML, prin acelasi handler ca la
+      // afisare. Inainte, aici se inlocuia DOAR primul semn (cu un caz special
+      // pentru "=?"), in timp ce afisarea le marca pe TOATE — doua raspunsuri
+      // diferite la aceeasi intrebare. Cu un singur placeholder per intrebare,
+      // asa cum cere contractul, rezultatul e identic; diferenta aparea doar la
+      // prompturi malformate, cu doua semne.
+      const placeholder = placeholderRaspuns();
       const raw = String(state.prompt ?? "");
-      if (raw.includes("=?")) {
-        revealed.prompt = raw.replace("=?", `=${ans}`);
-        revealed.promptHtml = raw.replace("=?", `=${mark}`);
-      } else if (raw.includes("?")) {
-        revealed.prompt = raw.replace("?", ans);
-        revealed.promptHtml = raw.replace("?", mark);
+      if (placeholder.are(raw)) {
+        revealed.prompt = placeholder.inlocuieste(raw, ans);
+        revealed.promptHtml = placeholder.inlocuieste(raw, mark);
       }
       return revealed;
     }
@@ -658,12 +680,10 @@
         if (state.promptHtml !== undefined) {
           dom.topNumberEl.innerHTML = state.promptHtml ?? "—";
         } else {
+          const placeholder = placeholderRaspuns();
           const raw = String(state.prompt ?? "—");
-          if (raw.includes("?")) {
-            dom.topNumberEl.innerHTML = raw.replace(
-              /\?/g,
-              '<span class="q-mark">?</span>'
-            );
+          if (placeholder.are(raw)) {
+            dom.topNumberEl.innerHTML = placeholder.marcheaza(raw);
           } else {
             dom.topNumberEl.textContent = raw;
           }

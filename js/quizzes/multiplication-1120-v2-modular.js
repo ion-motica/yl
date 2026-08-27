@@ -1615,6 +1615,7 @@
         return beginRoute();
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound(next) {
         return next ?? beginRoute();
       },

@@ -17,7 +17,7 @@
 | Profil ASNW (arena simplă pt. new user) | `Documentatie Profil ASNW - arena simpla pt new user.md` |
 | Acolade (axa numerelor) | `documente de referinta/referinta acolade - text.md` |
 | Quiz nou / modificare quiz existent | `documente de referinta/QUIZ-SPEC-SABLON.md` |
-| Semnul de întrebare (`?`) — marcaj, revelare, contract (discuție deschisă) | `documente de referinta/CONTINUARE-contract-semn-intrebare.md` |
+| Placeholder de răspuns (semnul `?`) — contract, marcaj, revelare | `js/placeholder-raspuns.js`, `tests/placeholder-raspuns.test.js`, `documente de referinta/CONTINUARE-contract-semn-intrebare.md` |
 | Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
 | Titluri secțiuni CP (panou nou/existent) | `documente de referinta/standard-titluri-cp.md` |
 | Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |
@@ -172,6 +172,47 @@ acceptată — dar rămâne **explicită și rară**, nu o formă alternativă p
 alege liber. Și chiar și ea trebuie să respecte eticheta corectă (`outcome: "step-correct"`,
 niciodată `"wrong-answer"`, din clipa în care a avansat efectiv itemul) — altfel reapare exact
 bug-ul de mai sus.
+
+## Contractul placeholderului de răspuns (semnul de întrebare)
+
+> **Placeholder = locul din întrebare unde se pune una din cele 3 valori de pe butoanele de
+> răspuns.** De obicei semnul e `?`, dar quizul poate alege altul. Fiecare quiz care pune o
+> întrebare în arenă **declară explicit** `placeholderRaspuns`, chiar și când e exact handlerul
+> generic. Fără declarație, `js/falling-engine.js` oprește randarea cu eroare.
+
+```js
+placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+```
+
+Implementarea comună e în `js/placeholder-raspuns.js` (contract + teste în
+`tests/placeholder-raspuns.test.js`). Clasa pusă pe placeholder e **`placeholder-pt-raspuns`**,
+construită într-un singur loc — nu se scrie de mână în quizuri.
+
+**De ce e obligatoriu, nu cu default tacit.** Înainte, semnul era hardcodat în trei locuri din
+motor, cu logici care se **contraziceau** (unul îl căuta, altul îl înlocuia doar pe primul, al
+treilea le marca pe toate), marcajul era scris literal identic în trei fișiere, iar quizurile
+foloseau trei clase diferite (`q-mark`, `q-q`, niciuna) — fără ca cineva să fi decis asta.
+O declarație obligatorie face divergența imposibil de introdus din neatenție: un quiz nou nu
+poate să „uite".
+
+**Cele două axe se confundă ușor** — contractul acoperă doar prima:
+
+| axă | întrebare | acoperită |
+|---|---|---|
+| A. marcajul | unde e locul care primește una din cele 3 valori? | **da** |
+| B. revelarea | se arată acolo răspunsul, sau rămâne semnul? | nu, e politica quizului |
+
+Un quiz poate avea placeholder și să aleagă să nu-l reveleze niciodată (formatul `fg-stack`).
+Asta e politică, nu absență de placeholder.
+
+**Alt semn** = argument (`creeaza("_")`). **Altă structură** în jurul semnului = quizul pornește
+de la handlerul generic și suprascrie doar `marcaj` (exemplu real: `js/quizzes/numarare-cu-pas.js`,
+unde celula are fundal galben). Nu sunt alternative, acoperă lucruri diferite.
+
+**Excepții, deocamdată:** formatele `singapore-bond` și `division-eq` rămân pe calea veche —
+revelarea lor scrie și câmpuri de stare proprii, citite de alt cod. Quizurile `customEngine`
+(Rigle) nu declară nimic: nu trec prin motorul de randare. Vezi
+`documente de referinta/CONTINUARE-contract-semn-intrebare.md`.
 
 ## Butoane „default" pe opțiuni (md / make default)
 

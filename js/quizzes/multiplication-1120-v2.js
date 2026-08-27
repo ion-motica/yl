@@ -1394,6 +1394,7 @@
         return nextRoundForStage();
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound(next) {
         return next ?? nextRoundForStage();
       },

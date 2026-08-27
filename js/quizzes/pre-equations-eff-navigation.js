@@ -663,6 +663,7 @@
       pickNextRound() {
         return buildQuestion();
       },
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound(next) {
         if (next) {
           current = next;

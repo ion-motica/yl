@@ -350,6 +350,7 @@
         return pickNewQuestion();
       },
 
+      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
       beginRound(next) {
         current = next ?? pickNewQuestion();
         sincronizeazaOrchestratorul();

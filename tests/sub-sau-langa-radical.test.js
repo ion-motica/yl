@@ -14,6 +14,7 @@ function loadScript(relativePath) {
 function loadQuiz() {
   globalThis.window = globalThis;
   loadScript("js/utils.js");
+  loadScript("js/placeholder-raspuns.js");
   loadScript("js/progress-display.js");
   loadScript("js/quiz-registry.js");
   loadScript("js/subquiz/item-generator.js");
@@ -322,7 +323,13 @@ test("orders radical factors like the left side by default", () => {
 
   const question = globalThis.SubSauLangaRadicalQuiz.buildQuestion(1, null);
   const kSquaredIndex = question.promptHtml.indexOf("2<sup>2</sup>");
-  const nPlaceholderIndex = question.promptHtml.indexOf('<span class="q-mark">?</span>', kSquaredIndex);
+  // Marcajul vine din contractul comun, nu dintr-un literal scris aici — testul
+  // asta verifica ORDINEA factorilor, nu numele clasei (vezi
+  // tests/placeholder-raspuns.test.js pentru contractul in sine).
+  const nPlaceholderIndex = question.promptHtml.indexOf(
+    globalThis.PlaceholderRaspuns.creeaza("?").marcaj(),
+    kSquaredIndex
+  );
 
   assert.equal(question.form, "L1-IN-1");
   assert.ok(kSquaredIndex >= 0);

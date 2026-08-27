@@ -371,15 +371,19 @@
   // Cercuri concentrice care se sting, pornind din centrul numărului. Simulează
   // efectul vizual al unui tap. Se declanșează o dată per oprire deasupra unui
   // buton (sincronizat cu staționarea mânuții).
-  // Poziția semnului „?” din întrebare (relativ la strat), indiferent de modul
-  // lift (mobil, în mișcare, sau host fix bară/mingie). Întoarce null dacă „?”
-  // nu există (ex. răspuns deja dezvăluit) sau nu e vizibil.
+  // Poziția placeholderului de răspuns din întrebare (relativ la strat),
+  // indiferent de modul lift (mobil, în mișcare, sau host fix bară/mingie).
+  // Întoarce null dacă nu există (ex. răspuns deja dezvăluit) sau nu e vizibil.
+  //
+  // Clasa vine din contractul comun (js/placeholder-raspuns.js). `.q-q` e
+  // formatul `division-eq`, încă nemigrat — se scoate la pasul următor.
   function questionMarkPos() {
-    const qEl = dom?.topNumberEl?.querySelector(".q-mark, .q-q");
+    const clasa = global.PlaceholderRaspuns?.CLASA ?? "placeholder-pt-raspuns";
+    const qEl = dom?.topNumberEl?.querySelector(`.${clasa}, .q-q`);
     const layer = layerEl;
     if (!qEl || !layer) return null;
 
-    // `?` e randat cu spații în jur (`<span class="q-mark"> ? </span>`), deci
+    // `?` e randat cu spații în jur (`<span class="..."> ? </span>`), deci
     // rect-ul span-ului e descentrat. Măsurăm exact glyph-ul `?` cu un Range.
     let rect = null;
     const txt = qEl.firstChild;
