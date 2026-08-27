@@ -167,6 +167,36 @@ p-value, doar etichete graduale de suficiență.
   — pagina se accesează deocamdată direct prin URL.
 - „View logs in Tabulator" (azi per-quiz) de mutat într-un loc comun — separat, mai târziu.
 
+## DE FĂCUT — antetul coloanei de azi: data, nu „acum" (cerut 27.08.2026)
+
+**Cerința userului:** la tabelul de fotografii, coloana zilei curente să afișeze **data
+curentă**, nu cuvântul „acum", păstrând **fundalul colorat** pe care îl are deja.
+
+**Context — cum s-a ajuns aici.** Motorul afișa data pe toate coloanele, deși
+`PLAN-tabel-fotografii.md` (`antet(k)`) cere `k === B -> eticheta: "acum"`. Trei teste din
+`tests/vizualizare3-tabel-fluenta.test.js` prindeau nepotrivirea, dar **nu rulaseră
+niciodată**, pentru că hardcodau calea Windows a mașinii userului. După ce testele au fost făcute portabile (27.08.2026), au ieșit la iveală și
+motorul a fost aliniat la plan: `eticheta: k === B ? "acum" : formateazaZiuaAntet(dataOraRo)`.
+
+Userul vede acum rezultatul și **vrea altceva decât spune planul**. Deci nu se schimbă doar
+codul: se schimbă și planul, și testul — altfel rămâne o nepotrivire care va arăta iar ca o
+eroare peste două luni.
+
+**De rezolvat împreună, nu separat:**
+
+1. `Vizualizare 3 - Claude/motor-analiza.js` — eticheta antetului;
+2. `PLAN-tabel-fotografii.md`, regula `antet(k)` — azi spune `"acum"`;
+3. `SPECIFICATIE.md`, liniile „antetele coloanelor … ultima = «acum»" (×2);
+4. `tests/vizualizare3-tabel-fluenta.test.js` — asertează azi `["01.07","02.07","10.07","acum"]`.
+
+**Întrebare deschisă, de lămurit cu userul înainte de implementare:** `este_acum` (ultima poză)
+și `este_azi` (ziua calendaristică de azi) **nu sunt același lucru** — ultima poză poate fi de
+acum o săptămână, dacă userul n-a lucrat de atunci. Cererea vorbește despre „coloana pentru ziua
+curentă". De stabilit ce se afișează când **ultima poză nu e de azi**: tot data ei (deci „acum"
+dispare complet din tabel), sau se păstrează „acum" doar în cazul acela? Fundalul colorat vine
+azi din `este_azi` (clasa `viz3-antet-azi`, în `vizualizare3-bootstrap.js`), deci el e deja legat
+de ziua curentă, nu de ultima poză.
+
 ## Reguli de colaborare (importante pentru user)
 
 - Propune înainte de a implementa; separă NECESAR de OPȚIONAL; nu adăuga scope în tăcere.
