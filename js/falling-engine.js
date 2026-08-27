@@ -489,10 +489,17 @@
         return state.revealedQuotient == null && !String(state.promptHtml ?? "").includes("q-correct");
       }
       if (state.questionFormat === "fg-stack") {
-        // Stack cu mai multe randuri (grup de factori); quizul isi gestioneaza
-        // singur afisarea si nu dezvaluie niciodata raspunsul, deci motorul nu
-        // trebuie sa incerce revelarea genericǎ (i-ar sparge randurile intr-o
-        // singura linie, vezi PLAN-v4-subquiz3-grupuri-factori.md §2.8).
+        // Stack cu mai multe randuri (grup de factori). Randul curent ARE
+        // placeholder — quizul il marcheaza prin contractul comun — dar
+        // raspunsul nu se dezvaluie NICIODATA acolo. E o DECIZIE de design, nu
+        // o limitare tehnica: `PLAN-v4-subquiz3-grupuri-factori.md` §2.8 cere
+        // ca toate randurile sa arate "?" (varianta in care randurile rezolvate
+        // isi arata rezultatul e retinuta ca idee de viitor, §9).
+        //
+        // Comentariul de dinainte motiva asta cu "ar sparge randurile intr-o
+        // singura linie". Motivul acela a MURIT odata cu `revealAnswerInPlace`,
+        // care schimba doar nodul slotului in loc sa reconstruiasca promptul.
+        // Cele doua stateau lipite aici si faceau decizia sa para constrangere.
         return false;
       }
       const placeholder = placeholderRaspuns();

@@ -357,6 +357,55 @@ describe("multiplication-1120-v4 intensiv multipli 2 3 4", () => {
     assert.notEqual(after.correctAnswer, A);
   });
 
+  it("stack: DOAR randul curent are placeholder marcat; celelalte randuri raman text simplu", () => {
+    const quiz = setupQuiz({ fluentaSursa: { scorPtFact: () => 0 } });
+    let round = quiz.beginRound();
+    for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
+    const trigger = answerCorrect(quiz, round);
+    assert.equal(trigger.metadata.subquiz, SQ3_ID);
+
+    const CLASA = globalThis.PlaceholderRaspuns.CLASA;
+    const rows = [...trigger.promptHtml.matchAll(/<div class="fg-stack-row[^"]*">(.*?)<\/div>/g)].map(
+      (m) => m[1]
+    );
+    assert.ok(rows.length >= 2, "stack-ul trebuie sa aiba cel putin 2 randuri");
+
+    // Placeholderul = locul care primeste una din cele 3 valori de pe butoane.
+    // Intr-un stack e UNUL SINGUR, oricate "?" s-ar vedea pe ecran: celelalte
+    // randuri sunt intrebari viitoare.
+    const marcate = rows.filter((r) => r.includes(CLASA));
+    assert.equal(marcate.length, 1, `exact un rand trebuie marcat, gasite ${marcate.length}`);
+
+    // Randul marcat e cel al factului curent.
+    const bCurent = trigger.metadata.fact.split("*")[1].split("=")[0];
+    assert.ok(
+      marcate[0].includes(String(bCurent)),
+      `randul marcat trebuie sa fie cel curent (b=${bCurent}): "${marcate[0]}"`
+    );
+
+    // Randurile nemarcate isi pastreaza "?"-ul ca text simplu — nu dispare.
+    const nemarcate = rows.filter((r) => !r.includes(CLASA));
+    assert.ok(
+      nemarcate.every((r) => r.includes("?")),
+      "randurile viitoare trebuie sa arate tot '?', doar nemarcat"
+    );
+  });
+
+  it("stack: raspunsul NU se dezvaluie niciodata — decizie de design (§2.8), nu limitare tehnica", () => {
+    const quiz = setupQuiz({ fluentaSursa: { scorPtFact: () => 0 } });
+    let round = quiz.beginRound();
+    for (let i = 0; i < 4; i += 1) round = answerCorrect(quiz, round);
+    const trigger = answerCorrect(quiz, round);
+    assert.equal(trigger.metadata.subquiz, SQ3_ID);
+
+    const after = answerCorrect(quiz, trigger);
+    assert.ok(
+      !String(after.promptHtml).includes("q-correct"),
+      "in stack nu se dezvaluie raspunsul in niciun rand"
+    );
+    assert.ok(after.promptHtml.includes("?"), "randurile arata in continuare '?'");
+  });
+
   it("criteriul 15: cadenta de rotire — 0 pastreaza aceeasi forma, 1 schimba forma la fiecare intrebare", () => {
     const seedZero = {
       "yl:mul1120v4:sq3RotateEvery": "0",

@@ -7,6 +7,10 @@
   const MAX_LEVEL = 10;
   const HINT = "Alege raspunsul corect.";
 
+  // Acelasi handler pe care quizul il declara motorului (vezi obiectul returnat
+  // de `createQuiz`). Vezi js/placeholder-raspuns.js.
+  const placeholder = global.PlaceholderRaspuns.creeaza("?");
+
   // Domeniul v4: b merge 1..20 la fiecare nivel, decuplat de factorul A.
   const B_MIN = 1;
   const B_MAX = 20;
@@ -752,7 +756,18 @@
           if (isCurrent && sq3HighlightCurrent) classes.push("fg-stack-row--curent");
           if (!isCurrent && sq3DimUntested) classes.push("fg-stack-row--netestat");
         }
-        const text = isSarit ? `\u2713 ${promptText}` : promptText;
+        // Doar randul curent are PLACEHOLDER \u2014 el primeste una din cele 3 valori
+        // de pe butoane. Celelalte randuri arata tot un "?", dar sunt intrebari
+        // VIITOARE, nu placeholdere, deci raman text simplu (vezi definitia din
+        // js/placeholder-raspuns.js).
+        //
+        // Marcajul e doar vizual aici: `stateHasQuestionMark` intoarce oricum
+        // false pentru `fg-stack`, deci motorul nu revela nimic \u2014 vezi mai jos.
+        const text = isSarit
+          ? `\u2713 ${promptText}`
+          : isCurrent
+            ? placeholder.marcheaza(promptText)
+            : promptText;
         return `<div class="${classes.join(" ")}">${text}</div>`;
       });
       return `<div class="fg-stack">${rows.join("")}</div>`;
@@ -2186,7 +2201,7 @@
         onFluentaReadyCallback = typeof callback === "function" ? callback : null;
       },
 
-      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      placeholderRaspuns: placeholder,
       beginRound(next) {
         return next ?? beginRoute();
       },
