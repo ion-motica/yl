@@ -186,11 +186,56 @@ acoperă acum **doar axa A**.
 2. **`fg-stack`** — de despărțit constrângerea tehnică moartă de decizia de design vie
    (vezi varianta 4 de mai sus).
 
-### Rămân de decis
+### Semnătura funcției (stabilit)
 
-- **Semnătura funcției.** Fără argumente (întoarce marcajul gata făcut) sau cu? Userul a zis
-  că semnul poate fi și altceva decât `?` — de lămurit dacă asta înseamnă *argument* al
-  funcției generice, sau *altă funcție* declarată de quiz.
-- **Numele clasei.** `q-mark` (există în 3 locuri + interogat de `js/asnw-onboarding.js:378`)
-  vs. `question-to-reveal` (doar în quizul cu tabel). Decizia elimină selectorul compus
-  `.question-to-reveal, .q-mark` din `revealAnswerInPlace`.
+**Semnul e argument**, nu funcție separată. Notația userului:
+
+```js
+functieDinArenaEngine( ... , functieDefinirePlaceholder("?") , ... )
+```
+
+Citit ca JS, asta cheamă funcția cu semnul și pasează **rezultatul** — un handler deja
+configurat. Quizul cu tabel pasează propriul handler în loc de cel generic.
+
+**Argument vs. funcție proprie nu sunt alternative:** argumentul acoperă „alt **semn**",
+funcția proprie acoperă „altă **structură**" (tabelul are nevoie de `style` inline pe span).
+
+**Funcția deține tot pasul** „text întrebare → HTML cu placeholder marcat", nu doar întoarce
+marcajul. Motiv: azi motorul hardcodează `?` în **trei** locuri, ca să-l *găsească*:
+
+| linie în `falling-engine.js` | ce face | logica |
+|---|---|---|
+| `485` | „are placeholder?" | `raw.includes("?")` |
+| `566-571` | starea revelată | caz special `"=?"`, altfel **primul** `?` |
+| `662` | înfășoară la afișare | `replace(/\?/g, ...)` — **toate** aparițiile |
+
+Dacă funcția ar întoarce doar marcajul, semnul ar rămâne cunoscut în două locuri (quiz +
+motor) — exact incoerența de eliminat. **Bonus:** cele trei se și contrazic (unul marchează
+toate aparițiile, altul doar prima), deci unificarea repară un bug latent la prompturile cu
+două `?`.
+
+### Numele clasei (stabilit)
+
+**`placeholder-pt-raspuns`** — nici `q-mark`, nici `question-to-reveal`. Spune ce e (locul
+care primește una din cele 3 valori), nu cum arată.
+
+**Suprafața redenumirii, verificată:**
+
+| loc | ce e | efect |
+|---|---|---|
+| `js/falling-engine.js` | l. 486, 538, 544, 662 | producere + căutare + curățare la revelare |
+| `js/quizzes/bagare-sub-radical.js:41` | literal hardcodat | |
+| `js/quizzes/sub-sau-langa-radical.js:34` | literal hardcodat | |
+| `js/quizzes/numarare-cu-pas.js:154` | azi `question-to-reveal` | |
+| `js/asnw-onboarding.js:378` | `querySelector(".q-mark, .q-q")` | **se rupe TĂCUT** — mânuța de onboarding nu mai găsește `?`-ul, `questionMarkPos()` întoarce `null`, fără eroare |
+| `style.css:2061` | regula `.q-mark` | de redenumit odată cu clasa |
+| `tests/sub-sau-langa-radical.test.js:325` | asertează literal `<span class="q-mark">?</span>` | pică testul — bine, prinde schimbarea |
+
+**Capcană:** `style.css:1901-1906` are `.aam-q-mark` — conține `q-mark` ca **subșir**, dar e
+altceva (ilustrația de arenă). Un find/replace orb pe `"q-mark"` o strică. Redenumirea se
+face pe potriviri delimitate.
+
+### Stare: toate deciziile sunt luate
+
+Contractul e complet specificat. **Nu s-a scris niciun cod** — se așteaptă aprobarea
+explicită a userului pentru implementare.
