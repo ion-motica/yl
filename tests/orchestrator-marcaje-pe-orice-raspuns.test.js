@@ -25,9 +25,10 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const rootDir = "C:/Users/I/Projects/Youlearn.com";
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function loadScript(relativePath) {
   const code = readFileSync(join(rootDir, relativePath), "utf8");

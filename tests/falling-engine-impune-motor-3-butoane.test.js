@@ -10,9 +10,10 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const rootDir = "C:/Users/I/Projects/Youlearn.com";
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function loadScript(relativePath) {
   const code = readFileSync(join(rootDir, relativePath), "utf8");
@@ -149,12 +150,14 @@ describe("Impunerea Motor3Butoane in falling-engine.js (Faza C)", () => {
     loadScript("js/subquiz/subquiz-definition.js");
     loadScript("js/subquiz/subquiz-orchestrator.js");
     loadScript("js/motor-3-butoane.js");
+    loadScript("js/placeholder-raspuns.js");
     loadScript("js/falling-engine.js");
   });
 
   it("un quiz care isi scrie singur outcome-ul (vechea cale) chiar crapa la apasare", () => {
     const quiz = {
       isCompleted: () => false,
+      placeholderRaspuns: globalThis.PlaceholderRaspuns.creeaza("?"),
       getFallSpeedFactor: () => 1,
       onTimeout: () => ({ ...roundDeBaza, outcome: "round", resetFall: true }),
       // Exact vechiul tipar interzis: quizul decide singur outcome-ul, fara
@@ -185,6 +188,7 @@ describe("Impunerea Motor3Butoane in falling-engine.js (Faza C)", () => {
     });
     const quiz = {
       isCompleted: () => false,
+      placeholderRaspuns: globalThis.PlaceholderRaspuns.creeaza("?"),
       getFallSpeedFactor: () => 1,
       onTimeout: () => ({ ...curent, outcome: "round", resetFall: true }),
       // M3B direct, fara sa treaca prin SubquizOrchestrator — exact calea pe
@@ -230,6 +234,7 @@ describe("Impunerea Motor3Butoane in falling-engine.js (Faza C)", () => {
 
     const quiz = {
       isCompleted: () => false,
+      placeholderRaspuns: globalThis.PlaceholderRaspuns.creeaza("?"),
       getFallSpeedFactor: () => 1,
       onTimeout: () => ({ ...roundDeBaza, outcome: "round", resetFall: true }),
       onAnswer: (index, meta) => orchestrator.onAnswer(index, meta),

@@ -10,9 +10,10 @@
 import assert from "node:assert/strict";
 import { describe, it, beforeEach } from "node:test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const rootDir = "C:/Users/I/Projects/Youlearn.com";
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Salvat inainte ca vreun test sa poata suprascrie Math.random — altfel un
 // test `deterministic:false` care ruleaza DUPA unul `deterministic:true` in
 // acelasi proces mosteneste stub-ul `() => 0`, nu intamplare reala (Math.random

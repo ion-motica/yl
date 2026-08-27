@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, it } from "node:test";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const rootDir = "C:/Users/I/Projects/Youlearn.com";
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CAMPURI_DETECTATE = [
   "indexeddb_key",
   "data_ora_ro",
