@@ -1,8 +1,7 @@
 # CONTINUARE — contract pentru semnul de întrebare (`?` de revelat)
 
-> **Stare: discuție deschisă, NIMIC de implementat până nu se iau cele 3 decizii de la
-> secțiunea „Reluăm exact de aici".** Documentul transcrie contextul discuției din
-> 28.08.2026, ca să poată fi continuată online, fără re-derivare.
+> **Stare (28.08.2026): `fg-stack` și `singapore-bond` — la ambele quizuri Singapore —
+> sunt gata.** Rămâne `division-eq` (deja cod mort, scos din motor). Vezi „Progres" mai jos.
 
 ## De unde a pornit
 
@@ -260,3 +259,46 @@ rezultatul e identic cu cel dinainte (`<span class="q-correct">6</span> = 2 + 4`
 **Notă:** `npm test` rulează un singur fișier de test, iar 31 din ~50 de teste hardcodează calea
 Windows `C:/Users/I/Projects/Youlearn.com`, deci nu rulează pe alt sistem. Verificarea completă
 s-a făcut pe cele 17 portabile.
+
+## Progres (28.08.2026, sesiunea de continuare)
+
+**`fg-stack`** — închis. Rândul curent din stack marchează placeholderul prin contractul comun
+(galben, ca peste tot); celelalte rânduri rămân text simplu (întrebări viitoare, nu placeholdere).
+Ramura de opt-out din motor era **cod mort** (quizul trece prin `SubquizDefinition`, care nu
+pasează `questionFormat` mai departe) — scoasă, cu explicația de ce nu se potrivea niciodată.
+`PLAN-v4-subquiz3-grupuri-factori.md` §2.8 actualizat: stack-ul rămâne întreg la revelare, doar
+rândul curent se dezvăluie. Notat separat, de rezolvat altă dată: lățimea stack-ului sare vizual
+la revelare (răspunsul are mai multe caractere decât `?`).
+
+**`division-eq`** — cod mort, la fel ca `fg-stack` fusese. Verificat riguros
+(`grep -rn '"division-eq"' js/ tests/`): niciun quiz nu-l setează vreodată. „Împărțiri la numere
+prime" își revelează singur răspunsul, pe calea generică — avea deja `?` galben, fără nicio
+modificare. Cele 4 ramuri + CSS-ul mort (`q-a`/`q-colon`/`q-b`/`q-eq`/`q-q`/`revealedQuotient`)
+scoase din motor.
+
+**`singapore-bond`** — la ambele quizuri Singapore explicite (**Tabla adunarii Singapore
+6=?+3** și **Tabla adunarii Singapore 6=3+3|3+4**), standardizat complet, la cererea userului:
+- fiecare își construiește acum propriul `promptHtml` (istoric + linie curentă cu placeholder
+  marcat), exact ca la `fg-stack`;
+- pauza custom `promptHoldMs: 400` (moștenită neschimbată de dinainte de migrarea la M3B) a fost
+  scoasă — cade pe `DEFAULT_REVEAL_HOLD_MS=160`, ca la orice alt quiz;
+- **„6=3+3|3+4" nu revela NICIODATĂ răspunsul** înainte de azi (`bondKnownAddend` nu era setat
+  niciodată, deci `stateHasQuestionMark` era mereu `false`) — verificat empiric în browser, cu
+  marcă de timp. Cu placeholderul standard, motorul revelează automat, fără cod suplimentar.
+
+**Atenție — `singapore-bond` NU e cod mort ca `division-eq`.** Un al treilea producător,
+`js/conexe-table-quiz/adapters/addition.js` (folosit de „Tabla adunarii - intrebari ajutatoare
+3+?=5"), încă setează `questionFormat: "singapore-bond"` și rămâne pe calea veche, neatins —
+nu era în scopul discuției de azi. Deci ramurile `singapore-bond` din motor **rămân în cod**,
+spre deosebire de `division-eq`.
+
+**Notat separat, de discutat altă dată** (nu în scopul contractului placeholderului): userul a
+cerut un lifecycle unificat quiz↔arena cu hook-uri explicite grupate într-un obiect
+(înainte/după afișare întrebare, după apăsare greșit/corect). Investigat: ceva foarte apropiat
+există deja în `js/motor-3-butoane.js` (parametrul `actiuni`), dar nu chiar în forma cerută —
+detaliile complete sunt în `documente de referinta/RAPORT-motor-comun-raspuns.md`, secțiunea
+„De discutat mai târziu — lifecycle unificat quiz ↔ arena".
+
+**Verificat:** 535/535 teste (baseline 531 + 4 teste noi pentru Singapore) și verificare empirică
+în browser, cu măsurători de timp, pe ambele quizuri Singapore — placeholder galben, revelare la
+~10-20ms, pauză aliniată la ~160ms (nu mai 400ms), istoric păstrat, zero erori JS.

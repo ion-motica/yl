@@ -19,6 +19,10 @@
     getFastResponseMs: () => FAST_RESPONSE_MS,
   };
 
+  // Acelasi handler pe care quizul il declara motorului (vezi obiectul returnat
+  // de `createAdditionTableSingaporeQuiz`). Vezi js/placeholder-raspuns.js.
+  const placeholder = global.PlaceholderRaspuns.creeaza("?");
+
   function createAdditionTableSingaporeQuiz() {
     const { randomInt, shuffle } = global.GameUtils;
     const { FactCatalog, FactStore, FactStats } = global;
@@ -43,11 +47,11 @@
     // SubquizOrchestrator (vezi equations-e3-e6.js pt. explicatia completa a
     // tiparului). `buildOptionsForFact` e singurul loc care schimba
     // `options`/`correctIndex` — sincronizeaza neconditionat, chiar acolo, la
-    // final. Fara `promptHtml` aici (spre deosebire de sub-sau-langa-radical.js):
-    // fisierul nu-l foloseste, `prompt` e mereu text simplu (`${level}=`).
+    // final.
     function sincronizeazaOrchestratorul() {
       orchestrator.getCurrentRuntime().setCurrentItem({
         prompt: `${level}=`,
+        promptHtml: promptHtmlPentruRunda(),
         options: [...options],
         correctIndex,
       });
@@ -56,6 +60,24 @@
     function decompositionLabel(fact) {
       const { a, b } = fact.values;
       return `${a}+${b}`;
+    }
+
+    // `promptHtml` standard, construit de quiz (acelasi tipar ca la
+    // addition-table-singapore-missing.js si stack-ul de la T*/ 11-20 v4):
+    // istoricul turului + linia curenta, cu placeholderul marcat prin
+    // contractul comun. Placeholderul aici tine locul intregii descompuneri
+    // (butoanele arata "2+1", nu o singura cifra) — contractul nu are nicio
+    // conditie asupra formei valorii revelate, doar asupra locului ei.
+    function promptHtmlPentruRunda() {
+      const historyHtml = historyLines
+        .map((line) => `<div class="singapore-history-line">${line}</div>`)
+        .join("");
+      return (
+        `<div class="singapore-prompt">` +
+        (historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : "") +
+        `<div class="singapore-current">${level}=${placeholder.marcaj()}</div>` +
+        `</div>`
+      );
     }
 
     function factsForSum(targetSum) {
@@ -237,10 +259,9 @@
 
     function roundView(extra = {}) {
       return {
-        questionFormat: "singapore-bond",
-        targetSum: level,
-        bondHistory: [...historyLines],
+        // `prompt` ramane text simplu — il citesc jurnalul si logurile.
         prompt: `${level}=`,
+        promptHtml: promptHtmlPentruRunda(),
         options: formatOptionsForView(),
         correctIndex,
         divisionHistory: [],
@@ -279,7 +300,6 @@
             outcome: "step-correct",
             correct: true,
             bounce: true,
-            promptHoldMs: 400,
             message: `Corect! ${finishedLevel}=${label}`,
             ...holdView,
             continueStep: {
@@ -300,7 +320,6 @@
           outcome: "step-correct",
           correct: true,
           bounce: true,
-          promptHoldMs: 400,
           message: `Corect! ${finishedLevel}=${label}`,
           ...holdView,
           continueStep: {
@@ -321,7 +340,6 @@
         outcome: "step-correct",
         correct: true,
         bounce: true,
-        promptHoldMs: 400,
         message: `Corect! ${level}=${label}`,
         ...holdView,
         continueStep: {
@@ -334,20 +352,25 @@
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
     // Fara pasi intermediari de tip "lant" (spre deosebire de prime-divisors.js):
     // fiecare raspuns corect fie trece la urmatorul fapt din coada turului
-    // curent, fie incheie turul (nivel nou / faza retry / joc complet), cu
-    // pauzele `promptHoldMs`+`continueStep` EXACT ca inainte de migrare — M3B
-    // le lasa sa treaca neatinse, sunt citite direct de falling-engine.js.
+    // curent, fie incheie turul (nivel nou / faza retry / joc complet), prin
+    // `continueStep`.
+    //
+    // Pauza `promptHoldMs: 400` (custom, de dinainte de migrare) a fost
+    // SCOASA — cerere user (28.08.2026), la standardizarea formatului
+    // `singapore-bond`. Odata cu ea a aparut si REVELAREA propriu-zisa: acest
+    // quiz nu arata NICIODATA raspunsul ales inainte de azi (verificat empiric
+    // — `stateHasQuestionMark` era mereu `false`, pentru ca `bondKnownAddend`
+    // nu era setat niciodata aici). Cu placeholderul standard, motorul
+    // revelaza in loc, automat, exact ca la orice alt quiz — nu a fost nevoie
+    // de cod suplimentar pentru asta. Vezi documente de referinta/
+    // CONTINUARE-contract-semn-intrebare.md.
+    //
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza"). `esteCorect`/`intrebareUrmatoare`/`actiuni` copiate
     // identic — `dupaRaspunsCorect` intorcea deja mereu o comanda explicita cu
     // `action` (spre deosebire de sub-sau-langa-radical.js/bagare-sub-radical.js),
     // deci `intrebareUrmatoare` (aici `() => null`, deja neutralizata inainte
     // de aceasta lucrare) ramane cod mort neatins, ca la primele 4 fisiere.
-    // `roundView()` are campuri proprii (`questionFormat`, `targetSum`,
-    // `bondHistory`) absente din vederea generica a motorului comun — la fel
-    // ca `successionHistory`/`divisionHistory` la fisierele anterioare,
-    // trebuie injectate explicit prin `dupaApasare`, ca sa nu lipseasca pe
-    // ramura de raspuns gresit.
     function baseDefinition() {
       return global.SubquizDefinition.define({
         id: "base",
@@ -367,12 +390,11 @@
                 wrongFactIds.push(currentFact.factId);
               }
             }
-            return {
-              questionFormat: "singapore-bond",
-              targetSum: level,
-              bondHistory: [...historyLines],
-              divisionHistory: [],
-            };
+            // Nimic de adaugat: `prompt`/`promptHtml` raman cele deja
+            // sincronizate pe `currentItem` (vezi `sincronizeazaOrchestratorul`)
+            // — motorul le reafiseaza neschimbate pe raspuns gresit, standard,
+            // ca la orice alt quiz.
+            return {};
           },
           dupaRaspunsCorect: () => {
             const label = decompositionLabel(currentFact);
@@ -449,7 +471,7 @@
         return message;
       },
 
-      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      placeholderRaspuns: placeholder,
       beginRound() {
         return startTurn();
       },

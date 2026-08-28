@@ -21,6 +21,10 @@
     getFastResponseMs: () => FAST_RESPONSE_MS,
   };
 
+  // Acelasi handler pe care quizul il declara motorului (vezi obiectul returnat
+  // de `createAdditionTableSingaporeMissingQuiz`). Vezi js/placeholder-raspuns.js.
+  const placeholder = global.PlaceholderRaspuns.creeaza("?");
+
   function createAdditionTableSingaporeMissingQuiz() {
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore, FactStats } = global;
@@ -51,6 +55,7 @@
     function sincronizeazaOrchestratorul() {
       orchestrator.getCurrentRuntime().setCurrentItem({
         prompt: promptLabel(currentFact, currentMissingSide),
+        promptHtml: promptHtmlPentruRunda(currentFact, currentMissingSide),
         options: [...options],
         correctIndex,
       });
@@ -78,6 +83,30 @@
     function promptLabel(fact, missingSide = currentMissingSide) {
       const k = knownAddend(fact, missingSide);
       return missingSide === "left" ? `${level}=?+${k}` : `${level}=${k}+?`;
+    }
+
+    // `promptHtml` standard, construit de quiz (ca la "Numaram din 2 in 2" sau
+    // stack-ul de la T*/ 11-20 v4): istoricul turului + linia curenta, cu
+    // placeholderul marcat prin contractul comun. Motorul nu mai are nevoie sa
+    // stie nimic despre "singapore-bond" — gaseste span-ul marcat si-l
+    // revelaza in loc, exact ca la orice alt quiz.
+    function currentLineHtml(fact, missingSide = currentMissingSide) {
+      const k = knownAddend(fact, missingSide);
+      return missingSide === "left"
+        ? `${level}=${placeholder.marcaj()}+${k}`
+        : `${level}=${k}+${placeholder.marcaj()}`;
+    }
+
+    function promptHtmlPentruRunda(fact, missingSide = currentMissingSide) {
+      const historyHtml = historyLines
+        .map((line) => `<div class="singapore-history-line">${line}</div>`)
+        .join("");
+      return (
+        `<div class="singapore-prompt">` +
+        (historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : "") +
+        `<div class="singapore-current">${currentLineHtml(fact, missingSide)}</div>` +
+        `</div>`
+      );
     }
 
     function queueItem(factId, missingSide = pickMissingSide()) {
@@ -249,12 +278,10 @@
 
     function roundView(extra = {}) {
       return {
-        questionFormat: "singapore-bond",
-        targetSum: level,
-        bondKnownAddend: knownAddend(currentFact, currentMissingSide),
-        bondMissingSide: currentMissingSide,
-        bondHistory: [...historyLines],
+        // `prompt` ramane text simplu (fara HTML) — il citesc jurnalul si
+        // loguri, care vor "3=?+2", nu marcaj HTML.
         prompt: promptLabel(currentFact, currentMissingSide),
+        promptHtml: promptHtmlPentruRunda(currentFact, currentMissingSide),
         options: formatOptionsForView(),
         correctIndex,
         divisionHistory: [],
@@ -293,7 +320,6 @@
             outcome: "step-correct",
             correct: true,
             bounce: true,
-            promptHoldMs: 400,
             message: `Corect! ${label}`,
             ...holdView,
             continueStep: {
@@ -314,7 +340,6 @@
           outcome: "step-correct",
           correct: true,
           bounce: true,
-          promptHoldMs: 400,
           message: `Corect! ${label}`,
           ...holdView,
           continueStep: {
@@ -335,7 +360,6 @@
         outcome: "step-correct",
         correct: true,
         bounce: true,
-        promptHoldMs: 400,
         message: `Corect! ${label}`,
         ...holdView,
         continueStep: {
@@ -348,13 +372,17 @@
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
     // Fara pasi intermediari de tip "lant": fiecare raspuns corect fie trece la
     // urmatorul fapt din coada turului curent, fie incheie turul (nivel nou /
-    // faza retry / joc complet), cu pauzele `promptHoldMs`+`continueStep` EXACT
-    // ca inainte de migrare — M3B le lasa sa treaca neatinse.
+    // faza retry / joc complet), prin `continueStep`.
+    //
+    // Pauza `promptHoldMs: 400` (custom, de dinainte de migrare, de 2,5x mai
+    // lenta decat DEFAULT_REVEAL_HOLD_MS=160 din motor) a fost SCOASA — cerere
+    // user (28.08.2026), la standardizarea formatului `singapore-bond`. Vezi
+    // documente de referinta/CONTINUARE-contract-semn-intrebare.md.
+    //
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza") — vezi addition-table-singapore.js pt. explicatia
     // capcanelor deja intalnite acolo (`intrebareUrmatoare` deja cod mort,
-    // campuri proprii de vedere injectate prin `dupaApasare`, mesaj dinamic cu
-    // `ctx.alesul`), toate identice si aici.
+    // mesaj dinamic cu `ctx.alesul`), toate identice si aici.
     function baseDefinition() {
       return global.SubquizDefinition.define({
         id: "base",
@@ -380,14 +408,11 @@
                 wrongFactIds.push(queueItem(currentFact.factId, currentMissingSide));
               }
             }
-            return {
-              questionFormat: "singapore-bond",
-              targetSum: level,
-              bondKnownAddend: knownAddend(currentFact, currentMissingSide),
-              bondMissingSide: currentMissingSide,
-              bondHistory: [...historyLines],
-              divisionHistory: [],
-            };
+            // Nimic de adaugat: `prompt`/`promptHtml` raman cele deja
+            // sincronizate pe `currentItem` (vezi `sincronizeazaOrchestratorul`)
+            // — motorul le reafiseaza neschimbate pe raspuns gresit, standard,
+            // ca la orice alt quiz.
+            return {};
           },
           dupaRaspunsCorect: () => {
             const label = historyLine(currentFact);
@@ -465,7 +490,7 @@
         return message;
       },
 
-      placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      placeholderRaspuns: placeholder,
       beginRound() {
         return startTurn();
       },

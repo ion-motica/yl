@@ -106,7 +106,7 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.equal(rezultat.motor3Butoane, globalThis.Motor3Butoane.SEMNATURA);
   });
 
-  it("tur fara nicio greseala, terminat: avanseaza nivelul cu promptHoldMs=400 si continueStep run-complete", () => {
+  it("tur fara nicio greseala, terminat: avanseaza nivelul, pauza standard (fara promptHoldMs custom) si continueStep run-complete", () => {
     const quiz = setupQuiz();
     let round = quiz.beginRound();
     assert.equal(quiz.getLevel(), 3);
@@ -122,7 +122,9 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.ok(paziGarda < 20, "nu trebuia sa se blocheze");
     assert.equal(quiz.getLevel(), 4, "nivelul avanseaza dupa un tur fara greseli");
     assert.equal(rezultat.outcome, "step-correct");
-    assert.equal(rezultat.promptHoldMs, 400);
+    // Pauza custom de 400ms a fost scoasa (cerere user, 28.08.2026) — cade pe
+    // DEFAULT_REVEAL_HOLD_MS din motor, ca la orice alt quiz standard.
+    assert.equal(rezultat.promptHoldMs, undefined);
     assert.equal(rezultat.continueStep.outcome, "run-complete");
     assert.equal(rezultat.continueStep.runComplete, true);
     assert.equal(rezultat.continueStep.levelAdvanced, true);
@@ -144,7 +146,10 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     while (!vazutRetry && paziGarda < 20) {
       paziGarda += 1;
       rezultat = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
-      if (rezultat.promptHoldMs === 400 && rezultat.continueStep && rezultat.continueStep.outcome === undefined) {
+      // Semnalul de "tur terminat, fara avans" nu mai e promptHoldMs (scos) —
+      // e prezenta unui continueStep FARA `outcome` (run-complete e mereu
+      // insotit de outcome, retry nu).
+      if (rezultat.continueStep && rezultat.continueStep.outcome === undefined) {
         vazutRetry = true; // continueStep de retry, nu de run-complete
         break;
       }
@@ -178,6 +183,35 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.ok(terminat, "jocul trebuia sa se termine la nivelul maxim, fara greseli");
     assert.equal(rezultat.continueStep.outcome, "run-complete");
     assert.equal(quiz.isCompleted(), true);
+  });
+
+  it("promptHtml standard: placeholder marcat prin contractul comun, istoric crescator (28.08.2026)", () => {
+    const quiz = setupQuiz();
+    const round = quiz.beginRound();
+
+    const CLASA = globalThis.PlaceholderRaspuns.CLASA;
+    assert.ok(round.promptHtml.includes(CLASA), "prima intrebare are placeholderul marcat");
+    assert.ok(round.promptHtml.includes("singapore-prompt"), "structura standard e pastrata");
+    assert.ok(
+      !round.promptHtml.includes("singapore-history"),
+      "primul fapt din tur nu are inca istoric"
+    );
+
+    const dupa = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+    assert.ok(dupa.promptHtml.includes(CLASA), "urmatoarea intrebare are din nou placeholderul");
+    assert.ok(
+      dupa.promptHtml.includes("singapore-history-line"),
+      "faptul rezolvat anterior apare acum in istoric"
+    );
+  });
+
+  it("raspuns gresit: promptHtml ramane identic cu cel afisat, cu placeholder (nu doar prompt text)", () => {
+    const quiz = setupQuiz();
+    const round = quiz.beginRound();
+
+    const rezultat = quiz.onAnswer(wrongIndex(round), { responseMs: 900 });
+
+    assert.equal(rezultat.promptHtml, round.promptHtml, "raspunsul gresit nu schimba promptHtml-ul");
   });
 
   it("onTimeout: outcome timeout, resetFall, ramane pe aceeasi intrebare (neatins de migrare)", () => {

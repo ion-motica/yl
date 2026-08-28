@@ -1235,3 +1235,48 @@ vreo alegere s-a ridicat la nivelul unei „decizii de design cu alternative viz
 Toate cele 11 fișiere (de fapt 15, incluzând primele 4 din sesiunea anterioară) au comportament
 **identic, verificat riguros**, cu codul dinainte de înveliire — asta a fost cerința explicită și
 scopul întregii lucrări din §12.
+
+## De discutat mai târziu — lifecycle unificat quiz ↔ arena (cerut de user, 28.08.2026)
+
+> **Nimic de implementat acum.** Notat verbatim, la cererea explicită a userului, în timpul
+> discuției despre standardizarea quizurilor Singapore (`documente de referinta/
+> CONTINUARE-contract-semn-intrebare.md`). De reluat separat, ca discuție proprie.
+
+Mesajul exact al userului:
+
+> eu am cerut sa avem in structura de baza de interactiune arena-quiz cate un slot pt ce se
+> intampla 1 ininte si dupa afisare intrebare 2 inainte si dupa afisare raspuns. vreau sa fie in
+> functiaDinMotorArenaApelataDinMotirQuiz(...functieInainteDeAfisareIntrebare(),
+> FunctieDupaAfisareIntrebareSiInainteDeApasareButonDeRaspuns,
+> FunctieDupaAfisareButonRaspunsGresit, FunctieDupaAfisareButonRaspunsCorect,...) — preferate
+> grupate intr-un obiect sau ceva, ca sa poata fi citit. Banuiesc ca nu e in formatul acesta.
+
+**Verificat, ca să nu rămână doar bănuiala userului: ceva foarte apropiat există deja**, în
+`js/motor-3-butoane.js` — parametrul `actiuni`, grupat exact într-un obiect, cum a cerut userul:
+
+```js
+Motor3Butoane.creeaza({
+  esteCorect, intrebareUrmatoare,
+  actiuni: {
+    inainteDeAfisareaIntrebarii,  // 1. inainte de afisarea intrebarii
+    dupaAfisareaIntrebarii,       // 2. dupa afisare, inainte de apasare
+    inainteDeApasare,             // 3. la FIECARE apasare, corecta sau nu
+    dupaApasare,                  // 4. la FIECARE apasare, corecta sau nu
+    dupaRaspunsCorect,            // 5. doar cand apasarea a fost corecta
+  },
+})
+```
+
+**Ce se potrivește:** primele două momente (`inainteDeAfisareaIntrebarii`/`dupaAfisareaIntrebarii`)
+corespund exact cerinței. Gruparea într-un obiect (`actiuni`) e deja exact ce a cerut userul.
+
+**Ce NU se potrivește cu cererea exactă:** userul a cerut hook-uri SEPARATE pentru „după răspuns
+greșit" și „după răspuns corect". Azi există doar `dupaApasare` (generic, rulează la ORICE
+apăsare, cu `ctx.corect` ca să distingi) și `dupaRaspunsCorect` (doar pentru cel corect) — nu
+există un `dupaRaspunsGresit` dedicat, simetric cu `dupaRaspunsCorect`. Cazul „greșit" se tratează
+azi prin `dupaApasare` + `ctx.corect === false`, sau prin `mesaje.gresit`.
+
+**De decis, la discuția separată:** dacă lipsa unui `dupaRaspunsGresit` dedicat e o problemă reală
+(cazuri unde `dupaApasare` + verificare `ctx.corect` nu e suficient), sau dacă tiparul actual
+(`dupaApasare` generic + `dupaRaspunsCorect` specific) acoperă deja nevoia, doar cu alt nume decât
+cel propus de user.
