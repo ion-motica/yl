@@ -2,7 +2,7 @@
   "fixture_version": 1,
   "notes": [
     "Ordinea elementelor din array este ordinea de salvare; timestampul nu se foloseste pentru delimitarea intrebarilor.",
-    "a_cata_apasare_pe_buton=1 incepe intrebarea; 2/3 continua aceeasi intrebare.",
+    "al_catelea_turn_apasare_pe_buton=1 incepe intrebarea; 2/3 continua aceeasi intrebare.",
     "Presetul standard de viteza exclude din calcul timpii <0.5 s si >=15 s, dar pastreaza datele brute."
   ],
   "expected_classifications": {

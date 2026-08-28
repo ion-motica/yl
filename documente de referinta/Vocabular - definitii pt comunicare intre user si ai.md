@@ -90,9 +90,24 @@ Redenumirea în cod nu redenumește automat ce e deja scris pe disc/în browser 
 `documente de referinta/RAPORT-motor-comun-raspuns.md` pentru discuția completă despre
 ce se întâmplă cu datele vechi la redenumire.
 
-## Ce NU se atinge
+## Excepție unică, autorizată explicit (28.08.2026): câmpul de jurnal în modulul vechi
 
-`Vizualizare si interpretare logs/` — modul vechi, marcat explicit "nu se modifică" în
-`CLAUDE.md`/`AGENTS.md`. Păstrează vocabularul vechi (`apasare`, `tur`) intact, ca
-referință istorică. Testele lui (`tests/mabp-analiza.test.js`,
-`tests/mabp-vizualizare.test.js`) rămân neatinse din același motiv.
+`Vizualizare si interpretare logs/` rămâne, ca regulă de proiect, „nu se modifică" —
+neschimbată în `CLAUDE.md`/`AGENTS.md`. Userul a autorizat explicit **doar pentru acest
+caz** o excepție punctuală: câmpul de jurnal (singurul identificator din tot vocabularul
+nou care exista și acolo) a fost redenumit și în acest modul, ca datele să rămână
+citibile consecvent peste tot:
+
+```
+a_cata_apasare_pe_buton  →  al_catelea_turn_apasare_pe_buton
+```
+
+Atins: `mabp-analiza.js`, `README.md`, `Specificatie_MABP_analiza_vizualizare_YouLearn_v0.1.md`
+**și** `.docx`-ul geamăn (editat cu skill-ul `docx`, validat XSD + python-docx), cele două
+fixturi JSON (`youlearn_loguri_dummy_v1.json` — 209 apariții, `youlearn_rezultate_asteptate_dummy_v1.json`),
+plus testele `tests/mabp-analiza.test.js` și `tests/mabp-vizualizare.test.js`.
+
+Niciun alt identificator din vocabular (`turn_apasare`, `serie_de_intrebari`,
+`repetitie_programata_fact`, `"run-complete"`→`"serie-terminata"`) nu exista în acest
+modul — verificat explicit, nu presupus. Excepția nu schimbă regula pentru viitor: orice
+altă modificare a acestui modul rămâne interzisă fără altă autorizare punctuală.

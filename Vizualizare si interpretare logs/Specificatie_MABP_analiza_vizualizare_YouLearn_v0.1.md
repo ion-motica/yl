@@ -110,7 +110,7 @@ Tool-ul analizează date longitudinale din exercițiile de fluență pentru tabl
   intrebare: "22=?*11",
   raspuns: "2",
   raspuns_corect: true,
-  a_cata_apasare_pe_buton: 1,
+  al_catelea_turn_apasare_pe_buton: 1,
   durata_raspuns_secunde: 1.3,
   fact: "11*2=22",
   quiz_id: "...",
@@ -123,7 +123,7 @@ Tool-ul analizează date longitudinale din exercițiile de fluență pentru tabl
 
 ### 2.2 Gruparea apăsărilor pe întrebări
 
-Câmpul a_cata_apasare_pe_buton este suficient pentru delimitare, cu condiția păstrării ordinii de salvare. Valoarea 1 începe o întrebare, iar 2, 3 etc. continuă aceeași întrebare până la următorul 1. Timestampul nu este folosit pentru această delimitare; două evenimente pot avea aceeași secundă fără ambiguitate.
+Câmpul al_catelea_turn_apasare_pe_buton este suficient pentru delimitare, cu condiția păstrării ordinii de salvare. Valoarea 1 începe o întrebare, iar 2, 3 etc. continuă aceeași întrebare până la următorul 1. Timestampul nu este folosit pentru această delimitare; două evenimente pot avea aceeași secundă fără ambiguitate.
 
 > Condiție: Citirea din IndexedDB trebuie să păstreze ordinea autoritativă a cheii auto-incrementate sau a cursorului. Nu sorta numai după data_ora_ro.
 

@@ -47,7 +47,7 @@ function creeazaLogTest(index, {
 } = {}) {
   return {
     data_ora_ro: `2026-07-14 12:00:${String(index).padStart(2, "0")}`,
-    a_cata_apasare_pe_buton: 1,
+    al_catelea_turn_apasare_pe_buton: 1,
     durata_raspuns_secunde: durata,
     raspuns_corect: corect,
     fact_id: factId,
@@ -134,7 +134,7 @@ describe("motorul MABP", () => {
       asteptari.grouping_checks.three_presses_press_count
     );
     assert.deepEqual(
-      treiApasari[0].apasari.map((apasare) => apasare.a_cata_apasare_pe_buton),
+      treiApasari[0].apasari.map((apasare) => apasare.al_catelea_turn_apasare_pe_buton),
       [1, 2, 3]
     );
     assert.equal(
@@ -160,7 +160,7 @@ describe("motorul MABP", () => {
         intrebare: "7*8=?",
         raspuns: "56",
         a_raspuns_corect: true,
-        a_cata_apasare_pe_buton: 1,
+        al_catelea_turn_apasare_pe_buton: 1,
         durata_raspuns_secunde: 1.7,
         fact: "7*8=56",
         quiz_id: "quiz-curent",
@@ -203,7 +203,7 @@ describe("motorul MABP", () => {
     });
     const [schemaNoua, schemaActuala] = motor.normalizeazaInregistrari([
       {
-        a_cata_apasare_pe_buton: 1,
+        al_catelea_turn_apasare_pe_buton: 1,
         durata_raspuns_secunde: 1.1,
         fact_id: "mul:7*8=?",
         eq_form: "7*8=?",
@@ -212,7 +212,7 @@ describe("motorul MABP", () => {
         extra: {},
       },
       {
-        a_cata_apasare_pe_buton: 1,
+        al_catelea_turn_apasare_pe_buton: 1,
         durata_raspuns_secunde: 1.4,
         fact_id: "mul:7*8=?",
         eq_form: "7*8=?",
@@ -282,7 +282,7 @@ describe("motorul MABP", () => {
   it("respinge o secventa care incepe cu apasarea 2", () => {
     const motor = creeazaMotorMABP();
     const apasareOrfana = copieJson(loguri[0]);
-    apasareOrfana.a_cata_apasare_pe_buton = 2;
+    apasareOrfana.al_catelea_turn_apasare_pe_buton = 2;
 
     assert.throws(
       () =>

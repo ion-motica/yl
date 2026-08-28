@@ -7,7 +7,7 @@ const MAPARE_CAMPURI_IMPLICITA = Object.freeze({
   intrebare: ["intrebare"],
   raspuns: ["raspuns"],
   raspuns_corect: ["a_raspuns_corect", "raspuns_corect"],
-  a_cata_apasare_pe_buton: ["a_cata_apasare_pe_buton"],
+  al_catelea_turn_apasare_pe_buton: ["al_catelea_turn_apasare_pe_buton"],
   durata_raspuns_secunde: ["durata_raspuns_secunde"],
   fact: ["fact"],
   quiz_id: ["quiz_id"],
@@ -172,10 +172,10 @@ function normalizeazaOInregistrare(intrare, index, mapare) {
   }
 
   const citeste = (camp) => primaValoare(intrare, mapare[camp]);
-  const apasare = Number(citeste("a_cata_apasare_pe_buton"));
+  const apasare = Number(citeste("al_catelea_turn_apasare_pe_buton"));
   if (!Number.isInteger(apasare) || apasare < 1) {
     throw new EroareMABP(
-      `Inregistrarea ${index}: a_cata_apasare_pe_buton trebuie sa fie un intreg pozitiv.`,
+      `Inregistrarea ${index}: al_catelea_turn_apasare_pe_buton trebuie sa fie un intreg pozitiv.`,
       "APASARE_INVALIDA"
     );
   }
@@ -231,7 +231,7 @@ function normalizeazaOInregistrare(intrare, index, mapare) {
     intrebare: textSauNull(citeste("intrebare")),
     raspuns: textSauNull(citeste("raspuns")),
     raspuns_corect: booleanSauNull(citeste("raspuns_corect"), "raspuns_corect", index),
-    a_cata_apasare_pe_buton: apasare,
+    al_catelea_turn_apasare_pe_buton: apasare,
     durata_raspuns_secunde: durata,
     fact: textSauNull(citeste("fact")),
     quiz_id: textSauNull(citeste("quiz_id")),
@@ -309,7 +309,7 @@ function grupeazaApasariPeIntrebari(inregistrari) {
   let curenta = null;
 
   for (const inregistrare of inregistrari) {
-    const apasare = inregistrare.a_cata_apasare_pe_buton;
+    const apasare = inregistrare.al_catelea_turn_apasare_pe_buton;
     if (apasare === 1) {
       if (curenta) intrebari.push(finalizeazaIntrebare(curenta, intrebari.length));
       curenta = { apasari: [inregistrare] };

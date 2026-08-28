@@ -14,7 +14,7 @@ Sursa curentă este `js/jurnal-intrebari.js`. `JurnalIntrebari.inregistreazaIntr
 | `intrebare` | text obligatoriu |
 | `raspuns` | text obligatoriu |
 | `a_raspuns_corect` | boolean sau `null` |
-| `a_cata_apasare_pe_buton` | întreg pozitiv |
+| `al_catelea_turn_apasare_pe_buton` | întreg pozitiv |
 | `durata_raspuns_secunde` | număr finit, minimum 0, rotunjit la o zecimală |
 | `fact` | text obligatoriu |
 | `quiz_id` | text obligatoriu |
