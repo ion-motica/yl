@@ -160,6 +160,16 @@ ca stack vertical (exemplu la A=11, fg `3 6 9`):
   > deci acum schimbă doar conținutul lui.
   >
   > Regresia e acoperită de `tests/falling-engine-reveal-stack.test.js`.
+
+  **DE FĂCUT (constatat de user, 27.08.2026):** la revelare, **stack-ul își schimbă
+  aspectul** — rândul curent devine mai lat, pentru că răspunsul are mai multe caractere
+  decât `?` (`?` → `33` → `209`). Rândurile fiind centrate (`.fg-stack { align-items:
+  center }`), tot teancul se re-centrează și „sare" lateral pentru o clipă.
+
+  Direcții de rezolvat, de ales împreună cu userul: (a) rezervă lățime pentru slot, în
+  `ch`, după numărul maxim de cifre al răspunsurilor din grup; (b) aliniere la stânga a
+  rândurilor, ca lățimea variabilă să nu mai mute centrul; (c) lățime fixă pe tot rândul.
+  Nu s-a ales niciuna încă — userul a zis explicit „notăm asta pt viitor".
 - **Ordinea rândurilor: fixă crescătoare** după factorul din grup (3, 6, 9), indiferent
   de ordinea în care sunt efectiv întrebate.
 - **Forma de ecuație e uniformă pe tot stack-ul** și se rotește periodic: toate
