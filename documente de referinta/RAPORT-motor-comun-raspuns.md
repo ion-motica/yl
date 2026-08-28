@@ -1309,3 +1309,90 @@ care suprascrie o pauză să fie vizibil dintr-o privire, fără să mai fie nev
 `js/falling-engine.js`, vs. un script de raportare rulat separat, vs. altceva), și dacă devine
 parte din `npm run check:*` (ca `check-doc-index.mjs`) sau rămâne un instrument de consultat la
 cerere.
+
+## De discutat mai târziu — regruparea contractului `continueStep`/`promptHoldMs`/`runDelayMs`
+
+> **Nimic de implementat acum, fixul îngust s-a făcut separat.** Notat detaliat la cererea
+> explicită a userului (28.08.2026): „trece în todolist detaliat despre rescriere contract, dar
+> atunci discutăm din nou, ca eu zic una tu propui alta și nu e bine." Scopul notiței: ca discuția
+> viitoare să pornească de aici, nu de la zero.
+
+### Bug-ul concret care a scos asta la iveală
+
+La ambele quizuri Singapore, după standardizarea placeholderului (28.08.2026), scoaterea
+`promptHoldMs: 400` a rupt avansul de nivel complet și tăcut. Cauza exactă, în
+`falling-engine.js`, `applyAnswerResultTail`:
+
+```js
+if (result.promptHoldMs != null && result.continueStep !== undefined) { ... }
+```
+
+`promptHoldMs` avea DOUĂ roluri needeclarate: (a) durata pauzei, (b) flag care decidea DACĂ
+`continueStep` (avansul la runda următoare) se aplica deloc. Fără el, `continueStep` era pierdut
+silențios — ecranul rămânea pe întrebarea veche, cu butoane active, deși starea internă a
+quizului avansase deja. Exact tiparul din „Bug-uri de tranziție de rutare (21.08.2026)" de mai
+sus, altă cauză tehnică, același simptom.
+
+**Fixul îngust deja aplicat** (28.08.2026): `if (result.continueStep !== undefined)`, cu
+`holdMs = promptHoldMs ?? runDelayMs ?? DEFAULT_REVEAL_HOLD_MS` calculat separat, doar pentru
+durată. Verificat cu test de gardă la nivel de motor
+(`tests/falling-engine-continuestep-fara-hold.test.js`) și empiric în browser, 8 răspunsuri
+corecte consecutive pe fiecare quiz Singapore, prin mai multe avansuri de nivel.
+
+### De ce fixul îngust NU e enforcement pentru viitor
+
+Repară instanța de azi. Nu împiedică pe nimeni (inclusiv o sesiune viitoare) să recupleze din
+greșeală „am un pas următor" de „am un câmp despre durată" — codul rămâne cu doi câmpi frați
+opționali (`promptHoldMs`, `continueStep`) a căror relație e ținută minte doar de cine scrie acea
+linie, nu impusă de formă.
+
+### Cele două axe — de ținut separate, s-au confundat în discuție
+
+| axă | exemplu | unde se aplică deja o soluție |
+|---|---|---|
+| **A. parametrii unei funcții** prea mulți/greu de citit | `functieDinMotorArenaApelataDinMotorQuiz(a,b,c,d,...)` | deja rezolvată parțial: `Motor3Butoane.creeaza({ actiuni: {...} })` grupează, e nota „lifecycle unificat quiz↔arena" de mai sus |
+| **B. câmpuri frați opționale pe un obiect de vedere**, a căror co-prezență contează dar nu e impusă | `promptHoldMs`/`continueStep` — bug-ul de azi | nerezolvată |
+
+Cererea inițială a userului despre lifecycle (secțiunea de mai sus) era axa A. Bug-ul de azi e
+axa B — related, dar nu identic. Propunerea de „grupăm în obiecte" e corectă pentru amândouă,
+dar rezultatul concret diferă:
+- axa A → gruparea mai multor PARAMETRI ai unui APEL într-un singur obiect de configurare;
+- axa B → gruparea a doi câmpuri INDEPENDENT-OPȚIONALE pe un rezultat într-un singur câmp ATOMIC,
+  ca prezența unuia să nu mai poată fi despărțită de sensul celuilalt.
+
+### Propunerea concretă pentru axa B (de discutat, nu decisă)
+
+În loc de doi frați:
+
+```js
+{ ..., promptHoldMs: 400, continueStep: {...} }
+```
+
+un singur câmp:
+
+```js
+{ ..., pasUrmator: { dupa: 400, continua: {...} } }
+```
+
+Dacă `pasUrmator` există, se aplică — fără al doilea câmp de "activare" de sincronizat mental.
+`dupa` opțional, cu fallback la `DEFAULT_REVEAL_HOLD_MS`, exact ca azi.
+
+### Amploarea reală, de cunoscut înainte de a decide
+
+Nu e o schimbare de o linie — `continueStep`/`promptHoldMs`/`runDelayMs` sunt folosite azi în
+cel puțin 10 fișiere de quiz (`addition-table.js`, `addition-table-range.js`,
+`addition-table-singapore.js`, `addition-table-singapore-missing.js`,
+`multiplication-1120-v2.js`, `multiplication-1120-v2-modular.js`,
+`multiplication-1120-v3-train-eff-eq-forms.js`, `multiplication-1120-v4-intensiv-multipli-234.js`,
+`numarare-cu-pas.js`, `pre-equations-eff-navigation.js`, `prime-divisions.js`,
+`succesive-quiz/engine.js`). O redenumire a contractului ar atinge toate, nu doar motorul.
+
+### De decis, la discuția separată
+
+1. Forma exactă a numelui/câmpurilor (`pasUrmator`/`dupa`/`continua`, sau altceva — userul
+   decide numele, ca la restul contractelor din proiect).
+2. Dacă se face dintr-o dată, pe toate cele ~10 fișiere, sau treptat, pe măsură ce fiecare quiz
+   e oricum atins pentru alt motiv (ca la contractul placeholderului).
+3. Dacă `runDelayMs` (al doilea rol al lui, la finalul unui `run-complete` fără `continueStep` —
+   vezi nota de mai sus despre inventarul pauzelor) intră și el în aceeași regrupare, sau rămâne
+   mecanism separat.

@@ -302,3 +302,24 @@ detaliile complete sunt în `documente de referinta/RAPORT-motor-comun-raspuns.m
 **Verificat:** 535/535 teste (baseline 531 + 4 teste noi pentru Singapore) și verificare empirică
 în browser, cu măsurători de timp, pe ambele quizuri Singapore — placeholder galben, revelare la
 ~10-20ms, pauză aliniată la ~160ms (nu mai 400ms), istoric păstrat, zero erori JS.
+
+## Regresie găsită DUPĂ merge în master (28.08.2026) — REPARATĂ
+
+Userul a testat manual pe telefon și a raportat, cu screenshot, trei simptome la ambele quizuri
+Singapore: revelare instant fără pauză vizibilă, click pe răspunsul corect marcat „greșit",
+avans aparent „fără apăsare" — încălcând regula de aur din M3B.
+
+**Cauza:** scoaterea `promptHoldMs: 400` (parte din standardizarea de mai sus) a rupt aplicarea
+`continueStep`-ului în `falling-engine.js` — acel câmp avea un al doilea rol needeclarat, de flag
+de control, nu doar durată. Detalii tehnice complete, cu propunerea de rescriere a contractului
+pentru a preveni clasa asta de bug pe viitor: `documente de referinta/
+RAPORT-motor-comun-raspuns.md`, secțiunea „De discutat mai târziu — regruparea contractului
+`continueStep`/`promptHoldMs`/`runDelayMs`".
+
+**Reparat** (fix îngust, aprobat explicit de user, cu rescrierea contractului amânată separat):
+`continueStep` se aplică acum întotdeauna când e prezent; `promptHoldMs`/`runDelayMs` decid doar
+durata pauzei, nu dacă pasul se aplică. Test de gardă nou, la nivel de motor:
+`tests/falling-engine-continuestep-fara-hold.test.js` — verificat că prinde regresia (reintrodusă
+temporar, testul pică; restaurat, trece). Verificat empiric în browser: 8 răspunsuri corecte
+consecutive pe fiecare quiz Singapore, prin mai multe avansuri de nivel, regula de aur respectată
+la test de 5s fără nicio apăsare.

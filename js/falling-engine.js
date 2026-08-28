@@ -885,14 +885,31 @@
     function applyAnswerResultTail(result, pickedIndex, wrongPick, shouldRender, afterEngineReveal) {
       if (shouldRender && !wrongPick) renderRound(result);
 
-      if (result.promptHoldMs != null && result.continueStep !== undefined) {
+      // Un `continueStep` prezent se aplica INTOTDEAUNA — nu conditionat de
+      // `promptHoldMs`. Inainte de 28.08.2026, verificarea era
+      // `result.promptHoldMs != null && result.continueStep !== undefined`:
+      // daca un quiz avea `continueStep` dar nu seta `promptHoldMs` (cazul
+      // real: cele doua quizuri Singapore, dupa ce pauza lor custom de 400ms
+      // a fost scoasa), acest bloc intreg era SARIT — continueStep-ul (avansul
+      // la runda urmatoare) se pierdea complet, desi starea interna a quizului
+      // avansase deja sincron (in alta parte a codului). Ecranul ramanea pe
+      // intrebarea veche, cu butoane active; orice apasare era evaluata
+      // impotriva starii NOI, deci parea gresita — acelasi tipar ca bug-urile
+      // de tranzitie de rutare din 21.08.2026 (RAPORT-motor-comun-raspuns.md).
+      //
+      // Pauza ramane configurabila (promptHoldMs, apoi runDelayMs, apoi
+      // DEFAULT_REVEAL_HOLD_MS), dar nu mai decide DACA continueStep se aplica,
+      // doar CAT dureaza pana se aplica.
+      if (result.continueStep !== undefined) {
         if (afterEngineReveal) {
           setInputEnabled(false);
           applyContinueStep(result);
           return;
         }
+        const holdMs =
+          result.promptHoldMs ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS;
         setInputEnabled(false);
-        setTimeout(() => applyContinueStep(result), result.promptHoldMs);
+        setTimeout(() => applyContinueStep(result), holdMs);
         return;
       }
 
