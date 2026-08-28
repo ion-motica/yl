@@ -1310,12 +1310,37 @@ care suprascrie o pauză să fie vizibil dintr-o privire, fără să mai fie nev
 parte din `npm run check:*` (ca `check-doc-index.mjs`) sau rămâne un instrument de consultat la
 cerere.
 
-## De discutat mai târziu — regruparea contractului `continueStep`/`promptHoldMs`/`runDelayMs`
+## ✅ REZOLVAT — regruparea contractului `continueStep`/`promptHoldMs` în `pasUrmator`
 
-> **Nimic de implementat acum, fixul îngust s-a făcut separat.** Notat detaliat la cererea
-> explicită a userului (28.08.2026): „trece în todolist detaliat despre rescriere contract, dar
-> atunci discutăm din nou, ca eu zic una tu propui alta și nu e bine." Scopul notiței: ca discuția
-> viitoare să pornească de aici, nu de la zero.
+> **Decis și implementat de user, 28.08.2026**, după ce nota de mai jos a fost citită și discutată:
+> „OK, implementeaza in toate fisierele si testeaza atent." Forma aleasă e exact propunerea din
+> secțiunea „Propunerea concretă" de mai jos, fără modificări.
+>
+> Restul secțiunii se păstrează ca **istoric al deciziei** — de ce s-a schimbat forma, nu doar
+> instanța. Nota inițială (redactată la cererea explicită a userului: „trece în todolist detaliat
+> despre rescriere contract, dar atunci discutăm din nou, ca eu zic una tu propui alta și nu e
+> bine") și-a atins scopul: discuția a pornit de aici, nu de la zero.
+
+### Ce s-a implementat
+
+| aspect | rezultat |
+|---|---|
+| forma nouă | `pasUrmator: { dupa?, continua }` — `dupa` doar durată, `continua` obligatoriu |
+| producători migrați | `prime-divisions.js` (1 sit, singurul cu `dupa`), `addition-table-singapore.js` (3), `addition-table-singapore-missing.js` (3) |
+| loc de validare | `normalizeResult` din `js/falling-engine.js` — punct unic prin care trece și rezultatul, și vederea imbricată |
+| enforcement | motorul aruncă la `continueStep`/`promptHoldMs`, la `pasUrmator` fără `continua`, și la un `dupa` care nu e număr |
+| gardă mecanică | `tests/falling-engine-pas-urmator.test.js` — grep pe `js/`: niciun fișier nu mai produce câmpurile vechi |
+| deduplicare | lanțul de durată era scris identic în două locuri; acum o singură funcție, `durataPauzeiDeRevelare` |
+
+**Verificat prin reintroducerea bug-ului**, nu doar prin „testele trec": cu cuplarea veche pusă
+înapoi în motor (`if (pas && pas.dupa != null)`) pică testul de comportament; cu un `continueStep:`
+pus înapoi într-un quiz pică garda pe cod. Ambele au trecut din nou după restaurare.
+
+**Decizia 3 de mai jos (`runDelayMs`) NU a intrat în această schimbare** — userul a aprobat exact
+forma cu doi câmpi. `runDelayMs` rămâne mecanism separat: pauza dinaintea rundei următoare la
+finalul unui *run*, citită în `finishRun`, cu 9 quizuri producătoare. Rămâne deschisă.
+
+### Nota inițială (păstrată ca istoric)
 
 ### Bug-ul concret care a scos asta la iveală
 
@@ -1387,12 +1412,12 @@ cel puțin 10 fișiere de quiz (`addition-table.js`, `addition-table-range.js`,
 `numarare-cu-pas.js`, `pre-equations-eff-navigation.js`, `prime-divisions.js`,
 `succesive-quiz/engine.js`). O redenumire a contractului ar atinge toate, nu doar motorul.
 
-### De decis, la discuția separată
+### De decis, la discuția separată — rezultatul
 
-1. Forma exactă a numelui/câmpurilor (`pasUrmator`/`dupa`/`continua`, sau altceva — userul
-   decide numele, ca la restul contractelor din proiect).
-2. Dacă se face dintr-o dată, pe toate cele ~10 fișiere, sau treptat, pe măsură ce fiecare quiz
-   e oricum atins pentru alt motiv (ca la contractul placeholderului).
-3. Dacă `runDelayMs` (al doilea rol al lui, la finalul unui `run-complete` fără `continueStep` —
-   vezi nota de mai sus despre inventarul pauzelor) intră și el în aceeași regrupare, sau rămâne
-   mecanism separat.
+1. ✅ **Forma exactă**: `pasUrmator` / `dupa` / `continua`, exact ca în propunere.
+2. ✅ **Dintr-o dată**, pe toți producătorii. Amploarea reală s-a dovedit mult mai mică decât
+   estimarea de mai sus: câmpurile erau *citite* în multe locuri, dar *produse* în doar **3
+   fișiere, 7 situri** — celelalte ~9 fișiere din listă foloseau `runDelayMs`, care nu intra în
+   regrupare. Estimarea inițială a numărat fișierele după un grep pe toate cele trei nume deodată.
+3. ⏳ **`runDelayMs` rămâne deschis** — nu a intrat în această schimbare, rămâne mecanism separat
+   (vezi nota de mai sus despre inventarul pauzelor).

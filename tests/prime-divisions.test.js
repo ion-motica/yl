@@ -5,7 +5,7 @@
 // migrare. Quiz cu pasi intermediari reali (Categoria 7): un lant de impartiri
 // succesive cu divizori primi, fiecare pas corect continua lantul, DAR spre
 // deosebire de prime-divisors.js (fratele deja migrat in lotul 1), fiecare pas
-// intermediar aici avea deja o pauza (`promptHoldMs`+`continueStep`, 160ms) care
+// intermediar aici avea deja o pauza proprie (azi `pasUrmator.dupa`, 160ms) care
 // arata rezultatul impartirii inainte de urmatoarea intrebare — pastrata neatinsa.
 import assert from "node:assert/strict";
 import { describe, it, beforeEach } from "node:test";
@@ -125,7 +125,7 @@ describe("prime-divisions (Faza D lot 2, quiz cu pasi intermediari + pauza propr
     }
   });
 
-  it("raspuns corect intermediar (catul nu opreste lantul): step-correct CU promptHoldMs si continueStep", () => {
+  it("raspuns corect intermediar (catul nu opreste lantul): step-correct CU pasUrmator, cu pauza proprie", () => {
     const quiz = setupQuiz({ deterministic: false });
     const round = findNonTerminalRound(quiz);
     const correctQuotient = correctQuotientOf(round);
@@ -135,14 +135,14 @@ describe("prime-divisions (Faza D lot 2, quiz cu pasi intermediari + pauza propr
     assert.equal(rezultat.outcome, "step-correct");
     assert.equal(rezultat.correct, true);
     assert.equal(rezultat.bounce, true);
-    assert.equal(rezultat.promptHoldMs, 160, "CORRECT_PROMPT_HOLD_MS, neschimbat de migrare");
-    assert.ok(rezultat.continueStep, "pas intermediar: continueStep pregatit cu intrebarea urmatoare");
+    assert.equal(rezultat.pasUrmator.dupa, 160, "CORRECT_PROMPT_HOLD_MS, neschimbat de migrare");
+    assert.ok(rezultat.pasUrmator.continua, "pas intermediar: pasul urmator poarta intrebarea urmatoare");
     assert.ok(rezultat.message.includes(String(correctQuotient)));
     assert.equal(rezultat.motor3Butoane, globalThis.Motor3Butoane.SEMNATURA);
-    assert.ok(Array.isArray(rezultat.continueStep.options), "continueStep poarta o intrebare noua, gata de raspuns");
+    assert.ok(Array.isArray(rezultat.pasUrmator.continua.options), "pasul urmator poarta o intrebare noua, gata de raspuns");
   });
 
-  it("lant complet de impartiri: fiecare pas intermediar trece prin continueStep, pana la run-complete", () => {
+  it("lant complet de impartiri: fiecare pas intermediar trece prin pasUrmator, pana la run-complete", () => {
     const quiz = setupQuiz({ deterministic: false });
     let round = findNonTerminalRound(quiz);
     let rezultat = null;
@@ -154,9 +154,9 @@ describe("prime-divisions (Faza D lot 2, quiz cu pasi intermediari + pauza propr
       rezultat = quiz.onAnswer(round.correctIndex);
       if (rezultat.outcome === "run-complete") break;
       assert.equal(rezultat.outcome, "step-correct");
-      assert.ok(rezultat.continueStep, "fiecare pas intermediar are continueStep");
+      assert.ok(rezultat.pasUrmator, "fiecare pas intermediar are pasUrmator");
       pasiIntermediari += 1;
-      round = rezultat.continueStep;
+      round = rezultat.pasUrmator.continua;
     }
 
     assert.equal(rezultat.outcome, "run-complete");

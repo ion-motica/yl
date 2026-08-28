@@ -1,3 +1,9 @@
+// CONTRACTUL PASULUI URMATOR — `pasUrmator: { dupa, continua }`.
+//
+// Vezi documente de referinta/RAPORT-motor-comun-raspuns.md.
+//
+// ============================ DE CE EXISTA ==================================
+//
 // Regresie reala, raportata de user (28.08.2026), la ambele quizuri Singapore
 // ("Tabla adunarii Singapore 6=?+3" si "6=3+3|3+4"): dupa un raspuns corect care
 // termina un tur (avans de nivel), ecranul ramanea blocat pe INTREBAREA VECHE,
@@ -11,18 +17,27 @@
 //
 //   if (result.promptHoldMs != null && result.continueStep !== undefined) { ... }
 //
-// `promptHoldMs` avea un AL DOILEA rol, ascuns: flag de control care decidea
-// DACA `continueStep` (avansul la runda urmatoare) se aplica DELOC. Cand
-// quizurile Singapore au scapat de `promptHoldMs: 400` (standardizare
-// placeholder, tot 28.08.2026), continueStep-ul nu a mai fost aplicat
-// NICIODATA pe acea cale — pierdut complet, tacut, fara eroare.
+// Existau doi campi FRATI, amandoi optionali: `promptHoldMs` (DURATA) si
+// `continueStep` (FLUX). Motorul ii cupla cu `&&`, deci campul despre durata
+// avea un al doilea rol, nedeclarat: decidea DACA avansul se aplica deloc. Cand
+// quizurile Singapore au scapat de `promptHoldMs: 400` (standardizarea
+// placeholderului, tot 28.08.2026), avansul nu a mai fost aplicat NICIODATA pe
+// acea cale — pierdut complet, tacut, fara eroare.
 //
-// Fix: un `continueStep` prezent se aplica INTOTDEAUNA; `promptHoldMs` (apoi
-// `runDelayMs`, apoi DEFAULT_REVEAL_HOLD_MS) decide DOAR cat dureaza pauza,
-// nu daca pasul se aplica. Testul de mai jos verifica exact asta, prin
-// motorul REAL (nu doar structura obiectului intors de quiz) — genul de test
-// care ar fi prins regresia daca ar fi existat inainte.
+// Primul fix a decuplat cei doi campi. Dar asta repara instanta, nu forma:
+// ramaneau doi campi frati a caror relatie era tinuta minte doar de cine scria
+// linia. Decizia userului a fost sa se schimbe FORMA, o singura data, peste tot:
+// un singur camp ATOMIC, `pasUrmator: { dupa, continua }`, in care durata sta
+// INAUNTRUL pasului. Prezenta campului inseamna "aplica pasul"; nu mai exista un
+// al doilea camp de activare de sincronizat mental cu primul.
+//
+// Testele de mai jos trec prin motorul REAL (nu verifica doar obiectul intors de
+// quiz) si acopera trei lucruri diferite:
+//   1. comportamentul care s-a rupt (avans fara pauza declarata),
+//   2. faptul ca `dupa` inca mai controleaza DURATA (nu a devenit decorativ),
+//   3. garzile care fac imposibila reintoarcerea la forma veche.
 import assert from "node:assert/strict";
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -148,9 +163,26 @@ function stareCuPlaceholder(text) {
   return `<span>${text}=<span class="${CLASA}">?</span></span>`;
 }
 
-describe("falling-engine: continueStep se aplica INTOTDEAUNA, cu sau fara promptHoldMs", () => {
+const RUNDA_NOUA = {
+  prompt: "9=?",
+  promptHtml: stareCuPlaceholder("9"),
+  options: ["8", "9", "10"],
+  correctIndex: 0,
+  metadata: { questionInstanceId: "urmatoarea" },
+};
+
+const RUNDA_VECHE = {
+  prompt: "3=?",
+  promptHtml: stareCuPlaceholder("3"),
+  options: ["1", "2", "3"],
+  correctIndex: 1,
+  metadata: { questionInstanceId: "veche" },
+};
+
+const asteapta = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+describe("falling-engine: contractul `pasUrmator`", () => {
   let dom;
-  let quiz;
 
   beforeEach(() => {
     delete globalThis.FallingEngine;
@@ -178,50 +210,18 @@ describe("falling-engine: continueStep se aplica INTOTDEAUNA, cu sau fara prompt
     dom.topNumberEl.queryMap = new Map([[`.${CLASA}`, slot]]);
   });
 
-  it("fara promptHoldMs: continueStep tot avanseaza la runda urmatoare (regresia de azi)", async () => {
-    const rundaNoua = {
-      prompt: "9=?",
-      promptHtml: stareCuPlaceholder("9"),
-      options: ["8", "9", "10"],
-      correctIndex: 0,
-      metadata: { questionInstanceId: "urmatoarea" },
-    };
-    const rundaVeche = {
-      prompt: "3=?",
-      promptHtml: stareCuPlaceholder("3"),
-      options: ["1", "2", "3"],
-      correctIndex: 1,
-      metadata: { questionInstanceId: "veche" },
-    };
-
-    // Construit prin SubquizOrchestrator, ca orice quiz real (altfel motorul
-    // refuza raspunsul, ii lipseste semnatura `subquizEvent`). Tiparul
-    // `dupaRaspunsCorect` -> `{action:"continue", view:{...continueStep}}` e
-    // exact ce fac `buildTurnCompleteStep`-urile din quizurile Singapore
-    // reale, la finalul unui tur.
-    let currentItem = rundaVeche;
+  // Construit prin SubquizOrchestrator, ca orice quiz real (altfel motorul
+  // refuza raspunsul, ii lipseste semnatura `subquizEvent`). Tiparul
+  // `dupaRaspunsCorect` -> `{action:"continue", view:{...}}` e exact ce fac
+  // `buildTurnCompleteStep`-urile din quizurile Singapore reale.
+  function porneste(vedereLaRaspunsCorect) {
     const definition = globalThis.SubquizDefinition.define({
       id: "base",
       title: "baza",
-      esteCorect: (_item, index) => index === rundaVeche.correctIndex,
-      generator: () => currentItem,
+      esteCorect: (_item, index) => index === RUNDA_VECHE.correctIndex,
+      generator: () => RUNDA_VECHE,
       actiuni: {
-        dupaRaspunsCorect: () => ({
-          action: "continue",
-          view: {
-            outcome: "step-correct",
-            correct: true,
-            ...rundaVeche,
-            // NICIUN promptHoldMs, NICIUN runDelayMs — exact starea de azi,
-            // dupa ce standardizarea Singapore le-a scos.
-            continueStep: {
-              outcome: "run-complete",
-              correct: true,
-              runComplete: true,
-              nextRound: rundaNoua,
-            },
-          },
-        }),
+        dupaRaspunsCorect: () => ({ action: "continue", view: vedereLaRaspunsCorect }),
       },
     });
     const orchestrator = globalThis.SubquizOrchestrator.create({
@@ -230,13 +230,13 @@ describe("falling-engine: continueStep se aplica INTOTDEAUNA, cu sau fara prompt
       context: {},
     });
     orchestrator.startFirst();
-    orchestrator.getCurrentRuntime().setCurrentItem(rundaVeche);
+    orchestrator.getCurrentRuntime().setCurrentItem(RUNDA_VECHE);
 
-    quiz = {
+    const quiz = {
       isCompleted: () => false,
       placeholderRaspuns: globalThis.PlaceholderRaspuns.creeaza("?"),
       getFallSpeedFactor: () => 1,
-      onTimeout: () => ({ ...rundaVeche, outcome: "round" }),
+      onTimeout: () => ({ ...RUNDA_VECHE, outcome: "round" }),
       onAnswer: (index, meta) => orchestrator.onAnswer(index, meta),
     };
 
@@ -247,37 +247,112 @@ describe("falling-engine: continueStep se aplica INTOTDEAUNA, cu sau fara prompt
       onProgressUpdate: () => {},
       onAttemptLogged: () => {},
     });
-    engine.startRound(rundaVeche);
+    engine.startRound(RUNDA_VECHE);
+    return engine;
+  }
+
+  function vedereCuPas(pasUrmator) {
+    return { outcome: "step-correct", correct: true, ...RUNDA_VECHE, pasUrmator };
+  }
+
+  it("fara `dupa`: pasul tot avanseaza la runda urmatoare (regresia de 28.08.2026)", async () => {
+    porneste(
+      vedereCuPas({
+        // NICIUN `dupa`, NICIUN `runDelayMs` — exact starea in care quizurile
+        // Singapore au ajuns dupa ce li s-a scos pauza custom de 400ms. Cu
+        // contractul vechi, aici avansul se pierdea tacut.
+        continua: {
+          outcome: "run-complete",
+          correct: true,
+          runComplete: true,
+          nextRound: RUNDA_NOUA,
+        },
+      })
+    );
     dom.optionBtns[1].click();
 
-    // Asteapta peste DEFAULT_REVEAL_HOLD_MS (160) + delay-ul de finishRun.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Peste DEFAULT_REVEAL_HOLD_MS (160) + delay-ul de finishRun.
+    await asteapta(300);
 
     assert.equal(
       dom.topNumberEl.innerHTML,
-      rundaNoua.promptHtml,
-      "dupa raspunsul corect, continueStep trebuia sa afiseze runda urmatoare — " +
-        "inainte de fix, ramanea blocat pe runda veche"
+      RUNDA_NOUA.promptHtml,
+      "dupa raspunsul corect, pasul urmator trebuia sa afiseze runda urmatoare — " +
+        "cu contractul vechi ramanea blocat pe runda veche"
     );
   });
 
+  it("`dupa` inca mai controleaza DURATA: o pauza lunga chiar intarzie avansul", async () => {
+    // Perechea acestui test e cea de mai sus: impreuna arata ca `dupa` a ramas
+    // exclusiv despre durata. Daca cineva l-ar recupla la flux, unul din cele
+    // doua ar pica.
+    porneste(
+      vedereCuPas({
+        dupa: 500,
+        continua: {
+          outcome: "run-complete",
+          correct: true,
+          runComplete: true,
+          nextRound: RUNDA_NOUA,
+        },
+      })
+    );
+    dom.optionBtns[1].click();
+
+    await asteapta(150);
+    assert.notEqual(
+      dom.topNumberEl.innerHTML,
+      RUNDA_NOUA.promptHtml,
+      "la 150ms dintr-o pauza de 500ms, runda noua nu avea voie sa fie deja pe ecran"
+    );
+
+    await asteapta(600);
+    assert.equal(
+      dom.topNumberEl.innerHTML,
+      RUNDA_NOUA.promptHtml,
+      "dupa trecerea pauzei, runda noua trebuia sa apara"
+    );
+  });
+
+  it("respinge contractul vechi `continueStep`, in loc sa-l ignore tacit", () => {
+    porneste({
+      outcome: "step-correct",
+      correct: true,
+      ...RUNDA_VECHE,
+      continueStep: { outcome: "run-complete", runComplete: true, nextRound: RUNDA_NOUA },
+    });
+    assert.throws(() => dom.optionBtns[1].click(), /pasUrmator/);
+  });
+
+  it("respinge contractul vechi `promptHoldMs`, in loc sa-l ignore tacit", () => {
+    porneste({ outcome: "step-correct", correct: true, ...RUNDA_VECHE, promptHoldMs: 400 });
+    assert.throws(() => dom.optionBtns[1].click(), /pasUrmator/);
+  });
+
+  it("respinge un `pasUrmator` fara `continua` — forma vechiului bug in haine noi", () => {
+    // `{ dupa: 400 }` fara `continua` ar fi exact vechea "pauza care nu duce
+    // nicaieri". Motorul o refuza explicit, nu asteapta degeaba.
+    porneste(vedereCuPas({ dupa: 400 }));
+    assert.throws(() => dom.optionBtns[1].click(), /continua/);
+  });
+
+  it("respinge un `dupa` care nu e durata (numar)", () => {
+    porneste(
+      vedereCuPas({ dupa: "400ms", continua: { runComplete: true, nextRound: RUNDA_NOUA } })
+    );
+    assert.throws(() => dom.optionBtns[1].click(), /dupa/);
+  });
+
   it("regula de aur: fara NICIUN raspuns, ecranul nu se schimba, oricat ai astepta", async () => {
-    const rundaVeche = {
-      prompt: "3=?",
-      promptHtml: stareCuPlaceholder("3"),
-      options: ["1", "2", "3"],
-      correctIndex: 1,
-      metadata: { questionInstanceId: "veche" },
-    };
-    quiz = {
+    const quiz = {
       isCompleted: () => false,
       placeholderRaspuns: globalThis.PlaceholderRaspuns.creeaza("?"),
       getFallSpeedFactor: () => 1,
-      onTimeout: () => ({ ...rundaVeche, outcome: "round" }),
+      onTimeout: () => ({ ...RUNDA_VECHE, outcome: "round" }),
       onAnswer: () => {
         throw new Error("nu trebuia apelat — testul nu apasa niciun buton");
       },
-      beginRound: () => rundaVeche,
+      beginRound: () => RUNDA_VECHE,
     };
     const engine = new globalThis.FallingEngine({
       dom,
@@ -286,11 +361,32 @@ describe("falling-engine: continueStep se aplica INTOTDEAUNA, cu sau fara prompt
       onProgressUpdate: () => {},
       onAttemptLogged: () => {},
     });
-    engine.startRound(rundaVeche);
+    engine.startRound(RUNDA_VECHE);
     const inainte = dom.topNumberEl.innerHTML;
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await asteapta(300);
 
     assert.equal(dom.topNumberEl.innerHTML, inainte, "fara apasare, ecranul nu se schimba");
+  });
+});
+
+describe("Contractul vechi nu mai exista nicaieri in cod", () => {
+  it("niciun fisier din js/ nu mai produce `promptHoldMs:` sau `continueStep:`", () => {
+    // Garda mecanica, la fel ca cea de la contractul schimbarii de nivel: o
+    // aserție pe COD, nu pe comportament. Un quiz nou copiat dupa un exemplu
+    // vechi ar reintroduce tacit forma pe care tocmai am scos-o; asta o prinde
+    // la `npm test`, nu la raportul userului.
+    //
+    // `falling-engine.js` e exclus: acolo cele doua nume apar DOAR in mesajul
+    // de eroare care le respinge.
+    const gasite = execSync(
+      'grep -rn "promptHoldMs:\\|continueStep:" js/ --include=*.js || true',
+      { cwd: rootDir, encoding: "utf8" }
+    )
+      .trim()
+      .split("\n")
+      .filter((linie) => linie && !linie.startsWith("js/falling-engine.js:"));
+
+    assert.deepEqual(gasite, [], "campuri din contractul vechi, ramase in cod");
   });
 });

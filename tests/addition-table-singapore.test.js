@@ -93,7 +93,7 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     }
   });
 
-  it("raspuns corect pe un fapt intermediar din tur: step-correct, fara promptHoldMs, trece la urmatorul fapt din coada", () => {
+  it("raspuns corect pe un fapt intermediar din tur: step-correct, fara pasUrmator, trece la urmatorul fapt din coada", () => {
     const quiz = setupQuiz();
     const round = quiz.beginRound();
 
@@ -102,12 +102,11 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.equal(rezultat.outcome, "step-correct");
     assert.equal(rezultat.correct, true);
     assert.equal(rezultat.bounce, true);
-    assert.equal(rezultat.promptHoldMs, undefined, "pas intermediar: fara pauza, fara continueStep");
-    assert.equal(rezultat.continueStep, undefined);
+    assert.equal(rezultat.pasUrmator, undefined, "pas intermediar: niciun pas urmator");
     assert.equal(rezultat.motor3Butoane, globalThis.Motor3Butoane.SEMNATURA);
   });
 
-  it("tur fara nicio greseala, terminat: avanseaza nivelul, pauza standard (fara promptHoldMs custom) si continueStep run-complete", () => {
+  it("tur fara nicio greseala, terminat: avanseaza nivelul, pauza standard (fara `dupa` custom) si pasUrmator run-complete", () => {
     const quiz = setupQuiz();
     let round = quiz.beginRound();
     assert.equal(quiz.getLevel(), 3);
@@ -125,11 +124,11 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.equal(rezultat.outcome, "step-correct");
     // Pauza custom de 400ms a fost scoasa (cerere user, 28.08.2026) — cade pe
     // DEFAULT_REVEAL_HOLD_MS din motor, ca la orice alt quiz standard.
-    assert.equal(rezultat.promptHoldMs, undefined);
-    assert.equal(rezultat.continueStep.outcome, "run-complete");
-    assert.equal(rezultat.continueStep.runComplete, true);
-    assert.equal(rezultat.continueStep.levelAdvanced, true);
-    assert.ok(rezultat.continueStep.nextRound, "continueStep poarta runda urmatoare, deja pregatita");
+    assert.equal(rezultat.pasUrmator.dupa, undefined, "fara pauza custom: cade pe DEFAULT_REVEAL_HOLD_MS");
+    assert.equal(rezultat.pasUrmator.continua.outcome, "run-complete");
+    assert.equal(rezultat.pasUrmator.continua.runComplete, true);
+    assert.equal(rezultat.pasUrmator.continua.levelAdvanced, true);
+    assert.ok(rezultat.pasUrmator.continua.nextRound, "pasul urmator poarta runda urmatoare, deja pregatita");
   });
 
   it("greseala pe primul fapt, apoi corect pe toate: dupa terminarea turului principal intra in faza retry (fara avans de nivel inca)", () => {
@@ -147,23 +146,23 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     while (!vazutRetry && paziGarda < 20) {
       paziGarda += 1;
       rezultat = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
-      // Semnalul de "tur terminat, fara avans" nu mai e promptHoldMs (scos) —
-      // e prezenta unui continueStep FARA `outcome` (run-complete e mereu
+      // Semnalul de "tur terminat, fara avans" e un pasUrmator a carui
+      // vedere purtata (`continua`) NU are `outcome` (run-complete e mereu
       // insotit de outcome, retry nu).
-      if (rezultat.continueStep && rezultat.continueStep.outcome === undefined) {
-        vazutRetry = true; // continueStep de retry, nu de run-complete
+      if (rezultat.pasUrmator && rezultat.pasUrmator.continua.outcome === undefined) {
+        vazutRetry = true; // pas de retry, nu de run-complete
         break;
       }
       round = rezultat;
     }
 
-    assert.ok(vazutRetry, "trebuia sa ajunga la un continueStep de tip retry (fara outcome run-complete)");
+    assert.ok(vazutRetry, "trebuia sa ajunga la un pas de tip retry (fara outcome run-complete)");
     assert.equal(quiz.getLevel(), 3, "nivelul NU avanseaza cat timp turul a avut o greseala");
-    assert.equal(rezultat.continueStep.runComplete, undefined, "continueStep de retry nu e run-complete");
-    assert.ok(Array.isArray(rezultat.continueStep.options), "continueStep de retry poarta o runda noua de raspuns");
+    assert.equal(rezultat.pasUrmator.continua.runComplete, undefined, "pasul de retry nu e run-complete");
+    assert.ok(Array.isArray(rezultat.pasUrmator.continua.options), "pasul de retry poarta o runda noua de raspuns");
   });
 
-  it("nivelul maxim: continueStep cu gameComplete la finalul unui tur fara greseli", () => {
+  it("nivelul maxim: pasUrmator cu gameComplete la finalul unui tur fara greseli", () => {
     const quiz = setupQuiz();
     quiz.switchLevel(10); // MAX_LEVEL
     let round = quiz.beginRound();
@@ -174,7 +173,7 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     while (!terminat && paziGarda < 20) {
       paziGarda += 1;
       rezultat = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
-      if (rezultat.continueStep && rezultat.continueStep.gameComplete) {
+      if (rezultat.pasUrmator && rezultat.pasUrmator.continua.gameComplete) {
         terminat = true;
         break;
       }
@@ -182,7 +181,7 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     }
 
     assert.ok(terminat, "jocul trebuia sa se termine la nivelul maxim, fara greseli");
-    assert.equal(rezultat.continueStep.outcome, "run-complete");
+    assert.equal(rezultat.pasUrmator.continua.outcome, "run-complete");
     assert.equal(quiz.isCompleted(), true);
   });
 

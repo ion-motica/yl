@@ -322,14 +322,16 @@
             bounce: true,
             message: `Corect! ${label}`,
             ...holdView,
-            continueStep: {
-              outcome: "run-complete",
-              correct: true,
-              runComplete: true,
-              gameComplete: true,
-              flash: "win",
-              banner: "Felicitări! Ai terminat nivelul 10!",
-              message: "Felicitări! Ai terminat nivelul 10!",
+            pasUrmator: {
+              continua: {
+                outcome: "run-complete",
+                correct: true,
+                runComplete: true,
+                gameComplete: true,
+                flash: "win",
+                banner: "Felicitări! Ai terminat nivelul 10!",
+                message: "Felicitări! Ai terminat nivelul 10!",
+              },
             },
           };
         }
@@ -342,15 +344,17 @@
           bounce: true,
           message: `Corect! ${label}`,
           ...holdView,
-          continueStep: {
-            outcome: "run-complete",
-            correct: true,
-            runComplete: true,
-            levelAdvanced: true,
-            flash: "win",
-            banner: "Felicitări! Next level!",
-            message: `Felicitări! Nivel ${level}`,
-            nextRound: nextView,
+          pasUrmator: {
+            continua: {
+              outcome: "run-complete",
+              correct: true,
+              runComplete: true,
+              levelAdvanced: true,
+              flash: "win",
+              banner: "Felicitări! Next level!",
+              message: `Felicitări! Nivel ${level}`,
+              nextRound: nextView,
+            },
           },
         };
       }
@@ -362,9 +366,11 @@
         bounce: true,
         message: `Corect! ${label}`,
         ...holdView,
-        continueStep: {
-          ...retryView,
-          resetFall: true,
+        pasUrmator: {
+          continua: {
+            ...retryView,
+            resetFall: true,
+          },
         },
       };
     }
@@ -372,10 +378,10 @@
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
     // Fara pasi intermediari de tip "lant": fiecare raspuns corect fie trece la
     // urmatorul fapt din coada turului curent, fie incheie turul (nivel nou /
-    // faza retry / joc complet), prin `continueStep`.
+    // faza retry / joc complet), prin `pasUrmator`.
     //
-    // Pauza `promptHoldMs: 400` (custom, de dinainte de migrare, de 2,5x mai
-    // lenta decat DEFAULT_REVEAL_HOLD_MS=160 din motor) a fost SCOASA — cerere
+    // Pauza custom de 400ms (de dinainte de migrare, de 2,5x mai lenta decat
+    // DEFAULT_REVEAL_HOLD_MS=160 din motor) a fost SCOASA — cerere
     // user (28.08.2026), la standardizarea formatului `singapore-bond`. Vezi
     // documente de referinta/CONTINUARE-contract-semn-intrebare.md.
     //

@@ -319,9 +319,11 @@
     // Ca la prime-divisors.js: exista un pas intermediar real (lantul de
     // impartiri succesive), de-asta mutatia de stare + decizia terminal/continua
     // se fac in `dupaRaspunsCorect`. Spre deosebire de prime-divisors.js, aici
-    // pasul intermediar avea deja `promptHoldMs`+`continueStep` (o pauza de
-    // 160ms care arata rezultatul impartirii curente inainte de urmatoarea) —
-    // M3B le lasa sa treaca neatinse, sunt citite direct de falling-engine.js.
+    // pasul intermediar are o pauza proprie (160ms, ca sa se vada rezultatul
+    // impartirii curente inainte de urmatoarea) — azi exprimata prin campul
+    // unic `pasUrmator: { dupa, continua }`. M3B il lasa sa treaca neatins, e
+    // citit direct de falling-engine.js. Acesta e SINGURUL loc din aplicatie
+    // care foloseste `dupa` (o pauza diferita de cea implicita din motor).
     //
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza"). `options` proprii sunt NUMERE — `mesaje.gresit`/
@@ -401,10 +403,12 @@
                 outcome: "step-correct",
                 correct: true,
                 bounce: true,
-                promptHoldMs: CORRECT_PROMPT_HOLD_MS,
                 message: `Corect! ${dividendBefore}:${divisorBefore}=${quotientBefore}`,
                 ...answeredStep,
-                continueStep: roundView({ hintMessage: "" }),
+                pasUrmator: {
+                  dupa: CORRECT_PROMPT_HOLD_MS,
+                  continua: roundView({ hintMessage: "" }),
+                },
               },
             };
           },

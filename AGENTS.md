@@ -19,6 +19,7 @@
 | Quiz nou / modificare quiz existent | `documente de referinta/QUIZ-SPEC-SABLON.md` |
 | Placeholder de răspuns (semnul `?`) — contract, marcaj, revelare | `js/placeholder-raspuns.js`, `tests/placeholder-raspuns.test.js`, `documente de referinta/CONTINUARE-contract-semn-intrebare.md` |
 | Schimbarea de nivel (banner, pauză, ultimul nivel) | `js/schimbare-de-nivel.js`, `tests/schimbare-de-nivel.test.js` |
+| Pasul următor după un răspuns corect (`pasUrmator`: pauză + runda următoare) | `js/falling-engine.js`, `tests/falling-engine-pas-urmator.test.js` |
 | Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
 | Titluri secțiuni CP (panou nou/existent) | `documente de referinta/standard-titluri-cp.md` |
 | Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |
@@ -252,6 +253,41 @@ laSchimbareDeNivel: global.SchimbareDeNivel.standard({
 
 Valorile implicite stau în constantele din capul lui `js/schimbare-de-nivel.js` — se schimbă
 acolo, o singură dată, pentru toată aplicația.
+
+## Contractul pasului următor (`pasUrmator`)
+
+> Când un răspuns corect trebuie să ducă la runda următoare, quizul trimite **un singur câmp**,
+> `pasUrmator`. Motorul îl aplică **întotdeauna** când e prezent. Numele vechi
+> (`promptHoldMs`, `continueStep`) sunt **respinse cu eroare**, nu ignorate tăcut.
+
+```js
+pasUrmator: {
+  dupa: 160,          // OPȚIONAL — doar durata pauzei; implicit DEFAULT_REVEAL_HOLD_MS (160)
+  continua: { ... },  // OBLIGATORIU — vederea rundei următoare
+}
+```
+
+Implementare: `js/falling-engine.js` (teste: `tests/falling-engine-pas-urmator.test.js`).
+
+**De ce există.** Înainte erau doi câmpi **frați**, amândoi opționali, pe același rezultat:
+`promptHoldMs` (durată) și `continueStep` (flux). Motorul îi cupla cu `&&`, deci câmpul despre
+**durată** decidea dacă cel despre **flux** se aplică deloc. Când quizurile Singapore au scăpat de
+pauza lor custom de 400ms, avansul la runda următoare s-a pierdut complet și tăcut — ecran
+înghețat pe întrebarea veche, cu butoane active, răspunsuri corecte marcate greșit. Relația dintre
+cei doi câmpi nu era impusă de nimic; era ținută minte doar de cine scria linia.
+
+Forma atomică o face imposibilă: **prezența câmpului înseamnă „aplică pasul"**, iar durata stă
+înăuntrul lui. Nu mai există un al doilea câmp de activare, de sincronizat mental cu primul.
+
+| greșeală | ce face motorul |
+|---|---|
+| `continueStep:` sau `promptHoldMs:` | eroare explicită, care numește înlocuitorul |
+| `pasUrmator` fără `continua` | eroare — „pauză care nu duce nicăieri", exact vechiul bug în haine noi |
+| `dupa` care nu e număr | eroare |
+
+**Nu confunda cu `runDelayMs`**, care rămâne mecanism separat: pauza dinaintea rundei următoare
+la finalul unui *run*, citită în `finishRun`. `pasUrmator.dupa` ține de cât stă răspunsul revelat
+pe ecran înainte de a se aplica pasul.
 
 ## Butoane „default" pe opțiuni (md / make default)
 

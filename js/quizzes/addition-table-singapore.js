@@ -302,14 +302,16 @@
             bounce: true,
             message: `Corect! ${finishedLevel}=${label}`,
             ...holdView,
-            continueStep: {
-              outcome: "run-complete",
-              correct: true,
-              runComplete: true,
-              gameComplete: true,
-              flash: "win",
-              banner: "Felicitări! Ai terminat nivelul 10!",
-              message: "Felicitări! Ai terminat nivelul 10!",
+            pasUrmator: {
+              continua: {
+                outcome: "run-complete",
+                correct: true,
+                runComplete: true,
+                gameComplete: true,
+                flash: "win",
+                banner: "Felicitări! Ai terminat nivelul 10!",
+                message: "Felicitări! Ai terminat nivelul 10!",
+              },
             },
           };
         }
@@ -322,15 +324,17 @@
           bounce: true,
           message: `Corect! ${finishedLevel}=${label}`,
           ...holdView,
-          continueStep: {
-            outcome: "run-complete",
-            correct: true,
-            runComplete: true,
-            levelAdvanced: true,
-            flash: "win",
-            banner: "Felicitări! Next level!",
-            message: `Felicitări! Nivel ${level}`,
-            nextRound: nextView,
+          pasUrmator: {
+            continua: {
+              outcome: "run-complete",
+              correct: true,
+              runComplete: true,
+              levelAdvanced: true,
+              flash: "win",
+              banner: "Felicitări! Next level!",
+              message: `Felicitări! Nivel ${level}`,
+              nextRound: nextView,
+            },
           },
         };
       }
@@ -342,9 +346,11 @@
         bounce: true,
         message: `Corect! ${level}=${label}`,
         ...holdView,
-        continueStep: {
-          ...retryView,
-          resetFall: true,
+        pasUrmator: {
+          continua: {
+            ...retryView,
+            resetFall: true,
+          },
         },
       };
     }
@@ -353,10 +359,10 @@
     // Fara pasi intermediari de tip "lant" (spre deosebire de prime-divisors.js):
     // fiecare raspuns corect fie trece la urmatorul fapt din coada turului
     // curent, fie incheie turul (nivel nou / faza retry / joc complet), prin
-    // `continueStep`.
+    // `pasUrmator`.
     //
-    // Pauza `promptHoldMs: 400` (custom, de dinainte de migrare) a fost
-    // SCOASA — cerere user (28.08.2026), la standardizarea formatului
+    // Pauza custom de 400ms (de dinainte de migrare) a fost SCOASA — cerere
+    // user (28.08.2026), la standardizarea formatului
     // `singapore-bond`. Odata cu ea a aparut si REVELAREA propriu-zisa: acest
     // quiz nu arata NICIODATA raspunsul ales inainte de azi (verificat empiric
     // — `stateHasQuestionMark` era mereu `false`, pentru ca `bondKnownAddend`

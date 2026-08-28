@@ -478,7 +478,68 @@
       };
     }
 
+    // ---------------------------------------------------------------------
+    // Contractul pasului urmator (decis de user, 28.08.2026, dupa regresia de
+    // la quizurile Singapore — vezi documente de referinta/
+    // RAPORT-motor-comun-raspuns.md).
+    //
+    // INAINTE: doi campi FRATI, amandoi optionali, pe acelasi rezultat:
+    //     { promptHoldMs: 400, continueStep: { ...runda urmatoare... } }
+    // iar motorul ii cupla cu `&&`. Deci un camp DESPRE DURATA decidea daca un
+    // camp DESPRE FLUX se aplica deloc: scoaterea pauzei anula tacut avansul la
+    // runda urmatoare. Relatia dintre ei nu era impusa de nimic — era tinuta
+    // minte doar de cine scria linia.
+    //
+    // ACUM: un singur camp ATOMIC.
+    //     { pasUrmator: { dupa: 400, continua: { ...runda urmatoare... } } }
+    // Prezenta lui INSEAMNA "aplica pasul" — nu mai exista un al doilea camp de
+    // activare de sincronizat mental cu primul. `continua` e obligatoriu (fara
+    // el campul n-ar avea ce sa poarte), `dupa` e optional si tine DOAR de
+    // durata pauzei.
+    function respingeContractulVechi(result) {
+      if (result.continueStep === undefined && result.promptHoldMs === undefined) return;
+      throw new Error(
+        "falling-engine: `continueStep`/`promptHoldMs` nu mai exista — au fost " +
+          "inlocuite de campul unic `pasUrmator: { dupa, continua }` " +
+          "(28.08.2026). Cuplarea lor prin `&&` pierdea tacut avansul de runda " +
+          "cand pauza lipsea; forma noua nu mai permite despartirea lor."
+      );
+    }
+
+    function valideazaPasulUrmator(pas) {
+      if (pas === undefined) return;
+      if (!pas || typeof pas !== "object" || Array.isArray(pas)) {
+        throw new Error(
+          `falling-engine: \`pasUrmator\` trebuie sa fie un obiect { dupa?, continua }, primit: ${typeof pas}`
+        );
+      }
+      if (pas.continua === undefined) {
+        throw new Error(
+          "falling-engine: `pasUrmator` fara `continua` nu are sens — campul " +
+            "exista tocmai ca sa poarte runda urmatoare. Pentru o pauza simpla, " +
+            "fara avans de runda, foloseste `runDelayMs`."
+        );
+      }
+      if (pas.dupa !== undefined && typeof pas.dupa !== "number") {
+        throw new Error(
+          `falling-engine: \`pasUrmator.dupa\` e o durata in ms (numar), primit: ${typeof pas.dupa}`
+        );
+      }
+    }
+
+    // Cat sta raspunsul revelat pe ecran inainte sa se aplice pasul urmator.
+    // Scrisa o singura data: era duplicata identic in doua locuri, iar doua
+    // copii ale aceleiasi reguli pot diverge tacut.
+    function durataPauzeiDeRevelare(result) {
+      return result.pasUrmator?.dupa ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS;
+    }
+
     function normalizeResult(result = {}) {
+      // Punct unic de trecere: `normalizeResult` e apelata pe rezultatul unui
+      // raspuns SI pe vederea purtata de `pasUrmator.continua`, deci verificarea
+      // de aici prinde si un contract vechi imbricat.
+      respingeContractulVechi(result);
+      valideazaPasulUrmator(result.pasUrmator);
       const normalized = normalizeRoundState(result);
       if (!normalized.outcome) {
         if (normalized.runComplete) normalized.outcome = "run-complete";
@@ -880,7 +941,9 @@
     function applyImmediateAnswerFeedback(result, wrongPick) {
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
-      if (result.banner && !result.promptHoldMs) afiseazaBanner(result);
+      // Cand pasul urmator are pauza, bannerul nu se arata acum — se arata la
+      // capatul pauzei, odata cu runda purtata de `continua`.
+      if (result.banner && !result.pasUrmator?.dupa) afiseazaBanner(result);
       dom.messageEl.classList.toggle("win", result.flash === "win");
 
       if (result.resetFall) setFallPosition(0);
@@ -913,8 +976,8 @@
       }
     }
 
-    function applyContinueStep(result) {
-      const next = normalizeResult(result.continueStep);
+    function aplicaPasulUrmator(pas) {
+      const next = normalizeResult(pas.continua);
       if (next.resetFall) setFallPosition(0);
 
       if (next.runComplete) {
@@ -932,31 +995,19 @@
     function applyAnswerResultTail(result, pickedIndex, wrongPick, shouldRender, afterEngineReveal) {
       if (shouldRender && !wrongPick) renderRound(result);
 
-      // Un `continueStep` prezent se aplica INTOTDEAUNA — nu conditionat de
-      // `promptHoldMs`. Inainte de 28.08.2026, verificarea era
-      // `result.promptHoldMs != null && result.continueStep !== undefined`:
-      // daca un quiz avea `continueStep` dar nu seta `promptHoldMs` (cazul
-      // real: cele doua quizuri Singapore, dupa ce pauza lor custom de 400ms
-      // a fost scoasa), acest bloc intreg era SARIT — continueStep-ul (avansul
-      // la runda urmatoare) se pierdea complet, desi starea interna a quizului
-      // avansase deja sincron (in alta parte a codului). Ecranul ramanea pe
-      // intrebarea veche, cu butoane active; orice apasare era evaluata
-      // impotriva starii NOI, deci parea gresita — acelasi tipar ca bug-urile
-      // de tranzitie de rutare din 21.08.2026 (RAPORT-motor-comun-raspuns.md).
-      //
-      // Pauza ramane configurabila (promptHoldMs, apoi runDelayMs, apoi
-      // DEFAULT_REVEAL_HOLD_MS), dar nu mai decide DACA continueStep se aplica,
-      // doar CAT dureaza pana se aplica.
-      if (result.continueStep !== undefined) {
+      // Un `pasUrmator` prezent se aplica INTOTDEAUNA. Durata (`dupa`) sta in
+      // interiorul lui si spune doar CAT dureaza pauza, nu DACA pasul se
+      // aplica — vezi comentariul lung de la `respingeContractulVechi`.
+      const pas = result.pasUrmator;
+      if (pas) {
+        setInputEnabled(false);
+        // Dupa o revelare facuta de motor, pauza a fost deja consumata acolo;
+        // a doua ar dubla-o.
         if (afterEngineReveal) {
-          setInputEnabled(false);
-          applyContinueStep(result);
+          aplicaPasulUrmator(pas);
           return;
         }
-        const holdMs =
-          result.promptHoldMs ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS;
-        setInputEnabled(false);
-        setTimeout(() => applyContinueStep(result), holdMs);
+        setTimeout(() => aplicaPasulUrmator(pas), durataPauzeiDeRevelare(result));
         return;
       }
 
@@ -1034,12 +1085,10 @@
             correctIndex: beforeState.correctIndex,
           });
         }
-        const holdMs =
-          result.promptHoldMs ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS;
         setInputEnabled(false);
         setTimeout(() => {
           applyAnswerResultTail(result, pickedIndex, wrongPick, shouldRender, true);
-        }, holdMs);
+        }, durataPauzeiDeRevelare(result));
         return;
       }
 
