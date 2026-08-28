@@ -1310,6 +1310,41 @@ care suprascrie o pauză să fie vizibil dintr-o privire, fără să mai fie nev
 parte din `npm run check:*` (ca `check-doc-index.mjs`) sau rămâne un instrument de consultat la
 cerere.
 
+## De discutat mai târziu — test instabil: `multiplication-table-conexe-helper`
+
+> **Nu e o regresie și nu e cauzat de vreo modificare recentă.** Notat (28.08.2026) pentru că a
+> apărut o dată în timpul verificărilor de la contractul `pasUrmator` și a costat timp până s-a
+> lămurit că e zgomot. Merită știut că e acolo, ca data viitoare să nu mai fie investigat de la zero.
+
+**Simptomul.** La `npm test`, uneori (nu la fiecare rulare) pică un singur subtest:
+
+```
+✖ can surface factors beyond 3 when fewer than three performant
+  AssertionError: expected b>3 in 2
+```
+
+**Cauza.** Testul (`tests/multiplication-table-conexe-helper.test.js:91`) e declarat **explicit**
+`deterministic: false` și depinde de `Math.random()` **nesemănat** din
+`js/conexe-table-quiz/engine.js:175`. Aserțiunea cere ca, în cel mult 80 de pași, tragerea la sorți
+să scoată măcar un factor `b > 3`. Uneori bucla se termină mai devreme (`levelAdvanced` /
+`gameComplete`) și nu apucă. Deci testul e probabilist prin construcție, nu prin accident.
+
+**Măsurat, nu presupus** (rulări repetate ale fișierului, izolat):
+
+| cod | eșecuri |
+|---|---|
+| înainte de contractul `pasUrmator` (commit `65d1eb0`) | 3/80 (~3,8%) |
+| după | 2/40 (5%) |
+
+Diferența e zgomot de eșantionare, nu semnal. În plus, testul **nu încarcă deloc**
+`js/falling-engine.js` (vezi `CORE_SCRIPTS` din `tests/helpers/load-quiz-environment.js`), deci
+modificările din motor nu-l pot atinge nici măcar teoretic.
+
+**De decis, când se ajunge la el:** dacă se seamănă generatorul aleator pentru acest test (cum se
+face deja în alte teste, prin `deterministic: true`), dacă se mărește bugetul de pași, sau dacă
+aserțiunea se rescrie ca să nu mai depindă de o tragere norocoasă. Oricare variantă e o modificare
+în zona `conexe-table-quiz`, fără legătură cu motorul comun de răspuns.
+
 ## ✅ REZOLVAT — regruparea contractului `continueStep`/`promptHoldMs` în `pasUrmator`
 
 > **Decis și implementat de user, 28.08.2026**, după ce nota de mai jos a fost citită și discutată:
