@@ -136,7 +136,7 @@
       result.prompt = `${dividend}:${divisor}=${quotient}`;
       result.promptHtml = divisionPromptHtml(dividend, divisor, quotient);
       result.levelAdvanced = false;
-      result.runDelayMs = CORRECT_PROMPT_HOLD_MS;
+      result.pauza_intre_serii_ms = CORRECT_PROMPT_HOLD_MS;
       return result;
     }
 
@@ -260,7 +260,7 @@
           outcome: "run-complete",
           ...snapshot,
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: "Felicitări! Ai terminat toate nivelele!",
@@ -276,7 +276,7 @@
           outcome: "run-complete",
           ...snapshot,
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           levelAdvanced: true,
           flash: "win",
           banner: "Felicitări! Next level!",
@@ -291,7 +291,7 @@
         outcome: "run-complete",
         ...snapshot,
         correct: true,
-        runComplete: true,
+        serie_terminata: true,
         flash: flawless ? "win" : undefined,
         message: flawless
           ? "Felicitări! Rundă perfectă."

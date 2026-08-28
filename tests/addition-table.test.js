@@ -105,10 +105,10 @@ describe("addition-table (comportament dinainte de migrare, Faza D lot 1)", () =
 
     assert.equal(rezultat.outcome, "run-complete");
     assert.equal(rezultat.correct, true);
-    assert.equal(rezultat.runComplete, true);
+    assert.equal(rezultat.serie_terminata, true);
     assert.ok(rezultat.prompt.includes(String(round.options[round.correctIndex])), "promptul arata raspunsul corect");
     assert.ok(rezultat.promptHtml.includes("q-correct"), "promptHtml marcheaza raspunsul corect");
-    assert.equal(rezultat.runDelayMs, 160, "pauza standard dupa raspuns corect (CORRECT_PROMPT_HOLD_MS)");
+    assert.equal(rezultat.pauza_intre_serii_ms, 160, "pauza standard dupa raspuns corect (CORRECT_PROMPT_HOLD_MS)");
   });
 
   it("raspuns corect dupa un raspuns gresit pe aceeasi intrebare: tot run-complete, turul ramane consemnat gresit in FactStore", () => {

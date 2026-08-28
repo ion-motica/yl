@@ -162,7 +162,7 @@ describe("prime-divisions (Faza D lot 2, quiz cu pasi intermediari + pauza propr
 
     assert.equal(rezultat.outcome, "run-complete");
     assert.equal(rezultat.correct, true);
-    assert.equal(rezultat.runComplete, true);
+    assert.equal(rezultat.serie_terminata, true);
     assert.ok(pasi < 20, "nu trebuia sa se blocheze");
     assert.ok(pasiIntermediari > 0, "testul trebuia sa treaca prin cel putin un pas intermediar real");
   });

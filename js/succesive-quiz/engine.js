@@ -30,7 +30,7 @@
     const MIN_LEVEL = config.minLevel ?? DEFAULTS.MIN_LEVEL;
     const MAX_LEVEL = config.maxLevel ?? DEFAULTS.MAX_LEVEL;
     const SERIES_LENGTHS = config.seriesLengths ?? DEFAULTS.SERIES_LENGTHS;
-    const RUN_DELAY_MS = config.runDelayMs ?? DEFAULTS.RUN_DELAY_MS;
+    const RUN_DELAY_MS = config.pauza_intre_serii_ms ?? DEFAULTS.RUN_DELAY_MS;
     const HINT_MESSAGE = config.hintMessage ?? DEFAULTS.HINT_MESSAGE;
     const TIMEOUT_MESSAGE = config.timeoutMessage ?? DEFAULTS.TIMEOUT_MESSAGE;
     const LEVEL_ADVANCED_BANNER = config.levelAdvancedBanner ?? DEFAULTS.LEVEL_ADVANCED_BANNER;
@@ -282,8 +282,8 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
-          runDelayMs: RUN_DELAY_MS,
+          serie_terminata: true,
+          pauza_intre_serii_ms: RUN_DELAY_MS,
           message,
           nextRound: startSeries(),
         };
@@ -294,7 +294,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: GAME_COMPLETE_BANNER,
@@ -307,7 +307,7 @@
       return {
         outcome: "run-complete",
         correct: true,
-        runComplete: true,
+        serie_terminata: true,
         levelAdvanced: true,
         flash: "win",
         banner: LEVEL_ADVANCED_BANNER,

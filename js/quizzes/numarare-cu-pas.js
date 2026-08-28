@@ -241,8 +241,8 @@
               view: {
                 outcome: "run-complete",
                 correct: true,
-                runComplete: true,
-                runDelayMs: RUN_DELAY_MS,
+                serie_terminata: true,
+                pauza_intre_serii_ms: RUN_DELAY_MS,
                 message: "Corect!",
                 ...rundaView(),
               },

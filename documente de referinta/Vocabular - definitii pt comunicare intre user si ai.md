@@ -39,6 +39,39 @@ pe baza conceptelor de mai sus — nu sunt concepte noi, sunt aplicarea lor.
 | `estePrimaApasare` | `este_primul_turn_apasare` |
 | `turCorect` | `corect_din_primul_turn_apasare` |
 
+## Identificatori derivați (concept 3 — `serie_de_intrebari`)
+
+Din `js/falling-engine.js` + cele două quizuri Singapore. `runComplete`/`runDelayMs` erau
+folosite de ~29, respectiv ~15 fișiere (motorul + aproape orice quiz care termină o serie).
+
+| azi | devine |
+|---|---|
+| `startTurn` | `incepe_serie_de_intrebari` |
+| `hadMistakeThisTurn` | `a_gresit_in_serie` |
+| `buildTurnCompleteStep` | `construieste_pasul_de_serie_terminata` |
+| `runComplete` | `serie_terminata` |
+| `finishRun` | `terminaSerie` |
+| `runDelayMs` | `pauza_intre_serii_ms` |
+| `RUN_DONE_MS` | `PAUZA_INTRE_SERII_IMPLICITA_MS` |
+
+**Neatins deliberat**: string-ul literal `"run-complete"` (valoarea câmpului `outcome`,
+folosită în ~32 fișiere). E o reprezentare soră, nu identic cu identificatorul `runComplete` —
+nu era pe lista aprobată, deci nu a fost redenumit. Rămâne "run-complete" în cod.
+
+## Identificatori derivați (concept 4 — `repetitie_programata_fact`)
+
+Din quizurile de înmulțire `multiplication-1120-v2.js`, `-v2-modular.js`,
+`-v4-intensiv-multipli-234.js`.
+
+| azi | devine |
+|---|---|
+| `dueTurn` | `repetitie_programata_scadenta` |
+| `turnsByKey` | `repetitii_programate_dupa_fapt` |
+| `turnsTarget` | `tinta_repetitii_programate` |
+| `effectiveTurnCount` | `numar_repetitii_programate_efective` |
+| `turnCount` | `numar_repetitii_programate` |
+| `turnsRow` | `rand_repetitii_programate` |
+
 ## Câmp de jurnal (date persistate — atenție specială)
 
 | azi | propunere | stare |

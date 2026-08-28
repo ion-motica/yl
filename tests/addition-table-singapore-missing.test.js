@@ -126,7 +126,7 @@ describe("addition-table-singapore-missing (Faza D lot 2 — migrare pura, fara 
     // DEFAULT_REVEAL_HOLD_MS din motor, ca la orice alt quiz standard.
     assert.equal(rezultat.pasUrmator.dupa, undefined, "fara pauza custom: cade pe DEFAULT_REVEAL_HOLD_MS");
     assert.equal(rezultat.pasUrmator.continua.outcome, "run-complete");
-    assert.equal(rezultat.pasUrmator.continua.runComplete, true);
+    assert.equal(rezultat.pasUrmator.continua.serie_terminata, true);
     assert.equal(rezultat.pasUrmator.continua.levelAdvanced, true);
     assert.ok(rezultat.pasUrmator.continua.nextRound, "pasul urmator poarta runda urmatoare, deja pregatita");
   });
@@ -156,7 +156,7 @@ describe("addition-table-singapore-missing (Faza D lot 2 — migrare pura, fara 
 
     assert.ok(vazutRetry, "trebuia sa ajunga la un pas de tip retry (fara outcome run-complete)");
     assert.equal(quiz.getLevel(), 3, "nivelul NU avanseaza cat timp turul a avut o greseala");
-    assert.equal(rezultat.pasUrmator.continua.runComplete, undefined, "pasul de retry nu e run-complete");
+    assert.equal(rezultat.pasUrmator.continua.serie_terminata, undefined, "pasul de retry nu e run-complete");
     assert.ok(Array.isArray(rezultat.pasUrmator.continua.options), "pasul de retry poarta o runda noua de raspuns");
   });
 

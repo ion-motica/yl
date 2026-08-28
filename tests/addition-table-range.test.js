@@ -103,10 +103,10 @@ describe("addition-table-range (Faza D lot 1)", () => {
 
     assert.equal(rezultat.outcome, "run-complete");
     assert.equal(rezultat.correct, true);
-    assert.equal(rezultat.runComplete, true);
+    assert.equal(rezultat.serie_terminata, true);
     assert.ok(rezultat.prompt.includes(String(round.options[round.correctIndex])));
     assert.ok(rezultat.promptHtml.includes("q-correct"));
-    assert.equal(rezultat.runDelayMs, 160);
+    assert.equal(rezultat.pauza_intre_serii_ms, 160);
     assert.equal(rezultat.levelAdvanced, false, "quirk preexistent, pastrat: mereu false pe rezultatul lui onAnswer");
   });
 

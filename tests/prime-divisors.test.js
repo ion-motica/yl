@@ -129,7 +129,7 @@ describe("prime-divisors (Faza D lot 1, quiz cu pasi intermediari)", () => {
 
     assert.equal(round.outcome, "run-complete");
     assert.equal(round.correct, true);
-    assert.equal(round.runComplete, true);
+    assert.equal(round.serie_terminata, true);
     assert.ok(pasi < 20, "nu trebuia sa se blocheze");
     assert.equal(round.motor3Butoane, globalThis.Motor3Butoane.SEMNATURA);
   });

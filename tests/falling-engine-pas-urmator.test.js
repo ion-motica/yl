@@ -213,7 +213,7 @@ describe("falling-engine: contractul `pasUrmator`", () => {
   // Construit prin SubquizOrchestrator, ca orice quiz real (altfel motorul
   // refuza raspunsul, ii lipseste semnatura `subquizEvent`). Tiparul
   // `dupaRaspunsCorect` -> `{action:"continue", view:{...}}` e exact ce fac
-  // `buildTurnCompleteStep`-urile din quizurile Singapore reale.
+  // `construieste_pasul_de_serie_terminata`-urile din quizurile Singapore reale.
   function porneste(vedereLaRaspunsCorect) {
     const definition = globalThis.SubquizDefinition.define({
       id: "base",
@@ -258,20 +258,20 @@ describe("falling-engine: contractul `pasUrmator`", () => {
   it("fara `dupa`: pasul tot avanseaza la runda urmatoare (regresia de 28.08.2026)", async () => {
     porneste(
       vedereCuPas({
-        // NICIUN `dupa`, NICIUN `runDelayMs` — exact starea in care quizurile
+        // NICIUN `dupa`, NICIUN `pauza_intre_serii_ms` — exact starea in care quizurile
         // Singapore au ajuns dupa ce li s-a scos pauza custom de 400ms. Cu
         // contractul vechi, aici avansul se pierdea tacut.
         continua: {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           nextRound: RUNDA_NOUA,
         },
       })
     );
     dom.optionBtns[1].click();
 
-    // Peste DEFAULT_REVEAL_HOLD_MS (160) + delay-ul de finishRun.
+    // Peste DEFAULT_REVEAL_HOLD_MS (160) + delay-ul de terminaSerie.
     await asteapta(300);
 
     assert.equal(
@@ -292,7 +292,7 @@ describe("falling-engine: contractul `pasUrmator`", () => {
         continua: {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           nextRound: RUNDA_NOUA,
         },
       })
@@ -319,7 +319,7 @@ describe("falling-engine: contractul `pasUrmator`", () => {
       outcome: "step-correct",
       correct: true,
       ...RUNDA_VECHE,
-      continueStep: { outcome: "run-complete", runComplete: true, nextRound: RUNDA_NOUA },
+      continueStep: { outcome: "run-complete", serie_terminata: true, nextRound: RUNDA_NOUA },
     });
     assert.throws(() => dom.optionBtns[1].click(), /pasUrmator/);
   });
@@ -338,7 +338,7 @@ describe("falling-engine: contractul `pasUrmator`", () => {
 
   it("respinge un `dupa` care nu e durata (numar)", () => {
     porneste(
-      vedereCuPas({ dupa: "400ms", continua: { runComplete: true, nextRound: RUNDA_NOUA } })
+      vedereCuPas({ dupa: "400ms", continua: { serie_terminata: true, nextRound: RUNDA_NOUA } })
     );
     assert.throws(() => dom.optionBtns[1].click(), /dupa/);
   });

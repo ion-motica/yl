@@ -495,7 +495,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: message,
@@ -512,9 +512,9 @@
       return {
         outcome: "run-complete",
         correct: true,
-        runComplete: true,
+        serie_terminata: true,
         levelAdvanced: true,
-        runDelayMs: 0,
+        pauza_intre_serii_ms: 0,
         flash: "win",
         banner: levelLabel(),
         message: "Nivel nou.",

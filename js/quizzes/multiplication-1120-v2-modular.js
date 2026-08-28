@@ -489,9 +489,9 @@
     }
 
     function dueEffectiveRetry(state) {
-      const due = state.retryQueue.filter((entry) => entry.dueTurn <= state.turnCount);
+      const due = state.retryQueue.filter((entry) => entry.repetitie_programata_scadenta <= state.numar_repetitii_programate);
       if (!due.length) return null;
-      due.sort((a, b) => a.dueTurn - b.dueTurn);
+      due.sort((a, b) => a.repetitie_programata_scadenta - b.repetitie_programata_scadenta);
       const picked = due[0];
       state.retryQueue = state.retryQueue.filter((entry) => entry !== picked);
       return buildEffectiveCandidateForB(picked.b);
@@ -528,14 +528,14 @@
       const item = buildEffectiveOptions(candidate);
       state.lastPrompt = candidate.prompt;
       state.lastB = candidate.b;
-      state.turnCount += 1;
+      state.numar_repetitii_programate += 1;
       return item;
     }
 
     function scheduleEffectiveRetry(state, b) {
-      const dueTurn = state.turnCount + randomInt(2, 5);
+      const repetitie_programata_scadenta = state.numar_repetitii_programate + randomInt(2, 5);
       state.retryQueue = state.retryQueue.filter((entry) => entry.b !== b);
-      state.retryQueue.push({ b, dueTurn });
+      state.retryQueue.push({ b, repetitie_programata_scadenta });
     }
 
     function noteEffectiveMistake(state, b) {
@@ -1120,7 +1120,7 @@
             candidateIndex: 0,
             lastPrompt: null,
             lastB: null,
-            turnCount: 0,
+            numar_repetitii_programate: 0,
             errorCounts: {},
             problemBs: [],
             retryQueue: [],
@@ -1550,7 +1550,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: message,
@@ -1581,9 +1581,9 @@
       return {
         outcome: "run-complete",
         correct: true,
-        runComplete: true,
+        serie_terminata: true,
         levelAdvanced: true,
-        runDelayMs: 0,
+        pauza_intre_serii_ms: 0,
         flash: "win",
         banner: `Nivel ${level} - ${factorForLevel(level)}x`,
         message: `Nivel ${level}`,

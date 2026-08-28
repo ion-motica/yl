@@ -459,7 +459,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: "Felicitări! Ai terminat tabla adunării!",
@@ -474,7 +474,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           levelAdvanced: true,
           flash: "win",
           banner: "Felicitări! Next level!",
@@ -487,8 +487,8 @@
       return {
         outcome: "run-complete",
         correct: true,
-        runComplete: true,
-        runDelayMs: RUN_DELAY_MS,
+        serie_terminata: true,
+        pauza_intre_serii_ms: RUN_DELAY_MS,
         message: `Corect! ${currentFact.values.a}+${currentFact.values.b}=${currentFact.correctAnswer}`,
         nextRound: quizApi.beginRound(next),
       };
@@ -553,7 +553,7 @@
             rezultat.correctIndex = correctIndex;
             rezultat.hintMessage = "";
             rezultat.levelAdvanced = false;
-            rezultat.runDelayMs = CORRECT_PROMPT_HOLD_MS;
+            rezultat.pauza_intre_serii_ms = CORRECT_PROMPT_HOLD_MS;
 
             return { action: "continue", view: rezultat };
           },

@@ -28,7 +28,7 @@
   // implicita la finalul unui "run-complete" fara avans de nivel eliminata —
   // rupea ritmul la lanturi cu pasi rapizi (ex. prime-divisors.js). Avansul de
   // nivel (LEVEL_ADV_MS) ramane neatins, are alt scop (celebrarea "Next level!").
-  const RUN_DONE_MS = 0;
+  const PAUZA_INTRE_SERII_IMPLICITA_MS = 0;
   const LEVEL_ADV_MS = 1400;
   const LIFT_BG_OPACITY_DEFAULT = 0.8;
 
@@ -517,7 +517,7 @@
         throw new Error(
           "falling-engine: `pasUrmator` fara `continua` nu are sens — campul " +
             "exista tocmai ca sa poarte runda urmatoare. Pentru o pauza simpla, " +
-            "fara avans de runda, foloseste `runDelayMs`."
+            "fara avans de runda, foloseste `pauza_intre_serii_ms`."
         );
       }
       if (pas.dupa !== undefined && typeof pas.dupa !== "number") {
@@ -531,7 +531,7 @@
     // Scrisa o singura data: era duplicata identic in doua locuri, iar doua
     // copii ale aceleiasi reguli pot diverge tacut.
     function durataPauzeiDeRevelare(result) {
-      return result.pasUrmator?.dupa ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS;
+      return result.pasUrmator?.dupa ?? result.pauza_intre_serii_ms ?? DEFAULT_REVEAL_HOLD_MS;
     }
 
     function normalizeResult(result = {}) {
@@ -542,7 +542,7 @@
       valideazaPasulUrmator(result.pasUrmator);
       const normalized = normalizeRoundState(result);
       if (!normalized.outcome) {
-        if (normalized.runComplete) normalized.outcome = "run-complete";
+        if (normalized.serie_terminata) normalized.outcome = "run-complete";
         else if (normalized.correct === false) normalized.outcome = "wrong-answer";
         else if (normalized.resetFall && normalized.flash === "wrong") normalized.outcome = "timeout";
         else if (normalized.bounce) normalized.outcome = "step-correct";
@@ -551,8 +551,8 @@
 
       normalized.correct =
         normalized.correct ?? !["wrong-answer", "timeout"].includes(normalized.outcome);
-      normalized.runComplete =
-        Boolean(normalized.runComplete) || normalized.outcome === "run-complete";
+      normalized.serie_terminata =
+        Boolean(normalized.serie_terminata) || normalized.outcome === "run-complete";
       normalized.gameComplete = Boolean(normalized.gameComplete);
       normalized.levelAdvanced = Boolean(normalized.levelAdvanced);
       normalized.resetFall = Boolean(normalized.resetFall);
@@ -862,7 +862,7 @@
       clearWrongMarks();
     }
 
-    function finishRun(result) {
+    function terminaSerie(result) {
       if (result.gameComplete) {
         if (hasRenderableState(result)) renderRound(result);
         if (rafId) cancelAnimationFrame(rafId);
@@ -878,8 +878,8 @@
       // intrebarea din nivelul nou apare imediat si se poate raspunde la ea
       // cat timp mesajul e inca pe ecran (decis de user, 28.08.2026).
       const delay = result.levelAdvanced
-        ? result.runDelayMs ?? schimbareDeNivel().pauzaInainteDeRundaUrmatoareMs
-        : result.runDelayMs ?? RUN_DONE_MS;
+        ? result.pauza_intre_serii_ms ?? schimbareDeNivel().pauzaInainteDeRundaUrmatoareMs
+        : result.pauza_intre_serii_ms ?? PAUZA_INTRE_SERII_IMPLICITA_MS;
       setTimeout(() => {
         if (getQuiz().isCompleted()) return;
         if (result.holdFallDuringDelay) fallHeld = false;
@@ -980,10 +980,10 @@
       const next = normalizeResult(pas.continua);
       if (next.resetFall) setFallPosition(0);
 
-      if (next.runComplete) {
+      if (next.serie_terminata) {
         if (next.banner) afiseazaBanner(next);
         config.onProgressUpdate?.();
-        finishRun(next);
+        terminaSerie(next);
         return;
       }
 
@@ -1011,9 +1011,9 @@
         return;
       }
 
-      if (result.runComplete) {
+      if (result.serie_terminata) {
         config.onProgressUpdate?.();
-        finishRun(result);
+        terminaSerie(result);
         return;
       }
 

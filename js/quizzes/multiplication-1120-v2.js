@@ -220,7 +220,7 @@
     let effectiveCandidateIndex = 0;
     let lastEffectivePrompt = null;
     let lastEffectiveB = null;
-    let effectiveTurnCount = 0;
+    let numar_repetitii_programate_efective = 0;
     let effectiveErrorCounts = {};
     let effectiveProblemBs = [];
     let effectiveRetryQueue = [];
@@ -390,7 +390,7 @@
       effectiveCandidateIndex = 0;
       lastEffectivePrompt = null;
       lastEffectiveB = null;
-      effectiveTurnCount = 0;
+      numar_repetitii_programate_efective = 0;
       effectiveErrorCounts = {};
       effectiveProblemBs = [];
       effectiveRetryQueue = [];
@@ -617,9 +617,9 @@
     }
 
     function dueEffectiveRetry() {
-      const due = effectiveRetryQueue.filter((entry) => entry.dueTurn <= effectiveTurnCount);
+      const due = effectiveRetryQueue.filter((entry) => entry.repetitie_programata_scadenta <= numar_repetitii_programate_efective);
       if (!due.length) return null;
-      due.sort((a, b) => a.dueTurn - b.dueTurn);
+      due.sort((a, b) => a.repetitie_programata_scadenta - b.repetitie_programata_scadenta);
       const picked = due[0];
       effectiveRetryQueue = effectiveRetryQueue.filter((entry) => entry !== picked);
       return buildEffectiveCandidateForB(picked.b);
@@ -663,7 +663,7 @@
       };
       lastEffectivePrompt = candidate.prompt;
       lastEffectiveB = candidate.b;
-      effectiveTurnCount++;
+      numar_repetitii_programate_efective++;
       sincronizeazaOrchestratorul();
     }
 
@@ -673,9 +673,9 @@
     }
 
     function scheduleEffectiveRetry(b) {
-      const dueTurn = effectiveTurnCount + randomInt(2, 5);
+      const repetitie_programata_scadenta = numar_repetitii_programate_efective + randomInt(2, 5);
       effectiveRetryQueue = effectiveRetryQueue.filter((entry) => entry.b !== b);
-      effectiveRetryQueue.push({ b, dueTurn });
+      effectiveRetryQueue.push({ b, repetitie_programata_scadenta });
     }
 
     function noteEffectiveMistake(b) {
@@ -921,7 +921,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: message,
@@ -952,9 +952,9 @@
       return {
         outcome: "run-complete",
         correct: true,
-        runComplete: true,
+        serie_terminata: true,
         levelAdvanced: true,
-        runDelayMs: 0,
+        pauza_intre_serii_ms: 0,
         flash: "win",
         banner: `Nivel ${level} · ${factorForLevel(level)}×`,
         message: `Nivel ${level}`,
@@ -1201,7 +1201,7 @@
 
       if (answeredCount >= QUESTIONS_PER_LEVEL) return completeNormal();
 
-      // Avans IMEDIAT la întrebarea următoare (fără finishRun/delay). Cronometrul
+      // Avans IMEDIAT la întrebarea următoare (fără terminaSerie/delay). Cronometrul
       // e corect: nextAnchorQuestion() face o întrebare nouă, iar renderRound îi
       // vede semnătura schimbată și resetează roundStartedAt.
       return {

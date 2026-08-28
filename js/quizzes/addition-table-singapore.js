@@ -36,7 +36,7 @@
     let wrongFactIds = [];
     let phase = "main";
     let historyLines = [];
-    let hadMistakeThisTurn = false;
+    let a_gresit_in_serie = false;
 
     let currentFact = null;
     let options = [];
@@ -217,13 +217,13 @@
       }
     }
 
-    function startTurn() {
+    function incepe_serie_de_intrebari() {
       knownPool = selectPoolForLevel(level);
       activeQueue = shuffle(knownPool.map((fact) => fact.factId));
       wrongFactIds = [];
       phase = "main";
       historyLines = [];
-      hadMistakeThisTurn = false;
+      a_gresit_in_serie = false;
       return beginCurrentStep();
     }
 
@@ -244,7 +244,7 @@
     function beginCurrentStep() {
       const nextId = activeQueue[0];
       if (!nextId) {
-        return buildTurnCompleteStep(decompositionLabel(currentFact) || `${level}=?`);
+        return construieste_pasul_de_serie_terminata(decompositionLabel(currentFact) || `${level}=?`);
       }
 
       currentFact = factById(nextId);
@@ -289,11 +289,11 @@
       );
     }
 
-    function buildTurnCompleteStep(label) {
+    function construieste_pasul_de_serie_terminata(label) {
       const finishedLevel = level;
       const holdView = roundView({ hintMessage: "" });
 
-      if (!hadMistakeThisTurn) {
+      if (!a_gresit_in_serie) {
         if (finishedLevel >= MAX_LEVEL) {
           gameCompleted = true;
           return {
@@ -306,7 +306,7 @@
               continua: {
                 outcome: "run-complete",
                 correct: true,
-                runComplete: true,
+                serie_terminata: true,
                 gameComplete: true,
                 flash: "win",
                 banner: "Felicitări! Ai terminat nivelul 10!",
@@ -317,7 +317,7 @@
         }
 
         level++;
-        const nextView = startTurn();
+        const nextView = incepe_serie_de_intrebari();
         return {
           outcome: "step-correct",
           correct: true,
@@ -328,7 +328,7 @@
             continua: {
               outcome: "run-complete",
               correct: true,
-              runComplete: true,
+              serie_terminata: true,
               levelAdvanced: true,
               flash: "win",
               banner: "Felicitări! Next level!",
@@ -391,7 +391,7 @@
           dupa_turn_apasare: (ctx) => {
             recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
             if (!ctx.corect) {
-              hadMistakeThisTurn = true;
+              a_gresit_in_serie = true;
               if (!wrongFactIds.includes(currentFact.factId)) {
                 wrongFactIds.push(currentFact.factId);
               }
@@ -422,10 +422,10 @@
             }
 
             if (phase === "retry") {
-              hadMistakeThisTurn = false;
+              a_gresit_in_serie = false;
             }
 
-            return { action: "continue", view: buildTurnCompleteStep(label) };
+            return { action: "continue", view: construieste_pasul_de_serie_terminata(label) };
           },
         },
       });
@@ -458,7 +458,7 @@
         wrongFactIds = [];
         phase = "main";
         historyLines = [];
-        hadMistakeThisTurn = false;
+        a_gresit_in_serie = false;
         currentFact = null;
         options = [];
         correctIndex = 0;
@@ -480,12 +480,12 @@
       placeholderRaspuns: placeholder,
       laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound() {
-        return startTurn();
+        return incepe_serie_de_intrebari();
       },
 
       onTimeout(meta = {}) {
         recordAttempt(false, null, { ...meta, timedOut: true });
-        hadMistakeThisTurn = true;
+        a_gresit_in_serie = true;
         if (!wrongFactIds.includes(currentFact.factId)) {
           wrongFactIds.push(currentFact.factId);
         }
@@ -504,7 +504,7 @@
         return orchestrator.onAnswer(index, meta);
       },
 
-      pickNextRound: () => startTurn(),
+      pickNextRound: () => incepe_serie_de_intrebari(),
     };
   }
 

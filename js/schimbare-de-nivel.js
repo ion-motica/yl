@@ -6,7 +6,7 @@
 //
 // Inainte de 28.08.2026, avansul de nivel era reimplementat separat in 17
 // fisiere de quiz: fiecare isi scria propriul text de banner, propriul
-// `runDelayMs`, propriul moment de `level++`. Motorul doar citea campurile
+// `pauza_intre_serii_ms`, propriul moment de `level++`. Motorul doar citea campurile
 // primite (`levelAdvanced`, `banner`, pasul urmator), fara nicio forma comuna
 // impusa — spre deosebire de `Motor3Butoane`, care verifica o semnatura.
 //

@@ -415,7 +415,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: GAME_COMPLETE_BANNER,
@@ -433,7 +433,7 @@
       return {
         outcome: "run-complete",
         correct: true,
-        runComplete: true,
+        serie_terminata: true,
         levelAdvanced: true,
         flash: "win",
         banner: LEVEL_ADVANCED_BANNER,

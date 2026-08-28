@@ -160,7 +160,7 @@ export function drainPerfectAnswers(quiz, startState, maxSteps = 200) {
   let steps = 0;
 
   while (steps < maxSteps) {
-    if (state.gameComplete || state.levelAdvanced || state.runComplete) break;
+    if (state.gameComplete || state.levelAdvanced || state.serie_terminata) break;
     if (state.correctIndex == null) break;
     state = answerCorrect(quiz, state);
     steps += 1;

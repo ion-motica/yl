@@ -139,7 +139,7 @@ describe("succesive-quiz engine (Faza D lot 3, quiz cu pasi intermediari)", () =
 
     assert.equal(rezultat.outcome, "run-complete");
     assert.equal(rezultat.correct, true);
-    assert.equal(rezultat.runComplete, true);
+    assert.equal(rezultat.serie_terminata, true);
     assert.equal(quiz.getLevel(), 1, "o singura serie perfecta nu ajunge (are nevoie de 2 consecutive)");
     assert.ok(rezultat.nextRound, "urmatoarea serie e deja pregatita in nextRound");
   });

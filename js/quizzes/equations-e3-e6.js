@@ -808,7 +808,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           levelAdvanced: previousLevel < level,
           flash: "win",
           banner: levelLabel(),
@@ -865,7 +865,7 @@
           dupaRaspunsCorect: () => {
             const solved = current;
             const result = nextAfterCorrect();
-            if (result.runComplete) {
+            if (result.serie_terminata) {
               result.prompt = revealedPrompt(solved);
               result.promptHtml = revealedPromptHtml(solved);
             }

@@ -1317,7 +1317,7 @@
     // turns. Un triplet extras din `spectru` (constrans la facte
     // nesatisfacute) atinge garantat >=1 fact nesatisfacut, deci `best` nu
     // ramane niciodata null cand spectrul are >=3 valori (masurat, PLAN §0).
-    function alegeTripletSq5(perechiSursa, nesatKeys, turnsByKey, turnsTarget) {
+    function alegeTripletSq5(perechiSursa, nesatKeys, repetitii_programate_dupa_fapt, tinta_repetitii_programate) {
       const spectru = [...new Set(perechiSursa.filter((p) => nesatKeys.has(p.key)).map((p) => p.raspuns))];
       if (spectru.length < 3) return null;
 
@@ -1332,7 +1332,7 @@
         const pool = perechiSursa.filter((p) => trioSet.has(p.raspuns));
         const facteAtinse = new Set(pool.filter((p) => nesatKeys.has(p.key)).map((p) => p.key));
         const deficit = [...facteAtinse].reduce(
-          (suma, key) => suma + Math.max(0, turnsTarget - (turnsByKey[key] ?? 0)),
+          (suma, key) => suma + Math.max(0, tinta_repetitii_programate - (repetitii_programate_dupa_fapt[key] ?? 0)),
           0
         );
         const scor = facteAtinse.size * 1000 + deficit;
@@ -1354,7 +1354,7 @@
 
       const nesatKeys = new Set(
         state.facts
-          .filter((f) => (state.turnsByKey[`${f.a}*${f.b}`] ?? 0) < state.turnsTarget)
+          .filter((f) => (state.repetitii_programate_dupa_fapt[`${f.a}*${f.b}`] ?? 0) < state.tinta_repetitii_programate)
           .map((f) => `${f.a}*${f.b}`)
       );
 
@@ -1365,7 +1365,7 @@
         if (new Set(dinRol.map((p) => p.raspuns)).size >= 2) sursaTriplet = dinRol;
       }
 
-      const rezultat = alegeTripletSq5(sursaTriplet, nesatKeys, state.turnsByKey, state.turnsTarget);
+      const rezultat = alegeTripletSq5(sursaTriplet, nesatKeys, state.repetitii_programate_dupa_fapt, state.tinta_repetitii_programate);
       if (!rezultat) return { tip: "vbs", pool: perechiToate, butoane: null };
 
       return {
@@ -1380,7 +1380,7 @@
     // sunt deja satisfacute — "blocul inceput se duce pana la capat", §3.4)
     // forme inca nefolosite pt. factul respectiv.
     function trageSq5(pool, state) {
-      const nesatisfacute = pool.filter((p) => (state.turnsByKey[p.key] ?? 0) < state.turnsTarget);
+      const nesatisfacute = pool.filter((p) => (state.repetitii_programate_dupa_fapt[p.key] ?? 0) < state.tinta_repetitii_programate);
       const candidati = nesatisfacute.length ? nesatisfacute : pool;
       const formeNoi = candidati.filter((p) => !state.formsUsedByKey[p.key]?.has(p.prompt));
       const sursa = formeNoi.length ? formeNoi : candidati;
@@ -1388,7 +1388,7 @@
     }
 
     function sq5TermIsComplete(state) {
-      return state.facts.every((f) => (state.turnsByKey[`${f.a}*${f.b}`] ?? 0) >= state.turnsTarget);
+      return state.facts.every((f) => (state.repetitii_programate_dupa_fapt[`${f.a}*${f.b}`] ?? 0) >= state.tinta_repetitii_programate);
     }
 
     function sq5QuestionItem(pereche, state) {
@@ -1467,10 +1467,10 @@
             payload?.facts ?? facteFluenteDomeniu(inLevel0 ? toateSubtabelele() : [factorForLevel(level)]);
           const state = {
             facts,
-            turnsByKey: {},
+            repetitii_programate_dupa_fapt: {},
             formsUsedByKey: {},
             qfTypesActive: shuffle([...qfTypes]).slice(0, sq5EqFormCount),
-            turnsTarget: sq5TurnsPerFact,
+            tinta_repetitii_programate: sq5TurnsPerFact,
             blocLen: sq5BlocLen,
             sbsPct: sq5SbsPct,
             rolConstPct: sq5RolConstPct,
@@ -1482,7 +1482,7 @@
           };
           facts.forEach((f) => {
             const key = `${f.a}*${f.b}`;
-            state.turnsByKey[key] = 0;
+            state.repetitii_programate_dupa_fapt[key] = 0;
             state.formsUsedByKey[key] = new Set();
           });
           shared.sq5State = state;
@@ -1508,7 +1508,7 @@
         // la sq5). Design-ul original spunea explicit "sq5 numara turns
         // corecte sau nu, nu cere reusita" — dar regula userului nu are
         // exceptie pt. niciun subquiz. Acum gresit ramane pe aceeasi pereche
-        // pana la raspunsul corect; `turnsByKey`/`formsUsedByKey` numara doar
+        // pana la raspunsul corect; `repetitii_programate_dupa_fapt`/`formsUsedByKey` numara doar
         // la rezolvare (Categoria 6), `answerRevealed` nu mai e nevoie
         // (nu mai exista reveal pe gresit, motorul comun ramane pe intrebare).
         actiuni: {
@@ -1518,7 +1518,7 @@
             const key = pereche.key;
 
             state.questionCount += 1;
-            state.turnsByKey[key] = (state.turnsByKey[key] ?? 0) + 1;
+            state.repetitii_programate_dupa_fapt[key] = (state.repetitii_programate_dupa_fapt[key] ?? 0) + 1;
             if (!state.formsUsedByKey[key]) state.formsUsedByKey[key] = new Set();
             state.formsUsedByKey[key].add(pereche.prompt);
 
@@ -1954,7 +1954,7 @@
       });
       entryRow.style.display = sq5Mode === "B" ? "" : "none";
 
-      const turnsRow = sq5SliderRow(
+      const rand_repetitii_programate = sq5SliderRow(
         "Nr. de turns per fact:",
         () => sq5TurnsPerFact,
         SQ5_TURNS_MIN,
@@ -2011,7 +2011,7 @@
         }
       );
 
-      mount.append(modeRow, entryRow, turnsRow, eqFormRow, sbsPctRow, blocLenRow, rolConstRow);
+      mount.append(modeRow, entryRow, rand_repetitii_programate, eqFormRow, sbsPctRow, blocLenRow, rolConstRow);
     }
 
     // ---- orchestrare + nivele --------------------------------------------
@@ -2112,7 +2112,7 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
+          serie_terminata: true,
           gameComplete: true,
           flash: "win",
           banner: message,
@@ -2129,9 +2129,9 @@
       return {
         outcome: "run-complete",
         correct: true,
-        runComplete: true,
+        serie_terminata: true,
         levelAdvanced: true,
-        runDelayMs: 0,
+        pauza_intre_serii_ms: 0,
         flash: "win",
         banner: `Nivel ${level} - ${factorForLevel(level)}x`,
         message: `Nivel ${level}`,
@@ -2146,8 +2146,8 @@
         return {
           outcome: "run-complete",
           correct: true,
-          runComplete: true,
-          runDelayMs: 0,
+          serie_terminata: true,
+          pauza_intre_serii_ms: 0,
           flash: "win",
           banner: "Fluent party terminat — Nivel 1",
           message: `Nivel ${level}`,
@@ -2231,7 +2231,7 @@
 
         if (currentId === SQ5_ID) {
           const gata = sq5State
-            ? sq5State.facts.filter((f) => (sq5State.turnsByKey[`${f.a}*${f.b}`] ?? 0) >= sq5State.turnsTarget)
+            ? sq5State.facts.filter((f) => (sq5State.repetitii_programate_dupa_fapt[`${f.a}*${f.b}`] ?? 0) >= sq5State.tinta_repetitii_programate)
                 .length
             : 0;
           const total = sq5State?.facts.length ?? 0;
