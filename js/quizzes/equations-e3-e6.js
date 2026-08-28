@@ -268,6 +268,46 @@
     return tuples.length ? [...pick(tuples)] : null;
   }
 
+  // Cauta DIRECT un produs si o pereche de factorizari ale lui care respecta
+  // regula ceruta (`esteAcceptabil`), in loc sa traga la sorti si sa spere.
+  //
+  // Inainte (bug reparat 28.08.2026): produsul si cele DOUA factorizari erau
+  // alese INDEPENDENT, iar `buildQuestion` reincerca de 80 de ori pana cand
+  // nimerea una fara numar vizibil comun pe ambele parti. La nivelurile mici
+  // factorii sunt <= 7, deci produsele au putine factorizari si cele doua parti
+  // aproape mereu imparteau un factor: rata de reusita per incercare era ~6%,
+  // deci 0,94^80 ≈ 0,8% dintre intrebari epuizau bucla si ieseau PE ECRAN cu
+  // regula incalcata — tacut, fara niciun semnal (ex. real: `6 * ? = 4 * 6`).
+  // Masurat: 163 de bucle epuizate la 20.000 de trageri.
+  //
+  // Cautarea de aici e exhaustiva, deci daca exista o solutie o gaseste mereu;
+  // ordinea e amestecata ca intrebarile sa ramana variate.
+  function perecheDeFactorizariAcceptabila(family, maxTerm, esteAcceptabil) {
+    const stangaProduse = productTuples(family.left.length, maxTerm);
+    const dreaptaProduse = productTuples(family.right.length, maxTerm);
+    const produse = shuffle(
+      [...stangaProduse.keys()].filter(
+        (value) => value > 1 && value <= 180 && dreaptaProduse.has(value)
+      )
+    );
+
+    for (const target of produse) {
+      for (const stanga of shuffle(stangaProduse.get(target))) {
+        for (const dreapta of shuffle(dreaptaProduse.get(target))) {
+          const values = {};
+          family.left.forEach((slot, index) => {
+            values[slot] = stanga[index];
+          });
+          family.right.forEach((slot, index) => {
+            values[slot] = dreapta[index];
+          });
+          if (esteAcceptabil(values)) return { stanga: [...stanga], dreapta: [...dreapta] };
+        }
+      }
+    }
+    return null;
+  }
+
   function buildUnbalancedValues(family, op, level) {
     const maxTerm = maxTermForLevel(level);
     const rightLen = family.right.length;
@@ -302,12 +342,31 @@
     return values;
   }
 
-  function buildBalancedValues(family, op, level) {
+  function buildBalancedValues(family, op, level, esteAcceptabil = null) {
     const maxTerm = maxTermForLevel(level);
     const leftLen = family.left.length;
     const rightLen = family.right.length;
     let leftValues = null;
     let rightValues = null;
+
+    // Inmultirea e singura operatie unde tragerea la sorti nu ajungea (vezi
+    // `perecheDeFactorizariAcceptabila`): produsele mici au prea putine
+    // factorizari. Aici alegem direct o pereche care respecta regula.
+    if (op === "*" && esteAcceptabil) {
+      const pereche = perecheDeFactorizariAcceptabila(family, maxTerm, esteAcceptabil);
+      if (pereche) {
+        const values = {};
+        family.left.forEach((slot, index) => {
+          values[slot] = pereche.stanga[index];
+        });
+        family.right.forEach((slot, index) => {
+          values[slot] = pereche.dreapta[index];
+        });
+        return values;
+      }
+      // Nicio pereche acceptabila la acest nivel/familie: cade pe calea veche,
+      // iar `buildQuestion` va semnala mai departe. Nu inventam o valoare.
+    }
 
     for (let attempt = 0; attempt < 100; attempt += 1) {
       if (op === "+") {
@@ -348,10 +407,10 @@
     return values;
   }
 
-  function buildValues(family, op, level) {
+  function buildValues(family, op, level, esteAcceptabil = null) {
     return family.left.length === 1
       ? buildUnbalancedValues(family, op, level)
-      : buildBalancedValues(family, op, level);
+      : buildBalancedValues(family, op, level, esteAcceptabil);
   }
 
   function expressionTuples(length, ops, maxTerm) {
@@ -511,12 +570,18 @@
     const displaySides = displaySidesFor(family, flipped);
     let values = null;
 
+    // Regula: niciun numar VIZIBIL (deci fara slotul necunoscut) nu are voie sa
+    // apara pe ambele parti. Trecuta ca argument in generator, ca inmultirea sa
+    // poata alege direct o pereche conforma — nu doar sa fie filtrata dupa.
+    const esteAcceptabil = (candidate) =>
+      !hasKnownCommonVisibleValue(displaySides.left, displaySides.right, candidate, unknownSlot);
+
     for (let attempt = 0; attempt < 80; attempt += 1) {
       values =
         op == null
           ? buildMixedValues(family, leftOps, rightOps, opts.level ?? MIN_LEVEL)
-          : buildValues(family, op, opts.level ?? MIN_LEVEL);
-      if (!hasKnownCommonVisibleValue(displaySides.left, displaySides.right, values, unknownSlot)) break;
+          : buildValues(family, op, opts.level ?? MIN_LEVEL, esteAcceptabil);
+      if (esteAcceptabil(values)) break;
     }
 
     const correct = values[unknownSlot];

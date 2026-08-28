@@ -331,3 +331,41 @@ test("beginRound cu un obiect complet (cu .correct numeric) functioneaza normal,
   const answered = quiz.onAnswer(state.correctIndex);
   assert.notEqual(answered.outcome, "wrong-answer");
 });
+
+// Garda pentru bug-ul reparat pe 28.08.2026: generatorul emitea TACIT intrebari
+// cu acelasi numar vizibil pe ambele parti (ex. real: `6 * ? = 4 * 6`), cand
+// cele 80 de incercari aleatoare din `buildQuestion` se epuizau. Rata masurata:
+// ~0,8% din intrebari, adica ~7% din rulari pentru testul de mai sus — prea rar
+// ca sa fie prins fiabil de o singura trecere, destul de des cat sa ajunga la
+// copil. De-aia aici tragem MULT pe combinatia care pica (inmultire pe familia
+// echilibrata, nivelul cel mai mic, unde produsele au cele mai putine
+// factorizari): cu bug-ul reintrodus, 2000 de trageri il prind practic sigur.
+test("nu emite NICIODATA acelasi numar vizibil pe ambele parti (inmultire, familie echilibrata)", () => {
+  loadQuiz();
+
+  const quizApi = globalThis.EquationTonomatQuiz;
+  const TRAGERI = 2000;
+  const incalcari = [];
+
+  for (let i = 0; i < TRAGERI; i += 1) {
+    const question = quizApi.buildQuestion(
+      { familyId: "E4_BAL", operators: ["*"] },
+      { level: 3, operator: "*", unknownIndex: i % 4 }
+    );
+    const leftKnown = new Set(
+      question.leftSlots
+        .filter((slot) => slot !== question.unknownSlot)
+        .map((slot) => question.values[slot])
+    );
+    const common = question.rightSlots
+      .filter((slot) => slot !== question.unknownSlot)
+      .filter((slot) => leftKnown.has(question.values[slot]));
+    if (common.length) incalcari.push(question.prompt);
+  }
+
+  assert.deepEqual(
+    incalcari.slice(0, 5),
+    [],
+    `${incalcari.length}/${TRAGERI} intrebari cu numar vizibil comun pe ambele parti`
+  );
+});

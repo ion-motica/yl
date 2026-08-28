@@ -1310,12 +1310,50 @@ care suprascrie o pauză să fie vizibil dintr-o privire, fără să mai fie nev
 parte din `npm run check:*` (ca `check-doc-index.mjs`) sau rămâne un instrument de consultat la
 cerere.
 
-## ⚠️ BUG REAL, NEREPARAT — `equations-e3-e6` emite uneori același număr vizibil pe ambele părți
+## ✅ REZOLVAT — `equations-e3-e6` emitea uneori același număr vizibil pe ambele părți
 
-> **Găsit 28.08.2026, căutând a doua sursă de instabilitate din `npm test`. NU e un test capricios
-> — e un bug de produs, prins intermitent.** De-aia testul lui NU a fost semănat: un seed l-ar fi
-> făcut verde și ar fi ascuns defectul. Nereparat: direcția fixului e o decizie de design, a
-> userului.
+> **Găsit 28.08.2026, căutând a doua sursă de instabilitate din `npm test`. NU era un test
+> capricios — era un bug de produs, prins intermitent.** De-aia testul lui NU a fost semănat: un
+> seed l-ar fi făcut verde și ar fi ascuns defectul.
+>
+> **Reparat în aceeași zi**, cu direcția aleasă de user („repara bugul cu factorizari disjuncte").
+
+### Fixul
+
+`perecheDeFactorizariAcceptabila()` în `js/quizzes/equations-e3-e6.js`: caută **direct** un produs
+și o pereche de factorizări ale lui care respectă regula, în loc să tragă la sorți și să spere.
+Regula (`esteAcceptabil`) e trecută ca argument din `buildQuestion` în generator, deci înmulțirea o
+poate folosi la alegere, nu doar ca filtru după.
+
+Rezultate măsurate:
+
+| | înainte | după |
+|---|---|---|
+| încălcări (129.600 întrebări, toate familiile/operatorii/nivelurile 3–6) | ~0,8% pe combinația afectată | **0** |
+| eșecuri `tests/equations-e3-e6.test.js` | 4/60 | **0/80** |
+| cost per întrebare | 0,036 ms | **0,028 ms** |
+
+Fixul e și mai **rapid**: găsește o pereche validă din prima, în loc să reconstruiască în medie ~17
+seturi de valori aruncate.
+
+**Varietatea NU a scăzut** — verificat explicit, pentru că era riscul evident al unei restricții mai
+strânse. Pe `E4_BAL / * / nivel 3`, întrebările valide foloseau și înainte exact aceleași 3 produse
+(4, 6, 12); celelalte 24 de produse apăreau **doar** în întrebările invalide. Fixul a eliminat
+scurgerea, nu diversitatea.
+
+### Gardă de regresie
+
+Testul care exista prindea bug-ul doar în ~7% din rulări — prea rar ca să protejeze fixul. Adăugat
+în `tests/equations-e3-e6.test.js` un test cu 2000 de trageri pe combinația care pica; cu bug-ul
+reintrodus pică în 3 din 3 rulări (18/2000 încălcări).
+
+### Observație rămasă (nu e bug)
+
+La nivelul 3, factorii sunt ≤ 7, deci pe `E4_BAL` cu `*` există doar **3 produse** care admit
+factorizări fără număr vizibil comun. E o proprietate a restricției, nu a fixului — dar dacă
+varietatea de acolo devine deranjantă la joc, pârghia e `maxTermForLevel`, nu regula.
+
+### Cum arăta bug-ul
 
 **Simptomul.** `tests/equations-e3-e6.test.js`, testul „avoids visible common known numbers on both
 sides", pică în ~7% din rulările suitei. Exemplu real de prompt produs:
@@ -1354,10 +1392,13 @@ Doar înmulțirea pe familia echilibrată E4 e afectată: `a*b = c*d` cu valori 
 factorizări, iar unele produse (ex. 24 = 6·4 = 4·6) au doar factorizări care împart un factor. Există
 însă și produse cu factorizări disjuncte (24 = 3·8 = 4·6), deci o alegere validă e mereu posibilă.
 
-**De decis, la discuția separată:** cum se închide fallback-ul tăcut — buget mai mare (rămâne
-probabilistic, doar mai rar), căutare deterministă la epuizare (garantat, dar cod nou), sau alegerea
-produsului din start doar dintre cele cu factorizări disjuncte (cel mai curat, dar schimbă
-generatorul). Recomandarea mea: a treia.
+**De ce bucla de 80 nu era o marjă de siguranță.** Măsurat, pe combinația afectată: doar ~6% dintre
+încercări reușeau din prima, deci rata de eșec per încercare era ~94%. `0,94^80 ≈ 0,8%` — exact rata
+de epuizare observată (163 bucle epuizate la 20.000 de trageri). Nu era o marjă generoasă ratată din
+ghinion, era aceeași loterie proastă repetată de 80 de ori.
+
+**Decizia userului:** alegerea produsului din start doar dintre cele cu factorizări care nu împart
+un număr vizibil (a treia variantă propusă). Implementat — vezi mai sus.
 
 ## ✅ REZOLVAT — test instabil: `multiplication-table-conexe-helper`
 
