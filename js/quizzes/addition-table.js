@@ -601,6 +601,7 @@
       },
 
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound({ fact, combo, bucket } = pickRoundStart()) {
         mistakes.startRun();
         return beginFactRound(fact, combo, bucket);

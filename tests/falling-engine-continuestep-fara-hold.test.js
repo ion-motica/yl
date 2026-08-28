@@ -164,6 +164,7 @@ describe("falling-engine: continueStep se aplica INTOTDEAUNA, cu sau fara prompt
     globalThis.cancelAnimationFrame = () => {};
     globalThis.LayoutConfig = { get: (_k, d) => d, set: () => {} };
     loadScript("js/placeholder-raspuns.js");
+    loadScript("js/schimbare-de-nivel.js");
     loadScript("js/subquiz/item-generator.js");
     loadScript("js/subquiz/subquiz-definition.js");
     loadScript("js/subquiz/subquiz-orchestrator.js");

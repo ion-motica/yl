@@ -2202,6 +2202,7 @@
       },
 
       placeholderRaspuns: placeholder,
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound(next) {
         return next ?? beginRoute();
       },

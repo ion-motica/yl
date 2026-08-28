@@ -8,6 +8,7 @@ const MAX_QUESTIONS_PER_SERIES = 3;
 const CORE_SCRIPTS = [
   "js/utils.js",
   "js/placeholder-raspuns.js",
+  "js/schimbare-de-nivel.js",
   "js/fact-catalog.js",
   "js/fact-stats.js",
   "js/fact-store.js",

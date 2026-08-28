@@ -62,15 +62,47 @@
   window.getLayoutSwapped = () =>
     engine?.getSwapQuestionIllustration?.() ?? false;
 
-  function showBanner(text) {
+  // Durata implicită, pentru bannerele care nu vin din contractul de nivel
+  // (ex. eticheta de nivel de la „Bagare sub radical”).
+  const BANNER_DURATA_IMPLICITA_MS = 1600;
+  const BANNER_FADE_MS = 280;
+  // Ascunderea programată a bannerului curent. O păstrăm ca s-o putem anula
+  // când vine un banner nou sau când bannerul devine permanent.
+  let bannerTimers = [];
+
+  function opresteTimereleBannerului() {
+    bannerTimers.forEach((t) => clearTimeout(t));
+    bannerTimers = [];
+  }
+
+  // `optiuni.permanent` — bannerul rămâne pe ecran până la schimbarea quizului
+  // sau a nivelului din meniu (cerut de user pentru mesajul de ultim nivel).
+  // `optiuni.durataMs` — cât stă înainte să dispară singur.
+  function showBanner(text, optiuni = {}) {
     if (!text) return;
+    opresteTimereleBannerului();
     dom.levelBannerEl.textContent = text;
     dom.levelBannerEl.classList.remove("hidden");
     requestAnimationFrame(() => dom.levelBannerEl.classList.add("show"));
-    setTimeout(() => {
-      dom.levelBannerEl.classList.remove("show");
-      setTimeout(() => dom.levelBannerEl.classList.add("hidden"), 280);
-    }, 1600);
+    if (optiuni.permanent) return;
+    const durataMs = optiuni.durataMs ?? BANNER_DURATA_IMPLICITA_MS;
+    bannerTimers.push(
+      setTimeout(() => {
+        dom.levelBannerEl.classList.remove("show");
+        bannerTimers.push(
+          setTimeout(() => dom.levelBannerEl.classList.add("hidden"), BANNER_FADE_MS)
+        );
+      }, durataMs)
+    );
+  }
+
+  // Singurul mod prin care dispare un banner permanent: schimbarea quizului sau
+  // schimbarea manuală a nivelului din meniu.
+  function ascundeBannerul() {
+    opresteTimereleBannerului();
+    dom.levelBannerEl.classList.remove("show");
+    dom.levelBannerEl.classList.add("hidden");
+    dom.levelBannerEl.textContent = "";
   }
 
   function initGreenTrack(green) {
@@ -402,6 +434,9 @@
     const { min, max } = GameUtils.levelRange(lv);
     btn.title = quiz.getLevelButtonTitle?.(lv) ?? `Nivel ${lv}: ${min}–${max}`;
     btn.addEventListener("click", () => {
+      // Bannerul permanent de „ai parcurs ultimul nivel” dispare la schimbarea
+      // manuală a nivelului (decis 28.08.2026) — vezi js/schimbare-de-nivel.js.
+      ascundeBannerul();
       const levelMessage = quiz.switchLevel(lv);
       if (levelMessage) dom.messageEl.textContent = levelMessage;
       dom.playPauseBtn.disabled = false;
@@ -748,6 +783,9 @@
 
   function switchQuiz(id) {
     if (id === QuizRegistry.getActiveId() && quiz && !quiz.isCompleted()) return;
+    // Bannerul permanent de „ai parcurs ultimul nivel” dispare la schimbarea
+    // quizului (decis 28.08.2026) — vezi js/schimbare-de-nivel.js.
+    ascundeBannerul();
     if (quiz?.customEngine) quiz.unmountArena?.();
     QuizRegistry.setActive(id);
     const meta = QuizRegistry.get(id);

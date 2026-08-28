@@ -463,6 +463,7 @@
       },
 
       placeholderRaspuns: placeholder,
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound(next) {
         current = next ?? pickNewQuestion();
         sincronizeazaOrchestratorul();

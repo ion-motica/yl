@@ -1395,6 +1395,7 @@
       },
 
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound(next) {
         return next ?? nextRoundForStage();
       },

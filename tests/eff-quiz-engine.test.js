@@ -26,6 +26,7 @@ function loadScript(relativePath) {
 const CORE_SCRIPTS = [
   "js/utils.js",
   "js/placeholder-raspuns.js",
+  "js/schimbare-de-nivel.js",
   "js/fact-catalog.js",
   "js/eff/qf-generator.js",
   "js/eff/eff-profile-store.js",

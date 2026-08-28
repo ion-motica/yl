@@ -858,6 +858,7 @@
       // nu atinge niciodata ramura defensiva — `next` e mereu ori absent, ori
       // rezultatul unui `pickNewQuestion()` anterior, cu `.correct` intact.
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound(next) {
         current = typeof next?.correct === "number" ? next : pickNewQuestion();
         sincronizeazaOrchestratorul();

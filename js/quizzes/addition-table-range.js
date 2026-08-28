@@ -435,6 +435,7 @@
       },
 
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound({ fact, combo } = pickRoundStart()) {
         return beginFactRound(fact, combo);
       },

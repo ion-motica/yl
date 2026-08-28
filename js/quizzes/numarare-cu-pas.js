@@ -285,6 +285,7 @@
       },
 
       placeholderRaspuns: placeholder,
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound() {
         pregatesteRunda();
         return rundaView();

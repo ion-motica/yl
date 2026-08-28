@@ -322,6 +322,7 @@
       },
 
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound({ startNum, combo } = pickRoundStart()) {
         if (isBelowLevelFloor(startNum)) {
           return this.beginRound(pickRoundStart());

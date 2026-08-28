@@ -28,6 +28,7 @@ deja l-a scris.
 | Acolade (axa numerelor) | `documente de referinta/referinta acolade - text.md` |
 | Quiz nou / modificare quiz existent | `documente de referinta/QUIZ-SPEC-SABLON.md` |
 | Placeholder de răspuns (semnul `?`) — contract, marcaj, revelare | `js/placeholder-raspuns.js`, `tests/placeholder-raspuns.test.js`, `documente de referinta/CONTINUARE-contract-semn-intrebare.md` |
+| Schimbarea de nivel (banner, pauză, ultimul nivel) | `js/schimbare-de-nivel.js`, `tests/schimbare-de-nivel.test.js` |
 | Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
 | Titluri secțiuni CP (panou nou/existent) | `documente de referinta/standard-titluri-cp.md` |
 | Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |

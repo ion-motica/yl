@@ -15,6 +15,7 @@ function loadQuiz() {
   globalThis.window = globalThis;
   loadScript("js/utils.js");
   loadScript("js/placeholder-raspuns.js");
+  loadScript("js/schimbare-de-nivel.js");
   loadScript("js/progress-display.js");
   loadScript("js/quiz-registry.js");
   loadScript("js/subquiz/item-generator.js");

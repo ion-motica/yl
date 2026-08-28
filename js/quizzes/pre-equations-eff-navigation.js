@@ -664,6 +664,7 @@
         return buildQuestion();
       },
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound(next) {
         if (next) {
           current = next;

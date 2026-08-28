@@ -18,6 +18,7 @@
 | Acolade (axa numerelor) | `documente de referinta/referinta acolade - text.md` |
 | Quiz nou / modificare quiz existent | `documente de referinta/QUIZ-SPEC-SABLON.md` |
 | Placeholder de răspuns (semnul `?`) — contract, marcaj, revelare | `js/placeholder-raspuns.js`, `tests/placeholder-raspuns.test.js`, `documente de referinta/CONTINUARE-contract-semn-intrebare.md` |
+| Schimbarea de nivel (banner, pauză, ultimul nivel) | `js/schimbare-de-nivel.js`, `tests/schimbare-de-nivel.test.js` |
 | Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
 | Titluri secțiuni CP (panou nou/existent) | `documente de referinta/standard-titluri-cp.md` |
 | Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |
@@ -213,6 +214,44 @@ unde celula are fundal galben). Nu sunt alternative, acoperă lucruri diferite.
 revelarea lor scrie și câmpuri de stare proprii, citite de alt cod. Quizurile `customEngine`
 (Rigle) nu declară nimic: nu trec prin motorul de randare. Vezi
 `documente de referinta/CONTINUARE-contract-semn-intrebare.md`.
+
+## Contractul schimbării de nivel
+
+> Fiecare quiz cu niveluri **declară explicit** `laSchimbareDeNivel`, la fel ca
+> `placeholderRaspuns`. Fără declarație, motorul oprește avansul de nivel cu eroare.
+
+```js
+laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
+```
+
+Implementarea comună: `js/schimbare-de-nivel.js` (teste: `tests/schimbare-de-nivel.test.js`).
+
+**Ce face standardul** (decis de user, 28.08.2026):
+
+| moment | comportament |
+|---|---|
+| nivel nou | „Felicitări! Nivelul următor!", ~3,5s, dispare singur |
+| fluxul | **nu se oprește** — întrebarea din nivelul nou apare imediat (pauză 0), se răspunde la ea cât timp mesajul e încă pe ecran |
+| ultimul nivel | „Felicitări, ai parcurs ultimul nivel!", **permanent** — dispare doar la schimbarea quizului sau a nivelului din meniu |
+
+**De ce există.** Avansul de nivel era reimplementat separat în **17 fișiere de quiz**:
+fiecare cu textul lui de banner, propriul `runDelayMs`, propriul moment de `level++`. Motorul
+citea doar câmpurile primite, fără nicio formă comună impusă. De acolo veneau bug-uri repetate,
+cu același simptom (ecran înghețat pe întrebarea veche, răspunsuri corecte marcate greșit, avans
+„fantomă") și cauze tehnice mereu altele — vezi „Bug-uri de tranziție de rutare" (21.08.2026) și
+regresia din 28.08.2026 în `documente de referinta/RAPORT-motor-comun-raspuns.md`.
+
+**Alt comportament** = argumente peste valorile implicite, nu cod nou în quiz:
+
+```js
+laSchimbareDeNivel: global.SchimbareDeNivel.standard({
+  textNivelNou: "Bravo! Mergem mai departe!",
+  durataMesajMs: 5000,
+}),
+```
+
+Valorile implicite stau în constantele din capul lui `js/schimbare-de-nivel.js` — se schimbă
+acolo, o singură dată, pentru toată aplicația.
 
 ## Butoane „default" pe opțiuni (md / make default)
 

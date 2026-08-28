@@ -491,6 +491,7 @@
       },
 
       placeholderRaspuns: placeholder,
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound() {
         return startTurn();
       },

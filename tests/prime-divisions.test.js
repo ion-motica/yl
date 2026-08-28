@@ -30,6 +30,7 @@ function setupQuiz({ deterministic = true } = {}) {
   [
     "js/utils.js",
     "js/placeholder-raspuns.js",
+    "js/schimbare-de-nivel.js",
     "js/quiz-math.js",
     "js/progress.js",
     "js/quiz-registry.js",

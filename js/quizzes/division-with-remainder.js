@@ -351,6 +351,7 @@
       },
 
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound(next) {
         current = next ?? pickNewQuestion();
         sincronizeazaOrchestratorul();

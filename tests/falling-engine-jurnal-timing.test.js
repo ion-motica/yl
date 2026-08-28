@@ -203,6 +203,7 @@ describe("FallingEngine - precizia timpului pentru jurnal", () => {
     loadScript("js/subquiz/subquiz-orchestrator.js");
     loadScript("js/motor-3-butoane.js");
     loadScript("js/placeholder-raspuns.js");
+    loadScript("js/schimbare-de-nivel.js");
     loadScript("js/falling-engine.js");
 
     const round1 = {

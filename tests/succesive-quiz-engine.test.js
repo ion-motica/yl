@@ -24,6 +24,7 @@ function setupQuiz({ deterministic = true } = {}) {
   [
     "js/utils.js",
     "js/placeholder-raspuns.js",
+    "js/schimbare-de-nivel.js",
     "js/fact-catalog.js",
     "js/fact-store.js",
     "js/subquiz/item-generator.js",

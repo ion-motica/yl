@@ -54,6 +54,26 @@
       }
       return p;
     }
+
+    // Contractul schimbarii de nivel: OBLIGATORIU si EXPLICIT, ca la
+    // `placeholderRaspuns`. Se cere doar in momentul in care chiar se schimba
+    // nivelul (sau se termina jocul), ca sa nu oblige quizurile fara niveluri.
+    // Vezi `js/schimbare-de-nivel.js`.
+    function schimbareDeNivel() {
+      const s = getQuiz()?.laSchimbareDeNivel;
+      if (!s) {
+        throw new Error(
+          "FallingEngine: quizul avanseaza nivelul dar nu declara " +
+            "`laSchimbareDeNivel`. Fiecare quiz cu niveluri trebuie sa-l " +
+            "declare explicit, chiar si cand e handlerul standard: " +
+            "`laSchimbareDeNivel: global.SchimbareDeNivel.standard()`. " +
+            "Vezi js/schimbare-de-nivel.js si documente de referinta/" +
+            "RAPORT-motor-comun-raspuns.md."
+        );
+      }
+      return s;
+    }
+
     let fallY = 0;
     let boxH = BOX_MIN;
     // Înălțimea reală a scenei (arena), citită din DOM. Pe desktop = 420px
@@ -791,9 +811,14 @@
         return;
       }
 
-      const delay =
-        result.runDelayMs ??
-        (result.levelAdvanced ? LEVEL_ADV_MS : RUN_DONE_MS);
+      // La avans de nivel, pauza vine din contractul quizului
+      // (`laSchimbareDeNivel`), nu din constanta veche LEVEL_ADV_MS=1400.
+      // Standardul cere 0: mesajul de felicitare NU intrerupe fluxul, deci
+      // intrebarea din nivelul nou apare imediat si se poate raspunde la ea
+      // cat timp mesajul e inca pe ecran (decis de user, 28.08.2026).
+      const delay = result.levelAdvanced
+        ? result.runDelayMs ?? schimbareDeNivel().pauzaInainteDeRundaUrmatoareMs
+        : result.runDelayMs ?? RUN_DONE_MS;
       setTimeout(() => {
         if (getQuiz().isCompleted()) return;
         if (result.holdFallDuringDelay) fallHeld = false;
@@ -830,10 +855,32 @@
       return isAsnwLiftSimple() || !isContentLiftMode();
     }
 
+    // Bannerul de nivel: textul si durata vin din contractul quizului
+    // (`laSchimbareDeNivel`), nu din textul scris de mana in fiecare quiz.
+    // Standardul (js/schimbare-de-nivel.js): un text unic pentru toata
+    // aplicatia la nivel nou, altul la ultimul nivel — acela ramanand PERMANENT
+    // pe ecran, pana la schimbarea quizului sau a nivelului din meniu.
+    //
+    // Bannerele care NU tin de o schimbare de nivel (ex. eticheta de nivel de
+    // la "Bagare sub radical") raman cum sunt, cu textul dat de quiz.
+    function afiseazaBanner(result) {
+      if (result.gameComplete) {
+        const contract = schimbareDeNivel();
+        config.showBanner(contract.textUltimulNivel, { permanent: true });
+        return;
+      }
+      if (result.levelAdvanced) {
+        const contract = schimbareDeNivel();
+        config.showBanner(contract.textNivelNou, { durataMs: contract.durataMesajMs });
+        return;
+      }
+      if (result.banner) config.showBanner(result.banner);
+    }
+
     function applyImmediateAnswerFeedback(result, wrongPick) {
       if (!wrongPick && result.flash) flash(result.flash);
       if (result.message !== undefined) dom.messageEl.textContent = result.message;
-      if (result.banner && !result.promptHoldMs) config.showBanner(result.banner);
+      if (result.banner && !result.promptHoldMs) afiseazaBanner(result);
       dom.messageEl.classList.toggle("win", result.flash === "win");
 
       if (result.resetFall) setFallPosition(0);
@@ -871,7 +918,7 @@
       if (next.resetFall) setFallPosition(0);
 
       if (next.runComplete) {
-        if (next.banner) config.showBanner(next.banner);
+        if (next.banner) afiseazaBanner(next);
         config.onProgressUpdate?.();
         finishRun(next);
         return;

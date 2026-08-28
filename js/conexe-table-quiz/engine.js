@@ -630,6 +630,7 @@
       },
 
       placeholderRaspuns: global.PlaceholderRaspuns.creeaza("?"),
+      laSchimbareDeNivel: global.SchimbareDeNivel.standard(),
       beginRound() {
         resetSessionForLevel();
         blockMode = "m1";

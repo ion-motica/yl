@@ -193,6 +193,7 @@ describe("falling-engine: revelarea intr-un stack pastreaza toate randurile", ()
     globalThis.cancelAnimationFrame = () => {};
     globalThis.LayoutConfig = { get: (_k, d) => d, set: () => {} };
     loadScript("js/placeholder-raspuns.js");
+    loadScript("js/schimbare-de-nivel.js");
     loadScript("js/subquiz/item-generator.js");
     loadScript("js/subquiz/subquiz-definition.js");
     loadScript("js/subquiz/subquiz-orchestrator.js");

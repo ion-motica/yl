@@ -31,6 +31,7 @@ function setupQuiz() {
   [
     "js/utils.js",
     "js/placeholder-raspuns.js",
+    "js/schimbare-de-nivel.js",
     "js/progress-display.js",
     "js/quiz-registry.js",
     "js/fact-catalog.js",
