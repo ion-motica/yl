@@ -493,7 +493,7 @@
         const message = "Ai terminat toate nivelurile.";
         global.alert?.(message);
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           gameComplete: true,
@@ -510,7 +510,7 @@
       resetLevelState();
       buildQuestion();
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         levelAdvanced: true,

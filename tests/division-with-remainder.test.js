@@ -116,7 +116,7 @@ describe("division-with-remainder (Faza D lot 2 — corectare Categoria 4 si 6)"
     }
 
     assert.equal(quiz.getLevel(), 2);
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.levelAdvanced, true);
     assert.ok(rezultat.message.includes("consecutive"));
   });
@@ -141,7 +141,7 @@ describe("division-with-remainder (Faza D lot 2 — corectare Categoria 4 si 6)"
     }
 
     assert.equal(quiz.getLevel(), 2, "la a 21-a rezolvare corecta (interleaved cu gresite), nivelul avanseaza");
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.levelAdvanced, true);
     assert.ok(rezultat.message.includes("21"));
   });
@@ -163,7 +163,7 @@ describe("division-with-remainder (Faza D lot 2 — corectare Categoria 4 si 6)"
     }
 
     assert.ok(terminat, "jocul trebuia sa se termine la nivelul maxim");
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(quiz.isCompleted(), true);
   });
 

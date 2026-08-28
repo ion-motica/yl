@@ -304,7 +304,7 @@
             ...holdView,
             pasUrmator: {
               continua: {
-                outcome: "run-complete",
+                outcome: "serie-terminata",
                 correct: true,
                 serie_terminata: true,
                 gameComplete: true,
@@ -326,7 +326,7 @@
           ...holdView,
           pasUrmator: {
             continua: {
-              outcome: "run-complete",
+              outcome: "serie-terminata",
               correct: true,
               serie_terminata: true,
               levelAdvanced: true,

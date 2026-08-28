@@ -262,7 +262,7 @@ describe("falling-engine: contractul `pasUrmator`", () => {
         // Singapore au ajuns dupa ce li s-a scos pauza custom de 400ms. Cu
         // contractul vechi, aici avansul se pierdea tacut.
         continua: {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           nextRound: RUNDA_NOUA,
@@ -290,7 +290,7 @@ describe("falling-engine: contractul `pasUrmator`", () => {
       vedereCuPas({
         dupa: 500,
         continua: {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           nextRound: RUNDA_NOUA,
@@ -319,7 +319,7 @@ describe("falling-engine: contractul `pasUrmator`", () => {
       outcome: "step-correct",
       correct: true,
       ...RUNDA_VECHE,
-      continueStep: { outcome: "run-complete", serie_terminata: true, nextRound: RUNDA_NOUA },
+      continueStep: { outcome: "serie-terminata", serie_terminata: true, nextRound: RUNDA_NOUA },
     });
     assert.throws(() => dom.optionBtns[1].click(), /pasUrmator/);
   });

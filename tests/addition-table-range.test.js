@@ -101,7 +101,7 @@ describe("addition-table-range (Faza D lot 1)", () => {
 
     const rezultat = quiz.onAnswer(round.correctIndex, { responseMs: 700 });
 
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.correct, true);
     assert.equal(rezultat.serie_terminata, true);
     assert.ok(rezultat.prompt.includes(String(round.options[round.correctIndex])));

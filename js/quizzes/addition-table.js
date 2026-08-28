@@ -457,7 +457,7 @@
       if (canAdvanceNow() && level >= MAX_LEVEL) {
         gameCompleted = true;
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           gameComplete: true,
@@ -472,7 +472,7 @@
         mistakes.onLevelAdvanced();
         const next = pickRoundStart();
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           levelAdvanced: true,
@@ -485,7 +485,7 @@
 
       const next = pickRoundStart();
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         pauza_intre_serii_ms: RUN_DELAY_MS,
@@ -497,7 +497,7 @@
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
     // Regula unica: corect avanseaza, gresit ramane pe aceeasi intrebare, fara
     // limita de incercari. Fapt important pt acest quiz: fiecare fapt rezolvat
-    // e propriul lui "run" (outcome mereu "run-complete", niciodata simplul
+    // e propriul lui "run" (outcome mereu "serie-terminata", niciodata simplul
     // "step-correct") — de-asta rezultatul complet vine din `dupaRaspunsCorect`,
     // nu din `intrebareUrmatoare` (neatinsa aici, nu se cheama niciodata).
     //

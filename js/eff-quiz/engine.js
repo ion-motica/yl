@@ -336,7 +336,7 @@
       if (level >= maxLevel) {
         gameCompleted = true;
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           gameComplete: true,
@@ -351,7 +351,7 @@
       resetForLevel();
 
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         levelAdvanced: true,

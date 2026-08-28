@@ -220,7 +220,7 @@
 
     // Motor 3 butoane (M3B) — corect avanseaza, gresit ramane pe aceeasi
     // intrebare. Fiecare numar ghicit e propriul lui "run" (ca la
-    // addition-table.js), de-asta outcome-ul e mereu "run-complete".
+    // addition-table.js), de-asta outcome-ul e mereu "serie-terminata".
     function baseDefinition() {
       return global.SubquizDefinition.define({
         id: "base",
@@ -239,7 +239,7 @@
             return {
               action: "continue",
               view: {
-                outcome: "run-complete",
+                outcome: "serie-terminata",
                 correct: true,
                 serie_terminata: true,
                 pauza_intre_serii_ms: RUN_DELAY_MS,

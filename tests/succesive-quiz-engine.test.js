@@ -137,7 +137,7 @@ describe("succesive-quiz engine (Faza D lot 3, quiz cu pasi intermediari)", () =
       if (i < 2) round = rezultat;
     }
 
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.correct, true);
     assert.equal(rezultat.serie_terminata, true);
     assert.equal(quiz.getLevel(), 1, "o singura serie perfecta nu ajunge (are nevoie de 2 consecutive)");
@@ -157,7 +157,7 @@ describe("succesive-quiz engine (Faza D lot 3, quiz cu pasi intermediari)", () =
     }
 
     assert.equal(quiz.getLevel(), 2);
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.levelAdvanced, true);
   });
 

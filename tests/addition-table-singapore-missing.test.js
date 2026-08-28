@@ -125,7 +125,7 @@ describe("addition-table-singapore-missing (Faza D lot 2 — migrare pura, fara 
     // Pauza custom de 400ms a fost scoasa (cerere user, 28.08.2026) — cade pe
     // DEFAULT_REVEAL_HOLD_MS din motor, ca la orice alt quiz standard.
     assert.equal(rezultat.pasUrmator.dupa, undefined, "fara pauza custom: cade pe DEFAULT_REVEAL_HOLD_MS");
-    assert.equal(rezultat.pasUrmator.continua.outcome, "run-complete");
+    assert.equal(rezultat.pasUrmator.continua.outcome, "serie-terminata");
     assert.equal(rezultat.pasUrmator.continua.serie_terminata, true);
     assert.equal(rezultat.pasUrmator.continua.levelAdvanced, true);
     assert.ok(rezultat.pasUrmator.continua.nextRound, "pasul urmator poarta runda urmatoare, deja pregatita");
@@ -179,7 +179,7 @@ describe("addition-table-singapore-missing (Faza D lot 2 — migrare pura, fara 
     }
 
     assert.ok(terminat, "jocul trebuia sa se termine la nivelul maxim, fara greseli");
-    assert.equal(rezultat.pasUrmator.continua.outcome, "run-complete");
+    assert.equal(rezultat.pasUrmator.continua.outcome, "serie-terminata");
     assert.equal(quiz.isCompleted(), true);
   });
 

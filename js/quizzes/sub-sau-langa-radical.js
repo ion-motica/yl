@@ -329,7 +329,7 @@
     function completeGame() {
       gameCompleted = true;
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         gameComplete: true,
@@ -357,7 +357,7 @@
       pickNewQuestion();
 
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         levelAdvanced: true,

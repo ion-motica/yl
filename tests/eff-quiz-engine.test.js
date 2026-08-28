@@ -148,7 +148,7 @@ describe("eff-quiz engine (Faza D lot 3, quiz cu pasi intermediari)", () => {
     }
 
     assert.equal(quiz.getLevel(), 2);
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.levelAdvanced, true);
   });
 

@@ -193,7 +193,7 @@ describe("Orice raspuns poarta ambele marcaje (garduri falling-engine.js)", () =
     const orchestrator = globalThis.SubquizOrchestrator.create({
       definitions: [baza, extra],
       activeSubquizIds: ["base"],
-      onRouteComplete: () => ({ outcome: "run-complete", correct: true, levelAdvanced: true }),
+      onRouteComplete: () => ({ outcome: "serie-terminata", correct: true, levelAdvanced: true }),
       context: {},
     });
     orchestrator.startFirst();

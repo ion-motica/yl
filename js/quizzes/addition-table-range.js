@@ -295,7 +295,7 @@
       if (canAdvanceNow() && level >= MAX_LEVEL) {
         gameCompleted = true;
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           gameComplete: true,
@@ -310,7 +310,7 @@
         resetLearnedForLevel(level);
         const next = pickRoundStart();
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           levelAdvanced: true,
@@ -323,7 +323,7 @@
 
       const next = pickRoundStart();
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         pauza_intre_serii_ms: RUN_DELAY_MS,
@@ -333,7 +333,7 @@
     }
 
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
-    // Fiecare fapt rezolvat e propriul lui "run" (outcome mereu "run-complete"),
+    // Fiecare fapt rezolvat e propriul lui "run" (outcome mereu "serie-terminata"),
     // de-asta rezultatul complet vine din `dupaRaspunsCorect`, nu din
     // `intrebareUrmatoare` (neatinsa, nu se cheama niciodata aici).
     //

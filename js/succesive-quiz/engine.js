@@ -280,7 +280,7 @@
           message = "Serie perfectă! Rămân restanțe — răspunde-le corect de 2 ori ca să avansezi.";
         }
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           pauza_intre_serii_ms: RUN_DELAY_MS,
@@ -292,7 +292,7 @@
       if (level >= MAX_LEVEL) {
         gameCompleted = true;
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           gameComplete: true,
@@ -305,7 +305,7 @@
       level += 1;
       consecutivePerfectSeries = 0;
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         levelAdvanced: true,

@@ -104,7 +104,7 @@ describe("prime-divisors (Faza D lot 1, quiz cu pasi intermediari)", () => {
     const catAsteptat = Math.floor(numarInitial / impartitorAles);
 
     if (catAsteptat === 1) {
-      assert.equal(rezultat.outcome, "run-complete", "acest numar de start duce direct la 1 — sarim pasul intermediar");
+      assert.equal(rezultat.outcome, "serie-terminata", "acest numar de start duce direct la 1 — sarim pasul intermediar");
       return;
     }
 
@@ -122,12 +122,12 @@ describe("prime-divisors (Faza D lot 1, quiz cu pasi intermediari)", () => {
     let round = quiz.beginRound();
     let pasi = 0;
 
-    while (round.outcome !== "run-complete" && pasi < 20) {
+    while (round.outcome !== "serie-terminata" && pasi < 20) {
       pasi += 1;
       round = quiz.onAnswer(round.correctIndex);
     }
 
-    assert.equal(round.outcome, "run-complete");
+    assert.equal(round.outcome, "serie-terminata");
     assert.equal(round.correct, true);
     assert.equal(round.serie_terminata, true);
     assert.ok(pasi < 20, "nu trebuia sa se blocheze");

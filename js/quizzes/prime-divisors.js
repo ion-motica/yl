@@ -141,7 +141,7 @@
       if (canAdvanceNow() && level >= MAX_LEVEL) {
         gameCompleted = true;
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           gameComplete: true,
@@ -156,7 +156,7 @@
         mistakes.onLevelAdvanced();
         const next = pickRoundStart();
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           levelAdvanced: true,
@@ -170,7 +170,7 @@
       const next = pickRoundStart();
       const flawless = mistakes.isRunFlawless();
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         flash: flawless ? "win" : undefined,

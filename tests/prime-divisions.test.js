@@ -153,14 +153,14 @@ describe("prime-divisions (Faza D lot 2, quiz cu pasi intermediari + pauza propr
     while (pasi < 20) {
       pasi += 1;
       rezultat = quiz.onAnswer(round.correctIndex);
-      if (rezultat.outcome === "run-complete") break;
+      if (rezultat.outcome === "serie-terminata") break;
       assert.equal(rezultat.outcome, "step-correct");
       assert.ok(rezultat.pasUrmator, "fiecare pas intermediar are pasUrmator");
       pasiIntermediari += 1;
       round = rezultat.pasUrmator.continua;
     }
 
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.correct, true);
     assert.equal(rezultat.serie_terminata, true);
     assert.ok(pasi < 20, "nu trebuia sa se blocheze");

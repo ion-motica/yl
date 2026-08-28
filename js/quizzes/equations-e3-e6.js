@@ -806,7 +806,7 @@
         if (level < MAX_LEVEL) level += 1;
         pickNewQuestion();
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           levelAdvanced: previousLevel < level,

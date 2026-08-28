@@ -2110,7 +2110,7 @@
         const message = "Ai ajuns la final.";
         global.alert?.(message);
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           gameComplete: true,
@@ -2127,7 +2127,7 @@
       level = Math.min(MAX_LEVEL, level + 1);
       resetLevelState();
       return {
-        outcome: "run-complete",
+        outcome: "serie-terminata",
         correct: true,
         serie_terminata: true,
         levelAdvanced: true,
@@ -2144,7 +2144,7 @@
     function laRutaCompleta() {
       if (inLevel0) {
         return {
-          outcome: "run-complete",
+          outcome: "serie-terminata",
           correct: true,
           serie_terminata: true,
           pauza_intre_serii_ms: 0,

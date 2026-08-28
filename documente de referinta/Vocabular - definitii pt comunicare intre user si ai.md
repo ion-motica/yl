@@ -54,9 +54,15 @@ folosite de ~29, respectiv ~15 fișiere (motorul + aproape orice quiz care termi
 | `runDelayMs` | `pauza_intre_serii_ms` |
 | `RUN_DONE_MS` | `PAUZA_INTRE_SERII_IMPLICITA_MS` |
 
-**Neatins deliberat**: string-ul literal `"run-complete"` (valoarea câmpului `outcome`,
-folosită în ~32 fișiere). E o reprezentare soră, nu identic cu identificatorul `runComplete` —
-nu era pe lista aprobată, deci nu a fost redenumit. Rămâne "run-complete" în cod.
+**Redenumit și string-ul literal** (valoarea câmpului `outcome`, în 31 de fișiere `.js`,
+71 apariții): `"run-complete"` → `"serie-terminata"`. Inițial lăsat neatins (nu era pe lista
+aprobată — e o reprezentare soră, nu identic cu identificatorul `runComplete`), apoi userul a
+cerut explicit și redenumirea lui.
+
+**Excepție deliberată**: `documente de referinta/RAPORT-motor-comun-raspuns.md`, secțiunea care
+citează „textul original al observației" din 20.08.2026, păstrează `outcome:"run-complete"` —
+e reconstituire istorică a codului din acel moment, nu cod curent. Redenumirea acolo ar
+falsifica istoricul.
 
 ## Identificatori derivați (concept 4 — `repetitie_programata_fact`)
 

@@ -103,7 +103,7 @@ describe("addition-table (comportament dinainte de migrare, Faza D lot 1)", () =
 
     const rezultat = quiz.onAnswer(round.correctIndex, { responseMs: 700 });
 
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.correct, true);
     assert.equal(rezultat.serie_terminata, true);
     assert.ok(rezultat.prompt.includes(String(round.options[round.correctIndex])), "promptul arata raspunsul corect");
@@ -119,7 +119,7 @@ describe("addition-table (comportament dinainte de migrare, Faza D lot 1)", () =
     quiz.onAnswer(idx, { responseMs: 900 }); // gresit, prima apasare
     const rezultat = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // corect, a doua apasare
 
-    assert.equal(rezultat.outcome, "run-complete");
+    assert.equal(rezultat.outcome, "serie-terminata");
     assert.equal(rezultat.correct, true);
   });
 

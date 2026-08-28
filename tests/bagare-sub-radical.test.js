@@ -155,7 +155,7 @@ describe("bagare-sub-radical (Faza D lot 1 — corectare Categoria 4)", () => {
     }
 
     assert.ok(terminat, "jocul trebuia sa se termine la nivelul maxim");
-    assert.equal(round.outcome, "run-complete");
+    assert.equal(round.outcome, "serie-terminata");
   });
 
   it("onTimeout: outcome round, resetFall, ramane pe aceeasi intrebare (neatins de migrare)", () => {

@@ -25,7 +25,7 @@
   const FLASH_MS = 420;
   // Cerut explicit de user (20.08.2026, "De adresat dupa finalizarea planului
   // curent" din documente de referinta/RAPORT-motor-comun-raspuns.md): pauza
-  // implicita la finalul unui "run-complete" fara avans de nivel eliminata —
+  // implicita la finalul unui "serie-terminata" fara avans de nivel eliminata —
   // rupea ritmul la lanturi cu pasi rapizi (ex. prime-divisors.js). Avansul de
   // nivel (LEVEL_ADV_MS) ramane neatins, are alt scop (celebrarea "Next level!").
   const PAUZA_INTRE_SERII_IMPLICITA_MS = 0;
@@ -542,7 +542,7 @@
       valideazaPasulUrmator(result.pasUrmator);
       const normalized = normalizeRoundState(result);
       if (!normalized.outcome) {
-        if (normalized.serie_terminata) normalized.outcome = "run-complete";
+        if (normalized.serie_terminata) normalized.outcome = "serie-terminata";
         else if (normalized.correct === false) normalized.outcome = "wrong-answer";
         else if (normalized.resetFall && normalized.flash === "wrong") normalized.outcome = "timeout";
         else if (normalized.bounce) normalized.outcome = "step-correct";
@@ -552,7 +552,7 @@
       normalized.correct =
         normalized.correct ?? !["wrong-answer", "timeout"].includes(normalized.outcome);
       normalized.serie_terminata =
-        Boolean(normalized.serie_terminata) || normalized.outcome === "run-complete";
+        Boolean(normalized.serie_terminata) || normalized.outcome === "serie-terminata";
       normalized.gameComplete = Boolean(normalized.gameComplete);
       normalized.levelAdvanced = Boolean(normalized.levelAdvanced);
       normalized.resetFall = Boolean(normalized.resetFall);
