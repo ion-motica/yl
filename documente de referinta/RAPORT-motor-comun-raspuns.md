@@ -1280,3 +1280,32 @@ azi prin `dupaApasare` + `ctx.corect === false`, sau prin `mesaje.gresit`.
 (cazuri unde `dupaApasare` + verificare `ctx.corect` nu e suficient), sau dacă tiparul actual
 (`dupaApasare` generic + `dupaRaspunsCorect` specific) acoperă deja nevoia, doar cu alt nume decât
 cel propus de user.
+
+## De discutat mai târziu — inventar central al pauzelor (`promptHoldMs`/`runDelayMs`)
+
+> **Nimic de implementat acum.** Notat la cererea userului (28.08.2026), în timpul investigării
+> pauzelor de revelare. Userul a respins explicit varianta „grep de câteva minute" — vrea ceva
+> permanent, ușor de citit dintr-o privire: o variabilă globală, probabil un array, care listează
+> unde diferă valorile.
+
+**Context — ce s-a găsit deja, ca punct de plecare:** există DOUĂ mecanisme de pauză distincte,
+nu unul:
+
+1. **reveal-hold** (`result.promptHoldMs ?? result.runDelayMs ?? DEFAULT_REVEAL_HOLD_MS=160`) —
+   cât ține pe ecran răspunsul corect înainte de runda următoare. După standardizarea Singapore
+   (28.08.2026), TOATE quizurile converg la 160ms aici — zero excepții rămase.
+2. **run-delay** (`result.runDelayMs ?? (levelAdvanced ? LEVEL_ADV_MS=1400 : RUN_DONE_MS=0)`) —
+   pauza între finalul unui run/serie și runda următoare. Aici EXISTĂ divergență reală și
+   intenționată: `addition-table.js`/`addition-table-range.js`/`numarare-cu-pas.js`/
+   `succesive-quiz/engine.js` folosesc `runDelayMs: 500`; seria `multiplication-1120-v2/
+   v2-modular/v3/v4` + `pre-equations-eff-navigation.js` folosesc `runDelayMs: 0` explicit, ca să
+   sară peste celebrarea de 1400ms la avans de nivel (motiv documentat: „rupea ritmul la lanțuri
+   cu pași rapizi").
+
+**Propunerea userului:** o structură centrală (variabilă globală / array) în care fiecare quiz
+care suprascrie o pauză să fie vizibil dintr-o privire, fără să mai fie nevoie de grep manual.
+
+**De decis, la discuția separată:** forma exactă (array simplu de configurare citit de motor la
+`js/falling-engine.js`, vs. un script de raportare rulat separat, vs. altceva), și dacă devine
+parte din `npm run check:*` (ca `check-doc-index.mjs`) sau rămâne un instrument de consultat la
+cerere.
