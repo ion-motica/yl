@@ -1310,11 +1310,80 @@ care suprascrie o pauză să fie vizibil dintr-o privire, fără să mai fie nev
 parte din `npm run check:*` (ca `check-doc-index.mjs`) sau rămâne un instrument de consultat la
 cerere.
 
-## De discutat mai târziu — test instabil: `multiplication-table-conexe-helper`
+## ⚠️ BUG REAL, NEREPARAT — `equations-e3-e6` emite uneori același număr vizibil pe ambele părți
 
-> **Nu e o regresie și nu e cauzat de vreo modificare recentă.** Notat (28.08.2026) pentru că a
-> apărut o dată în timpul verificărilor de la contractul `pasUrmator` și a costat timp până s-a
-> lămurit că e zgomot. Merită știut că e acolo, ca data viitoare să nu mai fie investigat de la zero.
+> **Găsit 28.08.2026, căutând a doua sursă de instabilitate din `npm test`. NU e un test capricios
+> — e un bug de produs, prins intermitent.** De-aia testul lui NU a fost semănat: un seed l-ar fi
+> făcut verde și ar fi ascuns defectul. Nereparat: direcția fixului e o decizie de design, a
+> userului.
+
+**Simptomul.** `tests/equations-e3-e6.test.js`, testul „avoids visible common known numbers on both
+sides", pică în ~7% din rulările suitei. Exemplu real de prompt produs:
+
+```
+6 * ? = 4 * 6
+```
+
+`6` e vizibil și în stânga, și în dreapta — exact ce quizul încearcă să evite (are funcție dedicată,
+`hasKnownCommonVisibleValue`).
+
+**Cauza, la linie exactă** (`js/quizzes/equations-e3-e6.js`, în `buildQuestion`):
+
+```js
+for (let attempt = 0; attempt < 80; attempt += 1) {
+  values = ...valori aleatoare...;
+  if (!hasKnownCommonVisibleValue(displaySides.left, displaySides.right, values, unknownSlot)) break;
+}
+// daca toate cele 80 de incercari au incalcat regula, se merge mai departe cu ULTIMA, cea proasta
+```
+
+Căutare aleatoare cu buget fix și **fallback tăcut**: când bugetul se epuizează, întrebarea e emisă
+oricum, încălcând regula, fără niciun semnal. Exact tiparul pe care `razgandire-ieftina.md`
+(punctul 9) îl interzice — la fel ca bug-urile de contract reparate mai sus.
+
+**Restricția NU e imposibilă** — deci nu e „cerință nerealistă", e căutare care ratează. Măsurat,
+400 de trageri per combinație (familie × operator × slot necunoscut), nivel 3:
+
+| combinație | încălcări |
+|---|---|
+| `E4_BAL`, operator `*`, `unknownIndex=1` | 1/400 |
+| `E4_BAL`, operator `*`, `unknownIndex=3` | 2/400 |
+| toate celelalte combinații | 0/400 |
+
+Doar înmulțirea pe familia echilibrată E4 e afectată: `a*b = c*d` cu valori mici are puține
+factorizări, iar unele produse (ex. 24 = 6·4 = 4·6) au doar factorizări care împart un factor. Există
+însă și produse cu factorizări disjuncte (24 = 3·8 = 4·6), deci o alegere validă e mereu posibilă.
+
+**De decis, la discuția separată:** cum se închide fallback-ul tăcut — buget mai mare (rămâne
+probabilistic, doar mai rar), căutare deterministă la epuizare (garantat, dar cod nou), sau alegerea
+produsului din start doar dintre cele cu factorizări disjuncte (cel mai curat, dar schimbă
+generatorul). Recomandarea mea: a treia.
+
+## ✅ REZOLVAT — test instabil: `multiplication-table-conexe-helper`
+
+> **Reparat 28.08.2026, la cererea userului („repara testul instabil, seed la Math.random").**
+> Secțiunea se păstrează ca istoric: de ce era instabil și de ce fixul e la nivel de helper,
+> nu de test.
+>
+> **Fixul.** `tests/helpers/load-quiz-environment.js` are acum un al treilea regim,
+> `setupSeededRandom(seed)` (mulberry32), iar `deterministic: false` îl folosește automat. Înainte
+> existau doar două extreme: `Math.random = () => 0` (zero varietate — de-aia testele astea îl
+> ocoleau) și `Math.random` nativ (varietate, dar **hazard**). Al treilea regim dă exact ce cereau:
+> **varietate reproductibilă**. Același seed → aceeași secvență, deci un test ori trece mereu, ori
+> pică mereu.
+>
+> Aplicat la toate cele 5 fișiere cu aceeași expunere: cele 4 `*-table-conexe-helper.test.js` și
+> `prime-divisions.test.js` (care avea propriul loader). Măsurat după fix: **0/60 eșecuri** la
+> fiecare, față de 2/40 înainte la cel de multiplicare.
+>
+> **Verificat că seed-ul nu a tocit testul**: sub seed vede factorii 1,2,8,15 (deci 8 și 15 peste
+> prag, cu margine, nu la limită), iar cu o regresie injectată (pool limitat la 3 fapte) pică
+> corect, cu `expected b>3 in 1,2,3`.
+
+### Istoricul problemei
+
+> Nu era o regresie și nu fusese cauzat de vreo modificare. A apărut în timpul verificărilor de la
+> contractul `pasUrmator` și a costat timp până s-a lămurit că e zgomot.
 
 **Simptomul.** La `npm test`, uneori (nu la fiecare rulare) pică un singur subtest:
 

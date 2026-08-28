@@ -32,7 +32,6 @@ const CORE_SCRIPTS = [
 
 let scriptsLoaded = false;
 let originalShuffle = null;
-let originalRandom = null;
 
 function loadScript(relativePath) {
   const code = readFileSync(join(rootDir, relativePath), "utf8");
@@ -54,13 +53,45 @@ export function setupDeterministicRandom(values = [0]) {
   globalThis.Math.random = () => values[index++ % values.length] ?? 0;
 }
 
+// Seed implicit pentru testele care cer varietate. Orice numar merge; conteaza
+// doar sa fie FIX. Daca un test pica dupa schimbarea lui, nu "ghiceste alt
+// seed" — inseamna ca testul depindea de o tragere norocoasa si trebuie
+// rescris, exact problema pe care seed-ul o face vizibila.
+const SEED_IMPLICIT = 20260828;
+
+// Al treilea regim, intre cele doua extreme de mai sus.
+//
+//   setupDeterministicRandom() -> `Math.random` intoarce mereu 0: ZERO varietate.
+//   Math.random nativ          -> varietate, dar HAZARD: acelasi test pica azi si
+//                                 trece maine, fara sa se schimbe nimic in cod.
+//   setupSeededRandom(seed)    -> varietate REPRODUCTIBILA: aceeasi secventa la
+//                                 fiecare rulare, dar nu o valoare constanta.
+//
+// Al doilea regim a produs un flake real, masurat (~4% din rulari) la
+// `tests/multiplication-table-conexe-helper.test.js` — vezi "test instabil" in
+// documente de referinta/RAPORT-motor-comun-raspuns.md.
+//
+// Generatorul e mulberry32: mic, fara dependinte, cu distributie buna — nu ne
+// trebuie calitate criptografica, ne trebuie repetabilitate.
+export function setupSeededRandom(seed = SEED_IMPLICIT) {
+  let stare = seed >>> 0;
+  globalThis.Math.random = () => {
+    stare = (stare + 0x6d2b79f5) >>> 0;
+    let t = stare;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function setupTestEnv(options = {}) {
   const quizId = options.quizId ?? "addition-table-conexe-helper";
   loadCoreScripts();
 
+  // Salvat o singura data, INAINTE ca vreun test sa-l inlocuiasca. `Math.random`
+  // nu mai e salvat: nu mai exista cale inapoi la hazard, e mereu semanat.
   if (originalShuffle == null) {
     originalShuffle = globalThis.GameUtils.shuffle;
-    originalRandom = globalThis.Math.random;
   }
 
   globalThis.FactStore.resetAll();
@@ -69,8 +100,11 @@ export function setupTestEnv(options = {}) {
     globalThis.GameUtils.shuffle = (items) => [...items];
     setupDeterministicRandom(options.randomValues ?? [0]);
   } else {
+    // `deterministic: false` cere VARIETATE (shuffle real), nu HAZARD. De-aia
+    // `Math.random` ramane semanat: secventa e variata, dar identica la fiecare
+    // rulare, deci un test ori trece mereu, ori pica mereu.
     globalThis.GameUtils.shuffle = originalShuffle;
-    globalThis.Math.random = originalRandom;
+    setupSeededRandom(options.seed ?? SEED_IMPLICIT);
   }
 
   const meta = globalThis.QuizRegistry.get(quizId);

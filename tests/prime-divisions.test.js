@@ -12,13 +12,9 @@ import { describe, it, beforeEach } from "node:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { setupSeededRandom } from "./helpers/load-quiz-environment.js";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
-// Salvat inainte ca vreun test sa poata suprascrie Math.random — altfel un
-// test `deterministic:false` care ruleaza DUPA unul `deterministic:true` in
-// acelasi proces mosteneste stub-ul `() => 0`, nu intamplare reala (Math.random
-// nu se reseteaza singur intre teste din acelasi fisier).
-const nativeRandom = Math.random;
 
 function loadScript(relativePath) {
   const code = readFileSync(join(rootDir, relativePath), "utf8");
@@ -45,7 +41,12 @@ function setupQuiz({ deterministic = true } = {}) {
     globalThis.GameUtils.shuffle = (items) => [...items];
     globalThis.Math.random = () => 0;
   } else {
-    globalThis.Math.random = nativeRandom;
+    // Varietate REPRODUCTIBILA, nu hazard: `Math.random` nativ facea testul sa
+    // treaca azi si sa pice maine fara nicio schimbare de cod. Seed-ul rezolva
+    // si problema veche notata aici (un test `deterministic:false` care rula
+    // dupa unul `deterministic:true` mostenea stub-ul `() => 0`) — acum fiecare
+    // apel reaseaza explicit generatorul. Vezi tests/helpers/load-quiz-environment.js.
+    setupSeededRandom();
   }
 
   const meta = globalThis.QuizRegistry.get("prime-divisions");
