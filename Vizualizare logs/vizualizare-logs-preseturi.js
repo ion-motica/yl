@@ -31,7 +31,7 @@
               minimizata: false,
             },
             {
-              camp: "a_cata_apasare_pe_buton",
+              camp: "al_catelea_turn_apasare_pe_buton",
               vizibila: true,
               latime: 43,
               minimizata: false,
@@ -68,7 +68,7 @@
           filtre: [
             {
               tip: "antet",
-              camp: "a_cata_apasare_pe_buton",
+              camp: "al_catelea_turn_apasare_pe_buton",
               valoare: "1",
             },
           ],

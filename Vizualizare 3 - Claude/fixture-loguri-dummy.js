@@ -216,7 +216,7 @@
       intrebare: `${a}*${b}=?`,
       raspuns: corect ? String(produs) : gresit,
       a_raspuns_corect: corect,
-      a_cata_apasare_pe_buton: nrApasare,
+      al_catelea_turn_apasare_pe_buton: nrApasare,
       durata_raspuns_secunde: Math.round(timp * 10) / 10,
       fact: `${a}*${b}=${produs}`,
       quiz_id: "fixture-1-20",

@@ -32,7 +32,7 @@
       // il foloseste fixture-ul demonstrativ de aici. Acelasi ordine de
       // preferinta ca in `Vizualizare si interpretare logs/mabp-analiza.js`.
       raspuns_corect: normalizeazaBoolean(bruta?.a_raspuns_corect ?? bruta?.raspuns_corect),
-      a_cata_apasare_pe_buton: normalizeazaNumarApasare(bruta?.a_cata_apasare_pe_buton),
+      al_catelea_turn_apasare_pe_buton: normalizeazaNumarApasare(bruta?.al_catelea_turn_apasare_pe_buton),
       durata_raspuns_secunde: normalizeazaDurata(bruta?.durata_raspuns_secunde),
     };
   }
@@ -64,7 +64,7 @@
   // ---- grupare apăsări -> întrebări ------------------------------------
 
   // Regula contractului: înregistrările vin în ordinea salvării. Valoarea
-  // `a_cata_apasare_pe_buton === 1` începe o întrebare nouă; `2`, `3` etc.
+  // `al_catelea_turn_apasare_pe_buton === 1` începe o întrebare nouă; `2`, `3` etc.
   // continuă aceeași întrebare până la următorul `1`. Timestampul NU este
   // folosit pentru delimitare.
   //
@@ -75,7 +75,7 @@
     let apasariCurente = null;
 
     normalizate.forEach((inregistrare) => {
-      const inceputIntrebareNoua = inregistrare.a_cata_apasare_pe_buton === 1;
+      const inceputIntrebareNoua = inregistrare.al_catelea_turn_apasare_pe_buton === 1;
       if (inceputIntrebareNoua) {
         if (apasariCurente) intrebari.push(construiesteIntrebare(apasariCurente));
         apasariCurente = [inregistrare];

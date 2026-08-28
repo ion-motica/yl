@@ -542,7 +542,7 @@
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
     // Migrare pura: regula corect/gresit era deja conforma (gresit nu atinge
     // `currentFact`/`options`, ramane pe acelasi pas — `onStepWrong` doar
-    // inregistreaza). `dupaApasare` preia efectele secundare ale lui
+    // inregistreaza). `dupa_turn_apasare` preia efectele secundare ale lui
     // `onStepWrong` (fara sa mai construiasca ea insasi rezultatul — asta face
     // M3B, prin `mesaje.gresit`); `onStepWrong` ramane neatinsa, tot folosita
     // de `onTimeout`. `dupaRaspunsCorect` cheama direct `onStepCorrect`
@@ -556,7 +556,7 @@
     // proprii, unele conditionate de `conexeType` (`questionFormat`/`targetSum`/
     // `bondKnownAddend`/`bondMissingSide` doar pt. tipurile "bond-*"). Prea
     // variabil ca sa injectezi campuri punctuale (ca `successionHistory` la
-    // equations-e3-e6.js) — in loc, `dupaApasare` intoarce `roundView()`
+    // equations-e3-e6.js) — in loc, `dupa_turn_apasare` intoarce `roundView()`
     // INTREG, exact ca vechiul `onStepWrong` (`...roundView()`), valabil
     // pt. orice adaptor. Pe ramura corecta e oricum suprascris de rezultatul
     // complet din `onStepCorrect`, fara conflict.
@@ -572,7 +572,7 @@
             `La ${adapter.promptLabel(currentFact, currentConexeType)}, ${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
             if (!ctx.corect) {
               currentBlockHadMistake = true;

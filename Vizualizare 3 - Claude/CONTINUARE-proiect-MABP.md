@@ -41,13 +41,13 @@ Contract public, **funcție pură** (fără DOM/IndexedDB):
 
 O înregistrare per apăsare, în IndexedDB `youlearn_jurnal_intrebari` → `intrebari`, citită **în
 ordinea cheii**. 18 câmpuri (`data_ora_ro, quiz_name, subquiz_name, intrebare, raspuns,
-raspuns_corect, a_cata_apasare_pe_buton, durata_raspuns_secunde, fact, quiz_id, subquiz_id, fact_id,
+raspuns_corect, al_catelea_turn_apasare_pe_buton, durata_raspuns_secunde, fact, quiz_id, subquiz_id, fact_id,
 eq_form, extra, …`). Sursa reală: `js/jurnal-intrebari.js`.
 
 **Ce lipsește (rămâne `null`, nu inventăm):**
 - `session_id` — deci axa „N sesiuni" e dezactivată.
 - `question_instance_id` — **nu e necesar**: gruparea pe întrebări se face din
-  `a_cata_apasare_pe_buton` (valoarea `1` începe o întrebare nouă), citind în ordinea salvării.
+  `al_catelea_turn_apasare_pe_buton` (valoarea `1` începe o întrebare nouă), citind în ordinea salvării.
 - evenimente `timeout` — nu sunt logate; numărul de întrebări afișate e subestimat (limitare notată).
 
 **Maparea fact→celulă** (decizie a userului): funcția izolată `cheieCelulaDinInregistrare` citește

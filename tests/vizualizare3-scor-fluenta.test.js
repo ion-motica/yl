@@ -201,7 +201,7 @@ it("fara plancher_impulsivitate_secunde in filtru, aplicaFiltre se comporta ca i
     motor.normalizeaza([
       {
         raspuns_corect: true,
-        a_cata_apasare_pe_buton: 1,
+        al_catelea_turn_apasare_pe_buton: 1,
         durata_raspuns_secunde: 0.1, // sub 0.5, dar filtrul vechi nu are plancher
       },
     ])

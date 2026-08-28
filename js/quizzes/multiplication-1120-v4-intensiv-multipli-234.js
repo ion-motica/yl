@@ -848,7 +848,7 @@
           return item;
         },
         actiuni: {
-          dupaApasare(ctx) {
+          dupa_turn_apasare(ctx) {
             if (!ctx.corect) {
               const factB = ctx.item.metadata.factB;
               if (!ctx.stare.wrongFacts.includes(factB)) ctx.stare.wrongFacts.push(factB);
@@ -1134,7 +1134,7 @@
     }
 
     // Descoperire mostenita de la migrarea v3 (aceeasi forma exacta aici): `sq2ExitMode`
-    // ("correct" vs "any") se mapeaza pe `turCorect` din M3B — vezi comentariul din
+    // ("correct" vs "any") se mapeaza pe `corect_din_primul_turn_apasare` din M3B — vezi comentariul din
     // multiplication-1120-v3-train-eff-eq-forms.js. Sq2/sq2Sbs raman nedeclansate automat
     // in acest fisier (decizie user, 29.07.2026) — migrarea nu schimba asta.
     function intensiveDupaRaspunsCorect(ctx) {
@@ -1142,7 +1142,7 @@
       const factB = ctx.item.metadata.factB;
       state.questionCount += 1;
       state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
-      if (ctx.turCorect) {
+      if (ctx.corect_din_primul_turn_apasare) {
         state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
       }
 

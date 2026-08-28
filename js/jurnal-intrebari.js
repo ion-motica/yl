@@ -44,10 +44,10 @@
       throw new Error("Intrebarea raportata trebuie sa fie un obiect.");
     }
 
-    const apasare = Number(intrebare.a_cata_apasare_pe_buton);
+    const apasare = Number(intrebare.al_catelea_turn_apasare_pe_buton);
     const durata = Number(intrebare.durata_raspuns_secunde);
     if (!Number.isInteger(apasare) || apasare < 1) {
-      throw new Error("a_cata_apasare_pe_buton trebuie sa fie un numar intreg pozitiv.");
+      throw new Error("al_catelea_turn_apasare_pe_buton trebuie sa fie un numar intreg pozitiv.");
     }
     if (!Number.isFinite(durata) || durata < 0) {
       throw new Error("durata_raspuns_secunde trebuie sa fie un numar pozitiv.");
@@ -90,7 +90,7 @@
       raspuns: textObligatoriu(intrebare.raspuns, "raspuns"),
       a_raspuns_corect:
         intrebare.a_raspuns_corect == null ? null : intrebare.a_raspuns_corect === true,
-      a_cata_apasare_pe_buton: apasare,
+      al_catelea_turn_apasare_pe_buton: apasare,
       durata_raspuns_secunde: Math.round(durata * 10) / 10,
       fact: textObligatoriu(intrebare.fact, "fact"),
       quiz_id: textObligatoriu(intrebare.quiz_id, "quiz_id"),

@@ -105,7 +105,7 @@ describe("Motor 3 butoane (M3B)", () => {
     }
 
     assert.equal(cereriDeIntrebareNoua, 0, "nicio cale de avans fara raspuns corect");
-    assert.equal(m3b.numarApasariInTur(), 3000, "toate apasarile apartin aceluiasi tur");
+    assert.equal(m3b.numarTurnApasare(), 3000, "toate apasarile apartin aceluiasi tur");
   });
 
   // ---- tur vs. apasare ----------------------------------------------------
@@ -118,12 +118,12 @@ describe("Motor 3 butoane (M3B)", () => {
       esteCorect: (it, idx) => idx === it.correctIndex,
       intrebareUrmatoare: () => item("urmatoarea", ["1", "2", "3"], 0),
       actiuni: {
-        dupaApasare: (ctx) => {
+        dupa_turn_apasare: (ctx) => {
           verdicte.push({
-            numarApasare: ctx.numarApasare,
-            estePrimaApasare: ctx.estePrimaApasare,
+            numar_turn_apasare: ctx.numar_turn_apasare,
+            este_primul_turn_apasare: ctx.este_primul_turn_apasare,
             corect: ctx.corect,
-            turCorect: ctx.turCorect,
+            corect_din_primul_turn_apasare: ctx.corect_din_primul_turn_apasare,
           });
           return {};
         },
@@ -136,10 +136,10 @@ describe("Motor 3 butoane (M3B)", () => {
     m3b.laApasareButon({ item: q1, index: 1, construiesteVedere: vedereDin(q1) });
 
     assert.deepEqual(verdicte, [
-      { numarApasare: 1, estePrimaApasare: true, corect: false, turCorect: false },
-      { numarApasare: 2, estePrimaApasare: false, corect: false, turCorect: false },
+      { numar_turn_apasare: 1, este_primul_turn_apasare: true, corect: false, corect_din_primul_turn_apasare: false },
+      { numar_turn_apasare: 2, este_primul_turn_apasare: false, corect: false, corect_din_primul_turn_apasare: false },
       // a nimerit butonul corect abia la a 3-a apasare -> turul NU e corect
-      { numarApasare: 3, estePrimaApasare: false, corect: true, turCorect: false },
+      { numar_turn_apasare: 3, este_primul_turn_apasare: false, corect: true, corect_din_primul_turn_apasare: false },
     ]);
   });
 
@@ -151,15 +151,15 @@ describe("Motor 3 butoane (M3B)", () => {
       esteCorect: (it, idx) => idx === it.correctIndex,
       intrebareUrmatoare: () => item("urmatoarea", ["1", "2", "3"], 0),
       actiuni: {
-        dupaApasare: (ctx) => {
-          verdict = { numarApasare: ctx.numarApasare, turCorect: ctx.turCorect };
+        dupa_turn_apasare: (ctx) => {
+          verdict = { numar_turn_apasare: ctx.numar_turn_apasare, corect_din_primul_turn_apasare: ctx.corect_din_primul_turn_apasare };
           return {};
         },
       },
     });
 
     m3b.laApasareButon({ item: q1, index: 1, construiesteVedere: vedereDin(q1) });
-    assert.deepEqual(verdict, { numarApasare: 1, turCorect: true });
+    assert.deepEqual(verdict, { numar_turn_apasare: 1, corect_din_primul_turn_apasare: true });
   });
 
   it("numaratoarea apasarilor reporneste la fiecare intrebare noua", () => {
@@ -171,8 +171,8 @@ describe("Motor 3 butoane (M3B)", () => {
       esteCorect: (it, idx) => idx === it.correctIndex,
       intrebareUrmatoare: () => q2,
       actiuni: {
-        dupaApasare: (ctx) => {
-          numere.push(ctx.numarApasare);
+        dupa_turn_apasare: (ctx) => {
+          numere.push(ctx.numar_turn_apasare);
           return {};
         },
       },
@@ -203,12 +203,12 @@ describe("Motor 3 butoane (M3B)", () => {
           ordinea.push("dupaAfisare");
           return {};
         },
-        inainteDeApasare: () => {
-          ordinea.push("inainteDeApasare");
+        inainte_de_turn_apasare: () => {
+          ordinea.push("inainte_de_turn_apasare");
           return {};
         },
-        dupaApasare: () => {
-          ordinea.push("dupaApasare");
+        dupa_turn_apasare: () => {
+          ordinea.push("dupa_turn_apasare");
           return { promptHoldMs: 160 };
         },
       },
@@ -220,8 +220,8 @@ describe("Motor 3 butoane (M3B)", () => {
     assert.deepEqual(ordinea, [
       "inainteDeAfisare",
       "dupaAfisare",
-      "inainteDeApasare",
-      "dupaApasare",
+      "inainte_de_turn_apasare",
+      "dupa_turn_apasare",
       // afisarea intrebarii urmatoare, dupa raspunsul corect:
       "inainteDeAfisare",
       "dupaAfisare",
@@ -238,12 +238,12 @@ describe("Motor 3 butoane (M3B)", () => {
       esteCorect: (it, idx) => idx === it.correctIndex,
       intrebareUrmatoare: () => item("urmatoarea", ["1", "2", "3"], 0),
       actiuni: {
-        inainteDeApasare: () => {
-          ordinea.push("inainteDeApasare");
+        inainte_de_turn_apasare: () => {
+          ordinea.push("inainte_de_turn_apasare");
           return {};
         },
-        dupaApasare: (ctx) => {
-          ordinea.push(`dupaApasare(corect=${ctx.corect})`);
+        dupa_turn_apasare: (ctx) => {
+          ordinea.push(`dupa_turn_apasare(corect=${ctx.corect})`);
           return { flashSuplimentar: "x" };
         },
       },
@@ -251,7 +251,7 @@ describe("Motor 3 butoane (M3B)", () => {
 
     const rezultat = m3b.laApasareButon({ item: q1, index: 0, construiesteVedere: vedereDin(q1) });
 
-    assert.deepEqual(ordinea, ["inainteDeApasare", "dupaApasare(corect=false)"]);
+    assert.deepEqual(ordinea, ["inainte_de_turn_apasare", "dupa_turn_apasare(corect=false)"]);
     assert.equal(rezultat.view.flashSuplimentar, "x");
   });
 
@@ -313,7 +313,7 @@ describe("Motor 3 butoane (M3B)", () => {
       esteCorect: (it, idx) => idx === it.correctIndex,
       intrebareUrmatoare: () => item("urmatoarea", ["1", "2", "3"], 0),
       actiuni: {
-        dupaApasare: (ctx) => {
+        dupa_turn_apasare: (ctx) => {
           primite.push(ctx.meta);
           return {};
         },

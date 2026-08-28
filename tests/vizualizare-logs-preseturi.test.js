@@ -161,7 +161,7 @@ it("expune presetul Preview numai ca date declarative", () => {
   assert.equal(api.grupe[0].preseturi[0].nume, "Preset 2");
   assert.equal(api.grupe[0].preseturi[0].coloane.length, 19);
   assert.deepEqual(api.grupe[0].preseturi[0].filtre, [
-    { tip: "antet", camp: "a_cata_apasare_pe_buton", valoare: "1" },
+    { tip: "antet", camp: "al_catelea_turn_apasare_pe_buton", valoare: "1" },
   ]);
   assert.deepEqual(api.grupe[0].preseturi[0].sortari, [
     { camp: "data_ora_ro", directie: "desc" },

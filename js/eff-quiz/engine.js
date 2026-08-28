@@ -412,14 +412,14 @@
     // `currentFact`/`options`, ramane pe acelasi pas). Fosta `onStepWrong` a
     // fost stearsa — nu mai avea niciun apelant (nici `onTimeout`, spre
     // deosebire de conexe-table-quiz/engine.js, nu o folosea); efectele ei
-    // secundare traiesc acum in `dupaApasare`, iar rezultatul vizual il
+    // secundare traiesc acum in `dupa_turn_apasare`, iar rezultatul vizual il
     // construieste M3B, prin `mesaje.gresit`. `dupaRaspunsCorect` cheama
     // direct `onStepCorrect` existenta, neschimbata.
     //
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza"). `roundView()` are campuri proprii (`divisionHistory`,
     // `bondHistory`, `questionFormat`, `successionHistory`) absente din vederea
-    // generica — ca la conexe-table-quiz/engine.js, `dupaApasare` intoarce
+    // generica — ca la conexe-table-quiz/engine.js, `dupa_turn_apasare` intoarce
     // `roundView()` INTREG (nu campuri punctuale), exact ce facea implicit
     // vechiul `construiesteVedere: (extra) => ({...roundView(), ...extra})`.
     function baseDefinition() {
@@ -433,7 +433,7 @@
           gresit: (ctx) => `${ctx.alesul ?? "?"} nu e corect. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             if (!ctx.corect) {
               if (seriesType === "A") {
                 seriesHadMistakes = true;

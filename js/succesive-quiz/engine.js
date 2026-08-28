@@ -328,7 +328,7 @@
     // folosit (fara capcana de tip, spre deosebire de prime-divisions.js).
     // `roundView()` are campuri proprii (`successionHistory`, `promptHtml`
     // conditionat) absente din vederea generica — `successionHistory` injectat
-    // prin `dupaApasare`, la fel ca la equations-e3-e6.js; `promptHtml`
+    // prin `dupa_turn_apasare`, la fel ca la equations-e3-e6.js; `promptHtml`
     // transportat direct de `sincronizeazaOrchestratorul()`.
     function baseDefinition() {
       return global.SubquizDefinition.define({
@@ -341,7 +341,7 @@
           gresit: (ctx) => `${String(currentStep.prompt).replace("=?", "")} nu este ${ctx.alesul}. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
             if (!ctx.corect) {
               seriesFlawless = false;

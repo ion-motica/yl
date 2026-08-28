@@ -388,7 +388,7 @@
           gresit: (ctx) => `La ${level}=?, ${ctx.alesul} nu e corect. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
             if (!ctx.corect) {
               hadMistakeThisTurn = true;

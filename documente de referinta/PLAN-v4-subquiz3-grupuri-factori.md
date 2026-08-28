@@ -403,7 +403,7 @@ global.SnapshotFluenta = {
 
 Fixture: se salvează în `tests/` o versiune **redusă** a exportului real (azi 1,2 MB
 în `Downloads` — nu se citește de acolo). Conducta consumă doar 5 câmpuri:
-`data_ora_ro`, `fact`, `a_raspuns_corect`, `a_cata_apasare_pe_buton`,
+`data_ora_ro`, `fact`, `a_raspuns_corect`, `al_catelea_turn_apasare_pe_buton`,
 `durata_raspuns_secunde`. Restul (`intrebare`, `valori_variante_de_raspuns`,
 `hints_aratate_pt_raspuns`, `extra`, `quiz_name`, ...) se pot elimina — fișierul
 scade de câteva ori. **Obligatoriu:** după reducere, fixture-ul trebuie să reproducă

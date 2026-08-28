@@ -989,7 +989,7 @@
     // Fiecare functie `on...Correct()` de mai jos e versiunea CORECTATA a
     // fostei `on...Answer(isCorrect, chosen)`: ramura de „gresit" a disparut de
     // aici (M3B o gestioneaza implicit, prin `mesaje.gresit`), iar efectele ei
-    // secundare (marcarea faptului gresit) traiesc acum in `dupaApasare`.
+    // secundare (marcarea faptului gresit) traiesc acum in `dupa_turn_apasare`.
 
     function onAnchorSumCorrect() {
       subquizQuestionCount++;
@@ -1234,7 +1234,7 @@
           gresit: (ctx) => `${ctx.alesul} nu e bun. Mai încearcă!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             if (ctx.corect) return {};
 
             if (mode === "intensiv" || mode === "effectiveIntensiv" || mode === "nonAnchorProductsIntensiv") {

@@ -232,7 +232,7 @@
           gresit: (ctx) => `${ctx.alesul} nu e numarul corect. Incearca din nou!`,
         },
         actiuni: {
-          dupaApasare: () => ({}),
+          dupa_turn_apasare: () => ({}),
           dupaRaspunsCorect: () => {
             avanseaza();
             pregatesteRunda();

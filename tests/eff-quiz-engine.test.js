@@ -9,7 +9,7 @@
 // Sters ca parte a migrarii (cod mort dupa mutare): fosta `onStepWrong` nu mai
 // avea niciun apelant (nici `onTimeout`, spre deosebire de sora ei din
 // conexe-table-quiz/engine.js) — efectele ei secundare traiesc acum in
-// `dupaApasare`.
+// `dupa_turn_apasare`.
 import assert from "node:assert/strict";
 import { describe, it, beforeEach } from "node:test";
 import { readFileSync } from "node:fs";

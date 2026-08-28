@@ -43,7 +43,7 @@ pe baza conceptelor de mai sus — nu sunt concepte noi, sunt aplicarea lor.
 
 | azi | propunere | stare |
 |---|---|---|
-| `a_cata_apasare_pe_buton` | `a_catelea_turn_apasare_pe_buton` | **de confirmat explicit** — e scris în loguri deja salvate (fișiere JSON, IndexedDB), nu doar în cod |
+| `a_cata_apasare_pe_buton` | `al_catelea_turn_apasare_pe_buton` | **confirmat** (28.08.2026) — e scris în loguri deja salvate (fișiere JSON, IndexedDB), nu doar în cod |
 
 Acest câmp e diferit de restul: nu e doar un nume de variabilă, e o CHEIE în date deja
 existente (jurnalul salvat al userului, jurnalul viu din IndexedDB al oricărui alt user).

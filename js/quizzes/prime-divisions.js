@@ -327,7 +327,7 @@
     //
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza"). `options` proprii sunt NUMERE — `mesaje.gresit`/
-    // `dupaApasare` citesc `options[ctx.index]` direct din closure, NU
+    // `dupa_turn_apasare` citesc `options[ctx.index]` direct din closure, NU
     // `ctx.alesul` (ar fi string-ul normalizat de motor). Aici capcana are o
     // consecinta mai subtila decat un mesaj: `ctx.alesul` (string) ar fi ajuns
     // stocat ca `combo.wrong` prin `buildMistakePayload`, comparat mai tarziu
@@ -345,7 +345,7 @@
           gresit: (ctx) => `La ${currentDividend}:${currentDivisor}=?, ${options[ctx.index]} nu e corect. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             if (!ctx.corect) {
               mistakes.recordMistake(
                 buildMistakePayload({

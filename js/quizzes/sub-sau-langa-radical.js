@@ -395,7 +395,7 @@
           corect: "Corect!",
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             if (!ctx.corect) consecutiveCorrect = 0;
             return {};
           },

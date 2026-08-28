@@ -12,7 +12,7 @@
     "intrebare",
     "raspuns",
     "a_raspuns_corect",
-    "a_cata_apasare_pe_buton",
+    "al_catelea_turn_apasare_pe_buton",
     "durata_raspuns_secunde",
     "fact",
     "quiz_id",

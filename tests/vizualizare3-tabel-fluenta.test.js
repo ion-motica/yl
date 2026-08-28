@@ -60,7 +60,7 @@ function apasariFact(fact, n, durataSecunde, zile) {
       data_ora_ro: `${zi} 10:00:${String(i % 60).padStart(2, "0")}`,
       fact,
       a_raspuns_corect: true,
-      a_cata_apasare_pe_buton: 1,
+      al_catelea_turn_apasare_pe_buton: 1,
       durata_raspuns_secunde: durataSecunde,
     });
   }
@@ -260,7 +260,7 @@ it("data corupta pe ultimul raspuns: garda [C3] forteaza ultima poza la acum", (
       data_ora_ro: "nu-e-o-data",
       fact: "12*1=12",
       a_raspuns_corect: true,
-      a_cata_apasare_pe_buton: 1,
+      al_catelea_turn_apasare_pe_buton: 1,
       durata_raspuns_secunde: 1.5,
     },
   ];

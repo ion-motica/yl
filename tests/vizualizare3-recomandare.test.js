@@ -62,7 +62,7 @@ function apasariFact(fact, n, durataSecunde, zile) {
       data_ora_ro: `${zi} 10:00:${String(i % 60).padStart(2, "0")}`,
       fact,
       a_raspuns_corect: true,
-      a_cata_apasare_pe_buton: 1,
+      al_catelea_turn_apasare_pe_buton: 1,
       durata_raspuns_secunde: durataSecunde,
     });
   }

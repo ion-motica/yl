@@ -582,7 +582,7 @@
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza"). `roundView()` are un singur camp propriu
     // (`successionHistory`, panoul de sumar) absent din vederea generica —
-    // injectat prin `dupaApasare`, ca la equations-e3-e6.js. `options` sunt
+    // injectat prin `dupa_turn_apasare`, ca la equations-e3-e6.js. `options` sunt
     // deja string-uri (ambele moduri, `number`/`formula`, folosesc
     // `.map(String)`/text) — `ctx.alesul` sigur de folosit, fara capcana de tip.
     function baseDefinition() {
@@ -596,7 +596,7 @@
           gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             if (!ctx.corect) {
               currentCycleHadMistake = true;
             }

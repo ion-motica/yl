@@ -246,7 +246,7 @@ BRUTE (builderul primește brute, nu grupate):
 ```js
 function apasariFact(fact, n, durataSecunde, zile) {
   // ca intrebariFact, dar cu forma brută: a_raspuns_corect: true,
-  // a_cata_apasare_pe_buton: 1, durata_raspuns_secunde, data_ora_ro, fact
+  // al_catelea_turn_apasare_pe_buton: 1, durata_raspuns_secunde, data_ora_ro, fact
 }
 ```
 

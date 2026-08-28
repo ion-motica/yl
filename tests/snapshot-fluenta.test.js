@@ -94,7 +94,7 @@ describe("SnapshotFluenta", () => {
         data_ora_ro: "2026-07-12 18:57:40",
         fact: "12*7=84",
         a_raspuns_corect: true,
-        a_cata_apasare_pe_buton: 1,
+        al_catelea_turn_apasare_pe_buton: 1,
         durata_raspuns_secunde: 1.2,
       },
     ]);

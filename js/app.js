@@ -232,7 +232,7 @@
       intrebare: contextQuiz.intrebare ?? null,
       raspuns: dateMecanice.raspuns,
       a_raspuns_corect: dateMecanice.a_raspuns_corect,
-      a_cata_apasare_pe_buton: dateMecanice.a_cata_apasare_pe_buton,
+      al_catelea_turn_apasare_pe_buton: dateMecanice.al_catelea_turn_apasare_pe_buton,
       durata_raspuns_secunde: dateMecanice.durata_raspuns_secunde,
       fact: contextQuiz.fact ?? null,
       quiz_id: contextQuiz.quiz_id ?? null,

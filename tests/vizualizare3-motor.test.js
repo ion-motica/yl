@@ -32,7 +32,7 @@ const APASARI_O_INTREBARE_CORECTATA = [
     intrebare: "22=?*11",
     raspuns: "3",
     raspuns_corect: false,
-    a_cata_apasare_pe_buton: 1,
+    al_catelea_turn_apasare_pe_buton: 1,
     durata_raspuns_secunde: 1.3,
   },
   {
@@ -45,7 +45,7 @@ const APASARI_O_INTREBARE_CORECTATA = [
     intrebare: "22=?*11",
     raspuns: "2",
     raspuns_corect: true,
-    a_cata_apasare_pe_buton: 2,
+    al_catelea_turn_apasare_pe_buton: 2,
     durata_raspuns_secunde: 2.7,
   },
 ];
@@ -55,16 +55,16 @@ it("normalizeaza campurile si lasa null ce lipseste", () => {
   const [inregistrare] = motor.normalizeaza([{ fact_id: "mul:5*5=?" }]);
   assert.equal(inregistrare.fact_id, "mul:5*5=?");
   assert.equal(inregistrare.raspuns_corect, null);
-  assert.equal(inregistrare.a_cata_apasare_pe_buton, null);
+  assert.equal(inregistrare.al_catelea_turn_apasare_pe_buton, null);
   assert.equal(inregistrare.durata_raspuns_secunde, null);
 });
 
 it("respinge valorile invalide fara sa inventeze", () => {
   const motor = incarcaMotor();
   const [inregistrare] = motor.normalizeaza([
-    { a_cata_apasare_pe_buton: 0, durata_raspuns_secunde: -3, raspuns_corect: "da" },
+    { al_catelea_turn_apasare_pe_buton: 0, durata_raspuns_secunde: -3, raspuns_corect: "da" },
   ]);
-  assert.equal(inregistrare.a_cata_apasare_pe_buton, null);
+  assert.equal(inregistrare.al_catelea_turn_apasare_pe_buton, null);
   assert.equal(inregistrare.durata_raspuns_secunde, null);
   assert.equal(inregistrare.raspuns_corect, null);
 });
@@ -88,9 +88,9 @@ it("grupeaza doua apasari intr-o singura intrebare corectata", () => {
 it("un nou 1 incepe o intrebare noua", () => {
   const motor = incarcaMotor();
   const apasari = [
-    { raspuns: "2", raspuns_corect: true, a_cata_apasare_pe_buton: 1, durata_raspuns_secunde: 0.9 },
-    { raspuns: "5", raspuns_corect: false, a_cata_apasare_pe_buton: 1, durata_raspuns_secunde: 1.1 },
-    { raspuns: "6", raspuns_corect: true, a_cata_apasare_pe_buton: 2, durata_raspuns_secunde: 2.0 },
+    { raspuns: "2", raspuns_corect: true, al_catelea_turn_apasare_pe_buton: 1, durata_raspuns_secunde: 0.9 },
+    { raspuns: "5", raspuns_corect: false, al_catelea_turn_apasare_pe_buton: 1, durata_raspuns_secunde: 1.1 },
+    { raspuns: "6", raspuns_corect: true, al_catelea_turn_apasare_pe_buton: 2, durata_raspuns_secunde: 2.0 },
   ];
   const intrebari = motor.grupeazaApasarilePeIntrebari(motor.normalizeaza(apasari));
 
@@ -104,8 +104,8 @@ it("un nou 1 incepe o intrebare noua", () => {
 it("ignora apasarile de dinaintea primului 1 (istoric incomplet)", () => {
   const motor = incarcaMotor();
   const apasari = [
-    { raspuns: "9", raspuns_corect: false, a_cata_apasare_pe_buton: 2, durata_raspuns_secunde: 3.0 },
-    { raspuns: "2", raspuns_corect: true, a_cata_apasare_pe_buton: 1, durata_raspuns_secunde: 1.0 },
+    { raspuns: "9", raspuns_corect: false, al_catelea_turn_apasare_pe_buton: 2, durata_raspuns_secunde: 3.0 },
+    { raspuns: "2", raspuns_corect: true, al_catelea_turn_apasare_pe_buton: 1, durata_raspuns_secunde: 1.0 },
   ];
   const intrebari = motor.grupeazaApasarilePeIntrebari(motor.normalizeaza(apasari));
 
@@ -116,8 +116,8 @@ it("ignora apasarile de dinaintea primului 1 (istoric incomplet)", () => {
 it("intrebarea ramasa gresita nu are corectare", () => {
   const motor = incarcaMotor();
   const apasari = [
-    { raspuns: "3", raspuns_corect: false, a_cata_apasare_pe_buton: 1, durata_raspuns_secunde: 1.5 },
-    { raspuns: "4", raspuns_corect: false, a_cata_apasare_pe_buton: 2, durata_raspuns_secunde: 2.2 },
+    { raspuns: "3", raspuns_corect: false, al_catelea_turn_apasare_pe_buton: 1, durata_raspuns_secunde: 1.5 },
+    { raspuns: "4", raspuns_corect: false, al_catelea_turn_apasare_pe_buton: 2, durata_raspuns_secunde: 2.2 },
   ];
   const intrebari = motor.grupeazaApasarilePeIntrebari(motor.normalizeaza(apasari));
 

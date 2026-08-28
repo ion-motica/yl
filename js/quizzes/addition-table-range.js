@@ -339,7 +339,7 @@
     //
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza"). `options` proprii sunt NUMERE, dar motorul comun
-    // normalizeaza la STRING-uri — `dupaApasare`/`mesaje.gresit` citesc
+    // normalizeaza la STRING-uri — `dupa_turn_apasare`/`mesaje.gresit` citesc
     // `options[ctx.index]` direct din closure, NU `ctx.alesul`, ca la
     // addition-table.js (acelasi tipar, aceeasi capcana).
     function baseDefinition() {
@@ -354,7 +354,7 @@
             `${currentFact.prompt.replace("=?", "")} nu este ${options[ctx.index]}. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             recordAttempt(ctx.corect, options[ctx.index], ctx.meta);
             return { divisionHistory: [] };
           },

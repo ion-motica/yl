@@ -829,7 +829,7 @@
 
     // Motor 3 butoane (M3B) — vezi documente de referinta/PLAN-motor-comun-raspuns.md.
     // Migrare pura: regula corect/gresit era deja conforma (gresit nu atinge
-    // `current`, ramane pe aceeasi intrebare). `dupaApasare` inregistreaza
+    // `current`, ramane pe aceeasi intrebare). `dupa_turn_apasare` inregistreaza
     // FIECARE apasare (ca inainte), `dupaRaspunsCorect` muta starea si pastreaza
     // dezvaluirea raspunsului (`revealedPrompt`/`revealedPromptHtml`) exact ca
     // inainte de migrare, la finalul unei ture.
@@ -852,12 +852,12 @@
           gresit: (ctx) => `${ctx.alesul} nu e bun. Mai incearca.`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             recordAttempt(ctx.corect, Number(ctx.alesul), ctx.meta);
             // Vederea de "raspuns gresit" o construieste motorul comun (nu
             // `roundView()` proprie, ca inainte de migrare) — ii lipseste
             // `successionHistory` (panoul de sumar din arena) daca nu-l adaugam
-            // aici explicit. `dupaApasare` ruleaza la FIECARE apasare (corecta
+            // aici explicit. `dupa_turn_apasare` ruleaza la FIECARE apasare (corecta
             // sau nu), deci merge si pe ramura corecta — acolo e oricum
             // suprascris de `roundView()` din `dupaRaspunsCorect`, fara conflict.
             return { successionHistory: createSummaryRows(quizConfig, current, level, answeredThisRun) };

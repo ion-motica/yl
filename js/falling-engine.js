@@ -719,7 +719,7 @@
         raspuns:
           options?.[pickedIndex] == null ? null : String(options[pickedIndex]),
         a_raspuns_corect: correct === true,
-        a_cata_apasare_pe_buton: journalButtonPressCount,
+        al_catelea_turn_apasare_pe_buton: journalButtonPressCount,
         durata_raspuns_secunde:
           Number.isFinite(responseMs) ? Math.round(responseMs / 100) / 10 : null,
         pozitie_buton_apasat_pt_raspuns: pickedIndex + 1,

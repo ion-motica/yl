@@ -865,7 +865,7 @@
           };
         },
         actiuni: {
-          dupaApasare(ctx) {
+          dupa_turn_apasare(ctx) {
             if (!ctx.corect) {
               const factB = ctx.item.metadata.factB;
               if (!ctx.stare.wrongFacts.some((fact) => fact.b === factB)) {
@@ -996,7 +996,7 @@
           return buildAnchorSumQuestion();
         },
         actiuni: {
-          dupaApasare(ctx) {
+          dupa_turn_apasare(ctx) {
             if (!ctx.corect) ctx.stare.correctStreak = 0;
           },
           dupaRaspunsCorect(ctx) {
@@ -1057,7 +1057,7 @@
           return buildRapidQuestion(state);
         },
         actiuni: {
-          dupaApasare(ctx) {
+          dupa_turn_apasare(ctx) {
             if (!ctx.corect) ctx.stare.correctStreak = 0;
           },
           dupaRaspunsCorect(ctx) {
@@ -1145,7 +1145,7 @@
           };
         },
         actiuni: {
-          dupaApasare(ctx) {
+          dupa_turn_apasare(ctx) {
             if (!ctx.corect) {
               ctx.stare.correctStreak = 0;
               noteEffectiveMistake(ctx.stare, ctx.item.metadata.factB);
@@ -1280,7 +1280,7 @@
           };
         },
         actiuni: {
-          dupaApasare(ctx) {
+          dupa_turn_apasare(ctx) {
             if (!ctx.corect) {
               const factB = ctx.item.metadata.factB;
               ctx.stare.correctStreak = 0;

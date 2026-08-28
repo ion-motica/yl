@@ -14,7 +14,7 @@
  * face la rută completă, indiferent de corectitudine; la nivelul 10 jocul se
  * oprește („Joc finalizat.").
  *
- * Corectitudinea per apăsare (numărul apăsării în tur, „turCorect" = doar prima
+ * Corectitudinea per apăsare (numărul apăsării în tur, „corect_din_primul_turn_apasare" = doar prima
  * apăsare contează) vine din `window.Motor3Butoane` (M3B) — folosit AICI doar ca
  * bibliotecă pură de bookkeeping (esteCorect/laApasareButon), NU prin
  * `falling-engine.js`: Rigle rămâne motor separat (m2), își randează singur totul;
@@ -486,8 +486,8 @@
             const { latimiColoane } = global.RigleFacte.alegeVariante(x + nivel);
             return construiesteFact(x, nivel, latimiColoane);
           },
-          laApasare({ corect, turCorect, x }) {
-            if (!corect || turCorect) return; // rezolvat, dar nu din prima → se reia
+          laApasare({ corect, corect_din_primul_turn_apasare, x }) {
+            if (!corect || corect_din_primul_turn_apasare) return; // rezolvat, dar nu din prima → se reia
             const intarziere =
               REINTRODUCERE_MIN_TURE +
               Math.floor(Math.random() * (REINTRODUCERE_MAX_TURE - REINTRODUCERE_MIN_TURE + 1));
@@ -541,8 +541,8 @@
             context.xLucrate.add(x);
             return construiesteFact(x, nivel, latimiColoane);
           },
-          laApasare({ corect, turCorect, x }) {
-            if (!corect || turCorect) return;
+          laApasare({ corect, corect_din_primul_turn_apasare, x }) {
+            if (!corect || corect_din_primul_turn_apasare) return;
             if (!gresite.includes(x)) gresite.push(x);
           },
         };
@@ -608,20 +608,20 @@
         };
       }
 
-      // ── M3B ca bibliotecă pură de bookkeeping (esteCorect/numarApasare/turCorect),
+      // ── M3B ca bibliotecă pură de bookkeeping (esteCorect/numar_turn_apasare/corect_din_primul_turn_apasare),
       // NU pentru rutare/randare — Rigle își randează singur totul, prin motorul m2.
-      // M3B NU pune numarApasare/turCorect direct pe rezultat — le pasează doar în
-      // `context`-ul primit de actiuni.inainteDeApasare/dupaApasare (vezi
+      // M3B NU pune numar_turn_apasare/corect_din_primul_turn_apasare direct pe rezultat — le pasează doar în
+      // `context`-ul primit de actiuni.inainte_de_turn_apasare/dupa_turn_apasare (vezi
       // motor-3-butoane.js, campuriDinActiune) — de-aia le capturăm explicit în
-      // dupaApasare și le întoarcem, ca să ajungă (prin `dupa`) în obiectul dat lui
+      // dupa_turn_apasare și le întoarcem, ca să ajungă (prin `dupa`) în obiectul dat lui
       // construiesteVedere, pe care-l întoarcem neschimbat mai jos.
       const motorRaspuns = global.Motor3Butoane?.creeaza({
         esteCorect: (item) => item?.corect === true,
         intrebareUrmatoare: () => null, // neutilizat — vezi urmatorulFact() de mai sus
         actiuni: {
-          dupaApasare: (context) => ({
-            numarApasare: context.numarApasare,
-            turCorect: context.turCorect,
+          dupa_turn_apasare: (context) => ({
+            numar_turn_apasare: context.numar_turn_apasare,
+            corect_din_primul_turn_apasare: context.corect_din_primul_turn_apasare,
           }),
         },
       });
@@ -662,7 +662,7 @@
           intrebare: factCurent.intrebare,
           raspuns: String(latime),
           a_raspuns_corect: corect,
-          a_cata_apasare_pe_buton: ctx.numarApasare,
+          al_catelea_turn_apasare_pe_buton: ctx.numar_turn_apasare,
           durata_raspuns_secunde: Math.round((Date.now() - factAfisatLa) / 100) / 10,
           fact: `${factCurent.x}+${factCurent.nivel}`,
           quiz_id: "rigle-tabla-1-10",
@@ -683,8 +683,8 @@
           corect,
           latime,
           x: factCurent.x,
-          numarApasare: ctx.numarApasare,
-          turCorect: ctx.turCorect,
+          numar_turn_apasare: ctx.numar_turn_apasare,
+          corect_din_primul_turn_apasare: ctx.corect_din_primul_turn_apasare,
         });
       }
 

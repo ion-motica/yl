@@ -193,7 +193,7 @@
     //
     // Faza E, sectiunea 12: invelit intr-un SubquizOrchestrator (o singura
     // bucata "baza"). `options` proprii sunt NUMERE, dar motorul comun
-    // normalizeaza la STRING-uri — `dupaApasare`/`dupaRaspunsCorect`/
+    // normalizeaza la STRING-uri — `dupa_turn_apasare`/`dupaRaspunsCorect`/
     // `mesaje.gresit` citesc `options[ctx.index]` direct din closure, NU
     // `ctx.alesul`, ca la addition-table.js (acelasi tipar, aceeasi capcana —
     // aici `isResolvedCombo` ar fi picat tacut, comparatie stricta cu numar).
@@ -208,7 +208,7 @@
           gresit: (ctx) => `${options[ctx.index]} nu divide ${currentNumber}. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             if (!ctx.corect) {
               mistakes.recordMistake(buildMistakePayload(currentNumber, options[correctIndex], options[ctx.index]));
             }

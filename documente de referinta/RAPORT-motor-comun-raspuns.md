@@ -550,7 +550,7 @@ nici cele viitoare. Plus: subquizul dă **CE** (ce întrebare urmează), nicioda
 - **Rutarea** (push/pop/exit prin msq) se cere prin `dupaRaspunsCorect` — se evaluează **exclusiv**
   după o apăsare corectă, niciodată în timp ce se așteaptă răspunsul corect.
 - **Nu logează nimic** — face logarea corectă prin construcție: ținând întrebarea neschimbată pe
-  greșit, `roundSignature` din mr rămâne același, deci `a_cata_apasare_pe_buton` numără 1, 2, 3…
+  greșit, `roundSignature` din mr rămâne același, deci `al_catelea_turn_apasare_pe_buton` numără 1, 2, 3…
   în același tur, exact cum se așteaptă `motor-analiza.js`.
 - **Semnătura** `motor-3-butoane-v1` pe fiecare rezultat + `esteRezultatValid()` — unealta cu care
   mr va refuza, în Faza C, orice rezultat care nu vine din M3B.
@@ -926,7 +926,7 @@ memorie) — vezi „Stare curentă" pentru raportul complet, criteriu cu criter
   interiorul quizurilor (ex. `addition-table.js`) se cheamă la fiecare apăsare, nu o dată per tură
   — la prima vedere părea o gaură separată, care ar corupe statisticile de fluență din Vizualizare 3.
   Verificat: `motor-analiza.js` + `SPECIFICATIE.md` au deja mecanismul corect, dintr-o sesiune
-  anterioară — `a_cata_apasare_pe_buton` (calculat în `falling-engine.js` din `roundSignature`
+  anterioară — `al_catelea_turn_apasare_pe_buton` (calculat în `falling-engine.js` din `roundSignature`
   neschimbat) + `grupeazaApasarilePeIntrebari` + `corect_din_prima` (strict din prima apăsare).
   Depinde de motorul comun de răspuns (Faza B-E din plan) să funcționeze peste tot — nu e o
   lucrare separată. Definiția completă e consemnată în `QUIZ-SPEC-SABLON.md` (de citit la orice

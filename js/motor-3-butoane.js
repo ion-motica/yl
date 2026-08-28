@@ -28,8 +28,8 @@
 // sunt sanse de corectare (principiu pedagogic: feedback imediat). Ele schimba ce
 // apasa copilul mai departe, nu verdictul turului.
 //
-// M3B numara apasarile din turul curent si expune `numarApasare`, `estePrimaApasare`
-// si `turCorect` in contextul actiunilor, ca fiecare quiz sa NU-si recalculeze
+// M3B numara apasarile din turul curent si expune `numar_turn_apasare`, `este_primul_turn_apasare`
+// si `corect_din_primul_turn_apasare` in contextul actiunilor, ca fiecare quiz sa NU-si recalculeze
 // singur „corect din prima" (de-acolo ar diverge implementarile).
 //
 // ============================ CELE 4 MOMENTE ================================
@@ -40,8 +40,8 @@
 //
 //   1. inainteDeAfisareaIntrebarii
 //   2. dupaAfisareaIntrebarii
-//   3. inainteDeApasare  — la FIECARE apasare, corecta sau nu
-//   4. dupaApasare       — la FIECARE apasare, corecta sau nu
+//   3. inainte_de_turn_apasare  — la FIECARE apasare, corecta sau nu
+//   4. dupa_turn_apasare       — la FIECARE apasare, corecta sau nu
 //
 // ============================ ARTICULAREA ===================================
 //
@@ -59,7 +59,7 @@
 //   ML  (motor logare, `js/jurnal-intrebari.js`) — consemneaza fiecare apasare.
 //       M3B nu logheaza nimic el insusi. Face logarea corecta prin constructie:
 //       tinand intrebarea neschimbata pe raspuns gresit, `roundSignature` din mr
-//       ramane acelasi, deci `a_cata_apasare_pe_buton` numara 1, 2, 3... in
+//       ramane acelasi, deci `al_catelea_turn_apasare_pe_buton` numara 1, 2, 3... in
 //       acelasi tur. Pe baza acelui camp, `motor-analiza.js` grupeaza apasarile
 //       pe intrebari (`grupeazaApasarilePeIntrebari`) si calculeaza
 //       `corect_din_prima` strict din prima apasare a grupului.
@@ -98,10 +98,10 @@
 
     // Starea unui singur tur: cate apasari au fost pe intrebarea curenta.
     // Se reseteaza cand se afiseaza o intrebare noua.
-    let apasariInTur = 0;
+    let numarTurnApasareCurent = 0;
 
     function campuriLaAfisare(context) {
-      apasariInTur = 0;
+      numarTurnApasareCurent = 0;
       return {
         ...campuriDinActiune(actiuni.inainteDeAfisareaIntrebarii, context),
         ...campuriDinActiune(actiuni.dupaAfisareaIntrebarii, context),
@@ -126,9 +126,9 @@
         throw new Error("Motor3Butoane: lipseste `construiesteVedere(extra)`.");
       }
 
-      apasariInTur += 1;
+      numarTurnApasareCurent += 1;
       const corect = config.esteCorect(item, index) === true;
-      const estePrimaApasare = apasariInTur === 1;
+      const este_primul_turn_apasare = numarTurnApasareCurent === 1;
 
       const context = {
         item,
@@ -137,16 +137,16 @@
         meta,
         corect,
         alesul: item?.options?.[index],
-        numarApasare: apasariInTur,
-        estePrimaApasare,
+        numar_turn_apasare: numarTurnApasareCurent,
+        este_primul_turn_apasare,
         // Verdictul turului: dat DOAR de prima apasare. Are sens abia cand
         // turul se incheie (adica la apasarea corecta), dar il expunem mereu,
         // ca quizul sa nu-l recalculeze singur.
-        turCorect: corect && estePrimaApasare,
+        corect_din_primul_turn_apasare: corect && este_primul_turn_apasare,
       };
 
-      const inainte = campuriDinActiune(actiuni.inainteDeApasare, context);
-      const dupa = campuriDinActiune(actiuni.dupaApasare, context);
+      const inainte = campuriDinActiune(actiuni.inainte_de_turn_apasare, context);
+      const dupa = campuriDinActiune(actiuni.dupa_turn_apasare, context);
 
       if (!corect) {
         // Singurul comportament posibil pe gresit: ramai pe aceeasi intrebare.
@@ -213,7 +213,7 @@
       laAfisareaIntrebarii,
       laApasareButon,
       // Doar pentru diagnostic/teste: cate apasari s-au facut in turul curent.
-      numarApasariInTur: () => apasariInTur,
+      numarTurnApasare: () => numarTurnApasareCurent,
     };
   }
 

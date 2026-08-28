@@ -50,7 +50,7 @@ function apasare({ a, b, zi, ora = "10:00:00", corect, apasare: nrApasare = 1, t
     intrebare: `${a}*${b}=?`,
     raspuns: corect ? String(produs) : "0",
     raspuns_corect: corect,
-    a_cata_apasare_pe_buton: nrApasare,
+    al_catelea_turn_apasare_pe_buton: nrApasare,
     durata_raspuns_secunde: timp,
   };
 }

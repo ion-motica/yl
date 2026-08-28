@@ -615,7 +615,7 @@
     // verificare. Corectat: gresit ramane pe intrebare, garantat structural de Motor3Butoane.
     //
     // Descoperire utila la migrare: `sq2ExitMode` ("correct" vs "any") se mapeaza exact pe
-    // distinctia `turCorect` a lui M3B (verdictul turului dat STRICT de prima apasare) —
+    // distinctia `corect_din_primul_turn_apasare` a lui M3B (verdictul turului dat STRICT de prima apasare) —
     // "correct" numara doar turele rezolvate din prima incercare, "any" numara orice tura
     // rezolvata (oricate incercari a avut). Inainte de migrare, distinctia asta nu avea sens
     // curat (gresitul sarea la alta intrebare, deci "orice apasare" insemna altceva) — acum
@@ -625,7 +625,7 @@
       const factB = ctx.item.metadata.factB;
       state.questionCount += 1;
       state.countsByB[factB] = (state.countsByB[factB] ?? 0) + 1;
-      if (ctx.turCorect) {
+      if (ctx.corect_din_primul_turn_apasare) {
         state.correctCountsByB[factB] = (state.correctCountsByB[factB] ?? 0) + 1;
       }
 
@@ -683,7 +683,7 @@
           return item;
         },
         actiuni: {
-          dupaApasare(ctx) {
+          dupa_turn_apasare(ctx) {
             if (!ctx.corect) {
               const factB = ctx.item.metadata.factB;
               if (!ctx.stare.wrongFacts.includes(factB)) ctx.stare.wrongFacts.push(factB);

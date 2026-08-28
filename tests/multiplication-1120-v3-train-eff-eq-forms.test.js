@@ -347,7 +347,7 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
   // "any" capata sensul pt. care fusese gandit switch-ul: conteaza orice TURA
   // REZOLVATA (indiferent de cate incercari a avut), spre deosebire de modul
   // "correct" care conteaza doar turele rezolvate DIN PRIMA incercare
-  // (`turCorect` din M3B).
+  // (`corect_din_primul_turn_apasare` din M3B).
   it("SQ2 'any' mode counts every resolved turn, retries included — wrong never advances or inflates the count", () => {
     const quiz = setupQuiz();
     quiz.setSq2Config?.({ factCount: 1, exitCount: 3, exitMode: "any" });
@@ -377,7 +377,7 @@ describe("multiplication-1120-v3 train eff eq forms", () => {
   // exitCount:3 (nu 2) fiindca setSq2Config accepta doar 3/4/5, ca panoul de control (vezi
   // appendSq2ControlPanel) — un exitCount:2 e respins silentios, ramane la valoarea implicita,
   // in afara scopului Fazei E (validarea nu s-a atins la migrare).
-  it("SQ2 'correct' mode only counts turns resolved on the first try (turCorect) — a corrected mistake doesn't count", () => {
+  it("SQ2 'correct' mode only counts turns resolved on the first try (corect_din_primul_turn_apasare) — a corrected mistake doesn't count", () => {
     const quiz = setupQuiz();
     quiz.setSq2Config?.({ factCount: 1, exitCount: 3, exitMode: "correct" });
     let state = quiz.beginRound();

@@ -21,14 +21,14 @@ Structura este **înghețată** de user. Codul detaliază interiorul funcțiilor
 
 Sursă: IndexedDB `youlearn_jurnal_intrebari` → `intrebari`, citită **în ordinea cheii** (ordinea salvării). Fiecare înregistrare = o apăsare:
 
-`data_ora_ro, quiz_name, subquiz_name, intrebare, raspuns, raspuns_corect, a_cata_apasare_pe_buton, durata_raspuns_secunde, fact, quiz_id, subquiz_id, fact_id, eq_form, extra` (+ `indexeddb_key` adăugat de cititor).
+`data_ora_ro, quiz_name, subquiz_name, intrebare, raspuns, raspuns_corect, al_catelea_turn_apasare_pe_buton, durata_raspuns_secunde, fact, quiz_id, subquiz_id, fact_id, eq_form, extra` (+ `indexeddb_key` adăugat de cititor).
 
 **Ce rămâne `null` / indisponibil (onest, nu inventăm):**
 
 | Lipsă | Efect | Consecință în prototip |
 | --- | --- | --- |
 | `session_id` | Nu putem segmenta pe sesiuni sigur | Axa „ultimele N sesiuni" rămâne dezactivată („vor urma") |
-| `question_instance_id` | — | **Nu e necesar**: gruparea pe întrebări se face din `a_cata_apasare_pe_buton` (valoarea `1` începe o întrebare nouă), citind în ordinea salvării |
+| `question_instance_id` | — | **Nu e necesar**: gruparea pe întrebări se face din `al_catelea_turn_apasare_pe_buton` (valoarea `1` începe o întrebare nouă), citind în ordinea salvării |
 | evenimente `timeout` | Nu sunt logate | Numărul de întrebări afișate e subestimat; se notează ca limitare, nu se corectează |
 | `optiuni_afisate` | Nu sunt logate | Analiza distractorilor rămâne „vor urma" |
 
@@ -122,7 +122,7 @@ Fiecare axă = definiție declarativă în `definitii-axe.js`. CP-ul se genereaz
 | 5 Vizualizare | Reprezentare | **Grila 10×10 stare** | folii separabile; grafic linie; matrice fact×eq_form; listă facts problematice |
 
 **Filtru standard v1** (definiție explicită, în `config-praguri.js`):
-- doar `a_cata_apasare_pe_buton === 1` (prima reacție);
+- doar `al_catelea_turn_apasare_pe_buton === 1` (prima reacție);
 - pentru viteză: doar întrebările corecte din prima;
 - exclude timp `< 0.5s` (apăsare prea rapidă, probabil accidentală) și `> 15s` (pauză probabilă) din calculul vitezei;
 - datele brute NU se modifică; excluderea e doar în stratul de analiză.

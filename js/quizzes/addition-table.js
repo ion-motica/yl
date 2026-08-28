@@ -506,7 +506,7 @@
     // `options` la STRING-uri (`ItemGenerator.normalizeItem`) — dar `options`
     // proprii ale quiz-ului raman NUMERE (`applyOptionsTriple` face `.map(Number)`)
     // si `isResolvedCombo`/`combo.correct` compara strict (`===`) cu un numar.
-    // De-asta `dupaApasare`/`dupaRaspunsCorect` citesc `options[ctx.index]`
+    // De-asta `dupa_turn_apasare`/`dupaRaspunsCorect` citesc `options[ctx.index]`
     // direct din closure (numarul original), NU `ctx.alesul` (ar fi string-ul
     // normalizat de motor) — altfel comparatia stricta ar pica mereu tacut.
     function baseDefinition() {
@@ -524,7 +524,7 @@
             `${currentFact.prompt.replace("=?", "")} nu este ${options[ctx.index]}. Încearcă din nou!`,
         },
         actiuni: {
-          dupaApasare: (ctx) => {
+          dupa_turn_apasare: (ctx) => {
             const alesul = options[ctx.index];
             recordAttempt(ctx.corect, alesul, ctx.meta);
             if (!ctx.corect) {
