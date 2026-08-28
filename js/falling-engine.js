@@ -485,10 +485,15 @@
       if (state.questionFormat === "singapore-bond") {
         return state.bondKnownAddend != null && state.bondRevealedAddend == null;
       }
-      if (state.questionFormat === "division-eq") {
-        return state.revealedQuotient == null && !String(state.promptHtml ?? "").includes("q-correct");
-      }
-      // NU exista aici o ramura pentru `fg-stack` (stack-ul din "T*/ 11-20 - v4",
+      // NU exista aici o ramura pentru `division-eq`. A existat una (verifica
+      // `state.revealedQuotient`), dar era COD MORT: niciun quiz nu seteaza
+      // vreodata `questionFormat: "division-eq"` (verificat, 27.08.2026 —
+      // `grep -rn '"division-eq"' js/ tests/` nu gaseste niciun producator).
+      // "Împărțiri la numere prime", singurul quiz cu structura A:B=?, isi
+      // scrie singur promptul (`prompt: "8:2=?"`) si se revelează SINGUR —
+      // merge deja pe calea generica de mai jos, cu placeholderul contractului.
+      //
+      // NU exista aici nici o ramura pentru `fg-stack` (stack-ul din "T*/ 11-20 - v4",
       // Subquiz 3). A existat una, care intorcea `false` ca sa opreasca revelarea,
       // dar era COD MORT: quizul trece prin `SubquizDefinition`, iar `view()`
       // (js/subquiz/subquiz-definition.js) nu paseaza mai departe `questionFormat`,
@@ -510,9 +515,7 @@
       // construieste singur promptHtml si tine textul simplu doar pentru loguri).
       if (html.includes(placeholder.clasa)) return true;
       if (placeholder.are(state.prompt)) return true;
-      // `q-q` = formatul `division-eq`, lasat intentionat pe calea veche pana la
-      // pasul urmator (vezi CONTINUARE-contract-semn-intrebare.md).
-      return html.includes("q-q");
+      return false;
     }
 
     function resultAlreadyRevealed(result, beforeState) {
@@ -533,9 +536,6 @@
           a.bondMissingSide === b.bondMissingSide
         );
       }
-      if (a.questionFormat === "division-eq") {
-        return a.dividend === b.dividend && a.divisor === b.divisor;
-      }
       return String(a.prompt) === String(b.prompt);
     }
 
@@ -552,10 +552,9 @@
     // (`.question-to-reveal, .q-mark`), pentru ca fiecare quiz isi alesese numele
     // singur — exact divergenta pe care contractul o elimina.
     //
-    // Formatele speciale (`singapore-bond`, `division-eq`) sunt lasate INTENTIONAT
-    // pe calea veche: revelarea lor scrie campuri de stare proprii
-    // (`bondRevealedAddend`, `revealedQuotient`) citite si de alt cod, nu doar
-    // textul de pe ecran.
+    // Formatul special `singapore-bond` e lasat INTENTIONAT pe calea veche:
+    // revelarea lui scrie un camp de stare propriu (`bondRevealedAddend`),
+    // citit si de alt cod, nu doar textul de pe ecran.
     //
     // Intoarce true daca a revelat in loc; false => apelantul cade pe calea
     // veche, neschimbata.
@@ -583,12 +582,6 @@
         revealed.bondRevealedAddend = ans;
         return revealed;
       }
-      if (state.questionFormat === "division-eq") {
-        revealed.revealedQuotient = ans;
-        revealed.promptHtml = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span>${mark}`;
-        return revealed;
-      }
-
       // Aceeasi logica pentru text si pentru HTML, prin acelasi handler ca la
       // afisare. Inainte, aici se inlocuia DOAR primul semn (cu un caz special
       // pentru "=?"), in timp ce afisarea le marca pe TOATE — doua raspunsuri
@@ -667,8 +660,8 @@
         startResponseTimer();
       }
       lastRoundState = state;
-      dom.fallingMainEl?.classList.remove("has-division-eq", "has-singapore-bond");
-      dom.arenaQuestionSlotEl?.classList.remove("has-division-eq", "has-singapore-bond");
+      dom.fallingMainEl?.classList.remove("has-singapore-bond");
+      dom.arenaQuestionSlotEl?.classList.remove("has-singapore-bond");
       const fm = getQuestionSlotEl() || dom.fallingMainEl;
       if (state.questionFormat === "singapore-bond") {
         const historyHtml = (state.bondHistory || [])
@@ -678,13 +671,6 @@
           historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : ""
         }<div class="singapore-current">${singaporeBondLine(state)}</div></div>`;
         fm?.classList.add("has-singapore-bond");
-      } else if (state.questionFormat === "division-eq") {
-        if (state.promptHtml) {
-          dom.topNumberEl.innerHTML = state.promptHtml;
-        } else {
-          dom.topNumberEl.innerHTML = `<span class="q-a">${state.dividend}</span><span class="q-colon">:</span><span class="q-b">${state.divisor}</span><span class="q-eq">=</span><span class="q-q">?</span>`;
-        }
-        fm?.classList.add("has-division-eq");
       } else {
         if (state.promptHtml !== undefined) {
           dom.topNumberEl.innerHTML = state.promptHtml ?? "—";
@@ -697,7 +683,7 @@
             dom.topNumberEl.textContent = raw;
           }
         }
-        fm?.classList.remove("has-division-eq", "has-singapore-bond");
+        fm?.classList.remove("has-singapore-bond");
       }
       fitNumberText(dom.topNumberEl);
 
