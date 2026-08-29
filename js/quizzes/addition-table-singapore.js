@@ -26,15 +26,6 @@
     // Se reseteaza doar la nivel nou, NU la intrarea in faza retry: scopul e
     // sa arate acoperirea intregului nivel, care ramane valabila in retry.
     let bvRezolvate = new Set();
-    // Instantaneu al inventarului nivelului tocmai terminat, afisat CAT TIMP
-    // sta pe ecran bannerul "Felicitări! Next level!" — cerere user
-    // (29.08.2026): tabelul nu trebuie sa treaca la nivelul nou (gol) chiar
-    // in clipa avansului, ci abia dupa ce se raspunde la prima intrebare a
-    // nivelului nou (corect sau nu). Se seteaza o singura data, la avans
-    // (construieste_pasul_de_serie_terminata), si se sterge neconditionat la
-    // urmatorul raspuns (dupa_turn_apasare) — care e mereu primul raspuns din
-    // nivelul nou, din constructie.
-    let inventarInGratie = null;
 
     let currentFact = null;
     let options = [];
@@ -60,10 +51,12 @@
       return `${a}+${b}`;
     }
 
-    // Inventarul bv-urilor nivelului curent — cat timp e activa gratia
-    // (vezi inventarInGratie), arata inca nivelul tocmai terminat.
+    // Inventarul bv-urilor nivelului curent — live, fara intarziere. Cerere
+    // user (30.08.2026): tabelul vechi ramas in caseta intrebarii dupa avans
+    // (gratie pana la primul raspuns nou) confuza — trece pe nivelul nou
+    // imediat ce se anunta avansul, nu asteapta niciun raspuns.
     function inventarCurent() {
-      return global.InventarBonduri.construieste(inventarInGratie ?? { nivel: level, rezolvate: bvRezolvate });
+      return global.InventarBonduri.construieste({ nivel: level, rezolvate: bvRezolvate });
     }
 
     // `promptHtml` standard, construit de quiz (acelasi tipar ca la
@@ -275,7 +268,6 @@
         }
 
         level++;
-        inventarInGratie = { nivel: finishedLevel, rezolvate: new Set(bvRezolvate) };
         const nextView = incepe_serie_de_intrebari();
         return {
           outcome: "step-correct",
@@ -348,11 +340,6 @@
         },
         actiuni: {
           dupa_turn_apasare: (ctx) => {
-            // Orice raspuns (corect sau gresit) e din constructie primul din
-            // nivelul nou daca tocmai am avansat — inventarul in gratie a
-            // servit rolul lui (a tinut tabelul vechi pe ecran cat a fost
-            // afisat bannerul), acum trece pe starea live a nivelului curent.
-            inventarInGratie = null;
             recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
             if (!ctx.corect) {
               a_gresit_in_serie = true;
@@ -429,7 +416,6 @@
         phase = "main";
         a_gresit_in_serie = false;
         bvRezolvate = new Set();
-        inventarInGratie = null;
         currentFact = null;
         options = [];
         correctIndex = 0;

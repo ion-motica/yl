@@ -330,11 +330,12 @@ describe("addition-table-singapore-missing — acoperire completa bv-uri si getI
     );
   });
 
-  // Cerere user (29.08.2026): tabelul NU trebuie sa treaca la nivelul nou
-  // (gol) chiar in clipa avansului — trebuie sa ramana pe ecran, complet,
-  // cat timp sta si bannerul "Felicitări! Next level!", si sa treaca pe
-  // nivelul nou abia dupa primul raspuns de-acolo (corect sau gresit).
-  it("getInventarBonduri: la avans de nivel arata intai vechiul nivel complet (gratie), trece la nivelul nou abia dupa primul raspuns gresit de-acolo", () => {
+  // Cerere user (29.08.2026), REVENITA (30.08.2026): o "gratie" (tabelul
+  // vechi ramas in caseta intrebarii pana la primul raspuns nou) a fost
+  // incercata, dar a confuzat — parea ca nivelul nu a avansat, desi de fapt
+  // avansase deja. Tabelul trebuie sa treaca pe nivelul nou IMEDIAT ce se
+  // anunta avansul, fara nicio intarziere.
+  it("getInventarBonduri: la avans de nivel trece IMEDIAT pe nivelul nou, fara gratie", () => {
     const quiz = setupQuiz();
     quiz.switchLevel(3); // 2 bv-uri: 1+2, 2+1
     let round = quiz.beginRound();
@@ -343,55 +344,43 @@ describe("addition-table-singapore-missing — acoperire completa bv-uri si getI
     const ultimul = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+1 ok -> avanseaza la nivelul 4
 
     assert.equal(quiz.getLevel(), 4, "nivelul a avansat deja");
+    assert.equal(ultimul.pasUrmator.continua.levelAdvanced, true);
 
-    const inGratie = quiz.getInventarBonduri();
-    assert.equal(inGratie.nivel, 3, "tabelul ramane pe nivelul vechi cat sta bannerul de felicitari");
-    assert.ok(inGratie.randuri.every((r) => r.rezolvat === true), "nivelul vechi ramane afisat complet");
-
-    // Primul raspuns al nivelului nou — aici gresit — incheie gratia.
-    const nextRoundView = ultimul.pasUrmator.continua.nextRound;
-    quiz.onAnswer(wrongIndex(nextRoundView), { responseMs: 900 });
-
-    const dupaGratie = quiz.getInventarBonduri();
-    assert.equal(dupaGratie.nivel, 4, "dupa primul raspuns al nivelului nou, tabelul trece pe nivelul nou");
+    const inventar = quiz.getInventarBonduri();
+    assert.equal(inventar.nivel, 4, "tabelul arata deja nivelul nou, imediat, fara sa astepte vreun raspuns");
     assert.ok(
-      dupaGratie.randuri.every((r) => r.rezolvat === false),
-      "inventarul nivelului nou porneste gol, fara bv-urile nivelului anterior"
+      inventar.randuri.every((r) => r.rezolvat === false),
+      "randurile nivelului nou pornesc goale, fara bv-urile nivelului anterior"
     );
   });
 
-  it("getInventarBonduri: gratia supravietuieste citirilor repetate si se incheie la primul raspuns CORECT al nivelului nou", () => {
+  it("getInventarBonduri: chiar si dupa un tur cu o greseala (avans prin retry), tabelul trece IMEDIAT pe nivelul nou", () => {
     const quiz = setupQuiz();
     quiz.switchLevel(6);
-    let round = quiz.beginRound();
+    let round = quiz.beginRound(); // 1+5
 
-    for (let i = 0; i < 4; i += 1) {
-      round = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
-    }
-    const ultimul = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 5+1 ok -> avanseaza la 7
+    round = quiz.onAnswer(wrongIndex(round), { responseMs: 900 }); // gresim 1+5
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 1+5 ok -> 2+4
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+4 ok -> 3+3
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 3+3 ok -> 4+2
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 4+2 ok -> 5+1
+    const ultimulDinMain = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 5+1 ok -> intra in retry
+
+    assert.equal(quiz.getLevel(), 6, "nu avanseaza inca — o greseala pe 1+5 a dus la retry");
+    const retryView = ultimulDinMain.pasUrmator.continua;
+
+    const dupaRetry = quiz.onAnswer(retryView.correctIndex, { responseMs: 500 }); // retry pe 1+5 -> avanseaza la 7
 
     assert.equal(quiz.getLevel(), 7);
-    assert.equal(ultimul.pasUrmator.continua.levelAdvanced, true);
+    assert.equal(dupaRetry.pasUrmator.continua.levelAdvanced, true);
 
-    // Citiri repetate (mai multe randari pe ecran) nu consuma gratia.
-    assert.equal(quiz.getInventarBonduri().nivel, 6);
-    const inGratie = quiz.getInventarBonduri();
-    assert.equal(inGratie.nivel, 6, "tabelul nivelului 6 ramane afisat");
-    assert.equal(inGratie.randuri.length, 5);
-    assert.ok(inGratie.randuri.every((r) => r.rezolvat === true));
-
-    // Primul raspuns al nivelului nou, chiar corect, incheie gratia.
-    const nextRoundView = ultimul.pasUrmator.continua.nextRound;
-    quiz.onAnswer(nextRoundView.correctIndex, { responseMs: 500 });
-
-    const dupaGratie = quiz.getInventarBonduri();
-    assert.equal(dupaGratie.nivel, 7, "dupa primul raspuns (corect) al nivelului nou, tabelul trece pe nivelul 7");
-    assert.equal(dupaGratie.randuri.length, 6, "nivelul 7 are 6 bv-uri");
+    const inventar = quiz.getInventarBonduri();
     assert.equal(
-      dupaGratie.randuri.filter((r) => r.rezolvat).length,
-      1,
-      "raspunsul corect chiar la prima intrebare a nivelului nou marcheaza acel bv ca rezolvat"
+      inventar.nivel,
+      7,
+      "tabelul arata deja nivelul nou imediat, chiar dupa un avans care a trecut prin retry"
     );
+    assert.ok(inventar.randuri.every((r) => r.rezolvat === false));
   });
 
   it("getInventarBonduri: la nivelul maxim complet, tabelul ramane pe ultimul nivel la nesfarsit (fara nivel urmator care sa incheie gratia)", () => {
