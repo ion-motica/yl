@@ -49,9 +49,33 @@
     return { visible: true, nivel, randuri };
   }
 
+  // Genereaza HTML-ul randurilor (doar randurile, fara wrapper/titlu) — quizul
+  // il insereaza direct in propriul promptHtml, in caseta intrebarii. Cerere
+  // user (29.08.2026): lista colorata inlocuieste vechiul istoric text
+  // (singapore-history), in acelasi loc din caseta, nu langa el intr-un panou
+  // separat.
+  function randaHtml(inventar) {
+    if (!inventar?.visible) return "";
+    const randuriHtml = inventar.randuri
+      .map((rand) => {
+        if (!rand.rezolvat) return `<div class="inventar-bonduri-rand e-gol"></div>`;
+        return (
+          `<div class="inventar-bonduri-rand">` +
+          `<span class="inventar-bonduri-semn">${inventar.nivel}=</span>` +
+          `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareA}">${rand.a}</span>` +
+          `<span class="inventar-bonduri-semn">+</span>` +
+          `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareB}">${rand.b}</span>` +
+          `</div>`
+        );
+      })
+      .join("");
+    return `<div class="inventar-bonduri-randuri">${randuriHtml}</div>`;
+  }
+
   global.InventarBonduri = {
     culoareNumar,
     bvPentruNivel,
     construieste,
+    randaHtml,
   };
 })(window);

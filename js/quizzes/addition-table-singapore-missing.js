@@ -29,12 +29,11 @@
     let activeQueue = [];
     let wrongFactIds = [];
     let phase = "main";
-    let historyLines = [];
     let a_gresit_in_serie = false;
     // Bv-urile (label "a+b") rezolvate in nivelul curent — pt. inventarul
-    // afisat (getInventarBonduri). Se reseteaza doar la nivel nou, NU la
-    // intrarea in faza retry (spre deosebire de historyLines): scopul e sa
-    // arate acoperirea intregului nivel, care ramane valabila in retry.
+    // colorat afisat direct in caseta intrebarii (vezi promptHtmlPentruRunda).
+    // Se reseteaza doar la nivel nou, NU la intrarea in faza retry: scopul e
+    // sa arate acoperirea intregului nivel, care ramane valabila in retry.
     let bvRezolvate = new Set();
     // Instantaneu al inventarului nivelului tocmai terminat, afisat CAT TIMP
     // sta pe ecran bannerul "Felicitări! Next level!" — cerere user
@@ -99,11 +98,8 @@
       return missingSide === "left" ? `${level}=?+${k}` : `${level}=${k}+?`;
     }
 
-    // `promptHtml` standard, construit de quiz (ca la "Numaram din 2 in 2" sau
-    // stack-ul de la T*/ 11-20 v4): istoricul turului + linia curenta, cu
-    // placeholderul marcat prin contractul comun. Motorul nu mai are nevoie sa
-    // stie nimic despre "singapore-bond" — gaseste span-ul marcat si-l
-    // revelaza in loc, exact ca la orice alt quiz.
+    // Motorul nu mai are nevoie sa stie nimic despre "singapore-bond" —
+    // gaseste span-ul marcat si-l revelaza in loc, exact ca la orice alt quiz.
     function currentLineHtml(fact, missingSide = currentMissingSide) {
       const k = knownAddend(fact, missingSide);
       return missingSide === "left"
@@ -111,13 +107,23 @@
         : `${level}=${k}+${placeholder.marcaj()}`;
     }
 
+    // Inventarul bv-urilor nivelului curent — cat timp e activa gratia
+    // (vezi inventarInGratie), arata inca nivelul tocmai terminat.
+    function inventarCurent() {
+      return global.InventarBonduri.construieste(inventarInGratie ?? { nivel: level, rezolvate: bvRezolvate });
+    }
+
+    // `promptHtml` standard, construit de quiz (ca la stack-ul de la T*/
+    // 11-20 v4): inventarul colorat al bv-urilor + linia curenta, cu
+    // placeholderul marcat prin contractul comun.
+    //
+    // Cerere user (29.08.2026): lista colorata a bv-urilor (inainte un panou
+    // separat, langa arena) inlocuieste aici vechiul istoric text simplu
+    // (singapore-history) — acelasi loc din caseta intrebarii, continut nou.
     function promptHtmlPentruRunda(fact, missingSide = currentMissingSide) {
-      const historyHtml = historyLines
-        .map((line) => `<div class="singapore-history-line">${line}</div>`)
-        .join("");
       return (
         `<div class="singapore-prompt">` +
-        (historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : "") +
+        global.InventarBonduri.randaHtml(inventarCurent()) +
         `<div class="singapore-current">${currentLineHtml(fact, missingSide)}</div>` +
         `</div>`
       );
@@ -230,7 +236,6 @@
       activeQueue = shuffle(knownPool.map((fact) => queueItem(fact.factId)));
       wrongFactIds = [];
       phase = "main";
-      historyLines = [];
       a_gresit_in_serie = false;
       bvRezolvate = new Set();
       return beginCurrentStep();
@@ -238,7 +243,6 @@
 
     function beginRetryPhase() {
       phase = "retry";
-      historyLines = [];
       activeQueue = [...wrongFactIds];
       wrongFactIds = [];
 
@@ -422,7 +426,6 @@
           dupaRaspunsCorect: () => {
             const label = historyLine(currentFact);
             bvRezolvate.add(decompositionLabel(currentFact));
-            historyLines.push(label);
             activeQueue.shift();
 
             if (activeQueue.length) {
@@ -467,10 +470,11 @@
 
       // Contract explicit pt. panoul de inventar bonds (vezi js/bond-inventory.js
       // si app.js/renderInventarBonduri): quizul raporteaza doar nivelul si
-      // ce bv-uri s-au rezolvat pana acum in nivelul asta — modulul construieste
-      // randurile (ordine, culoare, spatiu rezervat).
-      getInventarBonduri: () =>
-        global.InventarBonduri.construieste(inventarInGratie ?? { nivel: level, rezolvate: bvRezolvate }),
+      // Contract explicit (vezi js/bond-inventory.js): quizul raporteaza doar
+      // nivelul si bv-urile rezolvate — modulul construieste randurile.
+      // Aceleasi date sunt randate direct in promptHtml (vezi inventarCurent),
+      // dar metoda ramane pe API-ul public — utila separat de randare (teste).
+      getInventarBonduri: () => inventarCurent(),
 
       isCompleted: () => gameCompleted,
       setCompleted: (value) => {
@@ -482,7 +486,6 @@
         activeQueue = [];
         wrongFactIds = [];
         phase = "main";
-        historyLines = [];
         a_gresit_in_serie = false;
         bvRezolvate = new Set();
         inventarInGratie = null;

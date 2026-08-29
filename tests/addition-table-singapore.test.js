@@ -186,7 +186,7 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.equal(quiz.isCompleted(), true);
   });
 
-  it("promptHtml standard: placeholder marcat prin contractul comun, istoric crescator (28.08.2026)", () => {
+  it("promptHtml standard: placeholder marcat prin contractul comun, inventarul colorat inlocuieste vechiul istoric (29.08.2026)", () => {
     const quiz = setupQuiz();
     const round = quiz.beginRound();
 
@@ -195,15 +195,24 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.ok(round.promptHtml.includes("singapore-prompt"), "structura standard e pastrata");
     assert.ok(
       !round.promptHtml.includes("singapore-history"),
-      "primul fapt din tur nu are inca istoric"
+      "vechiul istoric text a fost inlocuit de inventarul colorat"
+    );
+    assert.ok(
+      round.promptHtml.includes("inventar-bonduri-randuri"),
+      "inventarul colorat e prezent in caseta intrebarii chiar de la prima intrebare"
+    );
+    assert.ok(
+      round.promptHtml.includes("inventar-bonduri-rand e-gol"),
+      "niciun bv nu e inca rezolvat: toate randurile sunt goale"
     );
 
     const dupa = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
     assert.ok(dupa.promptHtml.includes(CLASA), "urmatoarea intrebare are din nou placeholderul");
     assert.ok(
-      dupa.promptHtml.includes("singapore-history-line"),
-      "faptul rezolvat anterior apare acum in istoric"
+      dupa.promptHtml.includes("inventar-bonduri-numar"),
+      "bv-ul rezolvat anterior apare acum colorat in inventar"
     );
+    assert.ok(!dupa.promptHtml.includes("singapore-history"), "vechiul istoric text nu revine niciodata");
   });
 
   it("raspuns gresit: promptHtml ramane identic cu cel afisat, cu placeholder (nu doar prompt text)", () => {

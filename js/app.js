@@ -40,7 +40,6 @@
     risingNumberEl: document.getElementById("rising-number"),
     optionBtns: [...document.querySelectorAll(".option")],
     info11_20El: document.getElementById("divInfo11_20"),
-    inventarBonduriEl: document.getElementById("divInventarBonduri"),
     arenaActionsEl: null,
   };
 
@@ -337,65 +336,6 @@
     }
   }
 
-  // Panoul de inventar bonds (Singapore) — contract explicit, ca la
-  // renderInfo11_20: quizul raportează doar nivelul și bv-urile rezolvate
-  // (quiz.getInventarBonduri), acest render construiește DOM-ul. Numărul de
-  // rânduri variază cu nivelul (2..9), deci se reconstruiește la fiecare
-  // apel, ca la `.info11-times`.
-  function renderInventarBonduri() {
-    const el = dom.inventarBonduriEl;
-    if (!el) return;
-
-    const info =
-      typeof quiz?.getInventarBonduri === "function" ? quiz.getInventarBonduri() : null;
-
-    if (!info?.visible) {
-      el.hidden = true;
-      return;
-    }
-
-    el.hidden = false;
-    const nivelEl = el.querySelector(".inventar-bonduri-nivel");
-    if (nivelEl) nivelEl.textContent = String(info.nivel);
-
-    const randuriEl = el.querySelector(".inventar-bonduri-randuri");
-    if (!randuriEl) return;
-    randuriEl.replaceChildren();
-
-    info.randuri.forEach((rand) => {
-      const randEl = document.createElement("div");
-      randEl.className = "inventar-bonduri-rand";
-      randEl.classList.toggle("e-gol", !rand.rezolvat);
-
-      if (rand.rezolvat) {
-        // Fiecare rand arata ecuatia completa ("5=1+4"), nu doar descompunerea
-        // — cerere user (29.08.2026), acelasi format ca istoricul turului
-        // (singapore-history-line).
-        const nivelPrefix = document.createElement("span");
-        nivelPrefix.className = "inventar-bonduri-semn";
-        nivelPrefix.textContent = `${info.nivel}=`;
-
-        const spanA = document.createElement("span");
-        spanA.className = "inventar-bonduri-numar";
-        spanA.style.backgroundColor = rand.culoareA;
-        spanA.textContent = String(rand.a);
-
-        const semn = document.createElement("span");
-        semn.className = "inventar-bonduri-semn";
-        semn.textContent = "+";
-
-        const spanB = document.createElement("span");
-        spanB.className = "inventar-bonduri-numar";
-        spanB.style.backgroundColor = rand.culoareB;
-        spanB.textContent = String(rand.b);
-
-        randEl.append(nivelPrefix, spanA, semn, spanB);
-      }
-
-      randuriEl.appendChild(randEl);
-    });
-  }
-
   // Extras din renderProgress() ca să poată rula și pt. quiz-uri customEngine cu
   // niveluri reale (ex. rigle-tabla-1-10.js) — renderProgress() iese devreme pt.
   // orice customEngine (m1-specific: streak/combo/response-times), dar starea
@@ -480,7 +420,6 @@
     syncLevelPickerActive();
 
     renderInfo11_20();
-    renderInventarBonduri();
     renderSubquizStartControl();
     renderArenaActions();
   }
