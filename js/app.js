@@ -368,6 +368,13 @@
       randEl.classList.toggle("e-gol", !rand.rezolvat);
 
       if (rand.rezolvat) {
+        // Fiecare rand arata ecuatia completa ("5=1+4"), nu doar descompunerea
+        // — cerere user (29.08.2026), acelasi format ca istoricul turului
+        // (singapore-history-line).
+        const nivelPrefix = document.createElement("span");
+        nivelPrefix.className = "inventar-bonduri-semn";
+        nivelPrefix.textContent = `${info.nivel}=`;
+
         const spanA = document.createElement("span");
         spanA.className = "inventar-bonduri-numar";
         spanA.style.backgroundColor = rand.culoareA;
@@ -382,7 +389,7 @@
         spanB.style.backgroundColor = rand.culoareB;
         spanB.textContent = String(rand.b);
 
-        randEl.append(spanA, semn, spanB);
+        randEl.append(nivelPrefix, spanA, semn, spanB);
       }
 
       randuriEl.appendChild(randEl);

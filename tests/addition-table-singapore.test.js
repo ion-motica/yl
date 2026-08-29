@@ -325,20 +325,96 @@ describe("addition-table-singapore — acoperire completa bv-uri si getInventarB
     );
   });
 
-  it("getInventarBonduri: se reseteaza la nivel nou (nu mosteneste bv-urile nivelului anterior)", () => {
+  // Cerere user (29.08.2026): tabelul NU trebuie sa treaca la nivelul nou
+  // (gol) chiar in clipa avansului — trebuie sa ramana pe ecran, complet,
+  // cat timp sta si bannerul "Felicitări! Next level!", si sa treaca pe
+  // nivelul nou abia dupa primul raspuns de-acolo (corect sau gresit).
+  it("getInventarBonduri: la avans de nivel arata intai vechiul nivel complet (gratie), trece la nivelul nou abia dupa primul raspuns gresit de-acolo", () => {
     const quiz = setupQuiz();
     quiz.switchLevel(3); // 2 bv-uri: 1+2, 2+1
     let round = quiz.beginRound();
 
     round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 1+2 ok -> 2+1
-    quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+1 ok -> avanseaza la nivelul 4
+    const ultimul = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+1 ok -> avanseaza la nivelul 4
 
-    assert.equal(quiz.getLevel(), 4);
-    const inventar = quiz.getInventarBonduri();
-    assert.equal(inventar.nivel, 4);
+    assert.equal(quiz.getLevel(), 4, "nivelul a avansat deja");
+
+    const inGratie = quiz.getInventarBonduri();
+    assert.equal(inGratie.nivel, 3, "tabelul ramane pe nivelul vechi cat sta bannerul de felicitari");
+    assert.ok(inGratie.randuri.every((r) => r.rezolvat === true), "nivelul vechi ramane afisat complet");
+
+    // Primul raspuns al nivelului nou — aici gresit — incheie gratia.
+    const nextRoundView = ultimul.pasUrmator.continua.nextRound;
+    quiz.onAnswer(wrongIndex(nextRoundView), { responseMs: 900 });
+
+    const dupaGratie = quiz.getInventarBonduri();
+    assert.equal(dupaGratie.nivel, 4, "dupa primul raspuns al nivelului nou, tabelul trece pe nivelul nou");
     assert.ok(
-      inventar.randuri.every((r) => r.rezolvat === false),
+      dupaGratie.randuri.every((r) => r.rezolvat === false),
       "inventarul nivelului nou porneste gol, fara bv-urile nivelului anterior"
+    );
+  });
+
+  it("getInventarBonduri: gratia supravietuieste citirilor repetate si se incheie la primul raspuns CORECT al nivelului nou", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    let round = quiz.beginRound();
+
+    for (let i = 0; i < 4; i += 1) {
+      round = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+    }
+    const ultimul = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 5+1 ok -> avanseaza la 7
+
+    assert.equal(quiz.getLevel(), 7);
+    assert.equal(ultimul.pasUrmator.continua.levelAdvanced, true);
+
+    // Citiri repetate (mai multe randari pe ecran) nu consuma gratia.
+    assert.equal(quiz.getInventarBonduri().nivel, 6);
+    const inGratie = quiz.getInventarBonduri();
+    assert.equal(inGratie.nivel, 6, "tabelul nivelului 6 ramane afisat");
+    assert.equal(inGratie.randuri.length, 5);
+    assert.ok(inGratie.randuri.every((r) => r.rezolvat === true));
+
+    // Primul raspuns al nivelului nou, chiar corect, incheie gratia.
+    const nextRoundView = ultimul.pasUrmator.continua.nextRound;
+    quiz.onAnswer(nextRoundView.correctIndex, { responseMs: 500 });
+
+    const dupaGratie = quiz.getInventarBonduri();
+    assert.equal(dupaGratie.nivel, 7, "dupa primul raspuns (corect) al nivelului nou, tabelul trece pe nivelul 7");
+    assert.equal(dupaGratie.randuri.length, 6, "nivelul 7 are 6 bv-uri");
+    assert.equal(
+      dupaGratie.randuri.filter((r) => r.rezolvat).length,
+      1,
+      "raspunsul corect chiar la prima intrebare a nivelului nou marcheaza acel bv ca rezolvat"
+    );
+  });
+
+  it("getInventarBonduri: la nivelul maxim complet, tabelul ramane pe ultimul nivel la nesfarsit (fara nivel urmator care sa incheie gratia)", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(10);
+    let round = quiz.beginRound();
+    let rezultat = null;
+    let paziGarda = 0;
+    let terminat = false;
+
+    while (!terminat && paziGarda < 20) {
+      paziGarda += 1;
+      rezultat = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+      if (rezultat.pasUrmator && rezultat.pasUrmator.continua.gameComplete) {
+        terminat = true;
+        break;
+      }
+      round = rezultat;
+    }
+
+    assert.ok(terminat, "jocul trebuia sa se termine la nivelul maxim");
+    assert.equal(quiz.isCompleted(), true);
+
+    const inventar = quiz.getInventarBonduri();
+    assert.equal(inventar.nivel, 10);
+    assert.ok(
+      inventar.randuri.every((r) => r.rezolvat === true),
+      "toate bv-urile ultimului nivel raman afisate rezolvate, la nesfarsit"
     );
   });
 });
