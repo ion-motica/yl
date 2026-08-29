@@ -4,16 +4,8 @@
   const QUIZ_ID = "addition-table-singapore";
   const MIN_LEVEL = 3;
   const MAX_LEVEL = 10;
-  const MAX_PERFORMANT = 5;
   const MIN_POOL_SIZE = 2;
   const FAST_RESPONSE_MS = 2000;
-
-  const FILL_TIERS = [
-    global.FactStats.KNOWLEDGE_LEVEL.CORECT_DAR_LENT,
-    global.FactStats.KNOWLEDGE_LEVEL.SLAB,
-    global.FactStats.KNOWLEDGE_LEVEL.PRAF,
-    global.FactStats.KNOWLEDGE_LEVEL.NOU,
-  ];
 
   const FACT_STATS_CONFIG = {
     getFastResponseMs: () => FAST_RESPONSE_MS,
@@ -37,6 +29,11 @@
     let phase = "main";
     let historyLines = [];
     let a_gresit_in_serie = false;
+    // Bv-urile (label "a+b") rezolvate in nivelul curent — pt. inventarul
+    // afisat (getInventarBonduri). Se reseteaza doar la nivel nou, NU la
+    // intrarea in faza retry (spre deosebire de historyLines): scopul e sa
+    // arate acoperirea intregului nivel, care ramane valabila in retry.
+    let bvRezolvate = new Set();
 
     let currentFact = null;
     let options = [];
@@ -101,36 +98,18 @@
       return FactStats.getKnowledgeLevel(stored, FACT_STATS_CONFIG);
     }
 
+    // Universul per nivel e mic si fix (nivelul 6 are exact 5 bv-uri — vezi
+    // decompositionLabel/factsForSum — nivelul 10 are 9). Regula de avans
+    // (construieste_pasul_de_serie_terminata) cere acoperirea TUTUROR
+    // bv-urilor unui nivel inainte de a trece mai departe, deci turul nu se
+    // trunchiaza niciodata la un subset. Inainte, functia asta trunchia la
+    // MAX_PERFORMANT/MIN_POOL_SIZE (tipar copiat dintr-un quiz cu univers mare
+    // de fapte, unde esantionarea chiar are sens) — aici rupea acoperirea:
+    // cu 2+ bv-uri deja "performante", turul se reducea la 2, iar o greseala
+    // acolo intra in retry pe acelasi nivel la nesfarsit ("reseteaza lista si
+    // reia cu acelasi numar", bug raportat 29.08.2026).
     function selectPoolForLevel(targetSum = level) {
-      const ranked = factsForSum(targetSum).map((fact) => ({
-        fact,
-        knowledgeLevel: knowledgeLevelOf(fact),
-      }));
-
-      const performant = ranked
-        .filter((item) => item.knowledgeLevel === KNOWLEDGE_LEVEL.PERFORMANT)
-        .map((item) => item.fact)
-        .slice(0, MAX_PERFORMANT);
-
-      if (performant.length >= MIN_POOL_SIZE) {
-        return performant;
-      }
-
-      const pool = [...performant];
-      const used = new Set(pool.map((fact) => fact.factId));
-
-      for (const tier of FILL_TIERS) {
-        if (pool.length >= MIN_POOL_SIZE) break;
-        for (const item of ranked) {
-          if (pool.length >= MIN_POOL_SIZE) break;
-          if (item.knowledgeLevel !== tier) continue;
-          if (used.has(item.fact.factId)) continue;
-          pool.push(item.fact);
-          used.add(item.fact.factId);
-        }
-      }
-
-      return pool;
+      return factsForSum(targetSum);
     }
 
     function pickWrongDecompositions(targetSum, correctFact, count, exclude = []) {
@@ -224,6 +203,7 @@
       phase = "main";
       historyLines = [];
       a_gresit_in_serie = false;
+      bvRezolvate = new Set();
       return beginCurrentStep();
     }
 
@@ -404,6 +384,7 @@
           },
           dupaRaspunsCorect: () => {
             const label = decompositionLabel(currentFact);
+            bvRezolvate.add(label);
             historyLines.push(`${level}=${label}`);
             activeQueue.shift();
 
@@ -447,6 +428,12 @@
 
       getProgressDisplay: () => ProgressDisplay.hidden(),
 
+      // Contract explicit pt. panoul de inventar bonds (vezi js/bond-inventory.js
+      // si app.js/renderInventarBonduri): quizul raporteaza doar nivelul si
+      // ce bv-uri s-au rezolvat pana acum in nivelul asta — modulul construieste
+      // randurile (ordine, culoare, spatiu rezervat).
+      getInventarBonduri: () => global.InventarBonduri.construieste({ nivel: level, rezolvate: bvRezolvate }),
+
       isCompleted: () => gameCompleted,
       setCompleted: (value) => {
         gameCompleted = value;
@@ -459,6 +446,7 @@
         phase = "main";
         historyLines = [];
         a_gresit_in_serie = false;
+        bvRezolvate = new Set();
         currentFact = null;
         options = [];
         correctIndex = 0;

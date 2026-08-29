@@ -4,18 +4,10 @@
   const QUIZ_ID = "addition-table-singapore-missing";
   const MIN_LEVEL = 3;
   const MAX_LEVEL = 10;
-  const MAX_PERFORMANT = 5;
   const MIN_POOL_SIZE = 2;
   const FAST_RESPONSE_MS = 2000;
   const OPTION_MIN = 1;
   const OPTION_MAX = 9;
-
-  const FILL_TIERS = [
-    global.FactStats.KNOWLEDGE_LEVEL.CORECT_DAR_LENT,
-    global.FactStats.KNOWLEDGE_LEVEL.SLAB,
-    global.FactStats.KNOWLEDGE_LEVEL.PRAF,
-    global.FactStats.KNOWLEDGE_LEVEL.NOU,
-  ];
 
   const FACT_STATS_CONFIG = {
     getFastResponseMs: () => FAST_RESPONSE_MS,
@@ -39,6 +31,11 @@
     let phase = "main";
     let historyLines = [];
     let a_gresit_in_serie = false;
+    // Bv-urile (label "a+b") rezolvate in nivelul curent — pt. inventarul
+    // afisat (getInventarBonduri). Se reseteaza doar la nivel nou, NU la
+    // intrarea in faza retry (spre deosebire de historyLines): scopul e sa
+    // arate acoperirea intregului nivel, care ramane valabila in retry.
+    let bvRezolvate = new Set();
 
     let currentFact = null;
     let currentMissingSide = "left";
@@ -78,6 +75,14 @@
     function historyLine(fact) {
       const { a, b } = fact.values;
       return `${level}=${a}+${b}`;
+    }
+
+    // "a+b" fara prefixul de nivel — labelul folosit de InventarBonduri
+    // (vezi getInventarBonduri, mai jos), acelasi format ca decompositionLabel
+    // din addition-table-singapore.js (fisier-frate).
+    function decompositionLabel(fact) {
+      const { a, b } = fact.values;
+      return `${a}+${b}`;
     }
 
     function promptLabel(fact, missingSide = currentMissingSide) {
@@ -134,36 +139,14 @@
       return FactStats.getKnowledgeLevel(stored, FACT_STATS_CONFIG);
     }
 
+    // Universul per nivel e mic si fix (nivelul 6 are exact 5 bv-uri, nivelul
+    // 10 are 9). Regula de avans (construieste_pasul_de_serie_terminata) cere
+    // acoperirea TUTUROR bv-urilor unui nivel inainte de a trece mai departe,
+    // deci turul nu se trunchiaza niciodata la un subset. Vezi comentariul
+    // identic din addition-table-singapore.js (fisier-frate) pt. istoricul
+    // bug-ului pe care trunchierea veche (MAX_PERFORMANT/FILL_TIERS) il cauza.
     function selectPoolForLevel(targetSum = level) {
-      const ranked = factsForSum(targetSum).map((fact) => ({
-        fact,
-        knowledgeLevel: knowledgeLevelOf(fact),
-      }));
-
-      const performant = ranked
-        .filter((item) => item.knowledgeLevel === KNOWLEDGE_LEVEL.PERFORMANT)
-        .map((item) => item.fact)
-        .slice(0, MAX_PERFORMANT);
-
-      if (performant.length >= MIN_POOL_SIZE) {
-        return performant;
-      }
-
-      const pool = [...performant];
-      const used = new Set(pool.map((fact) => fact.factId));
-
-      for (const tier of FILL_TIERS) {
-        if (pool.length >= MIN_POOL_SIZE) break;
-        for (const item of ranked) {
-          if (pool.length >= MIN_POOL_SIZE) break;
-          if (item.knowledgeLevel !== tier) continue;
-          if (used.has(item.fact.factId)) continue;
-          pool.push(item.fact);
-          used.add(item.fact.factId);
-        }
-      }
-
-      return pool;
+      return factsForSum(targetSum);
     }
 
     function pickNearWrongAnswers(correct, count) {
@@ -240,6 +223,7 @@
       phase = "main";
       historyLines = [];
       a_gresit_in_serie = false;
+      bvRezolvate = new Set();
       return beginCurrentStep();
     }
 
@@ -422,6 +406,7 @@
           },
           dupaRaspunsCorect: () => {
             const label = historyLine(currentFact);
+            bvRezolvate.add(decompositionLabel(currentFact));
             historyLines.push(label);
             activeQueue.shift();
 
@@ -465,6 +450,12 @@
 
       getProgressDisplay: () => ProgressDisplay.hidden(),
 
+      // Contract explicit pt. panoul de inventar bonds (vezi js/bond-inventory.js
+      // si app.js/renderInventarBonduri): quizul raporteaza doar nivelul si
+      // ce bv-uri s-au rezolvat pana acum in nivelul asta — modulul construieste
+      // randurile (ordine, culoare, spatiu rezervat).
+      getInventarBonduri: () => global.InventarBonduri.construieste({ nivel: level, rezolvate: bvRezolvate }),
+
       isCompleted: () => gameCompleted,
       setCompleted: (value) => {
         gameCompleted = value;
@@ -477,6 +468,7 @@
         phase = "main";
         historyLines = [];
         a_gresit_in_serie = false;
+        bvRezolvate = new Set();
         currentFact = null;
         currentMissingSide = "left";
         options = [];
