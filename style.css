@@ -674,36 +674,11 @@ body {
   display: none;
 }
 
-/* Inventar bonds (Singapore) — in flux normal in .div-strat-info, langa titlu,
-   ca sa mosteneasca padding-top: var(--hud-h) si sa nu se ascunda sub chrome-ul
-   de sus (vezi renderInventarBonduri in app.js). Randuri compacte: nivelul 10
-   are 9 bv-uri, toate trebuie sa incapa fara sa impinga restul layout-ului. */
-.div-inventar-bonduri {
-  flex-shrink: 0;
-  margin: 0.3rem 0 0.15rem;
-  padding: 0.35rem 0.55rem;
-  /* Opac, nu semitransparent: panoul sta la --zindex-info-arena (10), peste
-     divInfo11_20 (z-index:1, "in fundal" - poate afisa timpi raspuns pt.
-     orice quiz, nu doar al lui). Un fundal transparent lasa textul acelui
-     strat sa se vada prin al nostru — verificat empiric intr-un browser. */
-  background: rgb(14, 22, 34);
-  border-radius: 10px;
-  pointer-events: none;
-}
-
-.div-inventar-bonduri[hidden] {
-  display: none !important;
-}
-
-.inventar-bonduri-titlu {
-  margin: 0 0 0.25rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text);
-  opacity: 0.85;
-  text-align: center;
-}
-
+/* Inventar bonds (Singapore) — randat direct in caseta intrebarii (promptHtml
+   din addition-table-singapore(-missing).js, prin InventarBonduri.randaHtml),
+   in locul vechiului istoric text (singapore-history) — cerere user
+   (29.08.2026). Randuri compacte: nivelul 10 are 9 bv-uri, toate trebuie sa
+   incapa fara sa impinga restul continutului casetei. */
 .inventar-bonduri-randuri {
   display: flex;
   flex-direction: column;
