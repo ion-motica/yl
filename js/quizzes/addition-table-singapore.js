@@ -4,12 +4,6 @@
   const QUIZ_ID = "addition-table-singapore";
   const MIN_LEVEL = 3;
   const MAX_LEVEL = 10;
-  const MIN_POOL_SIZE = 2;
-  const FAST_RESPONSE_MS = 2000;
-
-  const FACT_STATS_CONFIG = {
-    getFastResponseMs: () => FAST_RESPONSE_MS,
-  };
 
   // Acelasi handler pe care quizul il declara motorului (vezi obiectul returnat
   // de `createAdditionTableSingaporeQuiz`). Vezi js/placeholder-raspuns.js.
@@ -17,8 +11,7 @@
 
   function createAdditionTableSingaporeQuiz() {
     const { randomInt, shuffle } = global.GameUtils;
-    const { FactCatalog, FactStore, FactStats } = global;
-    const { KNOWLEDGE_LEVEL } = FactStats;
+    const { FactCatalog, FactStore } = global;
 
     let level = MIN_LEVEL;
     let gameCompleted = false;
@@ -109,11 +102,6 @@
       return facts;
     }
 
-    function knowledgeLevelOf(fact) {
-      const stored = FactStore.getFact(fact.factId, fact) ?? fact;
-      return FactStats.getKnowledgeLevel(stored, FACT_STATS_CONFIG);
-    }
-
     // Universul per nivel e mic si fix (nivelul 6 are exact 5 bv-uri — vezi
     // decompositionLabel/factsForSum — nivelul 10 are 9). Regula de avans
     // (construieste_pasul_de_serie_terminata) cere acoperirea TUTUROR
@@ -188,30 +176,6 @@
       return knownPool.find((fact) => fact.factId === factId) ?? null;
     }
 
-    function addKnownVariants(needed) {
-      let added = 0;
-      const used = new Set(activeQueue);
-      const tierOrder = [
-        KNOWLEDGE_LEVEL.PERFORMANT,
-        KNOWLEDGE_LEVEL.CORECT_DAR_LENT,
-        KNOWLEDGE_LEVEL.SLAB,
-        KNOWLEDGE_LEVEL.PRAF,
-        KNOWLEDGE_LEVEL.NOU,
-      ];
-
-      for (const tier of tierOrder) {
-        if (added >= needed) break;
-        for (const fact of knownPool) {
-          if (added >= needed) break;
-          if (used.has(fact.factId)) continue;
-          if (knowledgeLevelOf(fact) !== tier) continue;
-          activeQueue.push(fact.factId);
-          used.add(fact.factId);
-          added++;
-        }
-      }
-    }
-
     function incepe_serie_de_intrebari() {
       knownPool = selectPoolForLevel(level);
       activeQueue = shuffle(knownPool.map((fact) => fact.factId));
@@ -222,16 +186,16 @@
       return beginCurrentStep();
     }
 
+    // Bug raportat 30.08.2026: dupa o singura greseala, retry mai punea in
+    // coada si un al doilea bv oarecare (padding pana la MIN_POOL_SIZE=2,
+    // ales din knownPool fara sa tina cont ca era deja rezolvat) — inventarul
+    // arata deja tot verde, dar mai venea o intrebare in plus, aparent din
+    // senin. Retry reia STRICT ce s-a gresit, oricat de putin — 1 bv gresit
+    // inseamna exact 1 intrebare in retry, nu 2.
     function beginRetryPhase() {
       phase = "retry";
-      activeQueue = [...wrongFactIds];
+      activeQueue = shuffle([...wrongFactIds]);
       wrongFactIds = [];
-
-      if (activeQueue.length < MIN_POOL_SIZE) {
-        addKnownVariants(MIN_POOL_SIZE - activeQueue.length);
-      }
-
-      activeQueue = shuffle(activeQueue);
       return beginCurrentStep();
     }
 

@@ -422,4 +422,33 @@ describe("addition-table-singapore-missing — acoperire completa bv-uri si getI
       "toate bv-urile ultimului nivel raman afisate rezolvate, la nesfarsit"
     );
   });
+
+  // Bug raportat 30.08.2026 (poza, fisier-frate addition-table-singapore.js):
+  // tabelul arata toate bv-urile rezolvate/colorate, dar tot mai cerea o
+  // intrebare — retry mai adauga un al doilea bv oarecare la coada (padding
+  // pana la MIN_POOL_SIZE=2), chiar daca o singura greseala s-a intamplat.
+  it("beginRetryPhase: dupa o singura greseala, retry cere STRICT bv-ul gresit — un raspuns corect acolo avanseaza imediat nivelul", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    let round = quiz.beginRound(); // 1+5
+
+    round = quiz.onAnswer(wrongIndex(round), { responseMs: 900 }); // gresim 1+5
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 1+5 ok -> 2+4
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+4 ok -> 3+3
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 3+3 ok -> 4+2
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 4+2 ok -> 5+1
+    const ultimulDinMain = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 5+1 ok -> intra in retry
+
+    assert.equal(quiz.getLevel(), 6, "nu avanseaza inca — a fost o greseala pe 1+5");
+    const retryView = ultimulDinMain.pasUrmator.continua;
+    assert.equal(retryView.serie_terminata, undefined, "e un pas de retry, nu run-complete");
+
+    const dupaRetry = quiz.onAnswer(retryView.correctIndex, { responseMs: 500 });
+    assert.equal(
+      quiz.getLevel(),
+      7,
+      "un singur raspuns corect in retry (pt. singurul bv gresit) trebuie sa avanseze nivelul, fara o a doua intrebare de padding"
+    );
+    assert.equal(dupaRetry.pasUrmator.continua.levelAdvanced, true);
+  });
 });
