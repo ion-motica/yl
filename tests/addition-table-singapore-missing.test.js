@@ -303,14 +303,14 @@ describe("addition-table-singapore-missing — acoperire completa bv-uri si getI
     assert.ok(restul.every((r) => r.rezolvat === false), "restul bv-urilor raman nerezolvate");
   });
 
-  it("getInventarBonduri: randurile rezolvate raman in faza retry (bvRezolvate nu se reseteaza ca historyLines)", () => {
+  it("getInventarBonduri: bv-ul gresit NU apare rezolvat cat timp asteapta reluarea (cerere user, 30.08.2026)", () => {
     const quiz = setupQuiz();
     quiz.switchLevel(6);
     let round = quiz.beginRound(); // 1+5
 
     round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 1+5 ok -> 2+4
     round = quiz.onAnswer(wrongIndex(round), { responseMs: 900 }); // gresim 2+4
-    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+4 ok -> 3+3
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+4 ok (recuperare) -> 3+3
     round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 3+3 ok -> 4+2
     round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 4+2 ok -> 5+1
     const ultimulDinMain = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 5+1 ok -> intra in retry
@@ -322,12 +322,22 @@ describe("addition-table-singapore-missing — acoperire completa bv-uri si getI
       "e un pas de retry, nu run-complete"
     );
 
-    const inventar = quiz.getInventarBonduri();
+    // Inainte (bug raportat de user, 30.08.2026): 2+4 aparea deja colorat/gata
+    // in inventar din momentul recuperarii de mai sus, desi mai urma sa fie
+    // ceruta o data la reluare — userul vedea tabelul plin si tot mai venea o
+    // intrebare, identic cu simptomul "nu trece la nivelul urmator".
+    const inventarInainteDeRetry = quiz.getInventarBonduri();
     assert.deepEqual(
-      inventar.randuri.map((r) => r.rezolvat),
-      [true, true, true, true, true],
-      "toate cele 5 bv-uri raman marcate rezolvate in inventar, chiar in faza retry"
+      inventarInainteDeRetry.randuri.map((r) => r.rezolvat),
+      [true, false, true, true, true],
+      "2+4 (singurul gresit) nu apare inca rezolvat — restul, raspunse curat, da"
     );
+
+    const retryView = ultimulDinMain.pasUrmator.continua;
+    const dupaRetry = quiz.onAnswer(retryView.correctIndex, { responseMs: 500 }); // retry pe 2+4 -> avanseaza la 7
+
+    assert.equal(quiz.getLevel(), 7, "dupa reluarea reala a lui 2+4, nivelul avanseaza");
+    assert.equal(dupaRetry.pasUrmator.continua.levelAdvanced, true);
   });
 
   // Cerere user (29.08.2026), REVENITA (30.08.2026): o "gratie" (tabelul

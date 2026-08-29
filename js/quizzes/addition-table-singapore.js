@@ -355,7 +355,15 @@
           },
           dupaRaspunsCorect: () => {
             const label = decompositionLabel(currentFact);
-            bvRezolvate.add(label);
+            // Recuperarea imediata dupa o apasare gresita (tot in faza "main") nu
+            // inseamna bv terminat — quizul il mai cere o data la reluare, dupa ce
+            // se termina turul curent. Fara garda asta, grila din promptHtml
+            // (inventarCurent) arata bv-ul colorat/gata inainte de reluarea reala:
+            // userul vede inventarul plin si tot mai vine o intrebare — cere user,
+            // 29.08.2026.
+            const esteRecuperareInFazaPrincipala =
+              phase === "main" && wrongFactIds.includes(currentFact.factId);
+            if (!esteRecuperareInFazaPrincipala) bvRezolvate.add(label);
             activeQueue.shift();
 
             if (activeQueue.length) {

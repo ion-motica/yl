@@ -376,7 +376,15 @@
           },
           dupaRaspunsCorect: () => {
             const label = historyLine(currentFact);
-            bvRezolvate.add(decompositionLabel(currentFact));
+            // Vezi comentariul identic din addition-table-singapore.js — recuperarea
+            // imediata dupa o apasare gresita (tot in faza "main") nu inseamna bv
+            // terminat, se mai cere o data la reluare.
+            const esteRecuperareInFazaPrincipala =
+              phase === "main" &&
+              wrongFactIds.some(
+                (item) => item.factId === currentFact.factId && item.missingSide === currentMissingSide
+              );
+            if (!esteRecuperareInFazaPrincipala) bvRezolvate.add(decompositionLabel(currentFact));
             activeQueue.shift();
 
             if (activeQueue.length) {
