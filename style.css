@@ -674,6 +674,80 @@ body {
   display: none;
 }
 
+/* Inventar bonds (Singapore) — in flux normal in .div-strat-info, langa titlu,
+   ca sa mosteneasca padding-top: var(--hud-h) si sa nu se ascunda sub chrome-ul
+   de sus (vezi renderInventarBonduri in app.js). Randuri compacte: nivelul 10
+   are 9 bv-uri, toate trebuie sa incapa fara sa impinga restul layout-ului. */
+.div-inventar-bonduri {
+  flex-shrink: 0;
+  margin: 0.3rem 0 0.15rem;
+  padding: 0.35rem 0.55rem;
+  /* Opac, nu semitransparent: panoul sta la --zindex-info-arena (10), peste
+     divInfo11_20 (z-index:1, "in fundal" - poate afisa timpi raspuns pt.
+     orice quiz, nu doar al lui). Un fundal transparent lasa textul acelui
+     strat sa se vada prin al nostru — verificat empiric intr-un browser. */
+  background: rgb(14, 22, 34);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.div-inventar-bonduri[hidden] {
+  display: none !important;
+}
+
+.inventar-bonduri-titlu {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  opacity: 0.85;
+  text-align: center;
+}
+
+.inventar-bonduri-randuri {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.inventar-bonduri-rand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 1.5rem;
+}
+
+/* Linie rezervata, nerezolvata inca — spatiul ramane ocupat (nu se muta
+   randurile de sub ea), dar fara sa reveleze bv-ul. */
+.inventar-bonduri-rand.e-gol::before {
+  content: "";
+  display: block;
+  width: 2.6rem;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.inventar-bonduri-numar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f1419;
+}
+
+.inventar-bonduri-semn {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+  opacity: 0.85;
+}
+
 .singapore-prompt {
   display: flex;
   flex-direction: column;

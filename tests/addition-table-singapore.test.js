@@ -31,6 +31,7 @@ function setupQuiz({ deterministic = true } = {}) {
     "js/subquiz/subquiz-definition.js",
     "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
+    "js/bond-inventory.js",
     "js/quizzes/addition-table-singapore.js",
   ].forEach(loadScript);
 
@@ -223,5 +224,121 @@ describe("addition-table-singapore (Faza D lot 2 — migrare pura, fara corectie
     assert.equal(rezultat.outcome, "timeout");
     assert.equal(rezultat.resetFall, true);
     assert.equal(rezultat.prompt, round.prompt);
+  });
+});
+
+// Bug raportat 29.08.2026: "dupa 2 raspunsuri reseteaza lista si reia cu
+// acelasi numar, abia dupa trece la nivelul urmator". Cauza: selectPoolForLevel
+// trunchia turul la MIN_POOL_SIZE=2 bv-uri (tipar copiat dintr-un quiz cu
+// univers mare de fapte) quiar si la niveluri cu mai multe bv-uri (nivelul 6
+// are 5: 1+5,2+4,3+3,4+2,5+1). Testele de mai jos verifica fix-ul (acoperire
+// completa inainte de avans) si contractul getInventarBonduri (afisare
+// inventar bonds, cerere user 29.08.2026).
+describe("addition-table-singapore — acoperire completa bv-uri si getInventarBonduri (29.08.2026)", () => {
+  beforeEach(() => {
+    delete globalThis.QuizRegistry;
+    delete globalThis.GameUtils;
+    delete globalThis.FactCatalog;
+    delete globalThis.FactStore;
+    delete globalThis.FactStats;
+    delete globalThis.Motor3Butoane;
+    delete globalThis.InventarBonduri;
+  });
+
+  it("nivelul NU avanseaza pana nu s-au acoperit toate cele 5 bv-uri ale nivelului 6 (bug: se oprea la 2, MIN_POOL_SIZE)", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    let round = quiz.beginRound();
+
+    // Ordine determinista (shuffle=identity): 1+5, 2+4, 3+3, 4+2, 5+1.
+    for (let i = 0; i < 4; i += 1) {
+      round = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+      assert.equal(quiz.getLevel(), 6, `nivelul nu trebuie sa avanseze dupa doar ${i + 1} bv-uri corecte`);
+    }
+
+    const ultimul = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+    assert.equal(quiz.getLevel(), 7, "dupa toate cele 5 bv-uri, fara nicio greseala, nivelul avanseaza");
+    assert.equal(ultimul.pasUrmator.continua.levelAdvanced, true);
+  });
+
+  it("getInventarBonduri: randuri in ordine crescatoare dupa a, toate goale la inceputul nivelului", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    quiz.beginRound();
+
+    const inventar = quiz.getInventarBonduri();
+    assert.equal(inventar.visible, true);
+    assert.equal(inventar.nivel, 6);
+    assert.deepEqual(
+      inventar.randuri.map((r) => r.label),
+      ["1+5", "2+4", "3+3", "4+2", "5+1"]
+    );
+    assert.ok(
+      inventar.randuri.every((r) => r.rezolvat === false && r.a === null && r.b === null),
+      "toate randurile pornesc goale (spatiu rezervat, nimic revelat)"
+    );
+  });
+
+  it("getInventarBonduri: randul se completeaza (rezolvat, a, b, culori) dupa ce bv-ul e rezolvat", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    const round = quiz.beginRound(); // primul din coada: 1+5
+
+    quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+
+    const inventar = quiz.getInventarBonduri();
+    const randUnu = inventar.randuri.find((r) => r.label === "1+5");
+    assert.equal(randUnu.rezolvat, true);
+    assert.equal(randUnu.a, 1);
+    assert.equal(randUnu.b, 5);
+    assert.equal(randUnu.culoareA, globalThis.InventarBonduri.culoareNumar(1));
+    assert.equal(randUnu.culoareB, globalThis.InventarBonduri.culoareNumar(5));
+
+    const restul = inventar.randuri.filter((r) => r.label !== "1+5");
+    assert.ok(restul.every((r) => r.rezolvat === false), "restul bv-urilor raman nerezolvate");
+  });
+
+  it("getInventarBonduri: randurile rezolvate raman in faza retry (bvRezolvate nu se reseteaza ca historyLines)", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    let round = quiz.beginRound(); // 1+5
+
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 1+5 ok -> 2+4
+    round = quiz.onAnswer(wrongIndex(round), { responseMs: 900 }); // gresim 2+4
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+4 ok -> 3+3
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 3+3 ok -> 4+2
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 4+2 ok -> 5+1
+    const ultimulDinMain = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 5+1 ok -> intra in retry
+
+    assert.equal(quiz.getLevel(), 6, "nu avanseaza inca — turul principal a avut o greseala (la 2+4)");
+    assert.equal(
+      ultimulDinMain.pasUrmator.continua.serie_terminata,
+      undefined,
+      "e un pas de retry, nu run-complete"
+    );
+
+    const inventar = quiz.getInventarBonduri();
+    assert.deepEqual(
+      inventar.randuri.map((r) => r.rezolvat),
+      [true, true, true, true, true],
+      "toate cele 5 bv-uri raman marcate rezolvate in inventar, chiar in faza retry"
+    );
+  });
+
+  it("getInventarBonduri: se reseteaza la nivel nou (nu mosteneste bv-urile nivelului anterior)", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(3); // 2 bv-uri: 1+2, 2+1
+    let round = quiz.beginRound();
+
+    round = quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 1+2 ok -> 2+1
+    quiz.onAnswer(round.correctIndex, { responseMs: 500 }); // 2+1 ok -> avanseaza la nivelul 4
+
+    assert.equal(quiz.getLevel(), 4);
+    const inventar = quiz.getInventarBonduri();
+    assert.equal(inventar.nivel, 4);
+    assert.ok(
+      inventar.randuri.every((r) => r.rezolvat === false),
+      "inventarul nivelului nou porneste gol, fara bv-urile nivelului anterior"
+    );
   });
 });
