@@ -49,22 +49,38 @@
     return { visible: true, nivel, randuri };
   }
 
+  // Continutul unui rand (fara div-ul wrapper) — folosit atat de randaHtml
+  // (randare completa) cat si de elementeDivIntrebare (patch in loc, vezi mai
+  // jos), ca sa nu existe doua locuri care decid cum arata un rand. Randul
+  // nerezolvat arata "{nivel}=" urmat de nimic — nu gol (cerere user,
+  // 30.08.2026: rectificare fata de varianta initiala complet goala).
+  function continutRand(rand, nivel) {
+    if (!rand.rezolvat) return `<span class="inventar-bonduri-semn">${nivel}=</span>`;
+    return (
+      `<span class="inventar-bonduri-semn">${nivel}=</span>` +
+      `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareA}">${rand.a}</span>` +
+      `<span class="inventar-bonduri-semn">+</span>` +
+      `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareB}">${rand.b}</span>`
+    );
+  }
+
   // Genereaza HTML-ul randurilor (doar randurile, fara wrapper/titlu) — quizul
   // il insereaza direct in propriul promptHtml, in caseta intrebarii. Cerere
   // user (29.08.2026): lista colorata inlocuieste vechiul istoric text
   // (singapore-history), in acelasi loc din caseta, nu langa el intr-un panou
   // separat.
+  //
+  // Fiecare rand poarta `data-element-div-intrebare="bv-{label}"` — id stabil
+  // (labelul "a+b" e unic si nu se schimba cat timp randul exista in tabel),
+  // pt. modul de scriere in loc din falling-engine.js (elementeDivIntrebare).
   function randaHtml(inventar) {
     if (!inventar?.visible) return "";
     const randuriHtml = inventar.randuri
       .map((rand) => {
-        if (!rand.rezolvat) return `<div class="inventar-bonduri-rand e-gol"></div>`;
+        const clasaGol = rand.rezolvat ? "" : " e-gol";
         return (
-          `<div class="inventar-bonduri-rand">` +
-          `<span class="inventar-bonduri-semn">${inventar.nivel}=</span>` +
-          `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareA}">${rand.a}</span>` +
-          `<span class="inventar-bonduri-semn">+</span>` +
-          `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareB}">${rand.b}</span>` +
+          `<div class="inventar-bonduri-rand${clasaGol}" data-element-div-intrebare="bv-${rand.label}">` +
+          continutRand(rand, inventar.nivel) +
           `</div>`
         );
       })
@@ -72,10 +88,26 @@
     return `<div class="inventar-bonduri-randuri">${randuriHtml}</div>`;
   }
 
+  // Contractul "Mod scriere intrebare noua" din falling-engine.js: la runda
+  // urmatoare, motorul cauta in DOM-ul deja randat elementele cu
+  // `data-element-div-intrebare` egal cu fiecare `id` de-aici si le
+  // inlocuieste doar continutul (`innerHTML`) — restul promptului (linia
+  // curenta, structura din jur) ramane neatins. Daca vreun id lipseste din
+  // DOM, motorul cade singur pe randarea completa (randaHtml) — nu e nevoie
+  // de fallback aici.
+  function elementeDivIntrebare(inventar) {
+    if (!inventar?.visible) return [];
+    return inventar.randuri.map((rand) => ({
+      id: `bv-${rand.label}`,
+      html: continutRand(rand, inventar.nivel),
+    }));
+  }
+
   global.InventarBonduri = {
     culoareNumar,
     bvPentruNivel,
     construieste,
     randaHtml,
+    elementeDivIntrebare,
   };
 })(window);

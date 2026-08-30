@@ -85,4 +85,55 @@ describe("bond-inventory (InventarBonduri)", () => {
     assert.equal(dinArray.randuri.find((r) => r.label === "1+2").rezolvat, true);
     assert.equal(dinArray.randuri.find((r) => r.label === "2+1").rezolvat, false);
   });
+
+  it("randaHtml: randul nerezolvat arata \"{nivel}=\" urmat de nimic, nu gol (rectificare 30.08.2026)", () => {
+    const inventar = InventarBonduri.construieste({ nivel: 4, rezolvate: [] });
+    const html = InventarBonduri.randaHtml(inventar);
+    assert.ok(
+      html.includes(
+        '<div class="inventar-bonduri-rand e-gol" data-element-div-intrebare="bv-1+3">' +
+          '<span class="inventar-bonduri-semn">4=</span></div>'
+      ),
+      "randul nerezolvat 1+3 trebuie sa contina textul '4=' in acelasi span mic ca randurile rezolvate, nu un div gol"
+    );
+  });
+
+  it("randaHtml: fiecare rand poarta data-element-div-intrebare stabil, dupa label", () => {
+    const inventar = InventarBonduri.construieste({ nivel: 4, rezolvate: ["2+2"] });
+    const html = InventarBonduri.randaHtml(inventar);
+    assert.ok(html.includes('data-element-div-intrebare="bv-1+3"'));
+    assert.ok(html.includes('data-element-div-intrebare="bv-2+2"'));
+    assert.ok(html.includes('data-element-div-intrebare="bv-3+1"'));
+  });
+
+  it("elementeDivIntrebare: un {id, html} per rand, id-urile in aceeasi ordine ca randurile", () => {
+    const inventar = InventarBonduri.construieste({ nivel: 4, rezolvate: ["2+2"] });
+    const elemente = InventarBonduri.elementeDivIntrebare(inventar);
+    assert.deepEqual(
+      elemente.map((el) => el.id),
+      ["bv-1+3", "bv-2+2", "bv-3+1"]
+    );
+  });
+
+  it("elementeDivIntrebare: continutul unui rand e identic cu ce pune randaHtml in acelasi rand", () => {
+    const inventar = InventarBonduri.construieste({ nivel: 4, rezolvate: ["2+2"] });
+    const elemente = InventarBonduri.elementeDivIntrebare(inventar);
+
+    const nerezolvat = elemente.find((el) => el.id === "bv-1+3");
+    assert.equal(nerezolvat.html, '<span class="inventar-bonduri-semn">4=</span>');
+
+    const rezolvat = elemente.find((el) => el.id === "bv-2+2");
+    assert.equal(
+      rezolvat.html,
+      `<span class="inventar-bonduri-semn">4=</span>` +
+        `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>` +
+        `<span class="inventar-bonduri-semn">+</span>` +
+        `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>`
+    );
+  });
+
+  it("elementeDivIntrebare: [] cand nu primeste un inventar vizibil", () => {
+    assert.deepEqual(InventarBonduri.elementeDivIntrebare(undefined), []);
+    assert.deepEqual(InventarBonduri.elementeDivIntrebare({ visible: false }), []);
+  });
 });

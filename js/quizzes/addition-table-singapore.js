@@ -41,6 +41,7 @@
       orchestrator.getCurrentRuntime().setCurrentItem({
         prompt: `${level}=`,
         promptHtml: promptHtmlPentruRunda(),
+        elementeDivIntrebare: elementeDivIntrebarePentruRunda(),
         options: [...options],
         correctIndex,
       });
@@ -70,13 +71,30 @@
     // Cerere user (29.08.2026): lista colorata a bv-urilor (inainte un panou
     // separat, langa arena) inlocuieste aici vechiul istoric text simplu
     // (singapore-history) — acelasi loc din caseta intrebarii, continut nou.
+    function linieCurentaHtml() {
+      return `${level}=${placeholder.marcaj()}`;
+    }
+
     function promptHtmlPentruRunda() {
       return (
         `<div class="singapore-prompt">` +
         global.InventarBonduri.randaHtml(inventarCurent()) +
-        `<div class="singapore-current">${level}=${placeholder.marcaj()}</div>` +
+        `<div class="singapore-current" data-element-div-intrebare="linia-curenta">${linieCurentaHtml()}</div>` +
         `</div>`
       );
+    }
+
+    // Elementele patchabile in loc la runda urmatoare (contractul "Mod
+    // scriere intrebare noua" din falling-engine.js): randurile inventarului
+    // bv-urilor SI linia curenta — motorul modifica DOAR elementele de-aici,
+    // fara sa atinga restul promptului. Daca lipseste vreunul (ex. doar
+    // randurile, nu si linia curenta), linia curenta ramane blocata pe
+    // continutul vechi la runda urmatoare — gasit si reparat 30.08.2026.
+    function elementeDivIntrebarePentruRunda() {
+      return [
+        ...global.InventarBonduri.elementeDivIntrebare(inventarCurent()),
+        { id: "linia-curenta", html: linieCurentaHtml() },
+      ];
     }
 
     function factsForSum(targetSum) {
@@ -213,6 +231,7 @@
         // `prompt` ramane text simplu — il citesc jurnalul si logurile.
         prompt: `${level}=`,
         promptHtml: promptHtmlPentruRunda(),
+        elementeDivIntrebare: elementeDivIntrebarePentruRunda(),
         options: formatOptionsForView(),
         correctIndex,
         divisionHistory: [],

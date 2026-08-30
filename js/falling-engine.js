@@ -11,6 +11,14 @@
   const FALL_SPEED = 54;
   const RISE_TRAVEL_S = 0.5;
   const DEFAULT_REVEAL_HOLD_MS = 160;
+  // "Mod scriere intrebare noua" (decis de user, 30.08.2026): la fiecare randare
+  // motorul expune explicit, ca string lung si citibil (nu enum scurt), care din
+  // cele doua strategii a folosit ca sa puna intrebarea pe ecran. Vezi
+  // `aplicaElementeDivIntrebare` mai jos.
+  const MOD_SCRIERE_STERGERE_COMPLETA =
+    "stergere completa intrebare veche si rescriere intrebare noua de la 0";
+  const MOD_SCRIERE_MODIFICARE_ELEMENTE =
+    "modificare elemente din intrebarea veche, fara stergere intrebare veche";
   // Placeholderul de raspuns (locul care primeste una din cele 3 valori de pe
   // butoane) NU mai e cunoscut aici. Fiecare quiz il declara explicit, prin
   // `placeholderRaspuns` — vezi `js/placeholder-raspuns.js` si
@@ -467,6 +475,9 @@
         prompt: state.prompt ?? "—",
         promptHtml: state.promptHtml,
         options: Array.isArray(state.options) ? state.options : [],
+        elementeDivIntrebare: Array.isArray(state.elementeDivIntrebare)
+          ? state.elementeDivIntrebare
+          : [],
         correctIndex: state.correctIndex ?? null,
         divisionHistory: Array.isArray(state.divisionHistory) ? state.divisionHistory : [],
         hintMessage: state.hintMessage ?? "",
@@ -654,6 +665,38 @@
       return true;
     }
 
+    // Mod 2 de scriere a intrebarii noi ("modificare elemente din intrebarea
+    // veche, fara stergere intrebare veche"): gaseste in DOM-ul DEJA randat
+    // elementele marcate de quiz (`data-element-div-intrebare="id"`) si le
+    // schimba doar continutul, fara sa atinga restul structurii din jurul lor.
+    //
+    // Acelasi principiu ca `revealAnswerInPlace` mai sus: cauta prin
+    // querySelector in ce e deja pe ecran, NU parseaza string-ul `promptHtml`
+    // nou. Quizul da direct, ca date separate, continutul fiecarui element care
+    // s-ar putea sa se fi schimbat — motorul nu ghiceste/extrage nimic dintr-un
+    // HTML intreg (acelasi motiv ca la contractul placeholderului: un
+    // parsing/replace orb pe HTML deja scris poate rupe structura).
+    //
+    // Intoarce true daca TOATE elementele cerute au fost gasite si actualizate;
+    // false daca macar unul lipseste din DOM-ul curent — apelantul cade atunci
+    // pe mod 1 (rescriere completa), neschimbata, ca sa nu ramana un amestec de
+    // continut vechi si nou (nicio actualizare partiala aplicata).
+    function aplicaElementeDivIntrebare(topNumberEl, elemente) {
+      if (!Array.isArray(elemente) || elemente.length === 0) return false;
+      const tinte = [];
+      for (const elem of elemente) {
+        const tinta = topNumberEl?.querySelector(
+          `[data-element-div-intrebare="${elem.id}"]`
+        );
+        if (!tinta) return false;
+        tinte.push({ tinta, html: elem.html });
+      }
+      tinte.forEach(({ tinta, html }) => {
+        if (tinta.innerHTML !== html) tinta.innerHTML = html;
+      });
+      return true;
+    }
+
     function buildRevealedState(state, answer) {
       const ans = String(answer ?? "").trim();
       const mark = `<span class="q-correct">${ans}</span>`;
@@ -752,9 +795,19 @@
           historyHtml ? `<div class="singapore-history">${historyHtml}</div>` : ""
         }<div class="singapore-current">${singaporeBondLine(state)}</div></div>`;
         fm?.classList.add("has-singapore-bond");
+        state.modScriereIntrebareNoua = MOD_SCRIERE_STERGERE_COMPLETA;
       } else {
         if (state.promptHtml !== undefined) {
-          dom.topNumberEl.innerHTML = state.promptHtml ?? "—";
+          const modificatInLoc = aplicaElementeDivIntrebare(
+            dom.topNumberEl,
+            state.elementeDivIntrebare
+          );
+          if (modificatInLoc) {
+            state.modScriereIntrebareNoua = MOD_SCRIERE_MODIFICARE_ELEMENTE;
+          } else {
+            dom.topNumberEl.innerHTML = state.promptHtml ?? "—";
+            state.modScriereIntrebareNoua = MOD_SCRIERE_STERGERE_COMPLETA;
+          }
         } else {
           const placeholder = placeholderRaspuns();
           const raw = String(state.prompt ?? "—");
@@ -763,6 +816,7 @@
           } else {
             dom.topNumberEl.textContent = raw;
           }
+          state.modScriereIntrebareNoua = MOD_SCRIERE_STERGERE_COMPLETA;
         }
         fm?.classList.remove("has-singapore-bond");
       }

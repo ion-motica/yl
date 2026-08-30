@@ -45,6 +45,7 @@
       orchestrator.getCurrentRuntime().setCurrentItem({
         prompt: promptLabel(currentFact, currentMissingSide),
         promptHtml: promptHtmlPentruRunda(currentFact, currentMissingSide),
+        elementeDivIntrebare: elementeDivIntrebarePentruRunda(currentFact, currentMissingSide),
         options: [...options],
         correctIndex,
       });
@@ -110,9 +111,22 @@
       return (
         `<div class="singapore-prompt">` +
         global.InventarBonduri.randaHtml(inventarCurent()) +
-        `<div class="singapore-current">${currentLineHtml(fact, missingSide)}</div>` +
+        `<div class="singapore-current" data-element-div-intrebare="linia-curenta">${currentLineHtml(fact, missingSide)}</div>` +
         `</div>`
       );
+    }
+
+    // Elementele patchabile in loc la runda urmatoare (contractul "Mod
+    // scriere intrebare noua" din falling-engine.js): randurile inventarului
+    // bv-urilor SI linia curenta — motorul modifica DOAR elementele de-aici,
+    // fara sa atinga restul promptului. Daca lipseste vreunul (ex. doar
+    // randurile, nu si linia curenta), linia curenta ramane blocata pe
+    // continutul vechi la runda urmatoare — gasit si reparat 30.08.2026.
+    function elementeDivIntrebarePentruRunda(fact, missingSide = currentMissingSide) {
+      return [
+        ...global.InventarBonduri.elementeDivIntrebare(inventarCurent()),
+        { id: "linia-curenta", html: currentLineHtml(fact, missingSide) },
+      ];
     }
 
     function queueItem(factId, missingSide = pickMissingSide()) {
@@ -236,6 +250,7 @@
         // loguri, care vor "3=?+2", nu marcaj HTML.
         prompt: promptLabel(currentFact, currentMissingSide),
         promptHtml: promptHtmlPentruRunda(currentFact, currentMissingSide),
+        elementeDivIntrebare: elementeDivIntrebarePentruRunda(currentFact, currentMissingSide),
         options: formatOptionsForView(),
         correctIndex,
         divisionHistory: [],
