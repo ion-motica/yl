@@ -214,7 +214,11 @@
       elSemn.className = "ilustrare-bonduri-semn";
       elSemn.textContent = "+";
       elCosB = document.createElement("div");
-      elCosB.className = "ilustrare-bonduri-cos";
+      // "-cos-b", in plus fata de clasa comuna — CSS aliniaza discurile lui
+      // A la stanga si pe ale lui B la dreapta (vezi .ilustrare-bonduri-cos),
+      // ca sa nu se rearanjeze toate discurile la fiecare schimbare de
+      // latime (cerere user, 31.08.2026).
+      elCosB.className = "ilustrare-bonduri-cos ilustrare-bonduri-cos-b";
 
       elDiv.append(elEgal, elCosA, elSemn, elCosB);
       containerEl.appendChild(elDiv);
@@ -508,13 +512,16 @@
     // (cerere user, 31.08.2026: "zboara impreuna in formatie grupata,
     // aliniata"), pe linie dreapta de la sursa la destinatia calculata mai sus
     // (semicercul e amanat, tot cerere user).
-    function zboaraGrupul({ count, sursa, destinatie, culoare, discPx }) {
+    function zboaraGrupul({ count, sursa, destinatie, discPx }) {
       const grup = document.createElement("div");
       grup.className = "ilustrare-bonduri-zbor";
       grup.style.left = `${sursa.left}px`;
       grup.style.top = `${sursa.top}px`;
       grup.style.height = `${discPx}px`;
-      grup.style.backgroundColor = culoare;
+      // Fundal ALB, nu culoarea cosului destinatie (cerere user, 31.08.2026:
+      // "bila care se plimba sa nu mai aiba fundalul unui cos" — cu fundal
+      // colorat parea un al doilea cos plutitor, nu o bila in zbor).
+      grup.style.backgroundColor = "#fff";
       grup.style.setProperty("--ilustrare-dx", `${destinatie.left - sursa.left}px`);
       grup.style.setProperty("--ilustrare-dy", `${destinatie.top - sursa.top}px`);
       grup.style.animationDuration = `${getDurataTranzitieMs()}ms`;
@@ -545,13 +552,14 @@
     // (vezi js/quizzes/addition-table-singapore-missing.js). Quizul
     // furnizeaza explicit tot ce trebuie — modulul nu ghiceste nimic din
     // starea quizului.
-    function arataBv({ containerEl, randEl, nivel, a, b, culoareA, culoareB, latimeDisponibila }) {
+    function arataBv({ containerEl, randEl, nivel, a, b, culoareA, culoareB, latimeDisponibila, faraAnimatie }) {
       if (!containerEl || !randEl) return { zborDeclansat: false };
       const m = pregatesteNivel({ nivel, randEl, containerEl, latimeCaseta: latimeDisponibila });
       if (!m) return { zborDeclansat: false };
       const pozitie = pozitieRand(randEl, containerEl, m);
       if (!pozitie) return { zborDeclansat: false };
       const disc = m.dimensiuneDiscPx;
+      const ms = getDurataTranzitieMs();
 
       if (!ultimulBv) {
         // Prima aparitie din nivel: acum ANIMATA si ea, "unitar" cu restul
@@ -563,10 +571,23 @@
         const pozSus = randuriEl ? pozitieLinieExtrema(randuriEl, containerEl, true) : null;
         const pozJos = randuriEl ? pozitieLinieExtrema(randuriEl, containerEl, false) : null;
         let pozitiePornire = pozitie;
+        // Bondul PROPRIU liniei de plecare — nu bondul bv-ului curent (asta
+        // ar insemna sa nu se miste nicio bila, doar cosul, o singura
+        // "aparitie" fara animatie de mere). Randurile tabelului sunt
+        // ordonate crescator dupa `a` (vezi bvPentruNivel din
+        // bond-inventory.js), determinist, indiferent de ordinea REALA in
+        // care se raspunde — deci linia extrema are mereu bondul 1+(nivel-1)
+        // (prima linie) sau (nivel-1)+1 (ultima), chiar daca inca
+        // NEREZOLVATA in DOM (cerere user, 31.08.2026: "sa plece cu
+        // configuratia de mere proprie liniei de plecare (1+x sau x+1) ...
+        // ca sa aiba si animatie de miscare a merelor").
+        let bondPornire = { a, b };
         if (pozSus && pozJos) {
           const distSus = Math.abs(pozitie.top - pozSus.top);
           const distJos = Math.abs(pozitie.top - pozJos.top);
-          pozitiePornire = distSus >= distJos ? pozSus : pozJos;
+          const plecaDeSus = distSus >= distJos;
+          pozitiePornire = plecaDeSus ? pozSus : pozJos;
+          bondPornire = plecaDeSus ? { a: 1, b: nivel - 1 } : { a: nivel - 1, b: 1 };
         }
 
         elDiv.style.transition = "none";
@@ -574,8 +595,8 @@
         elCosB.style.transition = "none";
         elDiv.style.top = `${pozitiePornire.top}px`;
         elDiv.style.left = `${pozitie.left}px`;
-        umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar);
-        umpleCos(elCosB, b, culoareB, disc, m.inaltimeNumar);
+        umpleCos(elCosA, bondPornire.a, culoareA, disc, m.inaltimeNumar);
+        umpleCos(elCosB, bondPornire.b, culoareB, disc, m.inaltimeNumar);
         elDiv.style.visibility = "visible";
         // Forteaza un reflow ACUM, cat timp transition e inca "none" —
         // altfel browserul poate contopi toate schimbarile de stil de mai
@@ -588,12 +609,65 @@
         // CHIAR vrem o animatie, doar cu punctul de plecare CORECT
         // (pozitiePornire), nu cel implicit.
         void elDiv.offsetWidth;
-        elDiv.style.transition = `top ${getDurataTranzitieMs()}ms ease, left ${getDurataTranzitieMs()}ms ease`;
-        elCosA.style.transition = `width ${getDurataTranzitieMs()}ms ease`;
-        elCosB.style.transition = `width ${getDurataTranzitieMs()}ms ease`;
+        elDiv.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
+        elCosA.style.transition = `width ${ms}ms ease`;
+        elCosB.style.transition = `width ${ms}ms ease`;
         // Miscarea REALA, catre pozitia tinta — declansata abia acum, cu
         // tranzitia deja activa.
         elDiv.style.top = `${pozitie.top}px`;
+
+        // Continutul se transforma SI el, cu acelasi zbor de discuri ca
+        // orice alta tranzitie (mereDeMutat + zboaraGrupul), de la bondul de
+        // plecare la bondul REAL al bv-ului — sincron cu deplasarea de mai
+        // sus, masurat pe elCosA/elCosB (care au tocmai primit bondPornire).
+        const mutarePornire = mereDeMutat({ vechi: bondPornire, nou: { a, b } });
+        let ascunsePornireA = null;
+        let ascunsePornireB = null;
+        if (mutarePornire && mutarePornire.count > 0) {
+          const sursaPornire = dreptunghiGrupSursa(mutarePornire);
+          const destinatiePornire = destinatiaGrupului({ pozitie, parinteEl: containerEl, a, b, ...mutarePornire, m });
+          if (sursaPornire) {
+            zboaraGrupul({ count: mutarePornire.count, sursa: sursaPornire, destinatie: destinatiePornire, discPx: disc });
+            zborInCursPanaLa = Date.now() + ms;
+            const ascunse = indiciSosire({ ...mutarePornire, a });
+            if (mutarePornire.directie === "a-spre-b") ascunsePornireB = ascunse;
+            else ascunsePornireA = ascunse;
+          }
+        }
+        umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar, ascunsePornireA);
+        umpleCos(elCosB, b, culoareB, disc, m.inaltimeNumar, ascunsePornireB);
+        ultimulBv = { a, b };
+        setTimeout(() => {
+          if (!elDiv) return;
+          elDiv
+            .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
+            .forEach((el) => el.classList.remove("e-in-zbor"));
+        }, ms);
+        return { zborDeclansat: Boolean(mutarePornire && mutarePornire.count > 0) };
+      }
+
+      if (faraAnimatie) {
+        // Ultimul bv al nivelului, chiar inainte de Spectacol 1: bila
+        // TELEPORTEAZA direct in cosul destinatie, fara zbor si fara
+        // asteptare — spectacolul preia imediat dupa si face EL insusi
+        // singura tranzitie animata (de la acest bond la randul 1), evitand
+        // doua tranzitii simultane pe acelasi elDiv (cerere user,
+        // 31.08.2026: "nu mai astepta sa se finalizeze ilustratia animata
+        // ... bila se teleporteaza in cosul destinatie apoi cosul se
+        // lateste si se deplaseaza" — coliziunea celor doua tranzitii era
+        // cauza cea mai probabila a "bilei lui Schrodinger", prezenta
+        // simultan in ambele cosuri).
+        elDiv.style.transition = "none";
+        elCosA.style.transition = "none";
+        elCosB.style.transition = "none";
+        elDiv.style.top = `${pozitie.top}px`;
+        elDiv.style.left = `${pozitie.left}px`;
+        umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar);
+        umpleCos(elCosB, b, culoareB, disc, m.inaltimeNumar);
+        void elDiv.offsetWidth;
+        elDiv.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
+        elCosA.style.transition = `width ${ms}ms ease`;
+        elCosB.style.transition = `width ${ms}ms ease`;
         ultimulBv = { a, b };
         return { zborDeclansat: false };
       }
@@ -614,7 +688,6 @@
             count: mutare.count,
             sursa,
             destinatie,
-            culoare: mutare.directie === "a-spre-b" ? culoareB : culoareA,
             discPx: disc,
           });
           zborDeclansat = true;
@@ -755,7 +828,6 @@
             count: mutareInitiala.count,
             sursa: sursaInitiala,
             destinatie: destinatieInitiala,
-            culoare: mutareInitiala.directie === "a-spre-b" ? dateRanduri[0].culoareB : dateRanduri[0].culoareA,
             discPx: masuriOriginale.dimensiuneDiscPx,
           });
           const ascunseInitiale = indiciSosire({ ...mutareInitiala, a: dateRanduri[0].a });
@@ -840,7 +912,6 @@
               count: mutare.count,
               sursa,
               destinatie,
-              culoare: mutare.directie === "a-spre-b" ? randTinta.culoareB : randTinta.culoareA,
               discPx: masuriOriginale.dimensiuneDiscPx,
             });
             const ascunse = indiciSosire({ ...mutare, a: randTinta.a });

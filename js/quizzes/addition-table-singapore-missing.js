@@ -497,6 +497,19 @@
                 const randEl = document
                   .getElementById("top-number")
                   ?.querySelector(`[data-element-div-intrebare="bv-${bvLabel}"]`);
+                // Ultimul bv al nivelului (activeQueue mai are UN SINGUR
+                // element, iar seria asta chiar se va incheia cu avans de
+                // nivel — vezi construieste_pasul_de_serie_terminata: in faza
+                // "retry" a_gresit_in_serie se forteaza mereu pe false chiar
+                // inainte de acel apel, deci un retry care se goleste avanseaza
+                // mereu; in faza "main" conteaza doar daca n-a fost nicio
+                // greseala pana acum) — daca Spectacol 1 e activ, animatia
+                // PROPRIE a acestui bv se sare (vezi faraAnimatie mai jos):
+                // spectacolul preia imediat si face el singurul insusi
+                // tranzitia animata, ca sa nu ruleze doua tranzitii simultan
+                // pe acelasi elDiv (cerere user, 31.08.2026).
+                const esteUltimulDinNivel =
+                  activeQueue.length === 1 && (phase === "retry" || !a_gresit_in_serie);
                 const rezultatIlustratie = ilustrareBonduri.arataBv({
                   containerEl: document.getElementById("arena"),
                   randEl,
@@ -506,6 +519,8 @@
                   culoareA: global.InventarBonduri.culoareNumar(a),
                   culoareB: global.InventarBonduri.culoareNumar(b),
                   latimeDisponibila: latimeDisponibilaPentruIlustratie(),
+                  faraAnimatie:
+                    esteUltimulDinNivel && level < MAX_LEVEL && getSpectacolFinalDeLevel() === "spectacol1",
                 });
                 zborDeclansat = Boolean(rezultatIlustratie?.zborDeclansat);
                 // Randul propriu (cifrele "a+b") se scrie ACUM, in aceeasi
