@@ -154,12 +154,28 @@
       .trim();
   }
 
+  // Cauta un marcaj dedicat "doar intrebarea, fara ilustratii/liste colorate"
+  // (clasa .intrebare-propriu-zisa) inauntrul unui promptHtml — cerere user
+  // (31.08.2026): lista de timpi din fundal folosea tot promptul (inclusiv
+  // tabelul colorat de bv-uri la quizurile Singapore), nu doar intrebarea
+  // curenta. Quizurile care nu marcheaza nimic cad pe calea veche (tot
+  // promptHtml) — schimbare aditiva, fara sa afecteze alte quizuri.
+  function extrageIntrebareaProprie(promptHtml) {
+    const proba = document.createElement("div");
+    proba.innerHTML = String(promptHtml ?? "");
+    const marcat = proba.querySelector(".intrebare-propriu-zisa");
+    return marcat ? marcat.textContent : null;
+  }
+
   function responseTimeLabel(state) {
     const meta = state?.metadata || {};
     if (meta.factA != null && meta.factB != null) return `${meta.factA}*${meta.factB}`;
     if (meta.factId) return String(meta.factId);
     if (state?.factId) return String(state.factId);
-    if (state?.promptHtml) return normalizeTextLabel(state.promptHtml);
+    if (state?.promptHtml) {
+      const intrebareProprie = extrageIntrebareaProprie(state.promptHtml);
+      return normalizeTextLabel(intrebareProprie ?? state.promptHtml);
+    }
     if (state?.prompt) return normalizeTextLabel(state.prompt);
     if (state?.dividend != null && state?.divisor != null) {
       return `${state.dividend}:${state.divisor}`;
