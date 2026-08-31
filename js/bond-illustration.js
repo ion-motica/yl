@@ -179,6 +179,14 @@
     // Cand se termina (timestamp) spectacolul final in curs — 0 daca
     // niciunul. Acelasi rol ca zborInCursPanaLa, pt. reseteaza() (vezi acolo).
     let spectacolInCursPanaLa = 0;
+    // Grupul de discuri zburatoare (vezi zboaraGrupul) pornit cel mai recent —
+    // null daca niciunul in curs / deja aterizat. joacaSpectacolFinal il
+    // elimina imediat la start (nivelul e oricum deja complet la momentul
+    // spectacolului, n-are sens sa mai anime spre o destinatie veche — bug
+    // raportat de user, 31.08.2026: "animatia ultimului bond ... nu se
+    // termina iar punctele ei sunt complete inainte sa ajunga la cos
+    // punctele plimbatoare").
+    let grupZburatorCurent = null;
 
     function structuraExista() {
       return Boolean(elDiv && elDiv.isConnected && elCosA && elCosB);
@@ -508,7 +516,13 @@
       grup.style.animationDuration = `${getDurataTranzitieMs()}ms`;
       grup.innerHTML = Array.from({ length: count }, () => discHtml(discPx, false)).join("");
       document.body.appendChild(grup);
-      setTimeout(() => grup.remove(), getDurataTranzitieMs() + 60);
+      grupZburatorCurent = grup;
+      setTimeout(() => {
+        grup.remove();
+        // Doar daca grupul asta e inca "cel curent" — daca joacaSpectacolFinal
+        // l-a eliminat deja mai devreme, referinta a fost deja golita.
+        if (grupZburatorCurent === grup) grupZburatorCurent = null;
+      }, getDurataTranzitieMs() + 60);
     }
 
     // Indicii discurilor care SOSESC in cosul destinatie — stau invizibile cat
@@ -652,6 +666,18 @@
       const masuriOriginale = masuri;
 
       // Daca ultimul bv rezolvat inainte de spectacol a pornit un zbor de
+      // discuri (grupul independent din zboaraGrupul, atasat direct la
+      // document.body, nu la elDiv), el continua altfel sa anime singur spre
+      // o destinatie veche cateva sute de ms dupa ce cosurile arata deja
+      // complet (bug raportat de user, 31.08.2026: "animatia ultimului bond
+      // se altereaza si nu se termina"). Nivelul e oricum complet aici — il
+      // eliminam imediat, inainte sa continuam.
+      if (grupZburatorCurent) {
+        grupZburatorCurent.remove();
+        grupZburatorCurent = null;
+      }
+
+      // Daca ultimul bv rezolvat inainte de spectacol a pornit un zbor de
       // discuri, unele discuri pot fi inca marcate "e-in-zbor" (invizibile,
       // asteptand sa aterizeze) — cleanup-ul normal (vezi arataBv) tinteste
       // doar elDiv, nu si clonele create mai jos, deci ele ar mosteni starea
@@ -707,29 +733,45 @@
       elDivOriginal.style.left = `${dateRanduri[0].left}px`;
 
       let indexCurent = 0;
+      // Elementul de la care porneste URMATOAREA clona — cel care tocmai a
+      // ajuns la randul lui curent (elDivOriginal la inceput, apoi fiecare
+      // clona pe rand). Ramane pe loc, neschimbat, dupa ce e clonat (cerere
+      // user, 31.08.2026: "ilustratia veche ramane pe pozitia" ei). Bug
+      // anterior: se clona mereu elDivOriginal, deci toate clonele porneau
+      // din randul 1 in loc de randul precedent ("toate animatiile duplicat
+      // pornesc de pe randul 1, nu de pe randul precedent").
+      let elementCurent = elDivOriginal;
 
       const urmatorulPas = () => {
         if (indexCurent >= dateRanduri.length - 1) {
           setTimeout(() => gataCallback?.(), 500);
           return;
         }
-        // Clona porneste EXACT peste elementul care tocmai a ajuns (fara
-        // tranzitie, cu reflow fortat — acelasi tipar ca la prima aparitie
-        // din nivel, ca sa nu "gliseze" gresit din 0,0), apoi primeste
-        // bondul randului spre care porneste. Clonam mereu structura din
-        // elDivOriginal (nu din clonul anterior) — continutul se rescrie
-        // oricum, deci nu conteaza sursa, doar structura
-        // (egal/cosA/semn/cosB).
-        const clona = elDivOriginal.cloneNode(true);
+        // Clona porneste EXACT peste elementCurent (acelasi rand, acelasi
+        // bond — un duplicat perfect), apoi se deplaseaza SI ISI TRANSFORMA
+        // continutul (latimea cosurilor) simultan spre randul urmator,
+        // corespunzator bondului acelui rand (cerere user, 31.08.2026: "se
+        // duplica pe randul 1. ilustratia noua porneste de pe randul 1 spre
+        // randul 2 si se transforma ca sa corespunda lui 2+..."). Fara
+        // tranzitie la creare, cu reflow fortat — acelasi tipar ca la prima
+        // aparitie din nivel, ca sa nu "gliseze" gresit din pozitia gresita.
+        const clona = elementCurent.cloneNode(true);
+        const cosAClona = clona.children[1];
+        const cosBClona = clona.children[3];
         clona.style.transition = "none";
+        if (cosAClona) cosAClona.style.transition = "none";
+        if (cosBClona) cosBClona.style.transition = "none";
         containerEl.appendChild(clona);
         void clona.offsetWidth;
         clona.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
+        if (cosAClona) cosAClona.style.transition = `width ${ms}ms ease`;
+        if (cosBClona) cosBClona.style.transition = `width ${ms}ms ease`;
         indexCurent += 1;
         aplicaBondPe(clona, dateRanduri[indexCurent]);
         clona.style.top = `${dateRanduri[indexCurent].top}px`;
         clona.style.left = `${dateRanduri[indexCurent].left}px`;
         cloneSpectacol.push(clona);
+        elementCurent = clona;
         setTimeout(urmatorulPas, ms);
       };
 
