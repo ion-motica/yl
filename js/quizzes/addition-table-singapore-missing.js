@@ -103,6 +103,29 @@
       return global.InventarBonduri.construieste({ nivel: level, rezolvate: bvRezolvate });
     }
 
+    // Latimea disponibila pt. ilustratie = latimea REALA a chenarului
+    // albastru vizibil al liftului (#falling), nu a lui #falling-main (care
+    // se ingusteaza singur, shrink-to-fit, la latimea continutului sau —
+    // masurarea lui era un cerc vicios: cu cat randul era mai ingust, cu atat
+    // "latimea disponibila" masurata parea mai mica). Oglindeste EXACT
+    // questionMaxWidth() din js/falling-engine.js (acolo comentat "pana
+    // cand textul incape in lift, chenarul albastru") — acelasi calcul,
+    // dublat aici doar pentru ca engine-ul nu expune metoda public catre
+    // quizuri; cerere user (31.08.2026): "eu vreau sa mearga pana la
+    // bordurile vizibile ale casetei cu intrebari".
+    function latimeDisponibilaPentruIlustratie() {
+      const slot = document.getElementById("arena-question-slot");
+      if (slot && !slot.hidden) {
+        return Math.max(0, slot.clientWidth - 16);
+      }
+      const lift = document.getElementById("falling");
+      if (!lift) return 0;
+      const rect = lift.getBoundingClientRect();
+      const inner = lift.querySelector(".falling-inner");
+      const padX = inner ? Math.max(12, (rect.width - inner.clientWidth) / 2 + 8) : 16;
+      return Math.max(0, Math.floor(rect.width - padX * 2));
+    }
+
     // `promptHtml` standard, construit de quiz (ca la stack-ul de la T*/
     // 11-20 v4): inventarul colorat al bv-urilor + linia curenta, cu
     // placeholderul marcat prin contractul comun.
@@ -433,9 +456,7 @@
                   b,
                   culoareA: global.InventarBonduri.culoareNumar(a),
                   culoareB: global.InventarBonduri.culoareNumar(b),
-                  latimeDisponibila: document
-                    .getElementById("falling-main")
-                    ?.getBoundingClientRect().width,
+                  latimeDisponibila: latimeDisponibilaPentruIlustratie(),
                 });
                 zborDeclansat = Boolean(rezultatIlustratie?.zborDeclansat);
                 // Randul propriu (cifrele "a+b") se scrie ACUM, in aceeasi
