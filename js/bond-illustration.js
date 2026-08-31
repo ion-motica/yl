@@ -488,9 +488,13 @@
     }
 
     // Dreptunghiul ocupat ACUM de discurile care urmeaza sa plece — masurat pe
-    // elementele reale, inainte de a reumple cosurile.
-    function dreptunghiGrupSursa({ directie, count }) {
-      const cosEl = directie === "a-spre-b" ? elCosA : elCosB;
+    // elementele reale, inainte de a reumple cosurile. `cosEls`, daca dat,
+    // permite reutilizarea pe cosurile unui CLON (Spectacol 1), nu doar pe
+    // elCosA/elCosB ale ilustratiei live (implicit, pt. arataBv).
+    function dreptunghiGrupSursa({ directie, count }, cosEls) {
+      const cosA = (cosEls && cosEls.cosA) || elCosA;
+      const cosB = (cosEls && cosEls.cosB) || elCosB;
+      const cosEl = directie === "a-spre-b" ? cosA : cosB;
       const discuri = Array.from(cosEl.querySelectorAll(".ilustrare-bonduri-disc"));
       // Pleaca mereu cele dinspre "+": ultimele din a, primele din b.
       const alese =
@@ -718,19 +722,53 @@
 
       // Umple cosurile unui div de ilustratie (elDiv SAU un clon) cu bondul
       // unui anume rand — reutilizeaza umpleCos (functia comuna), care nu
-      // presupune nimic despre a cui e cosEl.
-      const aplicaBondPe = (elDivTinta, dateRand) => {
+      // presupune nimic despre a cui e cosEl. `ascunseA`/`ascunseB`, daca
+      // date, marcheaza discurile nou-sosite ca invizibile pana aterizeaza
+      // (vezi indiciSosire) — acelasi tipar ca la tranzitiile normale intre
+      // bv-uri (arataBv).
+      const aplicaBondPe = (elDivTinta, dateRand, ascunseA, ascunseB) => {
         const cosA = elDivTinta.children[1];
         const cosB = elDivTinta.children[3];
-        if (cosA) umpleCos(cosA, dateRand.a, dateRand.culoareA, masuriOriginale.dimensiuneDiscPx, masuriOriginale.inaltimeNumar);
-        if (cosB) umpleCos(cosB, dateRand.b, dateRand.culoareB, masuriOriginale.dimensiuneDiscPx, masuriOriginale.inaltimeNumar);
+        if (cosA) umpleCos(cosA, dateRand.a, dateRand.culoareA, masuriOriginale.dimensiuneDiscPx, masuriOriginale.inaltimeNumar, ascunseA);
+        if (cosB) umpleCos(cosB, dateRand.b, dateRand.culoareB, masuriOriginale.dimensiuneDiscPx, masuriOriginale.inaltimeNumar, ascunseB);
       };
 
       // Ilustratia LIVE urca la randul 1, cu bondul PROPRIU randului 1 (nu
-      // cu ce arata acum, ramas de la ultimul bv rezolvat).
-      aplicaBondPe(elDivOriginal, dateRanduri[0]);
+      // cu ce arata acum, ramas de la ultimul bv rezolvat) — cu acelasi zbor
+      // de discuri ca la pasii cascadei de mai jos, daca bondul chiar difera
+      // (unitar cu tot restul spectacolului).
+      const mutareInitiala = mereDeMutat({ vechi: ultimulBv, nou: dateRanduri[0] });
+      let ascunseInitialeA = null;
+      let ascunseInitialeB = null;
+      if (mutareInitiala && mutareInitiala.count > 0) {
+        const sursaInitiala = dreptunghiGrupSursa(mutareInitiala);
+        const destinatieInitiala = destinatiaGrupului({
+          pozitie: { top: dateRanduri[0].top, left: dateRanduri[0].left },
+          parinteEl: containerEl,
+          a: dateRanduri[0].a,
+          b: dateRanduri[0].b,
+          ...mutareInitiala,
+          m: masuriOriginale,
+        });
+        if (sursaInitiala) {
+          zboaraGrupul({
+            count: mutareInitiala.count,
+            sursa: sursaInitiala,
+            destinatie: destinatieInitiala,
+            culoare: mutareInitiala.directie === "a-spre-b" ? dateRanduri[0].culoareB : dateRanduri[0].culoareA,
+            discPx: masuriOriginale.dimensiuneDiscPx,
+          });
+          const ascunseInitiale = indiciSosire({ ...mutareInitiala, a: dateRanduri[0].a });
+          if (mutareInitiala.directie === "a-spre-b") ascunseInitialeB = ascunseInitiale;
+          else ascunseInitialeA = ascunseInitiale;
+        }
+      }
+      aplicaBondPe(elDivOriginal, dateRanduri[0], ascunseInitialeA, ascunseInitialeB);
       elDivOriginal.style.top = `${dateRanduri[0].top}px`;
       elDivOriginal.style.left = `${dateRanduri[0].left}px`;
+      setTimeout(() => {
+        elDivOriginal.querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor").forEach((el) => el.classList.remove("e-in-zbor"));
+      }, ms);
 
       let indexCurent = 0;
       // Elementul de la care porneste URMATOAREA clona — cel care tocmai a
@@ -755,6 +793,12 @@
         // randul 2 si se transforma ca sa corespunda lui 2+..."). Fara
         // tranzitie la creare, cu reflow fortat — acelasi tipar ca la prima
         // aparitie din nivel, ca sa nu "gliseze" gresit din pozitia gresita.
+        // Curata orice "e-in-zbor" ramas pe elementCurent (garda defensiva —
+        // acelasi motiv ca la elDivOriginal mai sus: daca timeout-ul de
+        // aterizare al pasului precedent n-a apucat inca sa ruleze, clona
+        // n-ar trebui sa mosteneasca discuri ascunse permanent).
+        elementCurent.querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor").forEach((el) => el.classList.remove("e-in-zbor"));
+
         const clona = elementCurent.cloneNode(true);
         const cosAClona = clona.children[1];
         const cosBClona = clona.children[3];
@@ -766,12 +810,60 @@
         clona.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
         if (cosAClona) cosAClona.style.transition = `width ${ms}ms ease`;
         if (cosBClona) cosBClona.style.transition = `width ${ms}ms ease`;
+
+        // Discurile care "se muta" intre cosuri de la un rand la altul —
+        // acelasi calcul (mereDeMutat) si acelasi zbor (zboaraGrupul) ca la
+        // tranzitiile normale intre bv-uri, ca sa fie "unitar": fara asta,
+        // bila noua aparea direct in cos, fara nicio animatie de zbor, iar
+        // largirea cosului incepea abia dupa (bug raportat de user,
+        // 31.08.2026: "intaai cosul se umple direct cu bila suplimentara —
+        // fara animatie de zbor, si abia apoi incepe sa se largeasca
+        // cosul"). Masurate PE CLONA (cosAClona/cosBClona), inainte sa-i
+        // rescriem continutul.
+        const randActual = dateRanduri[indexCurent];
+        const randTinta = dateRanduri[indexCurent + 1];
+        const mutare = mereDeMutat({ vechi: randActual, nou: randTinta });
+        let ascunseA = null;
+        let ascunseB = null;
+        if (mutare && mutare.count > 0) {
+          const sursa = dreptunghiGrupSursa(mutare, { cosA: cosAClona, cosB: cosBClona });
+          const destinatie = destinatiaGrupului({
+            pozitie: { top: randTinta.top, left: randTinta.left },
+            parinteEl: containerEl,
+            a: randTinta.a,
+            b: randTinta.b,
+            ...mutare,
+            m: masuriOriginale,
+          });
+          if (sursa) {
+            zboaraGrupul({
+              count: mutare.count,
+              sursa,
+              destinatie,
+              culoare: mutare.directie === "a-spre-b" ? randTinta.culoareB : randTinta.culoareA,
+              discPx: masuriOriginale.dimensiuneDiscPx,
+            });
+            const ascunse = indiciSosire({ ...mutare, a: randTinta.a });
+            if (mutare.directie === "a-spre-b") ascunseB = ascunse;
+            else ascunseA = ascunse;
+          }
+        }
+
         indexCurent += 1;
-        aplicaBondPe(clona, dateRanduri[indexCurent]);
+        aplicaBondPe(clona, dateRanduri[indexCurent], ascunseA, ascunseB);
         clona.style.top = `${dateRanduri[indexCurent].top}px`;
         clona.style.left = `${dateRanduri[indexCurent].left}px`;
         cloneSpectacol.push(clona);
         elementCurent = clona;
+
+        // Discurile sosite devin vizibile exact cand aterizeaza grupul —
+        // acelasi tipar ca in arataBv, dar tintind explicit CLONA acestui
+        // pas (nu elDiv), ca sa nu repete bug-ul de cleanup-ul care rata
+        // clonele (vezi comentariul de mai sus, la elDivOriginal).
+        setTimeout(() => {
+          clona.querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor").forEach((el) => el.classList.remove("e-in-zbor"));
+        }, ms);
+
         setTimeout(urmatorulPas, ms);
       };
 
