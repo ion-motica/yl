@@ -422,6 +422,18 @@
       };
     }
 
+    // Pozitia verticala a primului sau ultimului rand din tabelul bv-urilor —
+    // folosita ca punct de PLECARE pt. prima aparitie din nivel (vezi
+    // arataBv). Acelasi calcul de `top` ca pozitieRand, dar pe randul extrem,
+    // nu pe cel tinta.
+    function pozitieLinieExtrema(randuriEl, parinteEl, foloseseLiniaDeSus) {
+      if (!randuriEl || !randuriEl.children.length) return null;
+      const randExtrem = foloseseLiniaDeSus ? randuriEl.children[0] : randuriEl.children[randuriEl.children.length - 1];
+      const rRand = randExtrem.getBoundingClientRect();
+      const rParinte = parinteEl.getBoundingClientRect();
+      return { top: rRand.top - rParinte.top + rRand.height / 2 };
+    }
+
     // Unde ajung, in pagina, discurile care pleaca — calculat pe layoutul NOU
     // (cerere user, 31.08.2026: "calculezi intai locatia unde trebuie sa ajunga
     // pe randul destinatie, acolo se indreapta de la bun inceput"). Nu se poate
@@ -506,12 +518,25 @@
       const disc = m.dimensiuneDiscPx;
 
       if (!ultimulBv) {
-        // Prima aparitie din nivel: direct la locul ei, fara sa gliseze de
-        // niciunde (cerere user) — deci fara tranzitie pe acest pas.
+        // Prima aparitie din nivel: acum ANIMATA si ea, "unitar" cu restul
+        // tranzitiilor (cerere user, 31.08.2026) — dar nu de la pozitia
+        // implicita (0,0), ci de la linia EXTREMA a tabelului (prima sau
+        // ultima) care e mai DEPARTATA de linia tinta, ca sa parcurga drumul
+        // cel mai lung posibil.
+        const randuriEl = randEl.parentElement;
+        const pozSus = randuriEl ? pozitieLinieExtrema(randuriEl, containerEl, true) : null;
+        const pozJos = randuriEl ? pozitieLinieExtrema(randuriEl, containerEl, false) : null;
+        let pozitiePornire = pozitie;
+        if (pozSus && pozJos) {
+          const distSus = Math.abs(pozitie.top - pozSus.top);
+          const distJos = Math.abs(pozitie.top - pozJos.top);
+          pozitiePornire = distSus >= distJos ? pozSus : pozJos;
+        }
+
         elDiv.style.transition = "none";
         elCosA.style.transition = "none";
         elCosB.style.transition = "none";
-        elDiv.style.top = `${pozitie.top}px`;
+        elDiv.style.top = `${pozitiePornire.top}px`;
         elDiv.style.left = `${pozitie.left}px`;
         umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar);
         umpleCos(elCosB, b, culoareB, disc, m.inaltimeNumar);
@@ -519,16 +544,20 @@
         // Forteaza un reflow ACUM, cat timp transition e inca "none" —
         // altfel browserul poate contopi toate schimbarile de stil de mai
         // sus cu linia urmatoare (transition activat) intr-un singur
-        // recalcul, si interpreteaza pozitia/latimea INITIALA (implicita,
-        // 0,0, de dinainte sa existe elDiv la locul lui) ca punct de plecare
-        // al unei animatii — cosurile "gliseaza" la prima afisare din nivel
-        // (bug raportat de user, 31.08.2026: "cosurile alea se misca la
-        // prima afisare, unde nu ar trebui sa se miste").
+        // recalcul, si interpreteaza pozitia INITIALA (implicita, 0,0, de
+        // dinainte sa existe elDiv la locul lui) ca punct de plecare al unei
+        // animatii — cosurile "gliseaza" din locul gresit la prima afisare
+        // din nivel (bug raportat de user, 31.08.2026: "cosurile alea se
+        // misca la prima afisare, unde nu ar trebui sa se miste"). Aici insa
+        // CHIAR vrem o animatie, doar cu punctul de plecare CORECT
+        // (pozitiePornire), nu cel implicit.
         void elDiv.offsetWidth;
-        // Tranzitiile se activeaza pentru bv-urile URMATOARE din nivel.
         elDiv.style.transition = `top ${getDurataTranzitieMs()}ms ease, left ${getDurataTranzitieMs()}ms ease`;
         elCosA.style.transition = `width ${getDurataTranzitieMs()}ms ease`;
         elCosB.style.transition = `width ${getDurataTranzitieMs()}ms ease`;
+        // Miscarea REALA, catre pozitia tinta — declansata abia acum, cu
+        // tranzitia deja activa.
+        elDiv.style.top = `${pozitie.top}px`;
         ultimulBv = { a, b };
         return { zborDeclansat: false };
       }
