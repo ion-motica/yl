@@ -766,7 +766,16 @@ body {
      ceva nu se potriveste, si arata ca o gramada in loc de un rand curat. */
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: center;
+  /* Aliniate spre marginea DEPARTATA de "+", nu centrate (cerere user,
+     31.08.2026: "merele din a sa fie left aligned, merele din b sa fie
+     right aligned ... sa nu se mai rearanjeze fata de margini pe masura ce
+     cosul se lateste") — cu center, orice schimbare de latime rearanja
+     TOATE discurile (nu doar cel nou), ceea ce facea ca discul existent sa
+     para "impins in afara" si sa se suprapuna cu cel care tocmai soseste
+     langa "+". Cu flex-start/flex-end, doar marginea de langa "+" se
+     modifica; discurile ramase stau pe loc. cosA = primul cos (langa "="),
+     deci "+" e la dreapta lui; cosB = al doilea, "+" e la stanga lui. */
+  justify-content: flex-start;
   /* Padding-ul REAL vine inline din JS (cerere user, 31.08.2026: reglabil
      live din CP — vezi getPaddingCosRem/umpleCos in bond-illustration.js);
      valoarea de aici e doar fallback pt. intervalul scurt inainte de primul
@@ -783,6 +792,13 @@ body {
      0.5rem sus / 0.25rem jos, asimetric). */
   border-radius: 0.5rem;
   overflow: hidden;
+}
+
+/* Al doilea cos (B, dupa "+") aliniaza in directia OPUSA fata de primul —
+   discurile lui stau lipite de marginea DREAPTA (departe de "+", care e la
+   stanga lui), nu de cea stanga (vezi comentariul de mai sus). */
+.ilustrare-bonduri-cos-b {
+  justify-content: flex-end;
 }
 
 .ilustrare-bonduri-semn,
