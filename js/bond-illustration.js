@@ -28,14 +28,17 @@
     return Math.max(1, valoare) * dimensiuneDiscPx + CHROME_COS_PX;
   }
 
-  // Un disc = caracterul "●" intr-un span propriu (cerere user, 31.08.2026:
-  // "fiecare cerc in divul lui"), cu font-size egal cu al cifrelor din rand.
+  // Un disc = caracterul Wingdings 0x98 (cerc plin, mai "gras" decat "●" —
+  // cerere user, 31.08.2026: "●" iesea extrem de mic la marimea fontului
+  // cifrelor), intr-un span propriu, cu font-size egal cu al cifrelor din
+  // rand (font-family "Wingdings" pusa in CSS, pe clasa .ilustrare-bonduri-disc).
   // `ascuns` = disc care tocmai zboara spre locul asta: sta invizibil cat
   // dureaza zborul, ca sa nu apara de doua ori (si in cos, si in aer).
+  const CARACTER_DISC = "\uF098";
   function discHtml(dimensiunePx, ascuns) {
     return (
       `<span class="ilustrare-bonduri-disc${ascuns ? " e-in-zbor" : ""}" ` +
-      `style="width:${dimensiunePx}px;height:${dimensiunePx}px;font-size:${dimensiunePx}px">●</span>`
+      `style="width:${dimensiunePx}px;height:${dimensiunePx}px;font-size:${dimensiunePx}px">${CARACTER_DISC}</span>`
     );
   }
 
@@ -51,6 +54,10 @@
     let ultimulBv = null; // { a, b } — bv-ul afisat curent, sau null
     let nivelPregatit = null; // nivelul pt. care sunt valabile `masuri`
     let masuri = null; // vezi pregatesteNivel
+    // Cand se termina (timestamp) zborul de discuri pornit cel mai recent —
+    // 0 daca niciunul in curs. Foloseste `reseteaza()` ca sa nu elimine div-ul
+    // ilustratiei cat timp inca zboara ceva spre el (vezi acolo).
+    let zborInCursPanaLa = 0;
 
     function structuraExista() {
       return Boolean(elDiv && elDiv.isConnected && elCosA && elCosB);
@@ -292,11 +299,11 @@
     // furnizeaza explicit tot ce trebuie — modulul nu ghiceste nimic din
     // starea quizului.
     function arataBv({ containerEl, randEl, nivel, a, b, culoareA, culoareB, latimeDisponibila }) {
-      if (!containerEl || !randEl) return;
+      if (!containerEl || !randEl) return { zborDeclansat: false };
       const m = pregatesteNivel({ nivel, randEl, containerEl, latimeCaseta: latimeDisponibila });
-      if (!m) return;
+      if (!m) return { zborDeclansat: false };
       const pozitie = pozitieRand(randEl, containerEl, m);
-      if (!pozitie) return;
+      if (!pozitie) return { zborDeclansat: false };
       const disc = m.dimensiuneDiscPx;
 
       if (!ultimulBv) {
@@ -315,12 +322,13 @@
         elCosA.style.transition = `width ${DURATA_TRANZITIE_MS}ms ease`;
         elCosB.style.transition = `width ${DURATA_TRANZITIE_MS}ms ease`;
         ultimulBv = { a, b };
-        return;
+        return { zborDeclansat: false };
       }
 
       const mutare = mereDeMutat({ vechi: ultimulBv, nou: { a, b } });
       let ascunseA = null;
       let ascunseB = null;
+      let zborDeclansat = false;
 
       if (mutare && mutare.count > 0) {
         // Sursa se masoara ACUM (cosurile inca au continutul vechi), iar
@@ -336,6 +344,8 @@
             culoare: mutare.directie === "a-spre-b" ? culoareB : culoareA,
             discPx: disc,
           });
+          zborDeclansat = true;
+          zborInCursPanaLa = Date.now() + DURATA_TRANZITIE_MS;
           const ascunse = indiciSosire({ ...mutare, a });
           if (mutare.directie === "a-spre-b") ascunseB = ascunse;
           else ascunseA = ascunse;
@@ -355,6 +365,8 @@
           .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
           .forEach((el) => el.classList.remove("e-in-zbor"));
       }, DURATA_TRANZITIE_MS);
+
+      return { zborDeclansat };
     }
 
     // Apelat de quiz la schimbarea de nivel — acelasi ciclu de reset ca
@@ -367,7 +379,23 @@
       ultimulBv = null;
       nivelPregatit = null;
       masuri = null;
-      if (elDiv) elDiv.remove();
+      if (elDiv) {
+        const ramas = zborInCursPanaLa - Date.now();
+        if (ramas > 0) {
+          // Un zbor de discuri e inca in aer (vezi zborInCursPanaLa) — daca am
+          // sterge div-ul ACUM, cosurile ar disparea de sub el si zborul ar
+          // continua peste tabelul deja golit/rescris al nivelului urmator
+          // (bug raportat de user, 31.08.2026: "marul se plimba aiurea pe
+          // tabelul golit"). Il lasam pe ecran pana se termina zborul, apoi il
+          // curatam — instanta oricum a pornit deja o structura noua pt.
+          // urmatorul bv (elDiv == null mai jos), deci n-are cum sa se
+          // amestece cu ea.
+          const elDivDeCurata = elDiv;
+          setTimeout(() => elDivDeCurata.remove(), ramas);
+        } else {
+          elDiv.remove();
+        }
+      }
       elDiv = null;
       elEgal = null;
       elCosA = null;
@@ -381,5 +409,6 @@
   global.IlustrareBonduri = {
     mereDeMutat,
     creeaza,
+    DURATA_TRANZITIE_MS,
   };
 })(window);

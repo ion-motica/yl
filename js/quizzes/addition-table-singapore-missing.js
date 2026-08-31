@@ -282,7 +282,7 @@
       );
     }
 
-    function construieste_pasul_de_serie_terminata(label) {
+    function construieste_pasul_de_serie_terminata(label, { asteaptaAnimatia = false } = {}) {
       const finishedLevel = level;
       const holdView = roundView({ hintMessage: "" });
 
@@ -318,6 +318,13 @@
           message: `Corect! ${label}`,
           ...holdView,
           pasUrmator: {
+            // Daca ultimul bv rezolvat inainte de avans a pornit un zbor de
+            // discuri (vezi ilustrareBonduri.arataBv/zborDeclansat, mai sus),
+            // asteptam sa se termine INAINTE sa aratam tabelul nivelului
+            // urmator — altfel discurile ajung sa zboare peste tabelul deja
+            // rescris (cerere user, 31.08.2026: "asteapta sa se termine
+            // animatia inainte sa treci la nivelul urmator").
+            ...(asteaptaAnimatia ? { dupa: global.IlustrareBonduri.DURATA_TRANZITIE_MS + 100 } : {}),
             continua: {
               outcome: "serie-terminata",
               correct: true,
@@ -403,6 +410,10 @@
               wrongFactIds.some(
                 (item) => item.factId === currentFact.factId && item.missingSide === currentMissingSide
               );
+            // true daca bv-ul tocmai rezolvat a pornit un zbor de discuri —
+            // citit de construieste_pasul_de_serie_terminata mai jos, ca sa
+            // amane avansul de nivel pana se termina (cerere user, 31.08.2026).
+            let zborDeclansat = false;
             if (!esteRecuperareInFazaPrincipala) {
               const bvLabel = decompositionLabel(currentFact);
               bvRezolvate.add(bvLabel);
@@ -411,11 +422,12 @@
               // declanseaza doar in browser, nu schimba deloc fluxul de raspuns.
               if (typeof document !== "undefined") {
                 const { a, b } = currentFact.values;
-                ilustrareBonduri.arataBv({
+                const randEl = document
+                  .getElementById("top-number")
+                  ?.querySelector(`[data-element-div-intrebare="bv-${bvLabel}"]`);
+                const rezultatIlustratie = ilustrareBonduri.arataBv({
                   containerEl: document.getElementById("arena"),
-                  randEl: document
-                    .getElementById("top-number")
-                    ?.querySelector(`[data-element-div-intrebare="bv-${bvLabel}"]`),
+                  randEl,
                   nivel: level,
                   a,
                   b,
@@ -425,6 +437,17 @@
                     .getElementById("falling-main")
                     ?.getBoundingClientRect().width,
                 });
+                zborDeclansat = Boolean(rezultatIlustratie?.zborDeclansat);
+                // Randul propriu (cifrele "a+b") se scrie ACUM, in aceeasi
+                // bucla sincrona ca ilustratia — altfel motorul il rescrie
+                // abia peste ~160ms (DEFAULT_REVEAL_HOLD_MS, vezi
+                // falling-engine.js), iar ilustratia apare langa un rand inca
+                // gol "{nivel}=" (cerere user, 31.08.2026: "trebuie sa apara
+                // simultan tot, instantaneu").
+                const elemRand = global.InventarBonduri.elementeDivIntrebare(inventarCurent()).find(
+                  (elem) => elem.id === `bv-${bvLabel}`
+                );
+                if (randEl && elemRand) randEl.innerHTML = elemRand.html;
               }
             }
             activeQueue.shift();
@@ -447,7 +470,10 @@
               a_gresit_in_serie = false;
             }
 
-            return { action: "continue", view: construieste_pasul_de_serie_terminata(label) };
+            return {
+              action: "continue",
+              view: construieste_pasul_de_serie_terminata(label, { asteaptaAnimatia: zborDeclansat }),
+            };
           },
         },
       });
