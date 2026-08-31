@@ -172,10 +172,14 @@
     // 0 daca niciunul in curs. Foloseste `reseteaza()` ca sa nu elimine div-ul
     // ilustratiei cat timp inca zboara ceva spre el (vezi acolo).
     let zborInCursPanaLa = 0;
-    // Clonele create de joacaSpectacolFinal — elemente independente de elDiv,
-    // create direct in containerEl, deci reseteaza() trebuie sa le curate
-    // explicit (nu se sterg singure ca elDiv).
-    let cloneSpectacol = [];
+    // Clone LASATE PE LOC, independente de elDiv, create direct in
+    // containerEl — deci reseteaza() trebuie sa le curate explicit (nu se
+    // sterg singure ca elDiv). Doua surse: joacaSpectacolFinal (cascada de
+    // final de nivel) SI arataBv, cand modul "Ilustratie la: toate
+    // bondurile cu raspuns" e activ (cerere user, 31.08.2026) — la fiecare
+    // bv nou, elDiv se cloneaza EXACT cum arata acum, inainte sa se mute la
+    // randul nou, ca ilustratia randului vechi sa ramana vizibila definitiv.
+    let cloneRamase = [];
     // Cand se termina (timestamp) spectacolul final in curs — 0 daca
     // niciunul. Acelasi rol ca zborInCursPanaLa, pt. reseteaza() (vezi acolo).
     let spectacolInCursPanaLa = 0;
@@ -518,10 +522,11 @@
       grup.style.left = `${sursa.left}px`;
       grup.style.top = `${sursa.top}px`;
       grup.style.height = `${discPx}px`;
-      // Fundal ALB, nu culoarea cosului destinatie (cerere user, 31.08.2026:
-      // "bila care se plimba sa nu mai aiba fundalul unui cos" — cu fundal
-      // colorat parea un al doilea cos plutitor, nu o bila in zbor).
-      grup.style.backgroundColor = "#fff";
+      // FARA fundal, deloc — nici alb, nici culoarea cosului destinatie
+      // (cerere user, 31.08.2026: "scoate-i orice halou" — orice fundal,
+      // chiar si alb, tot citea ca un al doilea cos plutitor, nu ca o bila
+      // liber in zbor). Vizibilitatea discului insusi pe fundalul paginii
+      // ramane o discutie separata, deocamdata neatinsa aici.
       grup.style.setProperty("--ilustrare-dx", `${destinatie.left - sursa.left}px`);
       grup.style.setProperty("--ilustrare-dy", `${destinatie.top - sursa.top}px`);
       grup.style.animationDuration = `${getDurataTranzitieMs()}ms`;
@@ -552,7 +557,7 @@
     // (vezi js/quizzes/addition-table-singapore-missing.js). Quizul
     // furnizeaza explicit tot ce trebuie — modulul nu ghiceste nimic din
     // starea quizului.
-    function arataBv({ containerEl, randEl, nivel, a, b, culoareA, culoareB, latimeDisponibila, faraAnimatie }) {
+    function arataBv({ containerEl, randEl, nivel, a, b, culoareA, culoareB, latimeDisponibila, faraAnimatie, acumuleaza }) {
       if (!containerEl || !randEl) return { zborDeclansat: false };
       const m = pregatesteNivel({ nivel, randEl, containerEl, latimeCaseta: latimeDisponibila });
       if (!m) return { zborDeclansat: false };
@@ -646,28 +651,46 @@
         return { zborDeclansat: Boolean(mutarePornire && mutarePornire.count > 0) };
       }
 
+      if (acumuleaza) {
+        // "Ilustratie la: toate bondurile cu raspuns" (cerere user,
+        // 31.08.2026) — inainte sa mutam elDiv la randul NOU, il clonam
+        // EXACT cum arata acum (randul VECHI, deja asezat), si lasam clona
+        // pe loc definitiv. Reutilizeaza acelasi tipar ca joacaSpectacolFinal
+        // ("ilustratia veche ramane pe pozitia ei"), doar ca declansat aici
+        // pas cu pas, la fiecare raspuns, nu intr-o cascada la finalul
+        // nivelului.
+        const clonaRamasa = elDiv.cloneNode(true);
+        // Clona ramane STATICA definitiv — daca zborul bv-ului anterior inca
+        // n-a aterizat (raspuns foarte rapid), discurile "e-in-zbor" ar
+        // ramane ascunse PERMANENT pe ea (nimeni nu mai are ocazia sa le
+        // curete, ca la elDiv). Le facem vizibile explicit, chiar acum.
+        clonaRamasa
+          .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
+          .forEach((el) => el.classList.remove("e-in-zbor"));
+        containerEl.appendChild(clonaRamasa);
+        cloneRamase.push(clonaRamasa);
+      }
+
       if (faraAnimatie) {
         // Ultimul bv al nivelului, chiar inainte de Spectacol 1: bila
-        // TELEPORTEAZA direct in cosul destinatie, fara zbor si fara
-        // asteptare — spectacolul preia imediat dupa si face EL insusi
+        // TELEPORTEAZA direct in cosul destinatie (fara zbor, fara discuri
+        // ascunse care asteapta sa aterizeze), dar cosul si pozitia raman
+        // ANIMATE — tranzitiile sunt DEJA active continuu de la primul bv al
+        // nivelului (niciodata dezactivate intre bv-uri, vezi mai jos), deci
+        // NU trebuie atinse aici. Bug anterior: le dezactivam, setam direct
+        // valorile FINALE, apoi le reactivam fara sa mai schimb nimic dupa —
+        // asta anula orice animatie (nimic nu mai ramanea de tranzitionat),
+        // exact "animatia brusca, fara pasi intermediari" raportat de user
+        // (31.08.2026, cu poze "de la 4+1 la 3+2, nu exista frame-uri
+        // intermediare"). Spectacolul preia imediat dupa si face EL insusi
         // singura tranzitie animata (de la acest bond la randul 1), evitand
-        // doua tranzitii simultane pe acelasi elDiv (cerere user,
-        // 31.08.2026: "nu mai astepta sa se finalizeze ilustratia animata
-        // ... bila se teleporteaza in cosul destinatie apoi cosul se
-        // lateste si se deplaseaza" — coliziunea celor doua tranzitii era
-        // cauza cea mai probabila a "bilei lui Schrodinger", prezenta
-        // simultan in ambele cosuri).
-        elDiv.style.transition = "none";
-        elCosA.style.transition = "none";
-        elCosB.style.transition = "none";
+        // doua tranzitii simultane pe acelasi elDiv — coliziunea celor doua
+        // era cauza cea mai probabila a "bilei lui Schrodinger", prezenta
+        // simultan in ambele cosuri.
         elDiv.style.top = `${pozitie.top}px`;
         elDiv.style.left = `${pozitie.left}px`;
         umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar);
         umpleCos(elCosB, b, culoareB, disc, m.inaltimeNumar);
-        void elDiv.offsetWidth;
-        elDiv.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
-        elCosA.style.transition = `width ${ms}ms ease`;
-        elCosB.style.transition = `width ${ms}ms ease`;
         ultimulBv = { a, b };
         return { zborDeclansat: false };
       }
@@ -924,7 +947,7 @@
         aplicaBondPe(clona, dateRanduri[indexCurent], ascunseA, ascunseB);
         clona.style.top = `${dateRanduri[indexCurent].top}px`;
         clona.style.left = `${dateRanduri[indexCurent].left}px`;
-        cloneSpectacol.push(clona);
+        cloneRamase.push(clona);
         elementCurent = clona;
 
         // Discurile sosite devin vizibile exact cand aterizeaza grupul —
@@ -969,7 +992,7 @@
         // (zbor de discuri sau cascada Spectacol 1) ar continua peste
         // tabelul deja golit/rescris al nivelului urmator (bug raportat de
         // user, 31.08.2026: "marul se plimba aiurea pe tabelul golit").
-        // ATENTIE: `cloneSpectacol` NU se reasigneaza aici — cascada mai
+        // ATENTIE: `cloneRamase` NU se reasigneaza aici — cascada mai
         // poate impinge in ea clone noi pana se termina (vezi
         // joacaSpectacolFinal); reasignarea acum ar rupe legatura, iar
         // clonele create dupa acest moment n-ar mai fi curatate niciodata.
@@ -977,13 +1000,13 @@
         // (elDiv == null mai jos), deci n-are cum sa se amestece cu ea.
         setTimeout(() => {
           if (elDivDeCurata) elDivDeCurata.remove();
-          cloneSpectacol.forEach((clona) => clona.remove());
-          cloneSpectacol = [];
+          cloneRamase.forEach((clona) => clona.remove());
+          cloneRamase = [];
         }, ramas);
       } else {
         if (elDivDeCurata) elDivDeCurata.remove();
-        cloneSpectacol.forEach((clona) => clona.remove());
-        cloneSpectacol = [];
+        cloneRamase.forEach((clona) => clona.remove());
+        cloneRamase = [];
       }
       elDiv = null;
       elEgal = null;
