@@ -513,44 +513,76 @@
         if (!mount) return;
         mount.replaceChildren();
 
-        const PAS_S = 0.1;
-        const MIN_S = 0.5;
-        const MAX_S = 10;
-        const roundS = (s) => Math.round(s * 10) / 10;
+        // Un singur stepper generic pt. toate cele 3-4 campuri numerice ale
+        // acestui panou (vezi documente de referinta/razgandire-ieftina.md —
+        // acelasi tipar ca appendStepper din pre-equations-eff-navigation.js).
+        // `afecteazaMasurarea`: campurile care schimba dimensiuni ale
+        // ilustratiei (nu doar durata unei animatii) trebuie sa invalideze
+        // masurile memorate per nivel (ilustrareBonduri.reseteaza()) — altfel
+        // schimbarea nu se vede decat la nivelul urmator.
+        const appendStepperField = ({ eticheta, min, max, pas, zecimale, get, set, afecteazaMasurarea }) => {
+          const rotunjeste = (v) => {
+            const factor = 10 ** zecimale;
+            return Math.round(v * factor) / factor;
+          };
 
-        const field = document.createElement("div");
-        field.className = "control-panel-lift-field pre-eq-stepper-field";
-        const label = document.createElement("label");
-        label.textContent = "Viteza reasezare mere";
-        const controls = document.createElement("div");
-        controls.className = "pre-eq-stepper";
+          const field = document.createElement("div");
+          field.className = "control-panel-lift-field pre-eq-stepper-field";
+          const label = document.createElement("label");
+          label.textContent = eticheta;
+          const controls = document.createElement("div");
+          controls.className = "pre-eq-stepper";
 
-        const minus = document.createElement("button");
-        minus.type = "button";
-        minus.textContent = "-";
-        const input = document.createElement("input");
-        input.type = "number";
-        input.min = String(MIN_S);
-        input.max = String(MAX_S);
-        input.step = String(PAS_S);
-        input.value = roundS(global.IlustrareBonduri.getDurataTranzitieMs() / 1000).toFixed(1);
-        const plus = document.createElement("button");
-        plus.type = "button";
-        plus.textContent = "+";
+          const minus = document.createElement("button");
+          minus.type = "button";
+          minus.textContent = "-";
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = String(min);
+          input.max = String(max);
+          input.step = String(pas);
+          input.value = rotunjeste(get()).toFixed(zecimale);
+          const plus = document.createElement("button");
+          plus.type = "button";
+          plus.textContent = "+";
 
-        const aplica = (secunde) => {
-          const clamped = Math.min(MAX_S, Math.max(MIN_S, roundS(secunde)));
-          global.IlustrareBonduri.setDurataTranzitieMs(Math.round(clamped * 1000));
-          input.value = clamped.toFixed(1);
+          const aplica = (valoare) => {
+            const clamped = Math.min(max, Math.max(min, rotunjeste(valoare)));
+            set(clamped);
+            input.value = clamped.toFixed(zecimale);
+            if (afecteazaMasurarea) ilustrareBonduri.reseteaza();
+          };
+
+          minus.addEventListener("click", () => aplica(Number(input.value) - pas));
+          plus.addEventListener("click", () => aplica(Number(input.value) + pas));
+          input.addEventListener("change", () => aplica(Number(input.value)));
+
+          controls.append(minus, input, plus);
+          field.append(label, controls);
+          mount.appendChild(field);
         };
 
-        minus.addEventListener("click", () => aplica(Number(input.value) - PAS_S));
-        plus.addEventListener("click", () => aplica(Number(input.value) + PAS_S));
-        input.addEventListener("change", () => aplica(Number(input.value)));
+        appendStepperField({
+          eticheta: "Viteza reasezare mere (s)",
+          min: 0.5,
+          max: 10,
+          pas: 0.1,
+          zecimale: 1,
+          get: () => global.IlustrareBonduri.getDurataTranzitieMs() / 1000,
+          set: (s) => global.IlustrareBonduri.setDurataTranzitieMs(Math.round(s * 1000)),
+          afecteazaMasurarea: false,
+        });
 
-        controls.append(minus, input, plus);
-        field.append(label, controls);
-        mount.appendChild(field);
+        appendStepperField({
+          eticheta: "Diametru disc (% din font)",
+          min: 20,
+          max: 300,
+          pas: 5,
+          zecimale: 0,
+          get: () => global.IlustrareBonduri.getDiametruDiscPct(),
+          set: (pct) => global.IlustrareBonduri.setDiametruDiscPct(pct),
+          afecteazaMasurarea: true,
+        });
       },
 
       isCompleted: () => gameCompleted,

@@ -1,37 +1,67 @@
 (function (global) {
   "use strict";
 
+  // Fabrica pt. setari reglabile din CP, persistate prin LayoutConfig —
+  // tiparul comun la toate setarile live ale ilustratiei (durata tranzitiei,
+  // diametrul discului, ...): citire LENESA, nu la incarcarea modulului. In
+  // index.html js/layout-config.js se incarca DUPA bond-illustration.js,
+  // deci la momentul in care ruleaza acest fisier, global.LayoutConfig inca
+  // nu exista — o citire directa aici ar cadea mereu pe implicit si ar
+  // ignora tacut valoarea salvata. Valoarea ramane `null` pana la prima
+  // citire REALA (prin `.get()`), moment la care LayoutConfig e deja
+  // incarcat. `valideaza` (optional) filtreaza/corecteaza valori invalide
+  // atat la citire cat si la scriere (ex. nu se persista un NaN).
+  function creeazaSetareReglabila(cheie, implicit, valideaza = (v) => v) {
+    let valoare = null;
+    return {
+      get() {
+        if (valoare == null) {
+          const citita = global.LayoutConfig && global.LayoutConfig.get(cheie, implicit);
+          valoare = valideaza(citita) ?? implicit;
+        }
+        return valoare;
+      },
+      set(nou) {
+        valoare = valideaza(nou) ?? implicit;
+        if (global.LayoutConfig) global.LayoutConfig.set(cheie, valoare);
+      },
+    };
+  }
+
+  function numarPozitivSauNimic(v) {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
   // Durata comuna a celor 3 miscari simultane (deplasarea divului, zborul
   // grupului de discuri, redimensionarea cosurilor). Reglabila live din CP
   // (cerere user, 31.08.2026: "Viteza reasezare mere" — panoul CP al
-  // quizului pilot, pas 0.1s), persistata prin LayoutConfig ca sa
-  // supravietuiasca la reincarcarea paginii.
-  //
-  // Citire LENESA (nu la incarcarea modulului): in index.html
-  // js/layout-config.js se incarca DUPA bond-illustration.js, deci la
-  // momentul in care ruleaza acest fisier, global.LayoutConfig inca nu
-  // exista — o citire directa aici ar cadea mereu pe implicit si ar ignora
-  // tacut valoarea salvata. `durataTranzitieMs` ramane `null` pana la prima
-  // citire REALA (prin getDurataTranzitieMs, singura cale de acces internă
-  // — vezi mai jos), moment la care LayoutConfig e deja incarcat.
-  const DURATA_TRANZITIE_MS_IMPLICITA = 3000;
-  const CHEIE_LAYOUT_CONFIG_DURATA = "ilustrareBonduriDurataTranzitieMs";
-  let durataTranzitieMs = null;
-
+  // quizului pilot, pas 0.1s).
+  const setareDurataTranzitie = creeazaSetareReglabila(
+    "ilustrareBonduriDurataTranzitieMs",
+    3000,
+    numarPozitivSauNimic
+  );
   function getDurataTranzitieMs() {
-    if (durataTranzitieMs == null) {
-      durataTranzitieMs =
-        (global.LayoutConfig &&
-          global.LayoutConfig.get(CHEIE_LAYOUT_CONFIG_DURATA, DURATA_TRANZITIE_MS_IMPLICITA)) ||
-        DURATA_TRANZITIE_MS_IMPLICITA;
-    }
-    return durataTranzitieMs;
+    return setareDurataTranzitie.get();
+  }
+  function setDurataTranzitieMs(ms) {
+    setareDurataTranzitie.set(ms);
   }
 
-  function setDurataTranzitieMs(ms) {
-    const valoare = Number(ms);
-    durataTranzitieMs = Number.isFinite(valoare) && valoare > 0 ? valoare : DURATA_TRANZITIE_MS_IMPLICITA;
-    if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_LAYOUT_CONFIG_DURATA, durataTranzitieMs);
+  // Diametrul discului, ca procent din inaltimea reala masurata a unui numar
+  // colorat (100% = neschimbat) — reglabil live din CP (cerere user,
+  // 31.08.2026: "Diametru disc -[100%]+ din font").
+  const setareDiametruDiscPct = creeazaSetareReglabila(
+    "ilustrareBonduriDiametruDiscPct",
+    100,
+    numarPozitivSauNimic
+  );
+  function getDiametruDiscPct() {
+    return setareDiametruDiscPct.get();
+  }
+  function setDiametruDiscPct(pct) {
+    setareDiametruDiscPct.set(pct);
   }
 
   // Padding+border orizontal ale UNUI cos.
@@ -228,7 +258,11 @@
         return elDiv.getBoundingClientRect().width;
       };
 
-      let dimensiuneDiscPx = inaltimeNumarProba(randuriEl) || inaltimeFontRand(randEl);
+      const inaltimeNumarBaza = inaltimeNumarProba(randuriEl) || inaltimeFontRand(randEl);
+      // Procentul din CP (implicit 100% = neschimbat) se aplica pe baza
+      // masurata, INAINTE de shrink-to-fit — shrink-ul ramane o plasa de
+      // siguranta care se aplica peste orice marime aleasa de user.
+      let dimensiuneDiscPx = Math.max(DISC_MIN_PX, Math.round((inaltimeNumarBaza * getDiametruDiscPct()) / 100));
       let latimeIlustratie = masoaraIlustratia(dimensiuneDiscPx);
       let m = masoaraRand({ nivel, latimeIlustratie, randuriEl });
 
@@ -489,5 +523,7 @@
     creeaza,
     getDurataTranzitieMs,
     setDurataTranzitieMs,
+    getDiametruDiscPct,
+    setDiametruDiscPct,
   };
 })(window);
