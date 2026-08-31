@@ -635,60 +635,101 @@
     // inainte sa arate nivelul urmator, ca show-ul sa apuce sa se termine.
     function joacaSpectacolFinal({ containerEl, randuriEl }, gataCallback) {
       const ms = getDurataTranzitieMs();
-      if (!elDiv || !containerEl || !randuriEl || !randuriEl.children.length) {
+      if (!elDiv || !containerEl || !randuriEl || !randuriEl.children.length || !masuri) {
         gataCallback?.();
         return { durataTotalaMs: 0 };
       }
+
+      // Referinte LOCALE la elDiv/masuri, capturate ACUM — pana termina
+      // cascada (cateva sute de ms - cateva secunde), quizul apeleaza aproape
+      // sigur reseteaza() (nivelul urmator incepe imediat dupa), care pune
+      // AMBELE variabile din closure pe null. urmatorulPas() (mai jos)
+      // ruleaza async, dupa acel moment — daca ar citi `elDiv`/`masuri`
+      // direct, ar pica (bug reprodus si prins cu Playwright, 31.08.2026, de
+      // doua ori — o data pt. elDiv, o data pt. masuri). Folosim doar
+      // `elDivOriginal`/`masuriOriginale` in tot restul functiei.
+      const elDivOriginal = elDiv;
+      const masuriOriginale = masuri;
 
       // Daca ultimul bv rezolvat inainte de spectacol a pornit un zbor de
       // discuri, unele discuri pot fi inca marcate "e-in-zbor" (invizibile,
       // asteptand sa aterizeze) — cleanup-ul normal (vezi arataBv) tinteste
       // doar elDiv, nu si clonele create mai jos, deci ele ar mosteni starea
-      // ascunsa PERMANENT (bug raportat de user, 31.08.2026: "uite punctele"
-      // — majoritatea discurilor lipseau din cascada). Nivelul e oricum
-      // COMPLET aici, nu mai are sens sa asteptam nicio aterizare — le facem
-      // vizibile explicit, chiar acum, inainte sa clonam orice.
-      elDiv
+      // ascunsa PERMANENT. Nivelul e oricum COMPLET aici, nu mai are sens sa
+      // asteptam nicio aterizare — le facem vizibile explicit, chiar acum,
+      // inainte sa clonam orice.
+      elDivOriginal
         .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
         .forEach((el) => el.classList.remove("e-in-zbor"));
 
-      const randuri = Array.from(randuriEl.children);
+      // Bondul + pozitia FIECARUI rand — citite direct din randul viu (deja
+      // randat cu cifrele si culorile corecte), nu preluate de la ultimul bv
+      // rezolvat. Fiecare etaj din cascada trebuie sa arate PROPRIUL sau
+      // numar de mere (cerere user, 31.08.2026: "numarul de mere e acelasi
+      // pe fiecare linie, ar trebui sa corespunda bondului de pe linia
+      // respectiva" — bug-ul initial clona literal continutul, in loc sa-l
+      // rescrie pt. fiecare rand).
       const rParinte = containerEl.getBoundingClientRect();
-      const gapStanga = masuri ? masuri.latimeTextPlusGap : 0;
-      const pozitiiRanduri = randuri.map((rand) => {
-        const rRand = rand.getBoundingClientRect();
-        return {
-          top: rRand.top - rParinte.top + rRand.height / 2,
-          left: rRand.left - rParinte.left + gapStanga,
-        };
-      });
+      const dateRanduri = Array.from(randuriEl.children)
+        .map((rand) => {
+          const numere = rand.querySelectorAll(".inventar-bonduri-numar");
+          if (numere.length < 2) return null;
+          const rRand = rand.getBoundingClientRect();
+          return {
+            a: Number(numere[0].textContent),
+            b: Number(numere[1].textContent),
+            culoareA: numere[0].style.backgroundColor,
+            culoareB: numere[1].style.backgroundColor,
+            top: rRand.top - rParinte.top + rRand.height / 2,
+            left: rRand.left - rParinte.left + masuriOriginale.latimeTextPlusGap,
+          };
+        })
+        .filter(Boolean);
+      if (!dateRanduri.length) {
+        gataCallback?.();
+        return { durataTotalaMs: 0 };
+      }
 
-      // Ilustratia LIVE urca la randul 1 — tranzitia e deja activa (nu e
-      // primul bv al nivelului, altfel nu s-ar fi ajuns la finalul lui).
-      elDiv.style.top = `${pozitiiRanduri[0].top}px`;
-      elDiv.style.left = `${pozitiiRanduri[0].left}px`;
+      // Umple cosurile unui div de ilustratie (elDiv SAU un clon) cu bondul
+      // unui anume rand — reutilizeaza umpleCos (functia comuna), care nu
+      // presupune nimic despre a cui e cosEl.
+      const aplicaBondPe = (elDivTinta, dateRand) => {
+        const cosA = elDivTinta.children[1];
+        const cosB = elDivTinta.children[3];
+        if (cosA) umpleCos(cosA, dateRand.a, dateRand.culoareA, masuriOriginale.dimensiuneDiscPx, masuriOriginale.inaltimeNumar);
+        if (cosB) umpleCos(cosB, dateRand.b, dateRand.culoareB, masuriOriginale.dimensiuneDiscPx, masuriOriginale.inaltimeNumar);
+      };
 
-      let elementCurent = elDiv;
+      // Ilustratia LIVE urca la randul 1, cu bondul PROPRIU randului 1 (nu
+      // cu ce arata acum, ramas de la ultimul bv rezolvat).
+      aplicaBondPe(elDivOriginal, dateRanduri[0]);
+      elDivOriginal.style.top = `${dateRanduri[0].top}px`;
+      elDivOriginal.style.left = `${dateRanduri[0].left}px`;
+
       let indexCurent = 0;
 
       const urmatorulPas = () => {
-        if (indexCurent >= pozitiiRanduri.length - 1) {
+        if (indexCurent >= dateRanduri.length - 1) {
           setTimeout(() => gataCallback?.(), 500);
           return;
         }
         // Clona porneste EXACT peste elementul care tocmai a ajuns (fara
         // tranzitie, cu reflow fortat — acelasi tipar ca la prima aparitie
-        // din nivel, ca sa nu "gliseze" gresit din 0,0).
-        const clona = elementCurent.cloneNode(true);
+        // din nivel, ca sa nu "gliseze" gresit din 0,0), apoi primeste
+        // bondul randului spre care porneste. Clonam mereu structura din
+        // elDivOriginal (nu din clonul anterior) — continutul se rescrie
+        // oricum, deci nu conteaza sursa, doar structura
+        // (egal/cosA/semn/cosB).
+        const clona = elDivOriginal.cloneNode(true);
         clona.style.transition = "none";
         containerEl.appendChild(clona);
         void clona.offsetWidth;
         clona.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
         indexCurent += 1;
-        clona.style.top = `${pozitiiRanduri[indexCurent].top}px`;
-        clona.style.left = `${pozitiiRanduri[indexCurent].left}px`;
+        aplicaBondPe(clona, dateRanduri[indexCurent]);
+        clona.style.top = `${dateRanduri[indexCurent].top}px`;
+        clona.style.left = `${dateRanduri[indexCurent].left}px`;
         cloneSpectacol.push(clona);
-        elementCurent = clona;
         setTimeout(urmatorulPas, ms);
       };
 
@@ -698,7 +739,7 @@
       // finala de 0.5s — usor supraestimat (foloseste N, nu N-1, ca marja),
       // nu costa nimic sa astepte quizul putin mai mult decat strictul
       // necesar.
-      const durataTotalaMs = pozitiiRanduri.length * ms + 500;
+      const durataTotalaMs = dateRanduri.length * ms + 500;
       spectacolInCursPanaLa = Date.now() + durataTotalaMs;
       return { durataTotalaMs };
     }
