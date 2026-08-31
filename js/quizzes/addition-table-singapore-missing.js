@@ -11,6 +11,18 @@
   // de `createAdditionTableSingaporeMissingQuiz`). Vezi js/placeholder-raspuns.js.
   const placeholder = global.PlaceholderRaspuns.creeaza("?");
 
+  // Setarea "Spectacol la final de level" (CP) — reglabila din panoul CP al
+  // acestui quiz, persistata prin LayoutConfig (cerere user, 31.08.2026).
+  // "nimic" = comportamentul de azi; "spectacol1" = cascada descrisa in
+  // ilustrareBonduri.joacaSpectacolFinal.
+  const CHEIE_SPECTACOL_FINAL = "singaporeMissingSpectacolFinalDeLevel";
+  function getSpectacolFinalDeLevel() {
+    return (global.LayoutConfig && global.LayoutConfig.get(CHEIE_SPECTACOL_FINAL, "nimic")) || "nimic";
+  }
+  function setSpectacolFinalDeLevel(valoare) {
+    if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_SPECTACOL_FINAL, valoare);
+  }
+
   function createAdditionTableSingaporeMissingQuiz() {
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore } = global;
@@ -350,6 +362,24 @@
           };
         }
 
+        // "Spectacol 1" (cerere user, 31.08.2026, camp CP "Spectacol la
+        // final de level") — cascada de ilustratii, una la fiecare rand;
+        // trebuie pornita ACUM, cat randuriEl inca arata tabelul COMPLET
+        // rezolvat al nivelului care se incheie (incepe_serie_de_intrebari,
+        // mai jos, il inlocuieste cu cel al nivelului urmator). Nu se aplica
+        // la ultimul nivel (acolo nu exista "nivel urmator" catre care sa
+        // avanseze dupa show — ramane pe ramura finishedLevel >= MAX_LEVEL,
+        // mai sus, neatinsa).
+        let dupaMs = asteaptaAnimatia ? global.IlustrareBonduri.getDurataTranzitieMs() + 100 : 0;
+        if (getSpectacolFinalDeLevel() === "spectacol1" && typeof document !== "undefined") {
+          const randuriEl = document
+            .getElementById("top-number")
+            ?.querySelector(".inventar-bonduri-randuri");
+          const containerEl = document.getElementById("arena");
+          const { durataTotalaMs } = ilustrareBonduri.joacaSpectacolFinal({ containerEl, randuriEl });
+          dupaMs = Math.max(dupaMs, durataTotalaMs);
+        }
+
         level++;
         const nextView = incepe_serie_de_intrebari();
         return {
@@ -360,12 +390,13 @@
           ...holdView,
           pasUrmator: {
             // Daca ultimul bv rezolvat inainte de avans a pornit un zbor de
-            // discuri (vezi ilustrareBonduri.arataBv/zborDeclansat, mai sus),
-            // asteptam sa se termine INAINTE sa aratam tabelul nivelului
-            // urmator — altfel discurile ajung sa zboare peste tabelul deja
-            // rescris (cerere user, 31.08.2026: "asteapta sa se termine
-            // animatia inainte sa treci la nivelul urmator").
-            ...(asteaptaAnimatia ? { dupa: global.IlustrareBonduri.getDurataTranzitieMs() + 100 } : {}),
+            // discuri (vezi ilustrareBonduri.arataBv/zborDeclansat, mai sus)
+            // sau ruleaza Spectacol 1 (mai sus), asteptam sa se termine
+            // INAINTE sa aratam tabelul nivelului urmator — altfel discurile
+            // sau cascada ajung sa se vada peste tabelul deja rescris
+            // (cerere user, 31.08.2026: "asteapta sa se termine animatia
+            // inainte sa treci la nivelul urmator").
+            ...(dupaMs > 0 ? { dupa: dupaMs } : {}),
             continua: {
               outcome: "serie-terminata",
               correct: true,
@@ -644,6 +675,31 @@
           set: (pct) => global.IlustrareBonduri.setRandTargetLatimePct(pct),
           afecteazaMasurarea: true,
         });
+
+        // Dropdown "Spectacol la final de level" (cerere user, 31.08.2026) —
+        // deocamdata 2 optiuni: "nimic" (comportamentul de azi) si
+        // "Spectacol 1" (cascada, vezi ilustrareBonduri.joacaSpectacolFinal
+        // si construieste_pasul_de_serie_terminata, mai sus).
+        const fieldSpectacol = document.createElement("div");
+        fieldSpectacol.className = "control-panel-lift-field";
+        const labelSpectacol = document.createElement("label");
+        labelSpectacol.textContent = "Spectacol la final de level:";
+        const selectSpectacol = document.createElement("select");
+        [
+          { value: "nimic", text: "nimic" },
+          { value: "spectacol1", text: "Spectacol 1" },
+        ].forEach(({ value, text }) => {
+          const optiune = document.createElement("option");
+          optiune.value = value;
+          optiune.textContent = text;
+          selectSpectacol.appendChild(optiune);
+        });
+        selectSpectacol.value = getSpectacolFinalDeLevel();
+        selectSpectacol.addEventListener("change", () => {
+          setSpectacolFinalDeLevel(selectSpectacol.value);
+        });
+        fieldSpectacol.append(labelSpectacol, selectSpectacol);
+        mount.appendChild(fieldSpectacol);
       },
 
       isCompleted: () => gameCompleted,
