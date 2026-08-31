@@ -172,6 +172,13 @@
     // 0 daca niciunul in curs. Foloseste `reseteaza()` ca sa nu elimine div-ul
     // ilustratiei cat timp inca zboara ceva spre el (vezi acolo).
     let zborInCursPanaLa = 0;
+    // Clonele create de joacaSpectacolFinal — elemente independente de elDiv,
+    // create direct in containerEl, deci reseteaza() trebuie sa le curate
+    // explicit (nu se sterg singure ca elDiv).
+    let cloneSpectacol = [];
+    // Cand se termina (timestamp) spectacolul final in curs — 0 daca
+    // niciunul. Acelasi rol ca zborInCursPanaLa, pt. reseteaza() (vezi acolo).
+    let spectacolInCursPanaLa = 0;
 
     function structuraExista() {
       return Boolean(elDiv && elDiv.isConnected && elCosA && elCosB);
@@ -617,6 +624,73 @@
       return { zborDeclansat };
     }
 
+    // "Spectacol 1" (cerere user, 31.08.2026, camp CP "Spectacol la final de
+    // level"): la finalul unui nivel, ilustratia urca la randul 1, apoi se
+    // multiplica in cascada — la fiecare pas se creeaza un CLONE EXACT peste
+    // ilustratia care tocmai a ajuns la randul ei, originalul ramane pe loc,
+    // iar clonul continua sa coboare la randul urmator — pana fiecare rand
+    // are ilustratia proprie. `randuriEl` = containerul tuturor randurilor
+    // tabelului nivelului CARE SE INCHEIE (nu al celui urmator). Intoarce
+    // `{ durataTotalaMs }` — cat trebuie sa astepte quizul (pasUrmator.dupa)
+    // inainte sa arate nivelul urmator, ca show-ul sa apuce sa se termine.
+    function joacaSpectacolFinal({ containerEl, randuriEl }, gataCallback) {
+      const ms = getDurataTranzitieMs();
+      if (!elDiv || !containerEl || !randuriEl || !randuriEl.children.length) {
+        gataCallback?.();
+        return { durataTotalaMs: 0 };
+      }
+
+      const randuri = Array.from(randuriEl.children);
+      const rParinte = containerEl.getBoundingClientRect();
+      const gapStanga = masuri ? masuri.latimeTextPlusGap : 0;
+      const pozitiiRanduri = randuri.map((rand) => {
+        const rRand = rand.getBoundingClientRect();
+        return {
+          top: rRand.top - rParinte.top + rRand.height / 2,
+          left: rRand.left - rParinte.left + gapStanga,
+        };
+      });
+
+      // Ilustratia LIVE urca la randul 1 — tranzitia e deja activa (nu e
+      // primul bv al nivelului, altfel nu s-ar fi ajuns la finalul lui).
+      elDiv.style.top = `${pozitiiRanduri[0].top}px`;
+      elDiv.style.left = `${pozitiiRanduri[0].left}px`;
+
+      let elementCurent = elDiv;
+      let indexCurent = 0;
+
+      const urmatorulPas = () => {
+        if (indexCurent >= pozitiiRanduri.length - 1) {
+          setTimeout(() => gataCallback?.(), 500);
+          return;
+        }
+        // Clona porneste EXACT peste elementul care tocmai a ajuns (fara
+        // tranzitie, cu reflow fortat — acelasi tipar ca la prima aparitie
+        // din nivel, ca sa nu "gliseze" gresit din 0,0).
+        const clona = elementCurent.cloneNode(true);
+        clona.style.transition = "none";
+        containerEl.appendChild(clona);
+        void clona.offsetWidth;
+        clona.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
+        indexCurent += 1;
+        clona.style.top = `${pozitiiRanduri[indexCurent].top}px`;
+        clona.style.left = `${pozitiiRanduri[indexCurent].left}px`;
+        cloneSpectacol.push(clona);
+        elementCurent = clona;
+        setTimeout(urmatorulPas, ms);
+      };
+
+      setTimeout(urmatorulPas, ms);
+
+      // O tranzitie de urcare la randul 1 + (N-1) pasi de cascada + pauza
+      // finala de 0.5s — usor supraestimat (foloseste N, nu N-1, ca marja),
+      // nu costa nimic sa astepte quizul putin mai mult decat strictul
+      // necesar.
+      const durataTotalaMs = pozitiiRanduri.length * ms + 500;
+      spectacolInCursPanaLa = Date.now() + durataTotalaMs;
+      return { durataTotalaMs };
+    }
+
     // Apelat de quiz la schimbarea de nivel — acelasi ciclu de reset ca
     // bvRezolvate. Urmatorul bv rezolvat va fi tratat ca "primul din nivel"
     // (afisare directa, fara animatie), cu masuri recalculate. Containerul
@@ -627,22 +701,31 @@
       ultimulBv = null;
       nivelPregatit = null;
       masuri = null;
-      if (elDiv) {
-        const ramas = zborInCursPanaLa - Date.now();
-        if (ramas > 0) {
-          // Un zbor de discuri e inca in aer (vezi zborInCursPanaLa) — daca am
-          // sterge div-ul ACUM, cosurile ar disparea de sub el si zborul ar
-          // continua peste tabelul deja golit/rescris al nivelului urmator
-          // (bug raportat de user, 31.08.2026: "marul se plimba aiurea pe
-          // tabelul golit"). Il lasam pe ecran pana se termina zborul, apoi il
-          // curatam — instanta oricum a pornit deja o structura noua pt.
-          // urmatorul bv (elDiv == null mai jos), deci n-are cum sa se
-          // amestece cu ea.
-          const elDivDeCurata = elDiv;
-          setTimeout(() => elDivDeCurata.remove(), ramas);
-        } else {
-          elDiv.remove();
-        }
+      // Zborul de discuri SAU spectacolul final (Spectacol 1) pot fi inca in
+      // desfasurare — folosim termenul mai TARZIU dintre cele doua.
+      const panaLa = Math.max(zborInCursPanaLa, spectacolInCursPanaLa);
+      const ramas = panaLa - Date.now();
+      const elDivDeCurata = elDiv;
+      if (ramas > 0) {
+        // Daca am sterge ACUM elDiv/clonele, animatia inca in desfasurare
+        // (zbor de discuri sau cascada Spectacol 1) ar continua peste
+        // tabelul deja golit/rescris al nivelului urmator (bug raportat de
+        // user, 31.08.2026: "marul se plimba aiurea pe tabelul golit").
+        // ATENTIE: `cloneSpectacol` NU se reasigneaza aici — cascada mai
+        // poate impinge in ea clone noi pana se termina (vezi
+        // joacaSpectacolFinal); reasignarea acum ar rupe legatura, iar
+        // clonele create dupa acest moment n-ar mai fi curatate niciodata.
+        // Instanta oricum a pornit deja o structura noua pt. urmatorul bv
+        // (elDiv == null mai jos), deci n-are cum sa se amestece cu ea.
+        setTimeout(() => {
+          if (elDivDeCurata) elDivDeCurata.remove();
+          cloneSpectacol.forEach((clona) => clona.remove());
+          cloneSpectacol = [];
+        }, ramas);
+      } else {
+        if (elDivDeCurata) elDivDeCurata.remove();
+        cloneSpectacol.forEach((clona) => clona.remove());
+        cloneSpectacol = [];
       }
       elDiv = null;
       elEgal = null;
@@ -651,7 +734,7 @@
       elSemn = null;
     }
 
-    return { arataBv, reseteaza };
+    return { arataBv, reseteaza, joacaSpectacolFinal };
   }
 
   global.IlustrareBonduri = {
