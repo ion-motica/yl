@@ -705,7 +705,12 @@ body {
   min-width: 1.6rem;
   padding: 0.05rem 0.3rem;
   border-radius: 6px;
-  font-size: 1.05rem;
+  /* Scara e o proprietate CSS globala (pe :root), calculata numeric de
+     bond-illustration.js (vezi aplicaScaraFont) ca sa duca randul cel mai
+     lat la un procent-tinta din latimea disponibila — cerere user
+     (31.08.2026): "randul ocupa -[80%]+ din latimea divului". Implicit 1 =
+     neschimbat fata de dinainte. */
+  font-size: calc(1.05rem * var(--ilustrare-font-scala, 1));
   font-weight: 800;
   color: #0f1419;
   /* line-height:1 (cerere user, 31.08.2026): fara asta inaltimea cutiei
@@ -716,7 +721,8 @@ body {
 }
 
 .inventar-bonduri-semn {
-  font-size: 1.05rem;
+  /* Aceeasi scara ca .inventar-bonduri-numar, vezi acolo. */
+  font-size: calc(1.05rem * var(--ilustrare-font-scala, 1));
   font-weight: 800;
   color: var(--text);
   opacity: 0.85;
@@ -761,7 +767,11 @@ body {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
-  padding: 0.05rem 0.25rem;
+  /* Padding-ul REAL vine inline din JS (cerere user, 31.08.2026: reglabil
+     live din CP — vezi getPaddingCosRem/umpleCos in bond-illustration.js);
+     valoarea de aici e doar fallback pt. intervalul scurt inainte de primul
+     umpleCos(). */
+  padding: 0.05rem;
   /* Bordura ca la .quiz-picker-item (meniul de quizuri) — cerere user
      (31.08.2026): "css face cutii mai frumoase, foloseste ceva ca la
      meniul de quizuri". box-sizing:border-box de mai sus face ca bordura sa

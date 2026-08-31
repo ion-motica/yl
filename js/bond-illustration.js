@@ -64,12 +64,66 @@
     setareDiametruDiscPct.set(pct);
   }
 
-  // Padding+border orizontal ale UNUI cos.
-  const CHROME_COS_PX = 18;
+  // Procentul-tinta din latimea containerului pe care trebuie sa-l ocupe cel
+  // mai lat rand ("{nivel}=9+9" + ilustratie) — reglabil live din CP (cerere
+  // user, 31.08.2026: "randul ocupa -[80%]+ din latimea divului — regleaza
+  // fontul si diametrul discului"). Spre deosebire de celelalte setari, asta
+  // nu seteaza direct o dimensiune — pregatesteNivel CAUTA (numeric, 2 pasi)
+  // o scara de font care sa duca latimea masurata la exact acest procent;
+  // vezi fontRandScala/aplicaScaraFont mai jos.
+  const setareRandTargetLatimePct = creeazaSetareReglabila(
+    "ilustrareBonduriRandTargetLatimePct",
+    80,
+    numarPozitivSauNimic
+  );
+  function getRandTargetLatimePct() {
+    return setareRandTargetLatimePct.get();
+  }
+  function setRandTargetLatimePct(pct) {
+    setareRandTargetLatimePct.set(pct);
+  }
+
+  // Scara curenta de font a randurilor — proprietate CSS globala (pe :root),
+  // citita de .inventar-bonduri-semn/.inventar-bonduri-numar (vezi
+  // style.css). Globala, deliberat: aceleasi clase sunt folosite si de
+  // randul viu din tabel si de proba ascunsa de masurare (masoaraRand) — o
+  // singura sursa de adevar, niciun risc sa ajunga desincronizate.
+  const PROP_CSS_SCARA_FONT = "--ilustrare-font-scala";
+  function aplicaScaraFont(scala) {
+    document.documentElement.style.setProperty(PROP_CSS_SCARA_FONT, String(scala));
+  }
+
+  // Padding-ul cosului (in rem, pe toate 4 laturile), reglabil live din CP
+  // (cerere user, 31.08.2026: "Padding cos -[]+" — vrea sa poata potrivi
+  // vizual cosurile cu badge-urile de cifre). Aplicat inline pe fiecare cos,
+  // vezi umpleCos.
+  const setarePaddingCosRem = creeazaSetareReglabila("ilustrareBonduriPaddingCosRem", 0.05, (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  });
+  function getPaddingCosRem() {
+    return setarePaddingCosRem.get();
+  }
+  function setPaddingCosRem(rem) {
+    setarePaddingCosRem.set(rem);
+  }
+
+  // Border-ul cosului (vezi .ilustrare-bonduri-cos in style.css) — 2px, pe
+  // fiecare latura. Constanta separata de padding, ca sa ramana explicit de
+  // ce cele doua se aduna la "chrome"-ul total (vezi chromeCosPx).
+  const BORDER_COS_PX = 2;
 
   // Sub atat un disc nu se mai vede — plasa de siguranta pt. niveluri mari pe
   // ecrane inguste, nu o dimensiune normala de lucru.
   const DISC_MIN_PX = 6;
+
+  // Padding (reglabil) + border (fix) ORIZONTAL ale unui cos, in px — nu mai
+  // e o constanta, ca sa ramana corect cand userul schimba padding-ul din CP
+  // (latimeCos trebuie sa reflecte exact cat spatiu ocupa chrome-ul REAL).
+  function chromeCosPx() {
+    const rootPx = parseFloat(global.getComputedStyle(document.documentElement).fontSize) || 16;
+    return getPaddingCosRem() * rootPx * 2 + BORDER_COS_PX * 2;
+  }
 
   // Cate discuri trebuie sa treaca dintr-un cos in celalalt intre doua bv-uri
   // ale ACELUIASI nivel (deci vechi.a+vechi.b === nou.a+nou.b). Functie pura.
@@ -83,7 +137,7 @@
   }
 
   function latimeCos(valoare, dimensiuneDiscPx) {
-    return Math.max(1, valoare) * dimensiuneDiscPx + CHROME_COS_PX;
+    return Math.max(1, valoare) * dimensiuneDiscPx + chromeCosPx();
   }
 
   // Un disc = un cerc DESENAT (span rotunjit 50%, culoare de fundal), nu un
@@ -160,6 +214,7 @@
     // scunde decat numerele").
     function umpleCos(cosEl, valoare, culoare, dimensiuneDiscPx, inaltimeCosPx, indiciAscunsi) {
       cosEl.style.backgroundColor = culoare;
+      cosEl.style.padding = `${getPaddingCosRem()}rem`;
       cosEl.style.width = `${latimeCos(valoare, dimensiuneDiscPx)}px`;
       if (inaltimeCosPx) cosEl.style.height = `${inaltimeCosPx}px`;
       cosEl.innerHTML = Array.from({ length: Math.max(0, valoare) }, (_, i) =>
@@ -258,18 +313,47 @@
         return elDiv.getBoundingClientRect().width;
       };
 
-      const inaltimeNumarBaza = inaltimeNumarProba(randuriEl) || inaltimeFontRand(randEl);
-      // Procentul din CP (implicit 100% = neschimbat) se aplica pe baza
-      // masurata, INAINTE de shrink-to-fit — shrink-ul ramane o plasa de
-      // siguranta care se aplica peste orice marime aleasa de user.
-      let dimensiuneDiscPx = Math.max(DISC_MIN_PX, Math.round((inaltimeNumarBaza * getDiametruDiscPct()) / 100));
-      let latimeIlustratie = masoaraIlustratia(dimensiuneDiscPx);
-      let m = masoaraRand({ nivel, latimeIlustratie, randuriEl });
+      // Dimensiunea de PORNIRE a discului: inaltimea reala a unui numar
+      // colorat, X% (Diametru disc, din CP) din ea. Impachetat intr-o
+      // functie pt. ca se remasoara de fiecare data cand se schimba scara
+      // fontului (mai jos) — discul ramane mereu proportional cu cifrele.
+      const masoaraLaScaraCurenta = () => {
+        const inaltimeNumarBaza = inaltimeNumarProba(randuriEl) || inaltimeFontRand(randEl);
+        const discPx = Math.max(DISC_MIN_PX, Math.round((inaltimeNumarBaza * getDiametruDiscPct()) / 100));
+        const latIlustratie = masoaraIlustratia(discPx);
+        const mas = masoaraRand({ nivel, latimeIlustratie: latIlustratie, randuriEl });
+        return { discPx, latIlustratie, mas };
+      };
 
-      // Discurile stau la inaltimea fontului si se micsoreaza DOAR daca randul
-      // complet n-ar incapea in caseta intrebarii (cerere user, 30.08.2026:
-      // "mai micsorezi merele ca sa incapa"). Chrome-ul cosurilor nu depinde de
-      // marimea discului, deci o singura corectie e exacta.
+      // Scara de font a randurilor (.inventar-bonduri-semn/-numar, vezi
+      // style.css) — proprietate CSS GLOBALA, deci pornim explicit de la 1
+      // de fiecare data (nu ramane ce a lasat nivelul anterior), apoi cautam
+      // numeric (corectie liniara, 2 pasi) valoarea care duce latimea celui
+      // mai lat rand la procentul-tinta din latimea disponibila (cerere
+      // user, 31.08.2026: "randul ocupa -[80%]+ din latimea divului —
+      // regleaza fontul si diametrul discului"). 2 pasi sunt suficienti in
+      // practica: relatia nu e perfect liniara (chrome-ul fix al cosului nu
+      // se scaleaza), dar eroarea reziduala e neglijabila vizual.
+      aplicaScaraFont(1);
+      let { discPx: dimensiuneDiscPx, latIlustratie: latimeIlustratie, mas: m } = masoaraLaScaraCurenta();
+
+      const targetPct = getRandTargetLatimePct();
+      if (latimeCaseta > 0 && targetPct > 0 && m.ls > 0) {
+        let scala = 1;
+        const tinta = (targetPct / 100) * latimeCaseta;
+        for (let pas = 0; pas < 2; pas += 1) {
+          const factor = tinta / m.ls;
+          if (!Number.isFinite(factor) || factor <= 0) break;
+          scala *= factor;
+          aplicaScaraFont(scala);
+          ({ discPx: dimensiuneDiscPx, latIlustratie: latimeIlustratie, mas: m } = masoaraLaScaraCurenta());
+        }
+      }
+
+      // Plasa de siguranta ramasa din shrink-to-fit-ul vechi (cerere user,
+      // 30.08.2026): daca randul TOT nu incape (ex. targetPct=0, dezactivat
+      // din CP, sau caseta e extrem de ingusta), micsoreaza doar discul, ca
+      // sa nu iasa niciodata peste marginea casetei.
       if (latimeCaseta > 0 && m.ls > latimeCaseta) {
         const chrome = latimeIlustratie - nivel * dimensiuneDiscPx;
         const disponibil = latimeCaseta - m.latimeTextPlusGap - chrome;
@@ -525,5 +609,9 @@
     setDurataTranzitieMs,
     getDiametruDiscPct,
     setDiametruDiscPct,
+    getPaddingCosRem,
+    setPaddingCosRem,
+    getRandTargetLatimePct,
+    setRandTargetLatimePct,
   };
 })(window);
