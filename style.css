@@ -761,12 +761,14 @@ body {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
-  /* Padding vertical identic cu .inventar-bonduri-numar (0.05rem) — cerere
-     user (31.08.2026): banda colorata a cosului sa fie EXACT de inaltimea
-     benzii colorate a cifrelor. Conturul e box-shadow inset, nu border, ca
-     sa nu adauge inaltime peste padding (border AR fi marit cutia). */
   padding: 0.05rem 0.25rem;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  /* Bordura ca la .quiz-picker-item (meniul de quizuri) — cerere user
+     (31.08.2026): "css face cutii mai frumoase, foloseste ceva ca la
+     meniul de quizuri". box-sizing:border-box de mai sus face ca bordura sa
+     NU adauge peste inaltimea explicita pusa de JS (vezi inaltimeCosPx in
+     js/bond-illustration.js) — cosul iese exact la inaltimea benzii
+     colorate a cifrelor, indiferent de latimea bordurii. */
+  border: 2px solid rgba(255, 255, 255, 0.35);
   /* Colturi simetrice, toate 4 la fel (cerere user, 31.08.2026 — inainte
      0.5rem sus / 0.25rem jos, asimetric). */
   border-radius: 0.5rem;
