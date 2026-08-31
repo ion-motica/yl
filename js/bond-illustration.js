@@ -2,9 +2,37 @@
   "use strict";
 
   // Durata comuna a celor 3 miscari simultane (deplasarea divului, zborul
-  // grupului de discuri, redimensionarea cosurilor). Cerere user (30.08.2026):
-  // "scade treptat cumva, vedem cum dupa" — constanta pana la o cerere clara.
-  const DURATA_TRANZITIE_MS = 3000;
+  // grupului de discuri, redimensionarea cosurilor). Reglabila live din CP
+  // (cerere user, 31.08.2026: "Viteza reasezare mere" — panoul CP al
+  // quizului pilot, pas 0.1s), persistata prin LayoutConfig ca sa
+  // supravietuiasca la reincarcarea paginii.
+  //
+  // Citire LENESA (nu la incarcarea modulului): in index.html
+  // js/layout-config.js se incarca DUPA bond-illustration.js, deci la
+  // momentul in care ruleaza acest fisier, global.LayoutConfig inca nu
+  // exista — o citire directa aici ar cadea mereu pe implicit si ar ignora
+  // tacut valoarea salvata. `durataTranzitieMs` ramane `null` pana la prima
+  // citire REALA (prin getDurataTranzitieMs, singura cale de acces internă
+  // — vezi mai jos), moment la care LayoutConfig e deja incarcat.
+  const DURATA_TRANZITIE_MS_IMPLICITA = 3000;
+  const CHEIE_LAYOUT_CONFIG_DURATA = "ilustrareBonduriDurataTranzitieMs";
+  let durataTranzitieMs = null;
+
+  function getDurataTranzitieMs() {
+    if (durataTranzitieMs == null) {
+      durataTranzitieMs =
+        (global.LayoutConfig &&
+          global.LayoutConfig.get(CHEIE_LAYOUT_CONFIG_DURATA, DURATA_TRANZITIE_MS_IMPLICITA)) ||
+        DURATA_TRANZITIE_MS_IMPLICITA;
+    }
+    return durataTranzitieMs;
+  }
+
+  function setDurataTranzitieMs(ms) {
+    const valoare = Number(ms);
+    durataTranzitieMs = Number.isFinite(valoare) && valoare > 0 ? valoare : DURATA_TRANZITIE_MS_IMPLICITA;
+    if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_LAYOUT_CONFIG_DURATA, durataTranzitieMs);
+  }
 
   // Padding+border orizontal ale UNUI cos.
   const CHROME_COS_PX = 18;
@@ -28,17 +56,19 @@
     return Math.max(1, valoare) * dimensiuneDiscPx + CHROME_COS_PX;
   }
 
-  // Un disc = caracterul Wingdings 0x98 (cerc plin, mai "gras" decat "●" —
-  // cerere user, 31.08.2026: "●" iesea extrem de mic la marimea fontului
-  // cifrelor), intr-un span propriu, cu font-size egal cu al cifrelor din
-  // rand (font-family "Wingdings" pusa in CSS, pe clasa .ilustrare-bonduri-disc).
+  // Un disc = un cerc DESENAT (span rotunjit 50%, culoare de fundal), nu un
+  // caracter de font -- cerere user (31.08.2026): bulina Unicode si apoi
+  // Wingdings 0x98 ieseau amandoua extrem de mici/invizibile (acoperirea de
+  // cerneala a unui glif e mult sub cutia lui, plus Wingdings nu e garantat
+  // instalat pe orice sistem). Un cerc CSS umple cutia complet, deci iese
+  // vizibil mare automat, la orice dimensiune si pe orice platforma, fara
+  // nicio dependenta de font.
   // `ascuns` = disc care tocmai zboara spre locul asta: sta invizibil cat
   // dureaza zborul, ca sa nu apara de doua ori (si in cos, si in aer).
-  const CARACTER_DISC = "\uF098";
   function discHtml(dimensiunePx, ascuns) {
     return (
       `<span class="ilustrare-bonduri-disc${ascuns ? " e-in-zbor" : ""}" ` +
-      `style="width:${dimensiunePx}px;height:${dimensiunePx}px;font-size:${dimensiunePx}px">${CARACTER_DISC}</span>`
+      `style="width:${dimensiunePx}px;height:${dimensiunePx}px"></span>`
     );
   }
 
@@ -107,14 +137,33 @@
       ).join("");
     }
 
-    // Dimensiunea unui disc = exact inaltimea fontului cifrelor din rand
-    // (cerere user, 30.08.2026) — citita din randul real, nu dintr-o
-    // constanta, ca sa ramana corecta si daca se schimba stilul textului.
+    // Plasa de siguranta daca masurarea reala (inaltimeNumarProba, mai jos)
+    // esueaza dintr-un motiv oarecare — citeste macar font-size-ul cifrelor.
     function inaltimeFontRand(randEl) {
       const semnEl = randEl.querySelector(".inventar-bonduri-semn");
       const fontSize = semnEl ? global.getComputedStyle(semnEl).fontSize : null;
       const px = fontSize ? parseFloat(fontSize) : NaN;
       return Number.isFinite(px) && px > 0 ? px : 16;
+    }
+
+    // Dimensiunea de PORNIRE a unui disc = inaltimea REALA a unui numar
+    // colorat ("9"), masurata pe o proba minimala — nu randul viu (la
+    // momentul apelului poate inca arata "nivel=", fara niciun numar colorat
+    // in el, daca e primul bv rezolvat din nivel — vezi capcana din
+    // pozitieRand mai jos) si nu dedusa din font-size (cerere user,
+    // 31.08.2026: "un disc MARE de inaltimea randului" — merele ieseau
+    // ingrozitor de mici cu vechea baza de calcul, in special dupa
+    // micsorarea pt. incapere pe ecran ingust). Shrink-to-fit-ul de mai jos
+    // ramane neschimbat, doar baza de pornire creste.
+    function inaltimeNumarProba(randuriEl) {
+      const proba = document.createElement("span");
+      proba.className = "inventar-bonduri-numar";
+      proba.style.cssText = "position:absolute; visibility:hidden; pointer-events:none; left:0; top:0;";
+      proba.textContent = "9";
+      randuriEl.appendChild(proba);
+      const inaltime = proba.getBoundingClientRect().height;
+      proba.remove();
+      return inaltime || null;
     }
 
     // Randeaza ASCUNS randul cel mai lat posibil al nivelului — "{nivel}=9+9"
@@ -179,7 +228,7 @@
         return elDiv.getBoundingClientRect().width;
       };
 
-      let dimensiuneDiscPx = inaltimeFontRand(randEl);
+      let dimensiuneDiscPx = inaltimeNumarProba(randuriEl) || inaltimeFontRand(randEl);
       let latimeIlustratie = masoaraIlustratia(dimensiuneDiscPx);
       let m = masoaraRand({ nivel, latimeIlustratie, randuriEl });
 
@@ -296,10 +345,10 @@
       grup.style.backgroundColor = culoare;
       grup.style.setProperty("--ilustrare-dx", `${destinatie.left - sursa.left}px`);
       grup.style.setProperty("--ilustrare-dy", `${destinatie.top - sursa.top}px`);
-      grup.style.animationDuration = `${DURATA_TRANZITIE_MS}ms`;
+      grup.style.animationDuration = `${getDurataTranzitieMs()}ms`;
       grup.innerHTML = Array.from({ length: count }, () => discHtml(discPx, false)).join("");
       document.body.appendChild(grup);
-      setTimeout(() => grup.remove(), DURATA_TRANZITIE_MS + 60);
+      setTimeout(() => grup.remove(), getDurataTranzitieMs() + 60);
     }
 
     // Indicii discurilor care SOSESC in cosul destinatie — stau invizibile cat
@@ -347,9 +396,9 @@
         // prima afisare, unde nu ar trebui sa se miste").
         void elDiv.offsetWidth;
         // Tranzitiile se activeaza pentru bv-urile URMATOARE din nivel.
-        elDiv.style.transition = `top ${DURATA_TRANZITIE_MS}ms ease, left ${DURATA_TRANZITIE_MS}ms ease`;
-        elCosA.style.transition = `width ${DURATA_TRANZITIE_MS}ms ease`;
-        elCosB.style.transition = `width ${DURATA_TRANZITIE_MS}ms ease`;
+        elDiv.style.transition = `top ${getDurataTranzitieMs()}ms ease, left ${getDurataTranzitieMs()}ms ease`;
+        elCosA.style.transition = `width ${getDurataTranzitieMs()}ms ease`;
+        elCosB.style.transition = `width ${getDurataTranzitieMs()}ms ease`;
         ultimulBv = { a, b };
         return { zborDeclansat: false };
       }
@@ -374,7 +423,7 @@
             discPx: disc,
           });
           zborDeclansat = true;
-          zborInCursPanaLa = Date.now() + DURATA_TRANZITIE_MS;
+          zborInCursPanaLa = Date.now() + getDurataTranzitieMs();
           const ascunse = indiciSosire({ ...mutare, a });
           if (mutare.directie === "a-spre-b") ascunseB = ascunse;
           else ascunseA = ascunse;
@@ -393,7 +442,7 @@
         elDiv
           .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
           .forEach((el) => el.classList.remove("e-in-zbor"));
-      }, DURATA_TRANZITIE_MS);
+      }, getDurataTranzitieMs());
 
       return { zborDeclansat };
     }
@@ -438,6 +487,7 @@
   global.IlustrareBonduri = {
     mereDeMutat,
     creeaza,
-    DURATA_TRANZITIE_MS,
+    getDurataTranzitieMs,
+    setDurataTranzitieMs,
   };
 })(window);

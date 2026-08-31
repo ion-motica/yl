@@ -802,6 +802,7 @@
     renderSq5FluentPartyPanel();
     renderRiglePanel();
     renderRigleTabla110Panel();
+    renderIlustrareMereVitezaPanel();
     renderArenaActions();
     aamArena?.reset();
     buildQuizPicker();
@@ -896,6 +897,14 @@
     mount.replaceChildren();
     if (typeof quiz?.appendRigleTabla110ControlPanel !== "function") return;
     quiz.appendRigleTabla110ControlPanel(mount);
+  }
+
+  function renderIlustrareMereVitezaPanel() {
+    const mount = cpShell?.getMountEl("ilustrareMereViteza");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendIlustrareMereControlPanel !== "function") return;
+    quiz.appendIlustrareMereControlPanel(mount);
   }
 
   function renderPreEquationNavigationPanel() {
@@ -1015,6 +1024,12 @@
     quizSpecific: true,
   });
   CpRegistry.register({
+    id: "ilustrareMereViteza",
+    title: "CP - Tabla adunarii Singapore 6=?+3",
+    isEnabled: () => typeof quiz?.appendIlustrareMereControlPanel === "function",
+    quizSpecific: true,
+  });
+  CpRegistry.register({
     id: "preEquationNav",
     title: "CP - Navigare pre-ecuatii EFF",
     isEnabled: () =>
@@ -1081,6 +1096,7 @@
   renderSq5FluentPartyPanel();
   renderRiglePanel();
   renderRigleTabla110Panel();
+  renderIlustrareMereVitezaPanel();
 
   function syncResponseTimesInput() {
     if (responseTimesInput) responseTimesInput.checked = showResponseTimes;
