@@ -1745,6 +1745,15 @@ body {
   width: 100%;
 }
 
+/* Optiune radio intr-un .control-panel-lift-field (ex. "Ilustratie la:") —
+   fiecare optiune pe randul ei, bifa + text aliniate pe orizontala. */
+.control-panel-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
 .subquiz-start-control {
   flex-direction: row;
   flex-wrap: wrap;

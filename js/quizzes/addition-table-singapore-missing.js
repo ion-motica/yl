@@ -23,6 +23,25 @@
     if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_SPECTACOL_FINAL, valoare);
   }
 
+  // Setarea "Ilustratie la:" (CP, radio) — cerere user, 31.08.2026:
+  // "curent" = comportamentul de azi, o singura ilustratie vie care se muta
+  // de la un bv la altul; "toate" = fiecare bv rezolvat isi pastreaza
+  // ilustratia proprie, vizibila definitiv (acumuleaza pe masura ce
+  // raspunzi, ca la Spectacol 1, dar progresiv, nu doar la final). Cele
+  // doua moduri sunt exclusive — a alege "toate" dezactiveaza automat
+  // Spectacol 1 (n-ar mai avea ce sa dezvaluie la final, tabelul e deja
+  // complet ilustrat pe masura ce inaintezi).
+  const CHEIE_ILUSTRARE_LA = "singaporeMissingIlustrareLa";
+  function getIlustrareLa() {
+    return (global.LayoutConfig && global.LayoutConfig.get(CHEIE_ILUSTRARE_LA, "curent")) || "curent";
+  }
+  function setIlustrareLa(valoare) {
+    if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_ILUSTRARE_LA, valoare);
+    if (valoare === "toate" && getSpectacolFinalDeLevel() !== "nimic") {
+      setSpectacolFinalDeLevel("nimic");
+    }
+  }
+
   function createAdditionTableSingaporeMissingQuiz() {
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore } = global;
@@ -521,6 +540,7 @@
                   latimeDisponibila: latimeDisponibilaPentruIlustratie(),
                   faraAnimatie:
                     esteUltimulDinNivel && level < MAX_LEVEL && getSpectacolFinalDeLevel() === "spectacol1",
+                  acumuleaza: getIlustrareLa() === "toate",
                 });
                 zborDeclansat = Boolean(rezultatIlustratie?.zborDeclansat);
                 // Randul propriu (cifrele "a+b") se scrie ACUM, in aceeasi
@@ -715,6 +735,41 @@
         });
         fieldSpectacol.append(labelSpectacol, selectSpectacol);
         mount.appendChild(fieldSpectacol);
+
+        // Radio "Ilustratie la:" (cerere user, 31.08.2026) — "toate
+        // bondurile cu raspuns" (fiecare bv rezolvat isi pastreaza
+        // ilustratia proprie definitiv, acumuland pe masura ce raspunzi) vs
+        // "raspunsul curent" (comportamentul de azi, o singura ilustratie
+        // vie care se muta de la un bv la altul). Alegerea "toate"
+        // dezactiveaza automat Spectacol 1 (vezi setIlustrareLa) — sincronizam
+        // aici si dropdown-ul de mai sus, ca sa arate imediat "nimic".
+        const fieldIlustrareLa = document.createElement("div");
+        fieldIlustrareLa.className = "control-panel-lift-field";
+        const labelIlustrareLa = document.createElement("label");
+        labelIlustrareLa.textContent = "Ilustratie la:";
+        const numeRadio = "singapore-missing-ilustrare-la";
+        const optiuniIlustrareLa = document.createElement("div");
+        [
+          { value: "toate", text: "toate bondurile cu răspuns" },
+          { value: "curent", text: "răspunsul curent" },
+        ].forEach(({ value, text }) => {
+          const optiuneLabel = document.createElement("label");
+          optiuneLabel.className = "control-panel-radio-option";
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = numeRadio;
+          input.value = value;
+          input.checked = getIlustrareLa() === value;
+          input.addEventListener("change", () => {
+            if (!input.checked) return;
+            setIlustrareLa(value);
+            selectSpectacol.value = getSpectacolFinalDeLevel();
+          });
+          optiuneLabel.append(input, document.createTextNode(` ${text}`));
+          optiuniIlustrareLa.appendChild(optiuneLabel);
+        });
+        fieldIlustrareLa.append(labelIlustrareLa, optiuniIlustrareLa);
+        mount.appendChild(fieldIlustrareLa);
       },
 
       isCompleted: () => gameCompleted,
