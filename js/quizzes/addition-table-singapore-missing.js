@@ -324,7 +324,7 @@
             // urmator — altfel discurile ajung sa zboare peste tabelul deja
             // rescris (cerere user, 31.08.2026: "asteapta sa se termine
             // animatia inainte sa treci la nivelul urmator").
-            ...(asteaptaAnimatia ? { dupa: global.IlustrareBonduri.DURATA_TRANZITIE_MS + 100 } : {}),
+            ...(asteaptaAnimatia ? { dupa: global.IlustrareBonduri.getDurataTranzitieMs() + 100 } : {}),
             continua: {
               outcome: "serie-terminata",
               correct: true,
@@ -502,6 +502,56 @@
       // Aceleasi date sunt randate direct in promptHtml (vezi inventarCurent),
       // dar metoda ramane pe API-ul public — utila separat de randare (teste).
       getInventarBonduri: () => inventarCurent(),
+
+      // Panou CP (vezi documente de referinta/standard-titluri-cp.md, regula 1
+      // — panou legat de un singur quiz) cu viteza tranzitiilor ilustratiei cu
+      // mere (js/bond-illustration.js), reglabila live — cerere user
+      // (31.08.2026): "Viteza reasezare mere: -[3.0]+", pas 0.1s. Valoarea
+      // traieste in modulul PARTAJAT (nu aici), ca sa ramana aceeasi si daca
+      // ilustratia ajunge sa fie folosita si de alte quizuri Singapore.
+      appendIlustrareMereControlPanel(mount) {
+        if (!mount) return;
+        mount.replaceChildren();
+
+        const PAS_S = 0.1;
+        const MIN_S = 0.5;
+        const MAX_S = 10;
+        const roundS = (s) => Math.round(s * 10) / 10;
+
+        const field = document.createElement("div");
+        field.className = "control-panel-lift-field pre-eq-stepper-field";
+        const label = document.createElement("label");
+        label.textContent = "Viteza reasezare mere";
+        const controls = document.createElement("div");
+        controls.className = "pre-eq-stepper";
+
+        const minus = document.createElement("button");
+        minus.type = "button";
+        minus.textContent = "-";
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = String(MIN_S);
+        input.max = String(MAX_S);
+        input.step = String(PAS_S);
+        input.value = roundS(global.IlustrareBonduri.getDurataTranzitieMs() / 1000).toFixed(1);
+        const plus = document.createElement("button");
+        plus.type = "button";
+        plus.textContent = "+";
+
+        const aplica = (secunde) => {
+          const clamped = Math.min(MAX_S, Math.max(MIN_S, roundS(secunde)));
+          global.IlustrareBonduri.setDurataTranzitieMs(Math.round(clamped * 1000));
+          input.value = clamped.toFixed(1);
+        };
+
+        minus.addEventListener("click", () => aplica(Number(input.value) - PAS_S));
+        plus.addEventListener("click", () => aplica(Number(input.value) + PAS_S));
+        input.addEventListener("change", () => aplica(Number(input.value)));
+
+        controls.append(minus, input, plus);
+        field.append(label, controls);
+        mount.appendChild(field);
+      },
 
       isCompleted: () => gameCompleted,
       setCompleted: (value) => {

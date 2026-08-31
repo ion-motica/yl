@@ -783,23 +783,18 @@ body {
   flex: none;
 }
 
-/* Un disc = caracterul Wingdings 0x98 (cerc plin — cerere user, 31.08.2026:
-   "●" iesea extrem de mic la marimea fontului cifrelor) intr-un span propriu,
-   cu font-size egal cu al cifrelor din rand. width/height explicite (setate
-   inline, egale intre ele) + inline-flex centrat: fiecare disc ocupa o cutie
-   patrata previzibila, deci discurile stau aliniate, nu gramada.
-   ATENTIE: "Wingdings" nu e un font web-safe — vine preinstalat pe Windows,
-   dar poate lipsi pe Mac/Linux, caz in care codul U+F098 (zona privata a
-   fontului) n-are echivalent in alt font si s-ar putea sa nu se vada nimic.
-   De verificat vizual pe sistemul unde ruleaza aplicatia. */
+/* Un disc = un cerc DESENAT, nu un caracter de font (cerere user, 31.08.2026:
+   "●" si apoi Wingdings 0x98 ieseau amandoua extrem de mici/invizibile — un
+   glif are mereu acoperire de cerneala sub cutia lui, plus Wingdings nu-i
+   garantat pe orice sistem). border-radius:50% + un fundal solid umple
+   cutia COMPLET, deci iese mare si vizibil automat, la orice dimensiune,
+   fara nicio dependenta de font. width/height explicite (inline, egale)
+   pastreaza forma perfect rotunda. */
 .ilustrare-bonduri-disc {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
-  line-height: 1;
-  color: #0f1419;
-  font-family: "Wingdings", sans-serif;
+  border-radius: 50%;
+  background-color: #0f1419;
 }
 
 /* Disc care tocmai zboara spre locul asta: locul lui e deja rezervat in cos
