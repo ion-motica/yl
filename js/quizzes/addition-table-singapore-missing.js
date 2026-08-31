@@ -583,6 +583,28 @@
           set: (pct) => global.IlustrareBonduri.setDiametruDiscPct(pct),
           afecteazaMasurarea: true,
         });
+
+        appendStepperField({
+          eticheta: "Padding cos (rem)",
+          min: 0,
+          max: 0.5,
+          pas: 0.05,
+          zecimale: 2,
+          get: () => global.IlustrareBonduri.getPaddingCosRem(),
+          set: (rem) => global.IlustrareBonduri.setPaddingCosRem(rem),
+          afecteazaMasurarea: true,
+        });
+
+        appendStepperField({
+          eticheta: "Randul ocupa (% din latimea divului)",
+          min: 20,
+          max: 100,
+          pas: 5,
+          zecimale: 0,
+          get: () => global.IlustrareBonduri.getRandTargetLatimePct(),
+          set: (pct) => global.IlustrareBonduri.setRandTargetLatimePct(pct),
+          afecteazaMasurarea: true,
+        });
       },
 
       isCompleted: () => gameCompleted,
