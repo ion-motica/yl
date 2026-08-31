@@ -313,16 +313,21 @@
         return elDiv.getBoundingClientRect().width;
       };
 
-      // Dimensiunea de PORNIRE a discului: inaltimea reala a unui numar
-      // colorat, X% (Diametru disc, din CP) din ea. Impachetat intr-o
-      // functie pt. ca se remasoara de fiecare data cand se schimba scara
-      // fontului (mai jos) — discul ramane mereu proportional cu cifrele.
-      const masoaraLaScaraCurenta = () => {
+      // PASUL 1: cauta scara de font care duce randul la procentul-tinta —
+      // cu discul FIXAT la 100% (nu la procentul real ales de user din CP).
+      // Deliberat separat de PASUL 2 (mai jos): daca aici am folosi procentul
+      // REAL al discului, orice schimbare a lui "Diametru disc" ar modifica
+      // latimea masurata si ar forta auto-fit-ul sa recompenseze prin font —
+      // exact bug-ul raportat de user (31.08.2026): "Diametru disc se
+      // comporta aberant, pe masura ce il micsorez fontul devine mai mare".
+      // Cu discul fixat la 100% in cautare, cele doua controale din CP nu se
+      // mai lupta: schimbarea diametrului nu mai atinge deloc fontul.
+      const masoaraLaScaraFixa100 = () => {
         const inaltimeNumarBaza = inaltimeNumarProba(randuriEl) || inaltimeFontRand(randEl);
-        const discPx = Math.max(DISC_MIN_PX, Math.round((inaltimeNumarBaza * getDiametruDiscPct()) / 100));
+        const discPx = Math.max(DISC_MIN_PX, Math.round(inaltimeNumarBaza));
         const latIlustratie = masoaraIlustratia(discPx);
         const mas = masoaraRand({ nivel, latimeIlustratie: latIlustratie, randuriEl });
-        return { discPx, latIlustratie, mas };
+        return { inaltimeNumarBaza, mas };
       };
 
       // Scara de font a randurilor (.inventar-bonduri-semn/-numar, vezi
@@ -335,20 +340,27 @@
       // practica: relatia nu e perfect liniara (chrome-ul fix al cosului nu
       // se scaleaza), dar eroarea reziduala e neglijabila vizual.
       aplicaScaraFont(1);
-      let { discPx: dimensiuneDiscPx, latIlustratie: latimeIlustratie, mas: m } = masoaraLaScaraCurenta();
+      let { inaltimeNumarBaza, mas: m } = masoaraLaScaraFixa100();
 
       const targetPct = getRandTargetLatimePct();
+      let scala = 1;
       if (latimeCaseta > 0 && targetPct > 0 && m.ls > 0) {
-        let scala = 1;
         const tinta = (targetPct / 100) * latimeCaseta;
         for (let pas = 0; pas < 2; pas += 1) {
           const factor = tinta / m.ls;
           if (!Number.isFinite(factor) || factor <= 0) break;
           scala *= factor;
           aplicaScaraFont(scala);
-          ({ discPx: dimensiuneDiscPx, latIlustratie: latimeIlustratie, mas: m } = masoaraLaScaraCurenta());
+          ({ inaltimeNumarBaza, mas: m } = masoaraLaScaraFixa100());
         }
       }
+
+      // PASUL 2: ACUM se aplica procentul REAL din CP (Diametru disc) —
+      // multiplicator independent peste rezultatul auto-fit-ului, care NU
+      // se mai recalculeaza in bucla de mai sus.
+      let dimensiuneDiscPx = Math.max(DISC_MIN_PX, Math.round((inaltimeNumarBaza * getDiametruDiscPct()) / 100));
+      let latimeIlustratie = masoaraIlustratia(dimensiuneDiscPx);
+      m = masoaraRand({ nivel, latimeIlustratie, randuriEl });
 
       // Plasa de siguranta ramasa din shrink-to-fit-ul vechi (cerere user,
       // 30.08.2026): daca randul TOT nu incape (ex. targetPct=0, dezactivat
