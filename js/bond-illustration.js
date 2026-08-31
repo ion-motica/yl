@@ -640,6 +640,18 @@
         return { durataTotalaMs: 0 };
       }
 
+      // Daca ultimul bv rezolvat inainte de spectacol a pornit un zbor de
+      // discuri, unele discuri pot fi inca marcate "e-in-zbor" (invizibile,
+      // asteptand sa aterizeze) — cleanup-ul normal (vezi arataBv) tinteste
+      // doar elDiv, nu si clonele create mai jos, deci ele ar mosteni starea
+      // ascunsa PERMANENT (bug raportat de user, 31.08.2026: "uite punctele"
+      // — majoritatea discurilor lipseau din cascada). Nivelul e oricum
+      // COMPLET aici, nu mai are sens sa asteptam nicio aterizare — le facem
+      // vizibile explicit, chiar acum, inainte sa clonam orice.
+      elDiv
+        .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
+        .forEach((el) => el.classList.remove("e-in-zbor"));
+
       const randuri = Array.from(randuriEl.children);
       const rParinte = containerEl.getBoundingClientRect();
       const gapStanga = masuri ? masuri.latimeTextPlusGap : 0;
