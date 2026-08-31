@@ -128,12 +128,34 @@ describe("bond-inventory (InventarBonduri)", () => {
       `<span class="inventar-bonduri-semn">4=</span>` +
         `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>` +
         `<span class="inventar-bonduri-semn">+</span>` +
-        `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>`
+        `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>` +
+        `<span class="inventar-bonduri-loc-ilustratie"></span>`
     );
   });
 
   it("elementeDivIntrebare: [] cand nu primeste un inventar vizibil", () => {
     assert.deepEqual(InventarBonduri.elementeDivIntrebare(undefined), []);
     assert.deepEqual(InventarBonduri.elementeDivIntrebare({ visible: false }), []);
+  });
+
+  // Cerere user (31.08.2026): dupa al doilea numar din "{nivel}=a+b" se
+  // rezerva locul ilustratiei cu mere, ca randul sa fie lat cat
+  // "5=3+2 [mmm]+[mm]" si merele sa nu ajunga peste cifre.
+  it("randul rezolvat rezerva locul ilustratiei, dupa al doilea numar", () => {
+    const inventar = InventarBonduri.construieste({ nivel: 4, rezolvate: ["2+2"] });
+    const html = InventarBonduri.randaHtml(inventar);
+    assert.ok(
+      html.includes(
+        `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>` +
+          `<span class="inventar-bonduri-loc-ilustratie"></span></div>`
+      ),
+      "locul rezervat trebuie sa fie ULTIMUL element din rand, imediat dupa al doilea numar"
+    );
+  });
+
+  it("randul nerezolvat NU rezerva locul ilustratiei (n-are ce ilustra inca)", () => {
+    const inventar = InventarBonduri.construieste({ nivel: 4, rezolvate: [] });
+    const html = InventarBonduri.randaHtml(inventar);
+    assert.ok(!html.includes("inventar-bonduri-loc-ilustratie"));
   });
 });

@@ -688,7 +688,12 @@ body {
 .inventar-bonduri-rand {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* flex-start, nu center (cerere user, 31.08.2026): randurile se intind la
+     latimea celui mai lat rand (stretch, de la .inventar-bonduri-randuri) —
+     cu "center" fiecare rand isi centreaza continutul in acea latime comuna,
+     deci randurile mai scurte incep mai spre dreapta decat cele lungi
+     ("defazate"). Cu flex-start, toate incep din acelasi loc, din stanga. */
+  justify-content: flex-start;
   gap: 0.3rem;
   min-height: 1.5rem;
 }
@@ -710,6 +715,107 @@ body {
   font-weight: 800;
   color: var(--text);
   opacity: 0.85;
+}
+
+/* Locul rezervat ilustratiei, dupa al doilea numar din rand — gol, doar
+   ocupa spatiu, ca randul sa fie lat cat "5=3+2 [mmm]+[mm]" si ilustratia
+   plutitoare sa aiba unde sta fara sa acopere cifrele. Latimea vine din
+   `--ilustrare-latime`, pusa pe containerul randurilor de
+   js/bond-illustration.js (singurul care stie cat ocupa ilustratia). */
+.inventar-bonduri-loc-ilustratie {
+  flex: none;
+  width: var(--ilustrare-latime, 0px);
+}
+
+/* Ilustratia cu cosuri de mere (js/bond-illustration.js) — div pozitionat
+   absolut, atasat de un parinte cu position:relative (ex. #arena), tinut
+   sincron cu pozitia randului bv-ului prin JS, nu prin flux normal. */
+.ilustrare-bonduri {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  pointer-events: none;
+  /* JS pune `top` = centrul vertical al randului; ridicarea cu jumatate din
+     inaltimea proprie se face aici, ca sa nu depinda de cat de inalta iese
+     ilustratia (variaza cu marimea merelor). */
+  transform: translateY(-50%);
+  /* z-index mare, deliberat: testul cu marul fix (30.08.2026) a aratat ca
+     un element separat, netusat de motor, se vede corect — dar suspiciunea
+     ramasa era ca z-index:5 de dinainte putea sta sub alte elemente din
+     #arena. Nu costa nimic sa fie foarte sus. */
+  z-index: 999999;
+}
+
+.ilustrare-bonduri-cos {
+  box-sizing: border-box;
+  display: flex;
+  /* nowrap, deliberat (cerere user, 30.08.2026): latimea cosului e deja
+     calculata exact pt. numarul de mere (latimeCos) — un wrap ar insemna ca
+     ceva nu se potriveste, si arata ca o gramada in loc de un rand curat. */
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.5rem 0.5rem 0.25rem 0.25rem;
+  overflow: hidden;
+}
+
+.ilustrare-bonduri-semn,
+.ilustrare-bonduri-egal {
+  font-weight: 800;
+  color: var(--text);
+  opacity: 0.85;
+  flex: none;
+}
+
+/* Un disc = caracterul "●" intr-un span propriu (cerere user, 31.08.2026),
+   cu font-size egal cu al cifrelor din rand. width/height explicite (setate
+   inline, egale intre ele) + inline-flex centrat: fiecare disc ocupa o cutie
+   patrata previzibila, deci discurile stau aliniate, nu gramada. */
+.ilustrare-bonduri-disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  color: #0f1419;
+}
+
+/* Disc care tocmai zboara spre locul asta: locul lui e deja rezervat in cos
+   (ca sa nu sara layoutul la aterizare), dar nu se vede pana ajunge grupul. */
+.ilustrare-bonduri-disc.e-in-zbor {
+  visibility: hidden;
+}
+
+/* Grupul de discuri care trece dintr-un cos in celalalt — UN singur element,
+   cu discurile aliniate in el, in afara fluxului cosurilor (position:fixed,
+   coordonate din getBoundingClientRect / calcul — vezi zboaraGrupul din
+   js/bond-illustration.js). */
+.ilustrare-bonduri-zbor {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1px;
+  border-radius: 0.35rem;
+  pointer-events: none;
+  z-index: 999999;
+  animation-name: ilustrare-zbor-grup;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
+
+/* Linie dreapta, deliberat: semicercul e amanat (cerere user, 31.08.2026 —
+   "lasa deocamdata semicercul"). */
+@keyframes ilustrare-zbor-grup {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(var(--ilustrare-dx), var(--ilustrare-dy));
+  }
 }
 
 .singapore-prompt {

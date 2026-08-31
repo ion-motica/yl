@@ -28,6 +28,9 @@
     // Se reseteaza doar la nivel nou, NU la intrarea in faza retry: scopul e
     // sa arate acoperirea intregului nivel, care ramane valabila in retry.
     let bvRezolvate = new Set();
+    // Ilustratia cu cosuri de mere (js/bond-illustration.js) — instanta proprie
+    // acestui quiz, cu acelasi ciclu de reset ca bvRezolvate (vezi mai jos).
+    const ilustrareBonduri = global.IlustrareBonduri.creeaza();
 
     let currentFact = null;
     let currentMissingSide = "left";
@@ -209,6 +212,7 @@
       phase = "main";
       a_gresit_in_serie = false;
       bvRezolvate = new Set();
+      ilustrareBonduri.reseteaza();
       return beginCurrentStep();
     }
 
@@ -399,7 +403,30 @@
               wrongFactIds.some(
                 (item) => item.factId === currentFact.factId && item.missingSide === currentMissingSide
               );
-            if (!esteRecuperareInFazaPrincipala) bvRezolvate.add(decompositionLabel(currentFact));
+            if (!esteRecuperareInFazaPrincipala) {
+              const bvLabel = decompositionLabel(currentFact);
+              bvRezolvate.add(bvLabel);
+              // Testele de logica pura ale quizului ruleaza fara DOM (Node,
+              // fara `document`) — ilustratia are nevoie de DOM real, deci se
+              // declanseaza doar in browser, nu schimba deloc fluxul de raspuns.
+              if (typeof document !== "undefined") {
+                const { a, b } = currentFact.values;
+                ilustrareBonduri.arataBv({
+                  containerEl: document.getElementById("arena"),
+                  randEl: document
+                    .getElementById("top-number")
+                    ?.querySelector(`[data-element-div-intrebare="bv-${bvLabel}"]`),
+                  nivel: level,
+                  a,
+                  b,
+                  culoareA: global.InventarBonduri.culoareNumar(a),
+                  culoareB: global.InventarBonduri.culoareNumar(b),
+                  latimeDisponibila: document
+                    .getElementById("falling-main")
+                    ?.getBoundingClientRect().width,
+                });
+              }
+            }
             activeQueue.shift();
 
             if (activeQueue.length) {
@@ -462,6 +489,7 @@
         phase = "main";
         a_gresit_in_serie = false;
         bvRezolvate = new Set();
+        ilustrareBonduri.reseteaza();
         currentFact = null;
         currentMissingSide = "left";
         options = [];
@@ -487,18 +515,22 @@
         return incepe_serie_de_intrebari();
       },
 
-      onTimeout(meta = {}) {
-        recordAttempt(false, null, { ...meta, timedOut: true });
-        a_gresit_in_serie = true;
-        if (!wrongFactIds.some((item) => item.factId === currentFact.factId && item.missingSide === currentMissingSide)) {
-          wrongFactIds.push(queueItem(currentFact.factId, currentMissingSide));
-        }
+      // Liftul ajuns jos NU inseamna raspuns gresit (cerere user, 31.08.2026:
+      // "liftul poate sa ajunga jos de cate ori vrea"). Deci, fata de inainte:
+      // nu se mai inregistreaza o incercare gresita in jurnal, nu se mai
+      // marcheaza seria ca gresita (`a_gresit_in_serie`), bv-ul nu mai intra in
+      // coada de reluare (`wrongFactIds` — care blocheaza si ilustratia) si nu
+      // mai apare flash rosu cu "Prea tarziu!". Ramane doar reluarea caderii,
+      // pe aceeasi intrebare.
+      //
+      // `outcome: "timeout"` ramane: motorul il citeste ca "nu da stea, nu
+      // avansa" (vezi starCorrect in falling-engine.js) — nu ca penalizare.
+      onTimeout() {
         return {
           outcome: "timeout",
-          flash: "wrong",
-          message: "Prea târziu! Alege numărul corect pentru ?.",
+          message: "",
           resetFall: true,
-          ...roundView({ hintMessage: "" }),
+          ...roundView(),
         };
       },
 

@@ -32,6 +32,7 @@ function setupQuiz({ deterministic = true } = {}) {
     "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
     "js/bond-inventory.js",
+    "js/bond-illustration.js",
     "js/quizzes/addition-table-singapore-missing.js",
   ].forEach(loadScript);
 
@@ -231,6 +232,44 @@ describe("addition-table-singapore-missing (Faza D lot 2 — migrare pura, fara 
     assert.equal(rezultat.outcome, "timeout");
     assert.equal(rezultat.resetFall, true);
     assert.equal(rezultat.prompt, round.prompt);
+  });
+
+  // Cerere user (31.08.2026): "liftul poate sa ajunga jos de cate ori vrea, nu
+  // inseamna ca se considera raspuns gresit". Inainte, onTimeout inregistra o
+  // incercare gresita, marca seria ca gresita si baga bv-ul in coada de
+  // reluare — deci un lift ajuns jos bloca avansul de nivel si ilustratia.
+  it("onTimeout: liftul ajuns jos NU e raspuns gresit — nu blocheaza avansul de nivel", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    let round = quiz.beginRound();
+
+    // Liftul ajunge jos de cateva ori inainte de primul raspuns.
+    for (let i = 0; i < 3; i += 1) round = quiz.onTimeout({ responseMs: 5000 });
+
+    // Apoi toate cele 5 bv-uri corect, din prima: nivelul trebuie sa avanseze
+    // direct, fara faza de reluare.
+    for (let i = 0; i < 4; i += 1) {
+      round = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+    }
+    const ultimul = quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+
+    assert.equal(quiz.getLevel(), 7, "timeout-urile nu trebuie sa amane avansul de nivel");
+    assert.equal(ultimul.pasUrmator.continua.levelAdvanced, true);
+  });
+
+  it("onTimeout: bv-ul ramane 'rezolvat din prima' dupa un lift ajuns jos", () => {
+    const quiz = setupQuiz();
+    quiz.switchLevel(6);
+    const round = quiz.beginRound();
+
+    quiz.onTimeout({ responseMs: 5000 });
+    quiz.onAnswer(round.correctIndex, { responseMs: 500 });
+
+    const rezolvat = quiz.getInventarBonduri().randuri.find((r) => r.rezolvat);
+    assert.ok(
+      rezolvat,
+      "dupa timeout + raspuns corect, bv-ul se marcheaza rezolvat (timeout-ul nu-l trece prin coada de reluare)"
+    );
   });
 });
 

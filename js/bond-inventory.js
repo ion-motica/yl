@@ -49,6 +49,14 @@
     return { visible: true, nivel, randuri };
   }
 
+  // Locul rezervat ilustratiei cu mere, dupa al doilea numar din "{nivel}=a+b"
+  // (cerere user, 31.08.2026: "plaseaza un caracter spatiu dupa al doilea numar
+  // si plaseaza merele peste el"). E un spatiu gol, cu latime data de variabila
+  // CSS `--ilustrare-latime` — pusa pe containerul randurilor de
+  // js/bond-illustration.js, singurul care stie cat ocupa ilustratia. Aici doar
+  // se rezerva locul; nimic din inventar nu calculeaza dimensiuni de mere.
+  const LOC_ILUSTRATIE_HTML = `<span class="inventar-bonduri-loc-ilustratie"></span>`;
+
   // Continutul unui rand (fara div-ul wrapper) — folosit atat de randaHtml
   // (randare completa) cat si de elementeDivIntrebare (patch in loc, vezi mai
   // jos), ca sa nu existe doua locuri care decid cum arata un rand. Randul
@@ -60,7 +68,8 @@
       `<span class="inventar-bonduri-semn">${nivel}=</span>` +
       `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareA}">${rand.a}</span>` +
       `<span class="inventar-bonduri-semn">+</span>` +
-      `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareB}">${rand.b}</span>`
+      `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareB}">${rand.b}</span>` +
+      LOC_ILUSTRATIE_HTML
     );
   }
 
