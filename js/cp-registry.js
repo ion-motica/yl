@@ -13,6 +13,7 @@
     "equationTonomat",
     "rigle",
     "rigleTabla110",
+    "ilustrareMereViteza",
     "liftType",
     "debug",
     "lift",
