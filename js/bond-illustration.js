@@ -92,9 +92,16 @@
       return elDiv;
     }
 
-    function umpleCos(cosEl, valoare, culoare, dimensiuneDiscPx, indiciAscunsi) {
+    // `inaltimeCosPx`: inaltimea EXACTA a cosului (box-sizing:border-box —
+    // include padding+border), luata din masurarea reala a unui
+    // .inventar-bonduri-numar (vezi masoaraRand) — nu dedusa din font-size,
+    // ca sa ramana corecta chiar si cand discurile s-au micsorat pt. incapere
+    // pe ecran ingust (cerere user, 31.08.2026: "cosurile sunt mult mai
+    // scunde decat numerele").
+    function umpleCos(cosEl, valoare, culoare, dimensiuneDiscPx, inaltimeCosPx, indiciAscunsi) {
       cosEl.style.backgroundColor = culoare;
       cosEl.style.width = `${latimeCos(valoare, dimensiuneDiscPx)}px`;
+      if (inaltimeCosPx) cosEl.style.height = `${inaltimeCosPx}px`;
       cosEl.innerHTML = Array.from({ length: Math.max(0, valoare) }, (_, i) =>
         discHtml(dimensiuneDiscPx, Boolean(indiciAscunsi && indiciAscunsi.has(i)))
       ).join("");
@@ -134,7 +141,17 @@
       randuriEl.appendChild(proba);
       const rProba = proba.getBoundingClientRect();
       const rLoc = proba.lastElementChild.getBoundingClientRect();
-      const rezultat = { ls: rProba.width, latimeTextPlusGap: rLoc.left - rProba.left };
+      // Inaltimea REALA a unui numar colorat ("9"), masurata, nu dedusa din
+      // font-size — singurul mod sigur sa iasa identica cu banda cosurilor,
+      // indiferent de line-height mostenit sau alte particularitati CSS
+      // (cerere user, 31.08.2026: banda cosului = exact inaltimea benzii
+      // cifrelor).
+      const rNumar = proba.querySelector(".inventar-bonduri-numar")?.getBoundingClientRect();
+      const rezultat = {
+        ls: rProba.width,
+        latimeTextPlusGap: rLoc.left - rProba.left,
+        inaltimeNumar: rNumar?.height || 0,
+      };
       proba.remove();
       return rezultat;
     }
@@ -153,9 +170,12 @@
       // (`nivel` discuri in total + chrome constant) — luam una oarecare.
       const a = Math.max(1, nivel - 1);
       const b = Math.max(1, nivel - a);
+      // Fara inaltimeCosPx la masurare (inca nu se stie — vine din
+      // masoaraRand, mai jos): nu conteaza, se masoara doar latimea, iar
+      // afisarea reala (mai jos in arataBv) primeste inaltimea corecta.
       const masoaraIlustratia = (discPx) => {
-        umpleCos(elCosA, a, "transparent", discPx);
-        umpleCos(elCosB, b, "transparent", discPx);
+        umpleCos(elCosA, a, "transparent", discPx, null);
+        umpleCos(elCosB, b, "transparent", discPx, null);
         return elDiv.getBoundingClientRect().width;
       };
 
@@ -314,9 +334,18 @@
         elCosB.style.transition = "none";
         elDiv.style.top = `${pozitie.top}px`;
         elDiv.style.left = `${pozitie.left}px`;
-        umpleCos(elCosA, a, culoareA, disc);
-        umpleCos(elCosB, b, culoareB, disc);
+        umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar);
+        umpleCos(elCosB, b, culoareB, disc, m.inaltimeNumar);
         elDiv.style.visibility = "visible";
+        // Forteaza un reflow ACUM, cat timp transition e inca "none" —
+        // altfel browserul poate contopi toate schimbarile de stil de mai
+        // sus cu linia urmatoare (transition activat) intr-un singur
+        // recalcul, si interpreteaza pozitia/latimea INITIALA (implicita,
+        // 0,0, de dinainte sa existe elDiv la locul lui) ca punct de plecare
+        // al unei animatii — cosurile "gliseaza" la prima afisare din nivel
+        // (bug raportat de user, 31.08.2026: "cosurile alea se misca la
+        // prima afisare, unde nu ar trebui sa se miste").
+        void elDiv.offsetWidth;
         // Tranzitiile se activeaza pentru bv-urile URMATOARE din nivel.
         elDiv.style.transition = `top ${DURATA_TRANZITIE_MS}ms ease, left ${DURATA_TRANZITIE_MS}ms ease`;
         elCosA.style.transition = `width ${DURATA_TRANZITIE_MS}ms ease`;
@@ -354,8 +383,8 @@
 
       elDiv.style.top = `${pozitie.top}px`;
       elDiv.style.left = `${pozitie.left}px`;
-      umpleCos(elCosA, a, culoareA, disc, ascunseA);
-      umpleCos(elCosB, b, culoareB, disc, ascunseB);
+      umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar, ascunseA);
+      umpleCos(elCosB, b, culoareB, disc, m.inaltimeNumar, ascunseB);
       ultimulBv = { a, b };
 
       // Discurile sosite devin vizibile exact cand aterizeaza grupul.
