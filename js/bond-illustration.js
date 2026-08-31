@@ -333,12 +333,16 @@
       // Scara de font a randurilor (.inventar-bonduri-semn/-numar, vezi
       // style.css) — proprietate CSS GLOBALA, deci pornim explicit de la 1
       // de fiecare data (nu ramane ce a lasat nivelul anterior), apoi cautam
-      // numeric (corectie liniara, 2 pasi) valoarea care duce latimea celui
-      // mai lat rand la procentul-tinta din latimea disponibila (cerere
-      // user, 31.08.2026: "randul ocupa -[80%]+ din latimea divului —
-      // regleaza fontul si diametrul discului"). 2 pasi sunt suficienti in
-      // practica: relatia nu e perfect liniara (chrome-ul fix al cosului nu
-      // se scaleaza), dar eroarea reziduala e neglijabila vizual.
+      // numeric valoarea care duce latimea celui mai lat rand la
+      // procentul-tinta din latimea disponibila (cerere user, 31.08.2026:
+      // "randul ocupa -[80%]+ din latimea divului — regleaza fontul si
+      // diametrul discului"). Pana la 6 pasi de corectie liniara, cu iesire
+      // anticipata sub 1px eroare — nu 2 fixi: relatia latime~scara NU e
+      // perfect liniara (chrome-ul FIX al cosului, padding+bordura, nu se
+      // scaleaza cu fontul), deci la tinte extreme (aproape de 100%) o
+      // singura corectie converge prea incet si ramane vizibil peste chenar
+      // (bug raportat de user, 31.08.2026, cu "Randul ocupa" = 95%: "nu mai
+      // tine la valorile din poza").
       aplicaScaraFont(1);
       let { inaltimeNumarBaza, mas: m } = masoaraLaScaraFixa100();
 
@@ -346,7 +350,8 @@
       let scala = 1;
       if (latimeCaseta > 0 && targetPct > 0 && m.ls > 0) {
         const tinta = (targetPct / 100) * latimeCaseta;
-        for (let pas = 0; pas < 2; pas += 1) {
+        for (let pas = 0; pas < 6; pas += 1) {
+          if (Math.abs(tinta - m.ls) < 1) break;
           const factor = tinta / m.ls;
           if (!Number.isFinite(factor) || factor <= 0) break;
           scala *= factor;
@@ -362,14 +367,20 @@
       let latimeIlustratie = masoaraIlustratia(dimensiuneDiscPx);
       m = masoaraRand({ nivel, latimeIlustratie, randuriEl });
 
-      // Plasa de siguranta ramasa din shrink-to-fit-ul vechi (cerere user,
-      // 30.08.2026): daca randul TOT nu incape (ex. targetPct=0, dezactivat
-      // din CP, sau caseta e extrem de ingusta), micsoreaza doar discul, ca
-      // sa nu iasa niciodata peste marginea casetei.
-      if (latimeCaseta > 0 && m.ls > latimeCaseta) {
-        const chrome = latimeIlustratie - nivel * dimensiuneDiscPx;
-        const disponibil = latimeCaseta - m.latimeTextPlusGap - chrome;
-        dimensiuneDiscPx = Math.max(DISC_MIN_PX, Math.floor(disponibil / nivel));
+      // Plasa de siguranta FINALA: daca randul TOT nu incape (target extrem,
+      // ex. 95%+, combinat cu un chrome mare al cosului, sau caseta extrem
+      // de ingusta), micsoreaza UNIFORM tot — font SI disc — cu raportul
+      // exact necesar, repetat pana incape (max. 3 incercari; convergenta
+      // geometrica, in practica 1 e suficienta). Diferit de vechea plasa
+      // (care micsora doar discul): acum garanteaza ca randul NU iese
+      // NICIODATA peste marginea casetei, indiferent cat de bine a convers
+      // cautarea de mai sus.
+      for (let pas = 0; pas < 3 && latimeCaseta > 0 && m.ls > latimeCaseta; pas += 1) {
+        const factorSiguranta = latimeCaseta / m.ls;
+        if (!Number.isFinite(factorSiguranta) || factorSiguranta <= 0) break;
+        scala *= factorSiguranta;
+        aplicaScaraFont(scala);
+        dimensiuneDiscPx = Math.max(DISC_MIN_PX, Math.round(dimensiuneDiscPx * factorSiguranta));
         latimeIlustratie = masoaraIlustratia(dimensiuneDiscPx);
         m = masoaraRand({ nivel, latimeIlustratie, randuriEl });
       }

@@ -137,7 +137,12 @@
       return (
         `<div class="singapore-prompt">` +
         global.InventarBonduri.randaHtml(inventarCurent()) +
-        `<div class="singapore-current" data-element-div-intrebare="linia-curenta">${currentLineHtml(fact, missingSide)}</div>` +
+        // Clasa "intrebare-propriu-zisa" (cerere user, 31.08.2026): marcheaza
+        // DOAR intrebarea curenta, separat de "intrebare-ilustrare" (tabelul
+        // bv-urilor, vezi bond-inventory.js) — folosita mai jos de lista de
+        // timpi (nu mai citeste tot promptul ca "intrebare") si de orice cod
+        // care trebuie sa stearga/pastreze doar una din cele doua parti.
+        `<div class="singapore-current intrebare-propriu-zisa" data-element-div-intrebare="linia-curenta">${currentLineHtml(fact, missingSide)}</div>` +
         `</div>`
       );
     }
@@ -327,6 +332,19 @@
                 flash: "win",
                 banner: "Felicitări! Ai terminat nivelul 10!",
                 message: "Felicitări! Ai terminat nivelul 10!",
+                // Fara promptHtml aici, motorul (falling-engine.js,
+                // normalizeRoundState) completeaza singur `prompt: "—"`,
+                // ceea ce face `hasRenderableState` sa iasa adevarat si
+                // RESCRIE #top-number cu doar "—" — sterge tot tabelul de
+                // bv-uri + ilustratia din DOM (bug raportat de user,
+                // 31.08.2026: "la finalul ultimului nivel se sterge tot
+                // continutul divului cu intrebarea, inclusiv merele").
+                // Repetam explicit continutul deja afisat (holdView) ca
+                // randarea, care oricum se va intampla, sa fie un no-op —
+                // tabelul complet cu ilustratiile ramane vizibil.
+                prompt: holdView.prompt,
+                promptHtml: holdView.promptHtml,
+                elementeDivIntrebare: holdView.elementeDivIntrebare,
               },
             },
           };

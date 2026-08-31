@@ -94,7 +94,13 @@
         );
       })
       .join("");
-    return `<div class="inventar-bonduri-randuri">${randuriHtml}</div>`;
+    // Clasa "intrebare-ilustrare" (cerere user, 31.08.2026): marcheaza partea
+    // de "ilustrare" a promptului, separat de intrebarea curenta propriu-zisa
+    // ("linia-curenta", marcata cu "intrebare-propriu-zisa" — vezi quizul).
+    // Foloseste-o oriunde ai nevoie sa distingi cele doua bucati (ex. ce
+    // ramane vizibil la finalul jocului, ce se citeste ca "intrebare" pt.
+    // jurnal/lista de timpi).
+    return `<div class="inventar-bonduri-randuri intrebare-ilustrare">${randuriHtml}</div>`;
   }
 
   // Contractul "Mod scriere intrebare noua" din falling-engine.js: la runda
