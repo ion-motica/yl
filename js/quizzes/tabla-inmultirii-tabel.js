@@ -23,11 +23,27 @@
 
   // "din primele 5 neraspunse" (user, 01.09.2026).
   const CANDIDATI_PREFERATI = 5;
-  // "final de nivel ... fie un raspuns corect, fie doua raspunsuri,
-  // indiferent daca corecte sau nu" (user, 01.09.2026) — vezi `esteCorect`
-  // mai jos pt. cum se implementeaza asta peste regula unica din
-  // motor-3-butoane.js (corect avanseaza / gresit ramai pe loc).
-  const MAX_INCERCARI_PE_INTREBARE = 2;
+  // "1 RCPA (raspuns corect din prima apasare) SAU 2 aparitii — indiferent
+  // de RCPA — inchide factul pe nivelul curent" (user, 01.09.2026).
+  //
+  // Atentie, distinctie esentiala: asta numara APARITII ale intrebarii
+  // (o aparitie = de la afisare pana la apasarea corecta care o inchide —
+  // regula unica din motor-3-butoane.js ramane neatinsa, orice numar de
+  // apasari gresite in interiorul unei aparitii), NU apasari brute de buton.
+  // `esteCorect` mai jos ramane 100% onest, fara nicio exceptie.
+  //
+  // NU folosim `context.corect_din_primul_turn_apasare` din motor (parea
+  // solutia "gratis", dar verificat empiric era gresit aici): acel contor se
+  // reseteaza doar din `motor.laAfisareaIntrebarii`, apelat STRICT din
+  // `SubquizDefinition.createRuntime().begin()` — o singura data, la
+  // pornirea subquiz-ului. Noi schimbam intrebarea cu
+  // `runtime.setCurrentItem(...)` (vezi `sincronizeazaOrchestratorul`), care
+  // NU cheama `begin()` din nou — deci acel contor ramane "prima apasare"
+  // doar la prima apasare din toata sesiunea, niciodata dupa. Tinem in loc
+  // un contor propriu (`apasariInAparitiaCurenta`), resetat de noi la
+  // fiecare intrebare noua — pur observational, nu ajunge niciodata in
+  // valoarea intoarsa de `esteCorect`.
+  const MAX_APARITII_PER_FACT = 2;
 
   const HINT_MESSAGE = "Alege produsul corect.";
   const PREFIX = "ti";
@@ -85,15 +101,21 @@
     let gameCompleted = false;
 
     // Factorii 1..10 neterminati in nivelul curent, mereu pastrati crescator
-    // (se scoate cu `.filter`, nu se adauga niciodata la mijloc).
+    // (se scoate cu `.filter`, nu se adauga niciodata la mijloc). Un factor
+    // ramane aici cat timp factul lui nu s-a inchis inca (vezi
+    // MAX_APARITII_PER_FACT) — poate fi ales din nou dupa o aparitie
+    // neincheiata cu RCPA.
     let neterminate = [];
     let factorCurent = null;
-    let incercariRandaCurenta = 0;
-    // Corectitudinea REALA a ultimei apasari — separata de `corect`-ul fals
-    // pe care `esteCorect` il poate intoarce ca sa forteze avansul dupa a
-    // doua incercare. Logarea (FactStore) si mesajul folosesc mereu asta, nu
-    // valoarea trimisa motorului.
-    let ultimaEsteRealCorecta = false;
+    // Cate aparitii ale fiecarui fact s-au INCHEIS deja pe nivelul curent
+    // (cheia e `factId`, nu factorul — vezi comentariul de la
+    // MAX_APARITII_PER_FACT). Se reseteaza la fiecare nivel nou.
+    let aparitiiPerFact = {};
+    // Cate apasari (orice fel) s-au facut in aparitia INCA DESCHISA a
+    // intrebarii curente. Resetat la fiecare intrebare noua (`pregatesteFactor`),
+    // incrementat din `esteCorect` (singurul loc apelat exact o data per
+    // apasare reala) — vezi comentariul de la MAX_APARITII_PER_FACT.
+    let apasariInAparitiaCurenta = 0;
     let options = [];
     let correctIndex = 0;
     let orchestrator = null;
@@ -286,7 +308,7 @@
 
     function pregatesteFactor(nou, vechiFactor) {
       factorCurent = nou;
-      incercariRandaCurenta = 0;
+      apasariInAparitiaCurenta = 0;
       construiesteOptiuni();
       sincronizeazaOrchestratorul(vechiFactor);
     }
@@ -294,29 +316,31 @@
     function incepeNivel() {
       neterminate = [];
       for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) neterminate.push(f);
+      aparitiiPerFact = {};
       pregatesteFactor(alegeFactorCurent(), null);
     }
 
-    // Motor 3 butoane (M3B): regula unica ramane "corect avanseaza, gresit
-    // ramai pe loc" — nu exista alta cale de rutare (vezi motor-3-butoane.js).
-    // Ca sa respect "doua raspunsuri, indiferent daca corecte sau nu",
-    // `esteCorect` intoarce `true` si pe a doua incercare gresita — asta e
-    // singurul punct din contract prin care un raspuns gresit poate avansa.
-    // Corectitudinea REALA nu se pierde: `ultimaEsteRealCorecta` o pastreaza
-    // separat, pt. logare si pt. mesaj/flash. `outcome` ramane intotdeauna
-    // "step-correct" din clipa asta (niciodata "wrong-answer") — exact regula
-    // din AGENTS.md, ca sa nu reapara bug-ul de ecran desincronizat gasit in
-    // sq3/sq5.
+    // Motor 3 butoane (M3B): regula unica ramane neatinsa — "corect
+    // avanseaza, gresit ramai pe loc", fara nicio exceptie, fara nicio
+    // portita (vezi motor-3-butoane.js). `esteCorect` e 100% onest, ca la
+    // orice alt quiz din proiect — nu exista nicio incercare "fortata".
+    //
+    // "1 RCPA sau 2 aparitii inchide factul" se implementeaza STRICT in
+    // `dupaRaspunsCorect`, care oricum ruleaza doar cand aparitia curenta
+    // s-a incheiat cu adevarat (apasare corecta): RCPA e "aparitia asta s-a
+    // inchis din prima apasare", citit din contorul nostru local
+    // (`apasariInAparitiaCurenta`, vezi comentariul de la
+    // MAX_APARITII_PER_FACT — NU din motor). Numara aparitia inchisa pe
+    // `factId`, si decide daca factorul iese din `neterminate` sau ramane
+    // pentru o a doua aparitie. Nu atinge deloc ramura de "gresit" din M3B.
     function baseDefinition() {
       return global.SubquizDefinition.define({
         id: "tabel",
         title: "tabel",
         hintMessage: HINT_MESSAGE,
         esteCorect: (_item, index) => {
-          incercariRandaCurenta += 1;
-          ultimaEsteRealCorecta = Number(options[index]) === produsPentru(factorCurent);
-          if (ultimaEsteRealCorecta) return true;
-          return incercariRandaCurenta >= MAX_INCERCARI_PE_INTREBARE;
+          apasariInAparitiaCurenta += 1;
+          return Number(options[index]) === produsPentru(factorCurent);
         },
         generator: () => ({}),
         mesaje: {
@@ -324,15 +348,20 @@
         },
         actiuni: {
           dupa_turn_apasare: (ctx) => {
-            recordAttempt(ultimaEsteRealCorecta, ctx.alesul, ctx.meta);
+            recordAttempt(ctx.corect, ctx.alesul, ctx.meta);
             return {};
           },
           dupaRaspunsCorect: () => {
             const rezolvatFactor = factorCurent;
-            const corectCuAdevarat = ultimaEsteRealCorecta;
-            const mesaj = corectCuAdevarat ? "Corect!" : "Nu era corect — trecem la produsul următor.";
+            const rcpa = apasariInAparitiaCurenta === 1;
+            const factId = factForRow(rezolvatFactor).factId;
+            aparitiiPerFact[factId] = (aparitiiPerFact[factId] ?? 0) + 1;
+            const factGata = rcpa || aparitiiPerFact[factId] >= MAX_APARITII_PER_FACT;
             const patchUnframe = elementePatchDoarUnframe(rezolvatFactor);
-            neterminate = neterminate.filter((f) => f !== rezolvatFactor);
+
+            if (factGata) {
+              neterminate = neterminate.filter((f) => f !== rezolvatFactor);
+            }
 
             if (neterminate.length > 0) {
               pregatesteFactor(alegeFactorCurent(), rezolvatFactor);
@@ -341,9 +370,9 @@
                 view: {
                   outcome: "step-correct",
                   correct: true,
-                  bounce: corectCuAdevarat,
-                  flash: corectCuAdevarat ? "win" : "wrong",
-                  message: mesaj,
+                  bounce: true,
+                  flash: "win",
+                  message: "Corect!",
                   ...vederePentruTranzitie(rezolvatFactor),
                 },
               };
@@ -358,9 +387,9 @@
                 view: {
                   outcome: "step-correct",
                   correct: true,
-                  bounce: corectCuAdevarat,
-                  flash: corectCuAdevarat ? "win" : "wrong",
-                  message: mesaj,
+                  bounce: true,
+                  flash: "win",
+                  message: "Corect!",
                   ...holdView,
                   pasUrmator: {
                     continua: {
@@ -384,9 +413,9 @@
               view: {
                 outcome: "step-correct",
                 correct: true,
-                bounce: corectCuAdevarat,
-                flash: corectCuAdevarat ? "win" : "wrong",
-                message: mesaj,
+                bounce: true,
+                flash: "win",
+                message: "Corect!",
                 ...holdView,
                 pasUrmator: {
                   continua: {
@@ -429,8 +458,8 @@
       resetLevelState() {
         neterminate = [];
         factorCurent = null;
-        incercariRandaCurenta = 0;
-        ultimaEsteRealCorecta = false;
+        aparitiiPerFact = {};
+        apasariInAparitiaCurenta = 0;
         options = [];
         correctIndex = 0;
       },
