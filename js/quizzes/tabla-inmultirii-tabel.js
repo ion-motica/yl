@@ -56,11 +56,31 @@
   const LC_ARATA_GRILA = "tablaInmultiriiTabel.arataGrila";
   const LC_PADDING_LATERAL = "tablaInmultiriiTabel.paddingLateralPx";
   const LC_PADDING_VERTICAL = "tablaInmultiriiTabel.paddingVerticalPx";
-  const LC_MARIME_FONT_PCT = "tablaInmultiriiTabel.marimeFontPct";
-  const MARIME_FONT_IMPLICITA = 100;
-  const MARIME_FONT_MIN = 50;
-  const MARIME_FONT_MAX = 200;
-  const MARIME_FONT_PAS = 1; // "vreau pas 1, nu 10" (user, 01.09.2026)
+  // Marime font in px absoluti, NU procent (cerere user, 01.09.2026): un
+  // procent e relativ la font-size-ul mostenit de la parinte (`.number` din
+  // falling-engine.js, 5rem implicit), care se schimba de la sine cand
+  // `fitNumberText` (acelasi fisier, ruleaza la orice re-randare, nu doar la
+  // "liftul ajunge jos") micsoreaza acel parinte ca sa incapa continutul in
+  // lift — de-acolo "resetul" de dimensiune raportat de user. Px absolut nu
+  // mosteneste nimic de la parinte, deci ramane exact ce a ales userul din
+  // CP, indiferent ce face fitNumberText in jurul lui. Cheie noua (nu
+  // "marimeFontPct") ca sa nu reinterpretam gresit o valoare veche salvata ca
+  // procent, acum ca px.
+  const LC_MARIME_FONT_PX = "tablaInmultiriiTabel.marimeFontPx";
+  const MARIME_FONT_PX_IMPLICITA = 16;
+  const MARIME_FONT_PX_MIN = 8;
+  const MARIME_FONT_PX_MAX = 48;
+  const MARIME_FONT_PX_PAS = 1;
+  // "Scris in numarare mai mic, camp CP separat, 50% implicit" (cerere user,
+  // 01.09.2026) — procent DIN marimea de mai sus. Ramane procent (nu px): un
+  // font-size CSS in procent e relativ la parinte PRIN DEFINITIE — functioneaza
+  // corect indiferent ca parintele (#ti-wrapper) e acum in px, fara calcul
+  // manual (vezi stilPartajat).
+  const LC_MARIME_FONT_NUMARARE_PCT = "tablaInmultiriiTabel.marimeFontNumararePct";
+  const MARIME_FONT_NUMARARE_IMPLICITA = 50;
+  const MARIME_FONT_NUMARARE_MIN = 10;
+  const MARIME_FONT_NUMARARE_MAX = 100;
+  const MARIME_FONT_NUMARARE_PAS = 1;
   const PADDING_MIN = 0;
   const PADDING_MAX = 30;
   const PADDING_PAS = 1;
@@ -82,8 +102,15 @@
     return global.LayoutConfig?.get(LC_PADDING_VERTICAL, 0) ?? 0;
   }
 
-  function getMarimeFontPct() {
-    return global.LayoutConfig?.get(LC_MARIME_FONT_PCT, MARIME_FONT_IMPLICITA) ?? MARIME_FONT_IMPLICITA;
+  function getMarimeFontPx() {
+    return global.LayoutConfig?.get(LC_MARIME_FONT_PX, MARIME_FONT_PX_IMPLICITA) ?? MARIME_FONT_PX_IMPLICITA;
+  }
+
+  function getMarimeFontNumararePct() {
+    return (
+      global.LayoutConfig?.get(LC_MARIME_FONT_NUMARARE_PCT, MARIME_FONT_NUMARARE_IMPLICITA) ??
+      MARIME_FONT_NUMARARE_IMPLICITA
+    );
   }
 
   // Scrierile de mai jos ating direct DOM-ul deja randat (prin id fix), NU
@@ -121,11 +148,18 @@
     return clamped;
   }
 
-  function scrieMarimeFontPct(valoare) {
-    const clamped = Math.min(MARIME_FONT_MAX, Math.max(MARIME_FONT_MIN, Math.round(valoare)));
-    global.LayoutConfig?.set(LC_MARIME_FONT_PCT, clamped);
+  function scrieMarimeFontPx(valoare) {
+    const clamped = Math.min(MARIME_FONT_PX_MAX, Math.max(MARIME_FONT_PX_MIN, Math.round(valoare)));
+    global.LayoutConfig?.set(LC_MARIME_FONT_PX, clamped);
     const wrapper = document.getElementById(ID_WRAPPER);
-    if (wrapper) wrapper.style.fontSize = `${clamped}%`;
+    if (wrapper) wrapper.style.fontSize = `${clamped}px`;
+    return clamped;
+  }
+
+  function scrieMarimeFontNumararePct(valoare) {
+    const clamped = Math.min(MARIME_FONT_NUMARARE_MAX, Math.max(MARIME_FONT_NUMARARE_MIN, Math.round(valoare)));
+    global.LayoutConfig?.set(LC_MARIME_FONT_NUMARARE_PCT, clamped);
+    document.getElementById(ID_WRAPPER)?.style.setProperty("--ti-numarare-font-scala", `${clamped}%`);
     return clamped;
   }
 
@@ -135,15 +169,29 @@
   // Coloana "plus" (dupa produs) si randul-schela de sub fiecare rand principal
   // au fost scoase (cerere user, 01.09.2026) — "adunari-repetate" preia rolul
   // lui "+" direct pe randul principal (ex. "2+").
-  const COLOANE = [
-    "factor", "x", "nr-tabla", "egal", "produs", "spatiu1",
-    "numarare1", "numarare2", "numarare3", "spatiu2",
-    "adunari-repetate", "counter",
-  ];
+  // Coloanele "numarare" sunt dinamice: atatea cate e nivelul (cerere user,
+  // 01.09.2026) — "pt inmultirea cu 1, 1 coloana, pt tabla cu 2, 2 coloane
+  // s.a.m.d.", ca pe randul f coloana k sa arate (f-1)*nivel+k — asa ULTIMA
+  // coloana numarare de pe rand coincide mereu cu produsul f*nivel (vezi
+  // valoareStaticaCelula). Functie de `nivel`, nu constanta ca inainte (cand
+  // erau mereu exact 3).
+  function coloanePentruNivel(nivel) {
+    const numarare = [];
+    for (let k = 1; k <= nivel; k++) numarare.push(`numarare${k}`);
+    return [
+      "factor", "x", "nr-tabla", "egal", "produs", "spatiu1",
+      ...numarare, "spatiu2",
+      "adunari-repetate", "counter",
+    ];
+  }
   const COLOANE_CADRU = ["factor", "x", "nr-tabla", "egal", "produs"];
   const POZITIE_IN_CADRU = {
     factor: "prim", x: "mijloc", "nr-tabla": "mijloc", egal: "mijloc", produs: "ultim",
   };
+  // "x/nr-tabla/egal nu trebuie sa fie late cat celulele cu 2 cifre — latime
+  // de 1 caracter" (cerere user, 01.09.2026) — vezi clasa "ti-cell-simbol" in
+  // stilPartajat()/claseCelula().
+  const COLOANE_INGUSTE = ["x", "nr-tabla", "egal"];
   const ETICHETE_HEADER = {
     factor: "factor", x: "x", "nr-tabla": "nr tabla", egal: "egal", produs: "produs",
     numarare1: "numarare", "adunari-repetate": "adunari repetate", counter: "counter",
@@ -158,6 +206,12 @@
     return (
       `.ti-cell{padding:var(--ti-pad-y,0) var(--ti-pad-x,0);border:1px solid transparent;` +
       `text-align:center;min-width:1.5em;color:var(--text);box-sizing:border-box;}` +
+      // "x/nr-tabla/egal ingusta la 1 caracter" (cerere user, 01.09.2026).
+      `.ti-cell.ti-cell-simbol{min-width:1ch;}` +
+      // "scris in numarare mai mic" (cerere user, 01.09.2026) — procent CSS
+      // relativ la parintele mostenit (#ti-wrapper), calculeaza singur "N%
+      // din scrisul de la 3*5=15" fara nicio aritmetica in JS.
+      `.ti-cell.ti-cell-numarare{font-size:var(--ti-numarare-font-scala,50%);}` +
       `#${ID_WRAPPER}.ti-grila .ti-cell{border-color:${CULOARE_GRILA};}`
     );
   }
@@ -274,21 +328,29 @@
     }
 
     function valoareStaticaCelula(coloana, f) {
+      const numarareMatch = /^numarare(\d+)$/.exec(coloana);
+      if (numarareMatch) {
+        return String((f - 1) * level + Number(numarareMatch[1]));
+      }
       switch (coloana) {
         case "factor": return String(f);
         case "x": return "x";
         case "nr-tabla": return String(level);
         case "egal": return "=";
         case "produs": return String(produsPentru(f));
-        case "numarare1": return String((f - 1) * 3 + 1);
-        case "numarare2": return String((f - 1) * 3 + 2);
-        case "numarare3": return String((f - 1) * 3 + 3);
         // "scrie 2+ pe fiecare rand pe acare acum e doar 2" (user, 01.09.2026)
         // — inlocuieste randul-schela cu "+" separat.
         case "adunari-repetate": return `${level}+`;
         case "counter": return "";
         default: return "";
       }
+    }
+
+    function claseCelula(coloana) {
+      const extra = [];
+      if (COLOANE_INGUSTE.includes(coloana)) extra.push("ti-cell-simbol");
+      if (coloana.startsWith("numarare")) extra.push("ti-cell-numarare");
+      return extra.length ? `ti-cell ${extra.join(" ")}` : "ti-cell";
     }
 
     // Continutul (fara <td>) al unei celule din grupul incadrat — comun
@@ -308,21 +370,21 @@
 
     function celulaHtml(coloana, f, esteActiv) {
       const id = idCelula(coloana, f);
-      return `<td id="${id}" data-element-div-intrebare="${id}" class="ti-cell">${continutCelula(coloana, f, esteActiv)}</td>`;
+      return `<td id="${id}" data-element-div-intrebare="${id}" class="${claseCelula(coloana)}">${continutCelula(coloana, f, esteActiv)}</td>`;
     }
 
     function randMainRowHtml(f) {
       const esteActiv = f === factorCurent;
-      const celule = COLOANE.map((coloana) => celulaHtml(coloana, f, esteActiv));
+      const celule = coloanePentruNivel(level).map((coloana) => celulaHtml(coloana, f, esteActiv));
       return `<tr id="${idRand(f)}" data-element-div-intrebare="${idRand(f)}">${celule.join("")}</tr>`;
     }
 
     function headerRowHtml() {
-      const celule = COLOANE.map((coloana) => {
+      const celule = coloanePentruNivel(level).map((coloana) => {
         const text = ETICHETE_HEADER[coloana] ?? "";
         const stilRotit = text ? "writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;margin:0 auto;" : "";
         return (
-          `<td id="${idColoana(coloana)}-header" class="ti-cell" style="height:5em;vertical-align:bottom;">` +
+          `<td id="${idColoana(coloana)}-header" class="${claseCelula(coloana)}" style="height:5em;vertical-align:bottom;">` +
           `<span style="${stilRotit}">${text}</span></td>`
         );
       });
@@ -334,7 +396,7 @@
     }
 
     function colgroupHtml() {
-      return `<colgroup>${COLOANE.map((c) => `<col id="${idColoana(c)}">`).join("")}</colgroup>`;
+      return `<colgroup>${coloanePentruNivel(level).map((c) => `<col id="${idColoana(c)}">`).join("")}</colgroup>`;
     }
 
     // Randare completa — folosita ca fallback (motorul cade pe ea singur
@@ -356,8 +418,9 @@
       // toate ajustabile live, fara sa retrimita tot tabelul.
       const clasaGrila = getArataGrila() ? " ti-grila" : "";
       const stilWrapper =
-        `text-align:center;font-size:${getMarimeFontPct()}%;` +
-        `--ti-pad-x:${getPaddingLateralPx()}px;--ti-pad-y:${getPaddingVerticalPx()}px;`;
+        `text-align:center;font-size:${getMarimeFontPx()}px;` +
+        `--ti-pad-x:${getPaddingLateralPx()}px;--ti-pad-y:${getPaddingVerticalPx()}px;` +
+        `--ti-numarare-font-scala:${getMarimeFontNumararePct()}%;`;
       return (
         `<div id="${ID_WRAPPER}" class="${clasaGrila.trim()}" style="${stilWrapper}">` +
         `<style>${stilPartajat()}</style>` +
@@ -620,7 +683,8 @@
       },
 
       // CP - Tabla inmultirii - Tabel (cerere user, 01.09.2026): bifa
-      // "Ascunde titluri coloane" (implicit bifata) + stepper "Marime font".
+      // "Ascunde titluri coloane" (implicit bifata) + steppere pt. padding,
+      // marime font (px) si marime scris in coloanele "numarare" (%).
       // Tiparul de DOM (label+checkbox, div.pre-eq-stepper-field) copiat din
       // `appendRigleTabla110ControlPanel` (js/quizzes/rigle-tabla-1-10.js),
       // ca sa arate la fel ca restul panourilor CP.
@@ -673,7 +737,15 @@
         addBifa("Arata grila tabel", getArataGrila, scrieArataGrila);
         addStepper("Padding cell lateral", getPaddingLateralPx, scriePaddingLateralPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
         addStepper("Padding cell vertical", getPaddingVerticalPx, scriePaddingVerticalPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
-        addStepper("Marime font", getMarimeFontPct, scrieMarimeFontPct, MARIME_FONT_MIN, MARIME_FONT_MAX, MARIME_FONT_PAS);
+        addStepper("Marime font (px)", getMarimeFontPx, scrieMarimeFontPx, MARIME_FONT_PX_MIN, MARIME_FONT_PX_MAX, MARIME_FONT_PX_PAS);
+        addStepper(
+          'Scris in "numarare" %',
+          getMarimeFontNumararePct,
+          scrieMarimeFontNumararePct,
+          MARIME_FONT_NUMARARE_MIN,
+          MARIME_FONT_NUMARARE_MAX,
+          MARIME_FONT_NUMARARE_PAS
+        );
       },
     };
   }
