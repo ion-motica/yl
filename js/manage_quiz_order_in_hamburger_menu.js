@@ -25,6 +25,7 @@ Tabla impartirii - intrebari ajutatoare 15:?=3
 T× EFF — Înmulțire extended fact family
 T÷ EFF — Împărțire extended fact family
 Ecuatii cu 3 4 5 6 numere
+Tabla inmultirii - Tabel
 ## Clasa a 3-a
 Ecuatii cu 3 4 5 6 numere
 ## Clasa a 4-a
