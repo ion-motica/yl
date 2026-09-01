@@ -64,6 +64,21 @@
     setareDiametruDiscPct.set(pct);
   }
 
+  // Multiplicator peste scara de font gasita de auto-fit (fontRandScala mai
+  // jos), 100% = neschimbat — reglabil live din CP (cerere user, 01.09.2026:
+  // "Marire font -[100%]+"). La fel ca Diametru disc, NU se hraneste inapoi
+  // in bucla de auto-fit (PASUL 1) — altfel auto-fit-ul ar re-tinti latimea
+  // si ar anula exact multiplicatorul cerut de user. Spre deosebire de
+  // Diametru disc insa, schimba baza (inaltimeNumarBaza) folosita si de
+  // Diametru disc, deci dupa aplicare se re-masoara (vezi pregatesteNivel).
+  const setareMarireFontPct = creeazaSetareReglabila("ilustrareBonduriMarireFontPct", 100, numarPozitivSauNimic);
+  function getMarireFontPct() {
+    return setareMarireFontPct.get();
+  }
+  function setMarireFontPct(pct) {
+    setareMarireFontPct.set(pct);
+  }
+
   // Procentul-tinta din latimea containerului pe care trebuie sa-l ocupe cel
   // mai lat rand ("{nivel}=9+9" + ilustratie) — reglabil live din CP (cerere
   // user, 31.08.2026: "randul ocupa -[80%]+ din latimea divului — regleaza
@@ -179,6 +194,10 @@
     // bondurile cu raspuns" e activ (cerere user, 31.08.2026) — la fiecare
     // bv nou, elDiv se cloneaza EXACT cum arata acum, inainte sa se mute la
     // randul nou, ca ilustratia randului vechi sa ramana vizibila definitiv.
+    // Elemente `{ el, a, b }`, NU doar nodul DOM — bondul propriu fiecarei
+    // clone e necesar ca sa poata fi RE-randata mai tarziu la o setare noua
+    // din CP (vezi reaplicaSetari), cerere user (01.09.2026): "daca sunt mai
+    // multe randuri cu raspuns ... trebuie toate rerandate".
     let cloneRamase = [];
     // Cand se termina (timestamp) spectacolul final in curs — 0 daca
     // niciunul. Acelasi rol ca zborInCursPanaLa, pt. reseteaza() (vezi acolo).
@@ -383,6 +402,18 @@
         }
       }
 
+      // PASUL 1bis: multiplicatorul "Marire font" din CP, peste scara gasita
+      // de auto-fit — apoi RE-MASOARA (discul inca fixat la 100%, ca la
+      // masuratorile de mai sus), ca baza folosita de Diametru disc (pasul
+      // urmator) sa reflecte fontul REAL vazut de user, nu cel de dinainte
+      // de multiplicator.
+      const marireFontPct = getMarireFontPct();
+      if (marireFontPct !== 100) {
+        scala *= marireFontPct / 100;
+        aplicaScaraFont(scala);
+        ({ inaltimeNumarBaza, mas: m } = masoaraLaScaraFixa100());
+      }
+
       // PASUL 2: ACUM se aplica procentul REAL din CP (Diametru disc) —
       // multiplicator independent peste rezultatul auto-fit-ului, care NU
       // se mai recalculeaza in bucla de mai sus.
@@ -454,6 +485,24 @@
         top: rRand.top - rParinte.top + rRand.height / 2,
         left: rRand.left - rParinte.left + m.latimeTextPlusGap,
       };
+    }
+
+    // Randul din tabel care arata EXACT bondul (a,b) dat — cautat prin
+    // continutul lui viu (cele doua .inventar-bonduri-numar), nu preluat de
+    // la vreun apelant. Necesar in reaplicaSetari (mai jos): fiecare clona
+    // ramasa pe loc trebuie repozitionata la randul EI, nu la randul curent
+    // primit ca parametru. Acelasi tipar ca dateRanduri din
+    // joacaSpectacolFinal (citeste bondul direct din DOM-ul randului viu).
+    // Sigur doar dupa ce randul a fost REZOLVAT (motorul ii rescrie cifrele
+    // abia atunci) — adevarat pt. orice rand care are deja o clona.
+    function gasesteRandulPentru(randuriEl, a, b) {
+      if (!randuriEl) return null;
+      return (
+        Array.from(randuriEl.children).find((rand) => {
+          const numere = rand.querySelectorAll(".inventar-bonduri-numar");
+          return numere.length >= 2 && Number(numere[0].textContent) === a && Number(numere[1].textContent) === b;
+        }) || null
+      );
     }
 
     // Pozitia verticala a primului sau ultimului rand din tabelul bv-urilor —
@@ -668,7 +717,9 @@
           .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
           .forEach((el) => el.classList.remove("e-in-zbor"));
         containerEl.appendChild(clonaRamasa);
-        cloneRamase.push(clonaRamasa);
+        // Bondul e cel VECHI (ultimulBv) — elDiv inca arata randul dinainte
+        // sa se mute la cel nou, cateva linii mai jos.
+        cloneRamase.push({ el: clonaRamasa, a: ultimulBv.a, b: ultimulBv.b });
       }
 
       if (faraAnimatie) {
@@ -736,6 +787,102 @@
       }, getDurataTranzitieMs());
 
       return { zborDeclansat };
+    }
+
+    // Re-randeaza IMEDIAT, pe loc, tot ce e vizibil ACUM (ilustratia curenta
+    // + orice clona ramasa, modul "Ilustratie la: toate bondurile cu
+    // raspuns") la setarile curente din CP — fara sa treaca prin reseteaza()
+    // (care le-ar sterge pe toate si ar astepta urmatorul raspuns sa le
+    // redeseneze). Apelata de quiz la fiecare schimbare dintr-un camp cu
+    // `afecteazaMasurarea` (cerere user, 01.09.2026: "nu vad modificarea
+    // imediat ... bilele si cosurile dispar si reapar abia la urmatoarea
+    // apasare de buton").
+    //
+    // Doar mere/cosuri — NU si scara de font a cifrelor propriu-zise
+    // (.inventar-bonduri-semn/-numar): aceea deja se propaga singura, live,
+    // prin variabila CSS globala (--ilustrare-font-scala, vezi
+    // aplicaScaraFont), fara ajutor din partea acestei functii. Merele si
+    // latimea cosurilor insa sunt pixeli FICSI, scrisi de JS (vezi umpleCos)
+    // dupa o masurare reala — nu exista nicio formula CSS din care sa se
+    // recalculeze singure, deci fiecare element (elDiv + fiecare clona)
+    // trebuie rescris explicit, cu bondul lui propriu.
+    //
+    // Repozitioneaza si fiecare tinta (top/left) la randul EI, nu doar
+    // dimensiunile — daca "Marire font" a schimbat inaltimea randurilor din
+    // tabel (cifrele proprii "6=4+2" cresc si ele, prin acelasi
+    // --ilustrare-font-scala), pozitiile vechi ramase pe loc ar defaza tot
+    // mai mult fata de randurile lor pe masura ce se aduna clicuri (bug
+    // raportat de user, 01.09.2026, cu poze: "randurle cu cosurile incep sa
+    // se defazeze de randurile cu numerele — din ce in ce mai mult la
+    // fiecare clic").
+    function reaplicaSetari({ containerEl, randEl, latimeDisponibila }) {
+      if (!structuraExista() || !nivelPregatit || !containerEl || !randEl) return;
+      const nivel = nivelPregatit;
+      const ms = getDurataTranzitieMs();
+      const randuriEl = randEl.parentElement;
+
+      // Culorile se CAPTUREAZA ACUM, inainte sa ruleze pregatesteNivel —
+      // masurarea lui scrie direct pe elCosA/elCosB (proba "transparent",
+      // vezi masoaraIlustratia), deci daca le-am citi DUPA am recupera
+      // "transparent" in loc de culoarea reala (bug raportat de user,
+      // 01.09.2026: "un cos se decoloreaza", la primul clic). Clonele nu
+      // sunt atinse de acea masurare, dar le capturam la fel, uniform.
+      const tinte = [];
+      if (ultimulBv) {
+        tinte.push({
+          elDivTinta: elDiv,
+          cosA: elCosA,
+          cosB: elCosB,
+          a: ultimulBv.a,
+          b: ultimulBv.b,
+          culoareA: elCosA.style.backgroundColor,
+          culoareB: elCosB.style.backgroundColor,
+        });
+      }
+      cloneRamase.forEach(({ el, a, b }) => {
+        const cosA = el.children[1];
+        const cosB = el.children[3];
+        tinte.push({ elDivTinta: el, cosA, cosB, a, b, culoareA: cosA.style.backgroundColor, culoareB: cosB.style.backgroundColor });
+      });
+
+      // Opreste tranzitiile cat dureaza re-masurarea (pregatesteNivel scrie
+      // latimi PROBA, intermediare, direct pe elCosA/elCosB) SI aplicarea
+      // finala — schimbarea trebuie vazuta INSTANT, nu animata treptat ca o
+      // tranzitie normala intre doua bv-uri.
+      tinte.forEach(({ elDivTinta, cosA, cosB }) => {
+        elDivTinta.style.transition = "none";
+        if (cosA) cosA.style.transition = "none";
+        if (cosB) cosB.style.transition = "none";
+      });
+
+      nivelPregatit = null; // forteaza pregatesteNivel sa re-masoare, nu cache-ul vechi
+      const m = pregatesteNivel({ nivel, randEl, containerEl, latimeCaseta: latimeDisponibila });
+
+      const reactiveazaTranzitiile = () => {
+        void containerEl.offsetWidth;
+        tinte.forEach(({ elDivTinta, cosA, cosB }) => {
+          elDivTinta.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
+          if (cosA) cosA.style.transition = `width ${ms}ms ease`;
+          if (cosB) cosB.style.transition = `width ${ms}ms ease`;
+        });
+      };
+
+      if (!m) {
+        reactiveazaTranzitiile();
+        return;
+      }
+
+      tinte.forEach(({ elDivTinta, cosA, cosB, a, b, culoareA, culoareB }) => {
+        if (cosA) umpleCos(cosA, a, culoareA, m.dimensiuneDiscPx, m.inaltimeNumar);
+        if (cosB) umpleCos(cosB, b, culoareB, m.dimensiuneDiscPx, m.inaltimeNumar);
+        const randPropriu = gasesteRandulPentru(randuriEl, a, b);
+        const poz = randPropriu ? pozitieRand(randPropriu, containerEl, m) : null;
+        if (poz) {
+          elDivTinta.style.top = `${poz.top}px`;
+          elDivTinta.style.left = `${poz.left}px`;
+        }
+      });
+      reactiveazaTranzitiile();
     }
 
     // "Spectacol 1" (cerere user, 31.08.2026, camp CP "Spectacol la final de
@@ -947,7 +1094,7 @@
         aplicaBondPe(clona, dateRanduri[indexCurent], ascunseA, ascunseB);
         clona.style.top = `${dateRanduri[indexCurent].top}px`;
         clona.style.left = `${dateRanduri[indexCurent].left}px`;
-        cloneRamase.push(clona);
+        cloneRamase.push({ el: clona, a: dateRanduri[indexCurent].a, b: dateRanduri[indexCurent].b });
         elementCurent = clona;
 
         // Discurile sosite devin vizibile exact cand aterizeaza grupul —
@@ -1000,12 +1147,12 @@
         // (elDiv == null mai jos), deci n-are cum sa se amestece cu ea.
         setTimeout(() => {
           if (elDivDeCurata) elDivDeCurata.remove();
-          cloneRamase.forEach((clona) => clona.remove());
+          cloneRamase.forEach(({ el }) => el.remove());
           cloneRamase = [];
         }, ramas);
       } else {
         if (elDivDeCurata) elDivDeCurata.remove();
-        cloneRamase.forEach((clona) => clona.remove());
+        cloneRamase.forEach(({ el }) => el.remove());
         cloneRamase = [];
       }
       elDiv = null;
@@ -1015,7 +1162,7 @@
       elSemn = null;
     }
 
-    return { arataBv, reseteaza, joacaSpectacolFinal };
+    return { arataBv, reseteaza, joacaSpectacolFinal, reaplicaSetari };
   }
 
   global.IlustrareBonduri = {
@@ -1025,6 +1172,8 @@
     setDurataTranzitieMs,
     getDiametruDiscPct,
     setDiametruDiscPct,
+    getMarireFontPct,
+    setMarireFontPct,
     getPaddingCosRem,
     setPaddingCosRem,
     getRandTargetLatimePct,

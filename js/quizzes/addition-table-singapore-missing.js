@@ -622,9 +622,23 @@
         // acestui panou (vezi documente de referinta/razgandire-ieftina.md —
         // acelasi tipar ca appendStepper din pre-equations-eff-navigation.js).
         // `afecteazaMasurarea`: campurile care schimba dimensiuni ale
-        // ilustratiei (nu doar durata unei animatii) trebuie sa invalideze
-        // masurile memorate per nivel (ilustrareBonduri.reseteaza()) — altfel
-        // schimbarea nu se vede decat la nivelul urmator.
+        // ilustratiei re-randeaza IMEDIAT tot ce e vizibil ACUM (vezi
+        // reaplicaIlustratieLive mai jos) — cerere user (01.09.2026): "nu vad
+        // modificarea imediat ... bilele si cosurile dispar si reapar abia la
+        // urmatoarea apasare de buton" (bug-ul vechii implementari, care
+        // apela ilustrareBonduri.reseteaza() — asta STERGEA ilustratia
+        // curenta SI orice clona acumulata, fara sa le redeseneze pana la
+        // urmatorul raspuns).
+        const reaplicaIlustratieLive = () => {
+          const randEl = document.getElementById("top-number")?.querySelector(".inventar-bonduri-rand");
+          if (!randEl) return;
+          ilustrareBonduri.reaplicaSetari({
+            containerEl: document.getElementById("arena"),
+            randEl,
+            latimeDisponibila: latimeDisponibilaPentruIlustratie(),
+          });
+        };
+
         const appendStepperField = ({ eticheta, min, max, pas, zecimale, get, set, afecteazaMasurarea }) => {
           const rotunjeste = (v) => {
             const factor = 10 ** zecimale;
@@ -655,7 +669,7 @@
             const clamped = Math.min(max, Math.max(min, rotunjeste(valoare)));
             set(clamped);
             input.value = clamped.toFixed(zecimale);
-            if (afecteazaMasurarea) ilustrareBonduri.reseteaza();
+            if (afecteazaMasurarea) reaplicaIlustratieLive();
           };
 
           minus.addEventListener("click", () => aplica(Number(input.value) - pas));
@@ -676,6 +690,17 @@
           get: () => global.IlustrareBonduri.getDurataTranzitieMs() / 1000,
           set: (s) => global.IlustrareBonduri.setDurataTranzitieMs(Math.round(s * 1000)),
           afecteazaMasurarea: false,
+        });
+
+        appendStepperField({
+          eticheta: "Marire font (%)",
+          min: 20,
+          max: 300,
+          pas: 5,
+          zecimale: 0,
+          get: () => global.IlustrareBonduri.getMarireFontPct(),
+          set: (pct) => global.IlustrareBonduri.setMarireFontPct(pct),
+          afecteazaMasurarea: true,
         });
 
         appendStepperField({
