@@ -53,14 +53,33 @@
   // Cheile in LayoutConfig (localStorage) pt. panoul CP al acestui quiz —
   // vezi `appendTablaInmultiriiTabelControlPanel` mai jos.
   const LC_ASCUNDE_TITLURI = "tablaInmultiriiTabel.ascundeTitluriColoane";
+  const LC_ARATA_GRILA = "tablaInmultiriiTabel.arataGrila";
+  const LC_PADDING_LATERAL = "tablaInmultiriiTabel.paddingLateralPx";
+  const LC_PADDING_VERTICAL = "tablaInmultiriiTabel.paddingVerticalPx";
   const LC_MARIME_FONT_PCT = "tablaInmultiriiTabel.marimeFontPct";
   const MARIME_FONT_IMPLICITA = 100;
   const MARIME_FONT_MIN = 50;
   const MARIME_FONT_MAX = 200;
-  const MARIME_FONT_PAS = 10;
+  const MARIME_FONT_PAS = 1; // "vreau pas 1, nu 10" (user, 01.09.2026)
+  const PADDING_MIN = 0;
+  const PADDING_MAX = 30;
+  const PADDING_PAS = 1;
+  const CULOARE_GRILA = "#2d3d52"; // acelasi gri-albastru ca bordura .menu-toggle
 
   function getAscundeTitluriColoane() {
     return global.LayoutConfig?.get(LC_ASCUNDE_TITLURI, true) ?? true;
+  }
+
+  function getArataGrila() {
+    return global.LayoutConfig?.get(LC_ARATA_GRILA, true) ?? true;
+  }
+
+  function getPaddingLateralPx() {
+    return global.LayoutConfig?.get(LC_PADDING_LATERAL, 0) ?? 0;
+  }
+
+  function getPaddingVerticalPx() {
+    return global.LayoutConfig?.get(LC_PADDING_VERTICAL, 0) ?? 0;
   }
 
   function getMarimeFontPct() {
@@ -72,10 +91,34 @@
   // ceara `pickNextRound()` (ar reporni nivelul curent si ar pierde progresul
   // facts-urilor deja rezolvate). Persistenta (`LayoutConfig`) tine setarea
   // corecta si pt. randarea completa urmatoare (nivel nou, quiz reselectat).
+  //
+  // Grila si padding-ul folosesc variabile CSS pe `#ti-wrapper` (vezi
+  // `stilPartajat()`), nu stil inline per celula — o schimbare live nu
+  // trebuie sa parcurga ~120 celule din DOM, doar sa schimbe o singura
+  // proprietate pe wrapper; cascada CSS face restul.
   function scrieAscundeTitluriColoane(ascunse) {
     global.LayoutConfig?.set(LC_ASCUNDE_TITLURI, ascunse);
     const rand = document.getElementById(ID_HEADER_ROW);
     if (rand) rand.style.display = ascunse ? "none" : "";
+  }
+
+  function scrieArataGrila(arata) {
+    global.LayoutConfig?.set(LC_ARATA_GRILA, arata);
+    document.getElementById(ID_WRAPPER)?.classList.toggle("ti-grila", arata);
+  }
+
+  function scriePaddingLateralPx(valoare) {
+    const clamped = Math.min(PADDING_MAX, Math.max(PADDING_MIN, Math.round(valoare)));
+    global.LayoutConfig?.set(LC_PADDING_LATERAL, clamped);
+    document.getElementById(ID_WRAPPER)?.style.setProperty("--ti-pad-x", `${clamped}px`);
+    return clamped;
+  }
+
+  function scriePaddingVerticalPx(valoare) {
+    const clamped = Math.min(PADDING_MAX, Math.max(PADDING_MIN, Math.round(valoare)));
+    global.LayoutConfig?.set(LC_PADDING_VERTICAL, clamped);
+    document.getElementById(ID_WRAPPER)?.style.setProperty("--ti-pad-y", `${clamped}px`);
+    return clamped;
   }
 
   function scrieMarimeFontPct(valoare) {
@@ -106,7 +149,18 @@
     numarare1: "numarare", "adunari-repetate": "adunari repetate", counter: "counter",
   };
 
-  const STIL_TD = "padding:0.15em 0.4em;border:1px solid transparent;text-align:center;min-width:1.5em;color:var(--text);";
+  // Stilul de baza al celulelor traieste intr-un <style> imbricat in wrapper
+  // (vezi construiesteTabelComplet), nu inline per celula — asa incat
+  // "Arata grila"/padding-urile din CP sa se schimbe live pe TOATE celulele
+  // deodata (o singura proprietate CSS pe wrapper, nu o bucla peste ~120
+  // noduri DOM). Fiecare <td> primeste doar `class="ti-cell"`.
+  function stilPartajat() {
+    return (
+      `.ti-cell{padding:var(--ti-pad-y,0) var(--ti-pad-x,0);border:1px solid transparent;` +
+      `text-align:center;min-width:1.5em;color:var(--text);box-sizing:border-box;}` +
+      `#${ID_WRAPPER}.ti-grila .ti-cell{border-color:${CULOARE_GRILA};}`
+    );
+  }
 
   function idCelula(coloana, f) { return `${PREFIX}-${coloana}-${f}`; }
   function idRand(f) { return `${PREFIX}-rand-${f}`; }
@@ -116,26 +170,45 @@
   // user). Pastreaza clasa `placeholder-pt-raspuns` neschimbata — de ea are
   // nevoie `revealAnswerInPlace` din falling-engine.js ca sa gaseasca semnul
   // in DOM-ul deja randat si sa-l dezvaluie fara sa reconstruiasca tabelul.
+  //
+  // `spatiuRezervat`: "cand raspunsul are doua cifre, '?' sa aiba un spatiu
+  // dupa el, ca la revelare sa nu se deformeze randul" (user, 01.09.2026) —
+  // revelarea (`revealAnswerInPlace`) inlocuieste tot continutul span-ului,
+  // deci spatiul de mai jos nu supravietuieste dupa revelare; scopul lui e
+  // doar sa faca starea "?" sa ocupe deja latimea unui numar de 2 cifre,
+  // ca sa nu sara latimea celulei exact in clipa revelarii.
   const placeholderGeneric = global.PlaceholderRaspuns.creeaza("?");
   const placeholder = {
     ...placeholderGeneric,
-    marcaj: () =>
+    marcaj: (spatiuRezervat) =>
       `<span class="${placeholderGeneric.clasa}" style="background:orange;color:#000;font-weight:700;border-radius:0.2em;padding:0 0.2em;">` +
-      `${placeholderGeneric.semn}</span>`,
+      `${placeholderGeneric.semn}${spatiuRezervat ? " " : ""}</span>`,
   };
 
   // Chenarul intrebarii curente — bordura galbena (var(--win), aceeasi
   // culoare de accent ca la ".option.selected"/semnul "?"), colturi rotunjite
-  // ca la butoanele din aplicatie (.menu-toggle: border-radius 8px). Cere
-  // "border-collapse:separate" pe <table> (vezi construiesteTabelComplet) —
-  // in modul "collapse" bordurile celulelor adiacente se combina si strica
-  // exact coltul rotunjit de la capete. Inlocuieste conturul anterior
-  // (subtire, culoarea textului) considerat "rudimentar" de user (01.09.2026).
+  // ca la butoanele din aplicatie (.menu-toggle: border-radius 8px).
+  //
+  // "sa nu fie punctat, sa fie continuu" (user, 01.09.2026) — cu 5 <span>-uri
+  // separate (cate unul per celula incadrata), un <span> simplu (display
+  // inline implicit) se poate alinia vertical usor diferit de la o celula la
+  // alta (inaltimea liniei nu e garantat identica), rupand vizual linia de
+  // sus/jos in segmente. Fix: fiecare span umple exact inaltimea celulei lui
+  // (`display:flex;height:100%`) — toate 5 au atunci EXACT aceeasi pozitie
+  // pt. border-top/bottom, indiferent de continut. `margin-left:-1px` pe
+  // toate in afara de prima suprapune usor marginea cu vecina din stanga, ca
+  // sa nu ramana vizibil un gol de sub-pixel intre ele.
   function stilCadru(pozitie) {
-    const baza = "border-top:2px solid var(--win);border-bottom:2px solid var(--win);";
-    if (pozitie === "prim") return baza + "border-left:2px solid var(--win);border-radius:8px 0 0 8px;";
-    if (pozitie === "ultim") return baza + "border-right:2px solid var(--win);border-radius:0 8px 8px 0;";
-    return baza;
+    const baza =
+      "display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;" +
+      "border-top:2px solid var(--win);border-bottom:2px solid var(--win);";
+    if (pozitie === "prim") {
+      return baza + "border-left:2px solid var(--win);border-top-left-radius:8px;border-bottom-left-radius:8px;";
+    }
+    if (pozitie === "ultim") {
+      return baza + "margin-left:-1px;border-right:2px solid var(--win);border-top-right-radius:8px;border-bottom-right-radius:8px;";
+    }
+    return baza + "margin-left:-1px;";
   }
 
   function createTablaInmultiriiTabelQuiz() {
@@ -223,7 +296,10 @@
     // locuri care decid cum arata o celula (vezi js/bond-inventory.js pt.
     // acelasi principiu).
     function continutCelula(coloana, f, esteActiv) {
-      const valoare = coloana === "produs" && esteActiv ? placeholder.marcaj() : valoareStaticaCelula(coloana, f);
+      const valoare =
+        coloana === "produs" && esteActiv
+          ? placeholder.marcaj(produsPentru(f) >= 10)
+          : valoareStaticaCelula(coloana, f);
       if (esteActiv && COLOANE_CADRU.includes(coloana)) {
         return `<span style="${stilCadru(POZITIE_IN_CADRU[coloana])}">${valoare}</span>`;
       }
@@ -232,7 +308,7 @@
 
     function celulaHtml(coloana, f, esteActiv) {
       const id = idCelula(coloana, f);
-      return `<td id="${id}" data-element-div-intrebare="${id}" style="${STIL_TD}">${continutCelula(coloana, f, esteActiv)}</td>`;
+      return `<td id="${id}" data-element-div-intrebare="${id}" class="ti-cell">${continutCelula(coloana, f, esteActiv)}</td>`;
     }
 
     function randMainRowHtml(f) {
@@ -246,7 +322,7 @@
         const text = ETICHETE_HEADER[coloana] ?? "";
         const stilRotit = text ? "writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;margin:0 auto;" : "";
         return (
-          `<td id="${idColoana(coloana)}-header" style="${STIL_TD}height:5em;vertical-align:bottom;">` +
+          `<td id="${idColoana(coloana)}-header" class="ti-cell" style="height:5em;vertical-align:bottom;">` +
           `<span style="${stilRotit}">${text}</span></td>`
         );
       });
@@ -275,11 +351,16 @@
       // `border-collapse:separate` (nu `collapse`): in modul collapse,
       // bordurile a doua celule adiacente se combina intr-una singura, ceea ce
       // strica exact coltul rotunjit de la capetele chenarului (vezi stilCadru).
-      // `id="ID_WRAPPER"` + `font-size` din CP ("Marime font", vezi
-      // appendTablaInmultiriiTabelControlPanel) — ajustabil live, fara sa
-      // retrimita tot tabelul.
+      // `id="ID_WRAPPER"` + `font-size`/`--ti-pad-x`/`--ti-pad-y`/clasa
+      // "ti-grila" din CP (vezi appendTablaInmultiriiTabelControlPanel) —
+      // toate ajustabile live, fara sa retrimita tot tabelul.
+      const clasaGrila = getArataGrila() ? " ti-grila" : "";
+      const stilWrapper =
+        `text-align:center;font-size:${getMarimeFontPct()}%;` +
+        `--ti-pad-x:${getPaddingLateralPx()}px;--ti-pad-y:${getPaddingVerticalPx()}px;`;
       return (
-        `<div id="${ID_WRAPPER}" style="text-align:center;font-size:${getMarimeFontPct()}%;">` +
+        `<div id="${ID_WRAPPER}" class="${clasaGrila.trim()}" style="${stilWrapper}">` +
+        `<style>${stilPartajat()}</style>` +
         `<table style="border-collapse:separate;border-spacing:0;margin:0 auto;font-family:'Segoe UI', system-ui, sans-serif;">` +
         colgroupHtml() + headerRowHtml() + randuri.join("") +
         `</table></div>`
@@ -547,42 +628,52 @@
         if (!mount) return;
         mount.replaceChildren();
 
-        const randBifa = document.createElement("label");
-        randBifa.className = "control-panel-lift-row";
-        const bifa = document.createElement("input");
-        bifa.type = "checkbox";
-        bifa.checked = getAscundeTitluriColoane();
-        bifa.addEventListener("change", () => scrieAscundeTitluriColoane(bifa.checked));
-        const spanBifa = document.createElement("span");
-        spanBifa.textContent = "Ascunde titluri coloane";
-        randBifa.append(bifa, spanBifa);
-        mount.appendChild(randBifa);
+        const addBifa = (text, getValoare, scrie) => {
+          const rand = document.createElement("label");
+          rand.className = "control-panel-lift-row";
+          const bifa = document.createElement("input");
+          bifa.type = "checkbox";
+          bifa.checked = getValoare();
+          bifa.addEventListener("change", () => scrie(bifa.checked));
+          const span = document.createElement("span");
+          span.textContent = text;
+          rand.append(bifa, span);
+          mount.appendChild(rand);
+        };
 
-        const field = document.createElement("div");
-        field.className = "control-panel-lift-field pre-eq-stepper-field";
-        const label = document.createElement("label");
-        label.textContent = "Marime font";
-        const controls = document.createElement("div");
-        controls.className = "pre-eq-stepper";
-        const minus = document.createElement("button");
-        minus.type = "button";
-        minus.textContent = "-";
-        const input = document.createElement("input");
-        input.type = "number";
-        input.min = String(MARIME_FONT_MIN);
-        input.max = String(MARIME_FONT_MAX);
-        input.step = String(MARIME_FONT_PAS);
-        input.value = String(getMarimeFontPct());
-        const plus = document.createElement("button");
-        plus.type = "button";
-        plus.textContent = "+";
-        const aplica = (valoare) => { input.value = String(scrieMarimeFontPct(Number(valoare))); };
-        minus.addEventListener("click", () => aplica(Number(input.value) - MARIME_FONT_PAS));
-        plus.addEventListener("click", () => aplica(Number(input.value) + MARIME_FONT_PAS));
-        input.addEventListener("change", () => aplica(input.value));
-        controls.append(minus, input, plus);
-        field.append(label, controls);
-        mount.appendChild(field);
+        const addStepper = (text, getValoare, scrie, min, max, pas) => {
+          const field = document.createElement("div");
+          field.className = "control-panel-lift-field pre-eq-stepper-field";
+          const label = document.createElement("label");
+          label.textContent = text;
+          const controls = document.createElement("div");
+          controls.className = "pre-eq-stepper";
+          const minus = document.createElement("button");
+          minus.type = "button";
+          minus.textContent = "-";
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = String(min);
+          input.max = String(max);
+          input.step = String(pas);
+          input.value = String(getValoare());
+          const plus = document.createElement("button");
+          plus.type = "button";
+          plus.textContent = "+";
+          const aplica = (valoare) => { input.value = String(scrie(Number(valoare))); };
+          minus.addEventListener("click", () => aplica(Number(input.value) - pas));
+          plus.addEventListener("click", () => aplica(Number(input.value) + pas));
+          input.addEventListener("change", () => aplica(input.value));
+          controls.append(minus, input, plus);
+          field.append(label, controls);
+          mount.appendChild(field);
+        };
+
+        addBifa("Ascunde titluri coloane", getAscundeTitluriColoane, scrieAscundeTitluriColoane);
+        addBifa("Arata grila tabel", getArataGrila, scrieArataGrila);
+        addStepper("Padding cell lateral", getPaddingLateralPx, scriePaddingLateralPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
+        addStepper("Padding cell vertical", getPaddingVerticalPx, scriePaddingVerticalPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
+        addStepper("Marime font", getMarimeFontPct, scrieMarimeFontPct, MARIME_FONT_MIN, MARIME_FONT_MAX, MARIME_FONT_PAS);
       },
     };
   }
