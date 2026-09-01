@@ -55,6 +55,23 @@
     if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_PLUTIRE_CIFRE, Boolean(valoare));
   }
 
+  // Setarea CP "Pauza la finalizare nivel:" (cerere user, 01.09.2026) — cat
+  // timp ramane vizibil tabelul colorat COMPLET dupa raspunsul care
+  // finalizeaza nivelul, inainte sa avanseze la nivelul urmator. Implicit
+  // 1000ms. Se combina (Math.max) cu asteptarea deja existenta pt.
+  // animatia merelor/Spectacol 1 — vezi construieste_pasul_de_serie_terminata:
+  // niciodata mai putin decat are nevoie animatia in desfasurare, dar
+  // niciodata mai putin nici decat pauza asta, chiar daca nu ruleaza nicio
+  // animatie (altfel avansul era instant, fara nicio sansa sa vezi tabelul).
+  const CHEIE_PAUZA_FINALIZARE_NIVEL = "singaporeMissingPauzaFinalizareNivelMs";
+  function getPauzaFinalizareNivelMs() {
+    const v = global.LayoutConfig && global.LayoutConfig.get(CHEIE_PAUZA_FINALIZARE_NIVEL, 1000);
+    return v == null ? 1000 : v;
+  }
+  function setPauzaFinalizareNivelMs(ms) {
+    if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_PAUZA_FINALIZARE_NIVEL, ms);
+  }
+
   function createAdditionTableSingaporeMissingQuiz() {
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore } = global;
@@ -411,6 +428,12 @@
           const { durataTotalaMs } = ilustrareBonduri.joacaSpectacolFinal({ containerEl, randuriEl });
           dupaMs = Math.max(dupaMs, durataTotalaMs);
         }
+        // "Pauza la finalizare nivel" (CP, cerere user, 01.09.2026) — cat
+        // timp ramane vizibil tabelul colorat COMPLET dupa acest raspuns,
+        // inainte sa avanseze — niciodata mai putin decat atat, chiar daca
+        // nicio animatie nu mai are nevoie de timp (altfel avansul era
+        // instant, fara nicio sansa sa vezi tabelul terminat).
+        dupaMs = Math.max(dupaMs, getPauzaFinalizareNivelMs());
 
         level++;
         const nextView = incepe_serie_de_intrebari();
@@ -727,6 +750,17 @@
           zecimale: 1,
           get: () => global.IlustrareBonduri.getDurataTranzitieMs() / 1000,
           set: (s) => global.IlustrareBonduri.setDurataTranzitieMs(Math.round(s * 1000)),
+          afecteazaMasurarea: false,
+        });
+
+        appendStepperField({
+          eticheta: "Pauza la finalizare nivel (s)",
+          min: 0,
+          max: 5,
+          pas: 0.5,
+          zecimale: 1,
+          get: () => getPauzaFinalizareNivelMs() / 1000,
+          set: (s) => setPauzaFinalizareNivelMs(Math.round(s * 1000)),
           afecteazaMasurarea: false,
         });
 

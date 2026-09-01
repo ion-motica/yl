@@ -108,7 +108,7 @@ describe("addition-table-singapore-missing (Faza D lot 2 — migrare pura, fara 
     assert.equal(rezultat.motor3Butoane, globalThis.Motor3Butoane.SEMNATURA);
   });
 
-  it("tur fara nicio greseala, terminat: avanseaza nivelul, pauza standard (fara `dupa` custom) si pasUrmator run-complete", () => {
+  it("tur fara nicio greseala, terminat: avanseaza nivelul, pauza de finalizare nivel (CP, implicit 1000ms) si pasUrmator run-complete", () => {
     const quiz = setupQuiz();
     let round = quiz.beginRound();
     assert.equal(quiz.getLevel(), 3);
@@ -124,9 +124,15 @@ describe("addition-table-singapore-missing (Faza D lot 2 — migrare pura, fara 
     assert.ok(paziGarda < 20, "nu trebuia sa se blocheze");
     assert.equal(quiz.getLevel(), 4, "nivelul avanseaza dupa un tur fara greseli");
     assert.equal(rezultat.outcome, "step-correct");
-    // Pauza custom de 400ms a fost scoasa (cerere user, 28.08.2026) — cade pe
-    // DEFAULT_REVEAL_HOLD_MS din motor, ca la orice alt quiz standard.
-    assert.equal(rezultat.pasUrmator.dupa, undefined, "fara pauza custom: cade pe DEFAULT_REVEAL_HOLD_MS");
+    // Camp CP nou "Pauza la finalizare nivel:" (cerere user, 01.09.2026) —
+    // tabelul colorat COMPLET ramane vizibil cel putin atat (implicit
+    // 1000ms) inainte sa avanseze, indiferent daca vreo animatie de
+    // ilustratie mai are nevoie de timp sau nu (vezi
+    // construieste_pasul_de_serie_terminata). Distinct de vechea pauza
+    // custom de 400ms scoasa in 28.08.2026 (aceea folosea promptHoldMs, cu
+    // rol dublu, cauza a unei regresii documentate) — asta e explicita, prin
+    // pasUrmator.dupa, fara acel risc.
+    assert.equal(rezultat.pasUrmator.dupa, 1000, "pauza de finalizare nivel implicita, 1000ms");
     assert.equal(rezultat.pasUrmator.continua.outcome, "serie-terminata");
     assert.equal(rezultat.pasUrmator.continua.serie_terminata, true);
     assert.equal(rezultat.pasUrmator.continua.levelAdvanced, true);
