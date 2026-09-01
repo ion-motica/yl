@@ -174,9 +174,14 @@
     if (state?.factId) return String(state.factId);
     if (state?.promptHtml) {
       const intrebareProprie = extrageIntrebareaProprie(state.promptHtml);
-      return normalizeTextLabel(intrebareProprie ?? state.promptHtml);
+      if (intrebareProprie) return normalizeTextLabel(intrebareProprie);
     }
+    // Fara marcaj .intrebare-propriu-zisa: preferam promptul text curat (daca
+    // exista) inainte sa cadem pe tot promptHtml-ul brut (poate contine
+    // <style> injectat de quizuri cu tabel HTML complet, ex. tabla-inmultirii-
+    // tabel — vezi bug raportat de user, 01.09.2026: eticheta plina de CSS).
     if (state?.prompt) return normalizeTextLabel(state.prompt);
+    if (state?.promptHtml) return normalizeTextLabel(state.promptHtml);
     if (state?.dividend != null && state?.divisor != null) {
       return `${state.dividend}:${state.divisor}`;
     }
