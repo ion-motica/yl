@@ -819,6 +819,7 @@
     renderRiglePanel();
     renderRigleTabla110Panel();
     renderIlustrareMereVitezaPanel();
+    renderTablaInmultiriiTabelPanel();
     renderArenaActions();
     aamArena?.reset();
     buildQuizPicker();
@@ -921,6 +922,14 @@
     mount.replaceChildren();
     if (typeof quiz?.appendIlustrareMereControlPanel !== "function") return;
     quiz.appendIlustrareMereControlPanel(mount);
+  }
+
+  function renderTablaInmultiriiTabelPanel() {
+    const mount = cpShell?.getMountEl("tablaInmultiriiTabel");
+    if (!mount) return;
+    mount.replaceChildren();
+    if (typeof quiz?.appendTablaInmultiriiTabelControlPanel !== "function") return;
+    quiz.appendTablaInmultiriiTabelControlPanel(mount);
   }
 
   function renderPreEquationNavigationPanel() {
@@ -1046,6 +1055,12 @@
     quizSpecific: true,
   });
   CpRegistry.register({
+    id: "tablaInmultiriiTabel",
+    title: "CP - Tabla inmultirii - Tabel",
+    isEnabled: () => typeof quiz?.appendTablaInmultiriiTabelControlPanel === "function",
+    quizSpecific: true,
+  });
+  CpRegistry.register({
     id: "preEquationNav",
     title: "CP - Navigare pre-ecuatii EFF",
     isEnabled: () =>
@@ -1113,6 +1128,7 @@
   renderRiglePanel();
   renderRigleTabla110Panel();
   renderIlustrareMereVitezaPanel();
+  renderTablaInmultiriiTabelPanel();
 
   function syncResponseTimesInput() {
     if (responseTimesInput) responseTimesInput.checked = showResponseTimes;
