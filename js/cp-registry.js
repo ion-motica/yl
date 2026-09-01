@@ -14,6 +14,7 @@
     "rigle",
     "rigleTabla110",
     "ilustrareMereViteza",
+    "tablaInmultiriiTabel",
     "liftType",
     "debug",
     "lift",

@@ -47,13 +47,53 @@
 
   const HINT_MESSAGE = "Alege produsul corect.";
   const PREFIX = "ti";
+  const ID_HEADER_ROW = `${PREFIX}-header-row`;
+  const ID_WRAPPER = `${PREFIX}-wrapper`;
 
-  // Numele canonice de coloana, exact cum le-a dat userul. "plus", "spatiu1",
-  // "spatiu2" nu sunt in textul original (acolo erau goale) — botez celulele
-  // goale ca sa aiba si ele id, cerut explicit ("id pt fiecare celula, rand
-  // si coloana").
+  // Cheile in LayoutConfig (localStorage) pt. panoul CP al acestui quiz —
+  // vezi `appendTablaInmultiriiTabelControlPanel` mai jos.
+  const LC_ASCUNDE_TITLURI = "tablaInmultiriiTabel.ascundeTitluriColoane";
+  const LC_MARIME_FONT_PCT = "tablaInmultiriiTabel.marimeFontPct";
+  const MARIME_FONT_IMPLICITA = 100;
+  const MARIME_FONT_MIN = 50;
+  const MARIME_FONT_MAX = 200;
+  const MARIME_FONT_PAS = 10;
+
+  function getAscundeTitluriColoane() {
+    return global.LayoutConfig?.get(LC_ASCUNDE_TITLURI, true) ?? true;
+  }
+
+  function getMarimeFontPct() {
+    return global.LayoutConfig?.get(LC_MARIME_FONT_PCT, MARIME_FONT_IMPLICITA) ?? MARIME_FONT_IMPLICITA;
+  }
+
+  // Scrierile de mai jos ating direct DOM-ul deja randat (prin id fix), NU
+  // trec prin round-ul quizului — o schimbare de layout din CP nu trebuie sa
+  // ceara `pickNextRound()` (ar reporni nivelul curent si ar pierde progresul
+  // facts-urilor deja rezolvate). Persistenta (`LayoutConfig`) tine setarea
+  // corecta si pt. randarea completa urmatoare (nivel nou, quiz reselectat).
+  function scrieAscundeTitluriColoane(ascunse) {
+    global.LayoutConfig?.set(LC_ASCUNDE_TITLURI, ascunse);
+    const rand = document.getElementById(ID_HEADER_ROW);
+    if (rand) rand.style.display = ascunse ? "none" : "";
+  }
+
+  function scrieMarimeFontPct(valoare) {
+    const clamped = Math.min(MARIME_FONT_MAX, Math.max(MARIME_FONT_MIN, Math.round(valoare)));
+    global.LayoutConfig?.set(LC_MARIME_FONT_PCT, clamped);
+    const wrapper = document.getElementById(ID_WRAPPER);
+    if (wrapper) wrapper.style.fontSize = `${clamped}%`;
+    return clamped;
+  }
+
+  // Numele canonice de coloana, exact cum le-a dat userul. "spatiu1"/"spatiu2"
+  // nu sunt in textul original (acolo erau goale) — botez celulele goale ca sa
+  // aiba si ele id, cerut explicit ("id pt fiecare celula, rand si coloana").
+  // Coloana "plus" (dupa produs) si randul-schela de sub fiecare rand principal
+  // au fost scoase (cerere user, 01.09.2026) — "adunari-repetate" preia rolul
+  // lui "+" direct pe randul principal (ex. "2+").
   const COLOANE = [
-    "factor", "x", "nr-tabla", "egal", "produs", "plus", "spatiu1",
+    "factor", "x", "nr-tabla", "egal", "produs", "spatiu1",
     "numarare1", "numarare2", "numarare3", "spatiu2",
     "adunari-repetate", "counter",
   ];
@@ -63,15 +103,13 @@
   };
   const ETICHETE_HEADER = {
     factor: "factor", x: "x", "nr-tabla": "nr tabla", egal: "egal", produs: "produs",
-    plus: "+", numarare1: "numarare", "adunari-repetate": "adunari repetate", counter: "counter",
+    numarare1: "numarare", "adunari-repetate": "adunari repetate", counter: "counter",
   };
 
   const STIL_TD = "padding:0.15em 0.4em;border:1px solid transparent;text-align:center;min-width:1.5em;color:var(--text);";
 
   function idCelula(coloana, f) { return `${PREFIX}-${coloana}-${f}`; }
-  function idCelulaSub(coloana, f) { return `${PREFIX}-${coloana}-sub-${f}`; }
   function idRand(f) { return `${PREFIX}-rand-${f}`; }
-  function idRandSub(f) { return `${PREFIX}-rand-sub-${f}`; }
   function idColoana(coloana) { return `${PREFIX}-col-${coloana}`; }
 
   // Placeholderul standard, cu fundal portocaliu in loc de galben (cerere
@@ -86,10 +124,17 @@
       `${placeholderGeneric.semn}</span>`,
   };
 
+  // Chenarul intrebarii curente — bordura galbena (var(--win), aceeasi
+  // culoare de accent ca la ".option.selected"/semnul "?"), colturi rotunjite
+  // ca la butoanele din aplicatie (.menu-toggle: border-radius 8px). Cere
+  // "border-collapse:separate" pe <table> (vezi construiesteTabelComplet) —
+  // in modul "collapse" bordurile celulelor adiacente se combina si strica
+  // exact coltul rotunjit de la capete. Inlocuieste conturul anterior
+  // (subtire, culoarea textului) considerat "rudimentar" de user (01.09.2026).
   function stilCadru(pozitie) {
-    const baza = "border-top:2px solid var(--text);border-bottom:2px solid var(--text);";
-    if (pozitie === "prim") return baza + "border-left:2px solid var(--text);border-radius:0.4em 0 0 0.4em;";
-    if (pozitie === "ultim") return baza + "border-right:2px solid var(--text);border-radius:0 0.4em 0.4em 0;";
+    const baza = "border-top:2px solid var(--win);border-bottom:2px solid var(--win);";
+    if (pozitie === "prim") return baza + "border-left:2px solid var(--win);border-radius:8px 0 0 8px;";
+    if (pozitie === "ultim") return baza + "border-right:2px solid var(--win);border-radius:0 8px 8px 0;";
     return baza;
   }
 
@@ -162,11 +207,12 @@
         case "nr-tabla": return String(level);
         case "egal": return "=";
         case "produs": return String(produsPentru(f));
-        case "plus": return f < MAX_FACTOR ? "+" : "";
         case "numarare1": return String((f - 1) * 3 + 1);
         case "numarare2": return String((f - 1) * 3 + 2);
         case "numarare3": return String((f - 1) * 3 + 3);
-        case "adunari-repetate": return String(level);
+        // "scrie 2+ pe fiecare rand pe acare acum e doar 2" (user, 01.09.2026)
+        // — inlocuieste randul-schela cu "+" separat.
+        case "adunari-repetate": return `${level}+`;
         case "counter": return "";
         default: return "";
       }
@@ -195,26 +241,6 @@
       return `<tr id="${idRand(f)}" data-element-div-intrebare="${idRand(f)}">${celule.join("")}</tr>`;
     }
 
-    // Randul-schela dintre doua randuri principale: adunarea repetata scrisa
-    // dedesubt (produsul creste cu `level` fata de randul anterior). Coloana
-    // "produs" e inlocuita aici cu calificativul "adunare trei" (user,
-    // 01.09.2026) — presupunere: celula cu valoarea repetata a nivelului, sub
-    // "produs"; usor de redenumit daca nu e ce insemna userul.
-    function randSubRowHtml(f) {
-      const chei = [
-        "factor", "x", "nr-tabla", "egal", "adunare-trei", "plus", "spatiu1",
-        "numarare1", "numarare2", "numarare3", "spatiu2",
-        "adunari-repetate", "counter",
-      ];
-      const valori = { "adunare-trei": String(level), "adunari-repetate": "+" };
-      const celule = chei.map((cheie) => {
-        const id = idCelulaSub(cheie, f);
-        const text = valori[cheie] ?? "";
-        return `<td id="${id}" data-element-div-intrebare="${id}" style="${STIL_TD}"><span>${text}</span></td>`;
-      });
-      return `<tr id="${idRandSub(f)}" data-element-div-intrebare="${idRandSub(f)}">${celule.join("")}</tr>`;
-    }
-
     function headerRowHtml() {
       const celule = COLOANE.map((coloana) => {
         const text = ETICHETE_HEADER[coloana] ?? "";
@@ -224,7 +250,11 @@
           `<span style="${stilRotit}">${text}</span></td>`
         );
       });
-      return `<tr>${celule.join("")}</tr>`;
+      // "bifa 'ascunde titluri coloane', default true" (user, 01.09.2026) —
+      // id stabil, ca sa poata fi ascuns/aratat live din CP fara sa retrimita
+      // tot tabelul (vezi appendTablaInmultiriiTabelControlPanel).
+      const stilRand = getAscundeTitluriColoane() ? "display:none;" : "";
+      return `<tr id="${ID_HEADER_ROW}" style="${stilRand}">${celule.join("")}</tr>`;
     }
 
     function colgroupHtml() {
@@ -238,12 +268,19 @@
       const randuri = [];
       for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) {
         randuri.push(randMainRowHtml(f));
-        if (f < MAX_FACTOR) randuri.push(randSubRowHtml(f));
       }
+      // "sa dispara titlul 'Tabla inmultirii cu 2'" (user, 01.09.2026) — fara
+      // caption deasupra tabelului.
+      //
+      // `border-collapse:separate` (nu `collapse`): in modul collapse,
+      // bordurile a doua celule adiacente se combina intr-una singura, ceea ce
+      // strica exact coltul rotunjit de la capetele chenarului (vezi stilCadru).
+      // `id="ID_WRAPPER"` + `font-size` din CP ("Marime font", vezi
+      // appendTablaInmultiriiTabelControlPanel) — ajustabil live, fara sa
+      // retrimita tot tabelul.
       return (
-        `<div style="text-align:center;">` +
-        `<div style="font-size:0.8em;margin-bottom:0.3em;color:var(--text);">Tabla înmulțirii cu ${level}</div>` +
-        `<table style="border-collapse:collapse;margin:0 auto;font-family:'Segoe UI', system-ui, sans-serif;">` +
+        `<div id="${ID_WRAPPER}" style="text-align:center;font-size:${getMarimeFontPct()}%;">` +
+        `<table style="border-collapse:separate;border-spacing:0;margin:0 auto;font-family:'Segoe UI', system-ui, sans-serif;">` +
         colgroupHtml() + headerRowHtml() + randuri.join("") +
         `</table></div>`
       );
@@ -371,7 +408,11 @@
                   outcome: "step-correct",
                   correct: true,
                   bounce: true,
-                  flash: "win",
+                  // Fara `flash: "win"` — cerere user (01.09.2026): overlay-ul
+                  // verde peste toata arena (`.flash.active.win`, `var(--correct)`
+                  // in style.css) e prea puternic pt. acest quiz. Nu atinge CSS-ul
+                  // comun — falling-engine.js declanseaza flash-ul doar daca
+                  // `result.flash` e truthy, deci lipsa lui il opreste doar aici.
                   message: "Corect!",
                   ...vederePentruTranzitie(rezolvatFactor),
                 },
@@ -388,7 +429,6 @@
                   outcome: "step-correct",
                   correct: true,
                   bounce: true,
-                  flash: "win",
                   message: "Corect!",
                   ...holdView,
                   pasUrmator: {
@@ -397,7 +437,6 @@
                       correct: true,
                       serie_terminata: true,
                       gameComplete: true,
-                      flash: "win",
                       banner: "Felicitări! Ai parcurs ultimul nivel!",
                       message: "Felicitări! Ai parcurs ultimul nivel!",
                     },
@@ -414,7 +453,6 @@
                 outcome: "step-correct",
                 correct: true,
                 bounce: true,
-                flash: "win",
                 message: "Corect!",
                 ...holdView,
                 pasUrmator: {
@@ -423,7 +461,6 @@
                     correct: true,
                     serie_terminata: true,
                     levelAdvanced: true,
-                    flash: "win",
                     banner: "Felicitări! Next level!",
                     message: `Felicitări! Nivel ${level}`,
                     nextRound: vederePentruRunda(),
@@ -499,6 +536,53 @@
       pickNextRound: () => {
         incepeNivel();
         return vederePentruRunda();
+      },
+
+      // CP - Tabla inmultirii - Tabel (cerere user, 01.09.2026): bifa
+      // "Ascunde titluri coloane" (implicit bifata) + stepper "Marime font".
+      // Tiparul de DOM (label+checkbox, div.pre-eq-stepper-field) copiat din
+      // `appendRigleTabla110ControlPanel` (js/quizzes/rigle-tabla-1-10.js),
+      // ca sa arate la fel ca restul panourilor CP.
+      appendTablaInmultiriiTabelControlPanel(mount) {
+        if (!mount) return;
+        mount.replaceChildren();
+
+        const randBifa = document.createElement("label");
+        randBifa.className = "control-panel-lift-row";
+        const bifa = document.createElement("input");
+        bifa.type = "checkbox";
+        bifa.checked = getAscundeTitluriColoane();
+        bifa.addEventListener("change", () => scrieAscundeTitluriColoane(bifa.checked));
+        const spanBifa = document.createElement("span");
+        spanBifa.textContent = "Ascunde titluri coloane";
+        randBifa.append(bifa, spanBifa);
+        mount.appendChild(randBifa);
+
+        const field = document.createElement("div");
+        field.className = "control-panel-lift-field pre-eq-stepper-field";
+        const label = document.createElement("label");
+        label.textContent = "Marime font";
+        const controls = document.createElement("div");
+        controls.className = "pre-eq-stepper";
+        const minus = document.createElement("button");
+        minus.type = "button";
+        minus.textContent = "-";
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = String(MARIME_FONT_MIN);
+        input.max = String(MARIME_FONT_MAX);
+        input.step = String(MARIME_FONT_PAS);
+        input.value = String(getMarimeFontPct());
+        const plus = document.createElement("button");
+        plus.type = "button";
+        plus.textContent = "+";
+        const aplica = (valoare) => { input.value = String(scrieMarimeFontPct(Number(valoare))); };
+        minus.addEventListener("click", () => aplica(Number(input.value) - MARIME_FONT_PAS));
+        plus.addEventListener("click", () => aplica(Number(input.value) + MARIME_FONT_PAS));
+        input.addEventListener("change", () => aplica(input.value));
+        controls.append(minus, input, plus);
+        field.append(label, controls);
+        mount.appendChild(field);
       },
     };
   }
