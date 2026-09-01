@@ -108,6 +108,43 @@
     document.documentElement.style.setProperty(PROP_CSS_SCARA_FONT, String(scala));
   }
 
+  // Culoarea discurilor (.ilustrare-bonduri-disc) — proprietate CSS globala,
+  // acelasi tipar ca scara de font: o singura sursa de adevar, citita de
+  // TOATE discurile de pe ecran deodata (cos + grup zburator + orice clona),
+  // fara nicio interventie JS suplimentara la schimbare. Reglabila live din
+  // CP ("Culoare bila:", cerere user 01.09.2026) — deocamdata alba,
+  // inlocuind fostul #0f1419 hardcodat din CSS (aproape negru, facea
+  // discurile sa para "gauri" in cos).
+  const setareCuloareDisc = creeazaSetareReglabila("ilustrareBonduriCuloareDisc", "#ffffff", (v) =>
+    typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : null
+  );
+  const PROP_CSS_CULOARE_DISC = "--ilustrare-disc-culoare";
+  function aplicaCuloareDisc(culoare) {
+    document.documentElement.style.setProperty(PROP_CSS_CULOARE_DISC, culoare);
+  }
+  function getCuloareDisc() {
+    return setareCuloareDisc.get();
+  }
+  function setCuloareDisc(culoare) {
+    setareCuloareDisc.set(culoare);
+    aplicaCuloareDisc(culoare);
+  }
+
+  // Traiectoria grupului de discuri zburator — "oblic" (implicit,
+  // comportamentul de dintotdeauna: linie dreapta intre sursa si destinatie)
+  // vs "orizontal" (cerere user, 01.09.2026: bilele raman mereu la nivelul
+  // cosului care se muta pe verticala, deplasarea catre celalalt cos se face
+  // pe orizontala, simultan). Reglabila live din CP ("Traiectorie bile:").
+  const setareTraiectorieBile = creeazaSetareReglabila("ilustrareBonduriTraiectorieBile", "oblic", (v) =>
+    v === "oblic" || v === "orizontal" ? v : null
+  );
+  function getTraiectorieBile() {
+    return setareTraiectorieBile.get();
+  }
+  function setTraiectorieBile(valoare) {
+    setareTraiectorieBile.set(valoare);
+  }
+
   // Padding-ul cosului (in rem, pe toate 4 laturile), reglabil live din CP
   // (cerere user, 31.08.2026: "Padding cos -[]+" — vrea sa poata potrivi
   // vizual cosurile cu badge-urile de cifre). Aplicat inline pe fiecare cos,
@@ -169,6 +206,56 @@
       `<span class="ilustrare-bonduri-disc${ascuns ? " e-in-zbor" : ""}" ` +
       `style="width:${dimensiunePx}px;height:${dimensiunePx}px"></span>`
     );
+  }
+
+  // Doua trepte de z-index pt. divurile ilustratiei (.ilustrare-bonduri,
+  // elDiv SAU o clona) — "plimbator" (in tranzitie de pozitie) DEASUPRA
+  // "fix" (asezat), indiferent de ordinea lor in DOM (cerere user,
+  // 01.09.2026: "cosul clonat si bilele sa pluteasca pe deasupra celorlate
+  // cosuri, nu pe dedesubt ca acum"). Fara asta, un element mai VECHI in DOM
+  // (deci desenat primul) care se muta ACUM poate trece vizual SUB un
+  // element mai nou, deja asezat static, doar pt ca DOM-ul il deseneaza mai
+  // tarziu — chiar daca cel static nu se mai misca deloc. Vezi CSS:
+  // .ilustrare-bonduri.e-plimbator.
+  function marcheazaPlimbator(el) {
+    el?.classList.add("e-plimbator");
+  }
+  function marcheazaFix(el) {
+    el?.classList.remove("e-plimbator");
+  }
+
+  // Perechea de cifre colorate "a+b" care zboara de la intrebarea
+  // propriu-zisa pana la randul ei din tabel — independenta de instanta
+  // ilustratiei (nu are nevoie de elDiv/cosuri, doar de doua elemente deja
+  // randate: sursa si destinatia), la fel ca zboaraGrupul de mai jos.
+  // Cerere user (01.09.2026): "dupa ce am dat raspunsul vreau ca numerele
+  // colorate 5+2 sa apara exact suprapuse peste numerele 5+2 din intrebarea
+  // propriu zisa si sa pluteasca pana ajung la locul lor pe randul
+  // corespunzator". "Suprapus" (confirmat de user) = pozitionat exact peste
+  // dreptunghiul sursei, nu deasupra ei — de-aia grupul ia latimea/inaltimea
+  // lui sursaEl, nu doar un punct. Apelanta (quiz) e responsabila sa ascunda
+  // cifrele din randul destinatie pana aterizeaza (acelasi tipar ca
+  // indiciSosire/e-in-zbor la discuri) — functia asta doar deseneaza zborul.
+  function zboaraCifre({ sursaEl, destinatieEl, a, b, culoareA, culoareB }) {
+    if (!sursaEl || !destinatieEl) return;
+    const rSursa = sursaEl.getBoundingClientRect();
+    const rDest = destinatieEl.getBoundingClientRect();
+    const grup = document.createElement("div");
+    grup.className = "ilustrare-cifre-zbor";
+    grup.style.left = `${rSursa.left}px`;
+    grup.style.top = `${rSursa.top}px`;
+    grup.style.width = `${rSursa.width}px`;
+    grup.style.height = `${rSursa.height}px`;
+    grup.style.setProperty("--ilustrare-cifre-dx", `${rDest.left + rDest.width / 2 - (rSursa.left + rSursa.width / 2)}px`);
+    grup.style.setProperty("--ilustrare-cifre-dy", `${rDest.top + rDest.height / 2 - (rSursa.top + rSursa.height / 2)}px`);
+    const ms = getDurataTranzitieMs();
+    grup.style.animationDuration = `${ms}ms`;
+    grup.innerHTML =
+      `<span class="ilustrare-cifre-numar" style="background-color:${culoareA}">${a}</span>` +
+      `<span class="ilustrare-cifre-plus">+</span>` +
+      `<span class="ilustrare-cifre-numar" style="background-color:${culoareB}">${b}</span>`;
+    document.body.appendChild(grup);
+    setTimeout(() => grup.remove(), ms + 60);
   }
 
   // Creeaza o instanta a ilustratiei — stare proprie (ultimul bv afisat, ca sa
@@ -341,6 +428,11 @@
       if (!randuriEl) return null;
 
       asigStructura(containerEl);
+      // Sincronizeaza mereu culoarea discurilor cu setarea din CP — auto-
+      // vindecabil chiar daca userul n-a deschis niciodata panoul CP (ex.
+      // pagina proaspat incarcata, cu o culoare salvata din sesiuni
+      // anterioare).
+      aplicaCuloareDisc(getCuloareDisc());
 
       // Orice impartire a nivelului da aceeasi latime totala de ilustratie
       // (`nivel` discuri in total + chrome constant) — luam una oarecare.
@@ -566,6 +658,48 @@
     // aliniata"), pe linie dreapta de la sursa la destinatia calculata mai sus
     // (semicercul e amanat, tot cerere user).
     function zboaraGrupul({ count, sursa, destinatie, discPx }) {
+      const ms = getDurataTranzitieMs();
+      const discuriHtml = Array.from({ length: count }, () => discHtml(discPx, false)).join("");
+
+      // "Orizontal" (cerere user, 01.09.2026) — bilele raman mereu la
+      // nivelul cosului care se muta pe verticala; deplasarea catre celalalt
+      // cos e pe orizontala, simultan. PRIMA incercare (keyframe cu o
+      // oprire intermediara la 60%) producea un salt vizibil — bug raportat
+      // de user: "merge drept, pica intr-o groapa, iar iese din groapa"
+      // (easing-ul se intrerupe si reporneste la fiecare oprire de
+      // keyframe, deci viteza are un colt exact acolo). Fix: DOUA straturi
+      // imbricate, fiecare cu PROPRIA tranzitie CSS simpla (from->to, fara
+      // nicio oprire), nu un singur keyframe cu mai multe puncte — stratul
+      // EXTERN se ocupa NUMAI de verticala, cu EXACT aceeasi durata/easing
+      // ca liftul cosului insusi ("ease", elDiv.style.transition mai jos),
+      // stratul INTERN NUMAI de orizontala — miscandu-se simultan, fiecare
+      // lin pe axa lui, fara nicio discontinuitate de viteza.
+      if (getTraiectorieBile() === "orizontal") {
+        const extern = document.createElement("div");
+        extern.className = "ilustrare-bonduri-zbor-orizontal-extern";
+        extern.style.left = `${sursa.left}px`;
+        extern.style.top = `${sursa.top}px`;
+        extern.style.height = `${discPx}px`;
+        extern.style.transition = "none";
+        const intern = document.createElement("div");
+        intern.className = "ilustrare-bonduri-zbor-orizontal-intern";
+        intern.style.transition = "none";
+        intern.innerHTML = discuriHtml;
+        extern.appendChild(intern);
+        document.body.appendChild(extern);
+        void extern.offsetWidth;
+        extern.style.transition = `transform ${ms}ms ease`;
+        intern.style.transition = `transform ${ms}ms ease`;
+        extern.style.transform = `translateY(${destinatie.top - sursa.top}px)`;
+        intern.style.transform = `translateX(${destinatie.left - sursa.left}px)`;
+        grupZburatorCurent = extern;
+        setTimeout(() => {
+          extern.remove();
+          if (grupZburatorCurent === extern) grupZburatorCurent = null;
+        }, ms + 60);
+        return;
+      }
+
       const grup = document.createElement("div");
       grup.className = "ilustrare-bonduri-zbor";
       grup.style.left = `${sursa.left}px`;
@@ -578,8 +712,8 @@
       // ramane o discutie separata, deocamdata neatinsa aici.
       grup.style.setProperty("--ilustrare-dx", `${destinatie.left - sursa.left}px`);
       grup.style.setProperty("--ilustrare-dy", `${destinatie.top - sursa.top}px`);
-      grup.style.animationDuration = `${getDurataTranzitieMs()}ms`;
-      grup.innerHTML = Array.from({ length: count }, () => discHtml(discPx, false)).join("");
+      grup.style.animationDuration = `${ms}ms`;
+      grup.innerHTML = discuriHtml;
       document.body.appendChild(grup);
       grupZburatorCurent = grup;
       setTimeout(() => {
@@ -587,7 +721,7 @@
         // Doar daca grupul asta e inca "cel curent" — daca joacaSpectacolFinal
         // l-a eliminat deja mai devreme, referinta a fost deja golita.
         if (grupZburatorCurent === grup) grupZburatorCurent = null;
-      }, getDurataTranzitieMs() + 60);
+      }, ms + 60);
     }
 
     // Indicii discurilor care SOSESC in cosul destinatie — stau invizibile cat
@@ -668,6 +802,7 @@
         elCosB.style.transition = `width ${ms}ms ease`;
         // Miscarea REALA, catre pozitia tinta — declansata abia acum, cu
         // tranzitia deja activa.
+        marcheazaPlimbator(elDiv);
         elDiv.style.top = `${pozitie.top}px`;
 
         // Continutul se transforma SI el, cu acelasi zbor de discuri ca
@@ -696,6 +831,7 @@
           elDiv
             .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
             .forEach((el) => el.classList.remove("e-in-zbor"));
+          marcheazaFix(elDiv);
         }, ms);
         return { zborDeclansat: Boolean(mutarePornire && mutarePornire.count > 0) };
       }
@@ -716,6 +852,10 @@
         clonaRamasa
           .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
           .forEach((el) => el.classList.remove("e-in-zbor"));
+        // Clona ramane STATICA, deci treapta "fix" — defensiv, ca sa nu
+        // moshteneasca "e-plimbator" de la elDiv daca acesta era inca in
+        // tranzitie in momentul clonarii (vezi marcheazaPlimbator/Fix).
+        marcheazaFix(clonaRamasa);
         containerEl.appendChild(clonaRamasa);
         // Bondul e cel VECHI (ultimulBv) — elDiv inca arata randul dinainte
         // sa se mute la cel nou, cateva linii mai jos.
@@ -737,7 +877,12 @@
         // singura tranzitie animata (de la acest bond la randul 1), evitand
         // doua tranzitii simultane pe acelasi elDiv — coliziunea celor doua
         // era cauza cea mai probabila a "bilei lui Schrodinger", prezenta
-        // simultan in ambele cosuri.
+        // simultan in ambele cosuri. z-index "plimbator" ramane pana il
+        // preia joacaSpectacolFinal (urmeaza imediat, cand faraAnimatie e
+        // true) — el insusi marcheaza/demarcheaza in jurul PROPRIEI
+        // tranzitii pe acelasi elDiv, deci nu e nevoie de un cleanup separat
+        // aici.
+        marcheazaPlimbator(elDiv);
         elDiv.style.top = `${pozitie.top}px`;
         elDiv.style.left = `${pozitie.left}px`;
         umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar);
@@ -772,6 +917,7 @@
         }
       }
 
+      marcheazaPlimbator(elDiv);
       elDiv.style.top = `${pozitie.top}px`;
       elDiv.style.left = `${pozitie.left}px`;
       umpleCos(elCosA, a, culoareA, disc, m.inaltimeNumar, ascunseA);
@@ -784,6 +930,7 @@
         elDiv
           .querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor")
           .forEach((el) => el.classList.remove("e-in-zbor"));
+        marcheazaFix(elDiv);
       }, getDurataTranzitieMs());
 
       return { zborDeclansat };
@@ -1006,10 +1153,12 @@
         }
       }
       aplicaBondPe(elDivOriginal, dateRanduri[0], ascunseInitialeA, ascunseInitialeB);
+      marcheazaPlimbator(elDivOriginal);
       elDivOriginal.style.top = `${dateRanduri[0].top}px`;
       elDivOriginal.style.left = `${dateRanduri[0].left}px`;
       setTimeout(() => {
         elDivOriginal.querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor").forEach((el) => el.classList.remove("e-in-zbor"));
+        marcheazaFix(elDivOriginal);
       }, ms);
 
       let indexCurent = 0;
@@ -1047,11 +1196,15 @@
         clona.style.transition = "none";
         if (cosAClona) cosAClona.style.transition = "none";
         if (cosBClona) cosBClona.style.transition = "none";
+        // Defensiv, ca la clona din arataBv: reseteaza treapta mostenita
+        // prin cloneNode, inainte sa marcam explicit "plimbator" mai jos.
+        marcheazaFix(clona);
         containerEl.appendChild(clona);
         void clona.offsetWidth;
         clona.style.transition = `top ${ms}ms ease, left ${ms}ms ease`;
         if (cosAClona) cosAClona.style.transition = `width ${ms}ms ease`;
         if (cosBClona) cosBClona.style.transition = `width ${ms}ms ease`;
+        marcheazaPlimbator(clona);
 
         // Discurile care "se muta" intre cosuri de la un rand la altul —
         // acelasi calcul (mereDeMutat) si acelasi zbor (zboaraGrupul) ca la
@@ -1103,6 +1256,7 @@
         // clonele (vezi comentariul de mai sus, la elDivOriginal).
         setTimeout(() => {
           clona.querySelectorAll(".ilustrare-bonduri-disc.e-in-zbor").forEach((el) => el.classList.remove("e-in-zbor"));
+          marcheazaFix(clona);
         }, ms);
 
         setTimeout(urmatorulPas, ms);
@@ -1167,6 +1321,7 @@
 
   global.IlustrareBonduri = {
     mereDeMutat,
+    zboaraCifre,
     creeaza,
     getDurataTranzitieMs,
     setDurataTranzitieMs,
@@ -1174,6 +1329,10 @@
     setDiametruDiscPct,
     getMarireFontPct,
     setMarireFontPct,
+    getCuloareDisc,
+    setCuloareDisc,
+    getTraiectorieBile,
+    setTraiectorieBile,
     getPaddingCosRem,
     setPaddingCosRem,
     getRandTargetLatimePct,

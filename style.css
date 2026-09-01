@@ -758,6 +758,15 @@ body {
   z-index: 999999;
 }
 
+/* Treapta "plimbator" — un div de ilustratie (elDiv sau o clona) CAT TIMP
+   se afla in tranzitie de pozitie, deasupra tuturor celor "fixe" (asezate),
+   indiferent de ordinea lor in DOM (cerere user, 01.09.2026). Pus/scos din
+   JS chiar la inceputul/sfarsitul fiecarei tranzitii de pozitie — vezi
+   marcheazaPlimbator/marcheazaFix in js/bond-illustration.js. */
+.ilustrare-bonduri.e-plimbator {
+  z-index: 1000000;
+}
+
 .ilustrare-bonduri-cos {
   box-sizing: border-box;
   display: flex;
@@ -807,6 +816,10 @@ body {
   color: var(--text);
   opacity: 0.85;
   flex: none;
+  /* Aceeasi scara ca .inventar-bonduri-semn/-numar (vezi acolo) — semnele
+     din ilustratie ramaneau mici, nescalate, fata de cifrele din tabel
+     (cerere user, 01.09.2026). */
+  font-size: calc(1.05rem * var(--ilustrare-font-scala, 1));
 }
 
 /* Un disc = un cerc DESENAT, nu un caracter de font (cerere user, 31.08.2026:
@@ -815,12 +828,15 @@ body {
    garantat pe orice sistem). border-radius:50% + un fundal solid umple
    cutia COMPLET, deci iese mare si vizibil automat, la orice dimensiune,
    fara nicio dependenta de font. width/height explicite (inline, egale)
-   pastreaza forma perfect rotunda. */
+   pastreaza forma perfect rotunda. Culoarea e reglabila live din CP
+   ("Culoare bila:", cerere user 01.09.2026) prin variabila CSS globala —
+   se propaga singura peste TOATE discurile (cos + grup zburator + clone),
+   fara nicio interventie JS (acelasi tipar ca --ilustrare-font-scala). */
 .ilustrare-bonduri-disc {
   display: inline-flex;
   flex-shrink: 0;
   border-radius: 50%;
-  background-color: #0f1419;
+  background-color: var(--ilustrare-disc-culoare, #ffffff);
 }
 
 /* Disc care tocmai zboara spre locul asta: locul lui e deja rezervat in cos
@@ -841,14 +857,21 @@ body {
   padding: 0 1px;
   border-radius: 0.35rem;
   pointer-events: none;
-  z-index: 999999;
+  /* Peste TOATE cosurile, inclusiv cele "plimbatoare" (1000000, vezi
+     .ilustrare-bonduri.e-plimbator) — regresie raportata de user (01.09.2026):
+     "bila alba dispare brusc din cos, merge pe sub cosuri, apare abia la
+     sfarsit de sub cosul destinatie". Cauza: treapta de z-index adaugata
+     pt. cosurile in tranzitie (1000000) a ajuns mai sus decat bila
+     zburatoare (999999, neschimbata de atunci) — o bila care zboara chiar
+     langa un cos ce se muta in acelasi timp trecea vizual SUB el. */
+  z-index: 1000001;
   animation-name: ilustrare-zbor-grup;
   animation-timing-function: ease-in-out;
   animation-fill-mode: forwards;
 }
 
-/* Linie dreapta, deliberat: semicercul e amanat (cerere user, 31.08.2026 —
-   "lasa deocamdata semicercul"). */
+/* Traiectorie "Oblic" (implicit) — linie dreapta intre sursa si destinatie,
+   dx si dy interpoleaza simultan cu aceeasi curba de easing. */
 @keyframes ilustrare-zbor-grup {
   from {
     transform: translate(0, 0);
@@ -856,6 +879,87 @@ body {
   to {
     transform: translate(var(--ilustrare-dx), var(--ilustrare-dy));
   }
+}
+
+/* Traiectorie "Orizontal" (cerere user, 01.09.2026, CP "Traiectorie bile:")
+   — DOUA straturi imbricate (vezi zboaraGrupul din js/bond-illustration.js),
+   fiecare cu propria tranzitie CSS simpla, nu un keyframe cu o oprire
+   intermediara (versiunea initiala, cu 60%, producea un salt vizibil de
+   viteza — "merge drept, pica intr-o groapa, iar iese din groapa", raportat
+   de user). Stratul EXTERN se muta NUMAI vertical, cu aceeasi durata/easing
+   ca liftul cosului insusi ("ease") — bila ramane mereu "la nivelul"
+   cosului care urca/coboara. Stratul INTERN se muta NUMAI orizontal, in
+   acelasi timp, la fel de lin — nicio oprire, nicio discontinuitate. */
+.ilustrare-bonduri-zbor-orizontal-extern {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1px;
+  border-radius: 0.35rem;
+  pointer-events: none;
+  z-index: 1000001;
+}
+
+.ilustrare-bonduri-zbor-orizontal-intern {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Perechea de cifre colorate "a+b" care zboara de la intrebarea propriu-zisa
+   la randul ei din tabel (cerere user, 01.09.2026, CP "Plutire raspuns
+   numeric spre ilustratie:" — vezi zboaraCifre din js/bond-illustration.js).
+   Aceleasi proportii ca .inventar-bonduri-numar/-semn (vezi mai jos), ca
+   perechea zburatoare sa arate identic cu varianta ei finala, integrata. */
+.ilustrare-cifre-zbor {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  pointer-events: none;
+  /* Peste TOATE cosurile, la fel ca .ilustrare-bonduri-zbor mai sus. */
+  z-index: 1000001;
+  animation-name: ilustrare-zbor-cifre;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
+
+@keyframes ilustrare-zbor-cifre {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(var(--ilustrare-cifre-dx), var(--ilustrare-cifre-dy));
+  }
+}
+
+.ilustrare-cifre-numar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 6px;
+  font-size: calc(1.05rem * var(--ilustrare-font-scala, 1));
+  font-weight: 800;
+  color: #0f1419;
+  line-height: 1;
+}
+
+.ilustrare-cifre-plus {
+  font-size: calc(1.05rem * var(--ilustrare-font-scala, 1));
+  font-weight: 800;
+  color: var(--text);
+  opacity: 0.85;
+}
+
+/* Cifrele randului destinatie stau invizibile cat dureaza zborul perechii
+   de mai sus, ca sa nu apara de doua ori (si sus, in intrebare, si jos, pe
+   rand) — acelasi tipar ca .ilustrare-bonduri-disc.e-in-zbor. */
+.inventar-bonduri-numar.e-cifra-in-zbor {
+  visibility: hidden;
 }
 
 .singapore-prompt {
@@ -1751,6 +1855,40 @@ body {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  cursor: pointer;
+}
+
+/* Varianta compacta a .control-panel-lift-field — eticheta si controlul pe
+   ACELASI rand, nu unul sub altul (cerere user, 01.09.2026: campurile
+   select ale panoului "Ilustratie mere" ocupau cate 2 randuri, la fel ca
+   "MARIME TEXT" din antet, care sta deja pe un singur rand). */
+.control-panel-lift-field-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-panel-lift-field-inline > label {
+  white-space: nowrap;
+  flex: none;
+}
+
+.control-panel-lift-field-inline select {
+  width: auto;
+  flex: none;
+}
+
+/* Patratelul de culoare era foarte ingust (mostenea padding-ul default de
+   input text), abia se vedea culoarea aleasa (cerere user, 01.09.2026:
+   "fa patratelul mai mare, nu se vede culoarea"). */
+.control-panel-lift-field-inline input[type="color"] {
+  flex: none;
+  width: 2.6rem;
+  height: 1.7rem;
+  padding: 2px;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  background: none;
   cursor: pointer;
 }
 

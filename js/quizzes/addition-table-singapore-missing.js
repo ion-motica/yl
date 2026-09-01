@@ -33,13 +33,26 @@
   // complet ilustrat pe masura ce inaintezi).
   const CHEIE_ILUSTRARE_LA = "singaporeMissingIlustrareLa";
   function getIlustrareLa() {
-    return (global.LayoutConfig && global.LayoutConfig.get(CHEIE_ILUSTRARE_LA, "curent")) || "curent";
+    return (global.LayoutConfig && global.LayoutConfig.get(CHEIE_ILUSTRARE_LA, "toate")) || "toate";
   }
   function setIlustrareLa(valoare) {
     if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_ILUSTRARE_LA, valoare);
     if (valoare === "toate" && getSpectacolFinalDeLevel() !== "nimic") {
       setSpectacolFinalDeLevel("nimic");
     }
+  }
+
+  // Bifa CP "Plutire raspuns numeric spre ilustratie:" (cerere user,
+  // 01.09.2026) — cifrele colorate "a+b" zboara de la intrebarea
+  // propriu-zisa pana la randul lor din tabel, sincron cu zborul merelor.
+  // Implicit PORNIT.
+  const CHEIE_PLUTIRE_CIFRE = "singaporeMissingPlutireCifre";
+  function getPlutireCifre() {
+    const v = global.LayoutConfig && global.LayoutConfig.get(CHEIE_PLUTIRE_CIFRE, true);
+    return v == null ? true : v;
+  }
+  function setPlutireCifre(valoare) {
+    if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_PLUTIRE_CIFRE, Boolean(valoare));
   }
 
   function createAdditionTableSingaporeMissingQuiz() {
@@ -553,6 +566,31 @@
                   (elem) => elem.id === `bv-${bvLabel}`
                 );
                 if (randEl && elemRand) randEl.innerHTML = elemRand.html;
+
+                // Perechea de cifre colorate "a+b" zboara de la intrebarea
+                // propriu-zisa pana la randul ei (cerere user, 01.09.2026,
+                // CP "Plutire raspuns numeric spre ilustratie:") — sincron
+                // cu zborul merelor de mai sus (aceeasi durata din CP).
+                // Cifrele randului DESTINATIE (tocmai scrise mai sus) raman
+                // ascunse pana aterizeaza, ca sa nu apara de doua ori.
+                if (randEl && getPlutireCifre() && typeof document !== "undefined") {
+                  const cifreRand = randEl.querySelectorAll(".inventar-bonduri-numar");
+                  const liniaCurentaEl = document.querySelector('[data-element-div-intrebare="linia-curenta"]');
+                  if (cifreRand.length === 2 && liniaCurentaEl) {
+                    cifreRand.forEach((el) => el.classList.add("e-cifra-in-zbor"));
+                    global.IlustrareBonduri.zboaraCifre({
+                      sursaEl: liniaCurentaEl,
+                      destinatieEl: randEl,
+                      a,
+                      b,
+                      culoareA: global.InventarBonduri.culoareNumar(a),
+                      culoareB: global.InventarBonduri.culoareNumar(b),
+                    });
+                    setTimeout(() => {
+                      cifreRand.forEach((el) => el.classList.remove("e-cifra-in-zbor"));
+                    }, global.IlustrareBonduri.getDurataTranzitieMs());
+                  }
+                }
               }
             }
             activeQueue.shift();
@@ -736,65 +774,112 @@
           afecteazaMasurarea: true,
         });
 
-        // Dropdown "Spectacol la final de level" (cerere user, 31.08.2026) —
-        // deocamdata 2 optiuni: "nimic" (comportamentul de azi) si
+        // Dropdown compact, pe acelasi rand cu titlul lui — tipar reutilizat
+        // de toate campurile "select" ale acestui panou (cerere user,
+        // 01.09.2026: "sa se incadreze pe acelasi rand cu titlul, sa nu mai
+        // ocupe randul urmator, mai compact").
+        const appendSelectField = ({ eticheta, optiuni, get, set, onChange }) => {
+          const field = document.createElement("div");
+          field.className = "control-panel-lift-field control-panel-lift-field-inline";
+          const label = document.createElement("label");
+          label.textContent = eticheta;
+          const select = document.createElement("select");
+          optiuni.forEach(({ value, text }) => {
+            const optiune = document.createElement("option");
+            optiune.value = value;
+            optiune.textContent = text;
+            select.appendChild(optiune);
+          });
+          select.value = get();
+          select.addEventListener("change", () => {
+            set(select.value);
+            onChange?.();
+          });
+          field.append(label, select);
+          mount.appendChild(field);
+          return select;
+        };
+
+        // "Spectacol la final de level" (cerere user, 31.08.2026) —
+        // deocamdata 2 optiuni: "nimic" (comportamentul de azi, implicit) si
         // "Spectacol 1" (cascada, vezi ilustrareBonduri.joacaSpectacolFinal
         // si construieste_pasul_de_serie_terminata, mai sus).
-        const fieldSpectacol = document.createElement("div");
-        fieldSpectacol.className = "control-panel-lift-field";
-        const labelSpectacol = document.createElement("label");
-        labelSpectacol.textContent = "Spectacol la final de level:";
-        const selectSpectacol = document.createElement("select");
-        [
-          { value: "nimic", text: "nimic" },
-          { value: "spectacol1", text: "Spectacol 1" },
-        ].forEach(({ value, text }) => {
-          const optiune = document.createElement("option");
-          optiune.value = value;
-          optiune.textContent = text;
-          selectSpectacol.appendChild(optiune);
+        const selectSpectacol = appendSelectField({
+          eticheta: "Spectacol la final de level:",
+          optiuni: [
+            { value: "nimic", text: "nimic" },
+            { value: "spectacol1", text: "Spectacol 1" },
+          ],
+          get: getSpectacolFinalDeLevel,
+          set: setSpectacolFinalDeLevel,
         });
-        selectSpectacol.value = getSpectacolFinalDeLevel();
-        selectSpectacol.addEventListener("change", () => {
-          setSpectacolFinalDeLevel(selectSpectacol.value);
-        });
-        fieldSpectacol.append(labelSpectacol, selectSpectacol);
-        mount.appendChild(fieldSpectacol);
 
-        // Radio "Ilustratie la:" (cerere user, 31.08.2026) — "toate
-        // bondurile cu raspuns" (fiecare bv rezolvat isi pastreaza
-        // ilustratia proprie definitiv, acumuland pe masura ce raspunzi) vs
-        // "raspunsul curent" (comportamentul de azi, o singura ilustratie
-        // vie care se muta de la un bv la altul). Alegerea "toate"
-        // dezactiveaza automat Spectacol 1 (vezi setIlustrareLa) — sincronizam
-        // aici si dropdown-ul de mai sus, ca sa arate imediat "nimic".
-        const fieldIlustrareLa = document.createElement("div");
-        fieldIlustrareLa.className = "control-panel-lift-field";
-        const labelIlustrareLa = document.createElement("label");
-        labelIlustrareLa.textContent = "Ilustratie la:";
-        const numeRadio = "singapore-missing-ilustrare-la";
-        const optiuniIlustrareLa = document.createElement("div");
-        [
-          { value: "toate", text: "toate bondurile cu răspuns" },
-          { value: "curent", text: "răspunsul curent" },
-        ].forEach(({ value, text }) => {
-          const optiuneLabel = document.createElement("label");
-          optiuneLabel.className = "control-panel-radio-option";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = numeRadio;
-          input.value = value;
-          input.checked = getIlustrareLa() === value;
-          input.addEventListener("change", () => {
-            if (!input.checked) return;
-            setIlustrareLa(value);
+        // "Ilustratie la:" (cerere user, 31.08.2026, trecut din radio in
+        // dropdown 01.09.2026) — "toate bondurile cu raspuns" (fiecare bv
+        // rezolvat isi pastreaza ilustratia proprie definitiv, acumuland pe
+        // masura ce raspunzi — implicit) vs "raspunsul curent" (o singura
+        // ilustratie vie care se muta de la un bv la altul). Alegerea
+        // "toate" dezactiveaza automat Spectacol 1 (vezi setIlustrareLa) —
+        // sincronizam aici si dropdown-ul de mai sus.
+        appendSelectField({
+          eticheta: "Ilustratie la:",
+          optiuni: [
+            { value: "toate", text: "toate bondurile cu răspuns" },
+            { value: "curent", text: "răspunsul curent" },
+          ],
+          get: getIlustrareLa,
+          set: setIlustrareLa,
+          onChange: () => {
             selectSpectacol.value = getSpectacolFinalDeLevel();
-          });
-          optiuneLabel.append(input, document.createTextNode(` ${text}`));
-          optiuniIlustrareLa.appendChild(optiuneLabel);
+          },
         });
-        fieldIlustrareLa.append(labelIlustrareLa, optiuniIlustrareLa);
-        mount.appendChild(fieldIlustrareLa);
+
+        // "Traiectorie bile:" (cerere user, 01.09.2026) — "Oblic" (implicit,
+        // comportamentul de dintotdeauna, linie dreapta) vs "Orizontal"
+        // (bila ramane la nivelul cosului care se muta pe verticala, se
+        // deplaseaza spre celalalt cos pe orizontala, simultan).
+        appendSelectField({
+          eticheta: "Traiectorie bile:",
+          optiuni: [
+            { value: "oblic", text: "Oblic" },
+            { value: "orizontal", text: "Orizontal" },
+          ],
+          get: () => global.IlustrareBonduri.getTraiectorieBile(),
+          set: (valoare) => global.IlustrareBonduri.setTraiectorieBile(valoare),
+        });
+
+        // Color picker "Culoare bila:" (cerere user, 01.09.2026) — culoarea
+        // FIXA a discurilor (.ilustrare-bonduri-disc), pana acum hardcodata
+        // in CSS (#0f1419, aproape neagra) — independenta de culoarea
+        // cosului. Se propaga singura, live, prin variabila CSS globala
+        // (vezi setCuloareDisc), fara sa fie nevoie sa reumplem cosurile —
+        // acelasi tipar ca --ilustrare-font-scala.
+        const fieldCuloareDisc = document.createElement("div");
+        fieldCuloareDisc.className = "control-panel-lift-field control-panel-lift-field-inline";
+        const labelCuloareDisc = document.createElement("label");
+        labelCuloareDisc.textContent = "Culoare bila:";
+        const inputCuloareDisc = document.createElement("input");
+        inputCuloareDisc.type = "color";
+        inputCuloareDisc.value = global.IlustrareBonduri.getCuloareDisc();
+        inputCuloareDisc.addEventListener("input", () => {
+          global.IlustrareBonduri.setCuloareDisc(inputCuloareDisc.value);
+        });
+        fieldCuloareDisc.append(labelCuloareDisc, inputCuloareDisc);
+        mount.appendChild(fieldCuloareDisc);
+
+        // Bifa "Plutire raspuns numeric spre ilustratie:" (cerere user,
+        // 01.09.2026) — vezi getPlutireCifre/setPlutireCifre si zborul din
+        // dupaRaspunsCorect, mai sus. Implicit PORNIT.
+        const fieldPlutireCifre = document.createElement("label");
+        fieldPlutireCifre.className = "control-panel-lift-field control-panel-lift-field-inline control-panel-radio-option";
+        const inputPlutireCifre = document.createElement("input");
+        inputPlutireCifre.type = "checkbox";
+        inputPlutireCifre.checked = getPlutireCifre();
+        inputPlutireCifre.addEventListener("change", () => {
+          setPlutireCifre(inputPlutireCifre.checked);
+        });
+        fieldPlutireCifre.append(inputPlutireCifre, document.createTextNode(" Plutire răspuns numeric spre ilustrație"));
+        mount.appendChild(fieldPlutireCifre);
       },
 
       isCompleted: () => gameCompleted,
