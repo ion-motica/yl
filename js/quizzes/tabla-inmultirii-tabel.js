@@ -821,33 +821,90 @@
     }
   }
 
-  // Citeste ordinea CURENTA a celor 5 coloane cadru direct din DOM (colgroup)
-  // si intoarce ordinea "oglindita" F2: muta grupul "egal"+"produs" la
-  // CEALALTA extremitate fata de unde e acum, pastrand ordinea interna a
-  // celorlalte 3 coloane (factor/x/nr-tabla) EXACT cum sunt azi in DOM — asa
-  // se compune corect cu rocada comutativitate (F1), care poate le-a
-  // schimbat deja ordinea intre ele. "b x c" ramane "b x c" la oglindire, nu
-  // devine "c x b" — doar cele doua parti ale ecuatiei isi schimba locul,
-  // fara sa amestece si rolul lui F1 (asta ar duplica ce face deja rocada).
-  // Coloanele de dupa produs (spatiu1, numarare*, spatiu2, adunari-repetate,
-  // counter) raman neatinse, la coada listei.
-  function ordineaOglinditaF2(tabel) {
+  // ============================ SCHIMBA FACT FORM ===========================
+  //
+  // "Fact form" (ff) = ordinea de citire a celor 3 numere dintr-un fapt de
+  // inmultire — terminologie EFF, documente de referinta/EFF-REFERENCE.md,
+  // sectiunile 3-4 (F1 = familia faptului, comutat = interschimba a si b;
+  // F2 = orientarea ecuatiei, STANGA = "a op b = result", DREAPTA =
+  // "result = a op b"). Un fapt complet are 8 fact forms (4 F1 x 2 F2), dar
+  // acest tabel arata STRICT inmultiri — F1 "complementar"/"complementar
+  // comutat" ar transforma-o in impartire, fara sens aici — deci raman 4
+  // fact forms valide, reprezentate simplu ca o ordine a 3 roluri:
+  //
+  //     ["factor", "nr-tabla", "produs"]  ->  "factor x nr-tabla = produs"  (ff, F1 initial + F2 STANGA)
+  //     ["nr-tabla", "factor", "produs"]  ->  "nr-tabla x factor = produs"  (F1 comutat + F2 STANGA)
+  //     ["produs", "factor", "nr-tabla"]  ->  "produs = factor x nr-tabla"  (F1 initial + F2 DREAPTA)
+  //     ["produs", "nr-tabla", "factor"]  ->  "produs = nr-tabla x factor"  (F1 comutat + F2 DREAPTA)
+  //
+  // "produs" NU poate fi la mijloc (["factor","produs","nr-tabla"] ar
+  // insemna literal "factor = produs x nr-tabla", fals in general) — pozitia
+  // lui produs (index 0 sau 2) decide F2; ordinea celorlalte doua decide F1.
+  //
+  // Cele doua functii de mai jos raspund cererii userului (02.09.2026):
+  // "citeste ordinea curenta a col din tabel, vede unde este inmultirea,
+  // [...] declanseaza swapurile simultane pt a ajunge la fact form 2".
+  const ROLURI_TRIADA = ["factor", "nr-tabla", "produs"];
+
+  // Pasul 1: citeste ordinea CURENTA a celor 3 roluri numerice direct din
+  // DOM (colgroup) — nu presupune nicio stare retinuta separat, ca sa
+  // functioneze corect indiferent ce a facut deja rocada comutativitate
+  // (F1) intre timp.
+  function citesteOrdineaTriadei(tabelId) {
+    const tabel = document.getElementById(tabelId);
+    if (!(tabel instanceof HTMLTableElement)) {
+      throw new TypeError(`Nu există un <table> cu id-ul „${tabelId}”.`);
+    }
     const colgroup = tabel.querySelector("colgroup");
-    const idAcum = [...colgroup.children].map((c) => c.id);
-    const idProdus = idColoana("produs");
-    const idEgal = idColoana("egal");
+    const rolDupaId = new Map(ROLURI_TRIADA.map((rol) => [idColoana(rol), rol]));
+    return [...colgroup.children]
+      .map((c) => rolDupaId.get(c.id))
+      .filter((rol) => rol !== undefined);
+  }
+
+  // Pasii 2-3: primeste fact form-ul TINTA ca ordine a celor 3 roluri (vezi
+  // tabelul de mai sus) si declanseaza glisarea simultana pana acolo, cu
+  // gliseazaColoaneMultipleInConfiguratie() — nu rocadaColoane(), care
+  // interschimba mereu exact 2 coloane fixe si nu poate muta produs+egal la
+  // cealalta extremitate. "x" si "egal" se plaseaza automat langa perechea
+  // corecta; coloanele din afara triadei (spatiu1, numarare*, spatiu2,
+  // adunari-repetate, counter) raman neatinse, la coada listei, in ordinea
+  // lor curenta din DOM.
+  async function schimbaFactForm(tabelId, ordineaTriadei, durataMs) {
+    const ordineValida =
+      Array.isArray(ordineaTriadei) &&
+      ordineaTriadei.length === 3 &&
+      new Set(ordineaTriadei).size === 3 &&
+      ordineaTriadei.every((rol) => ROLURI_TRIADA.includes(rol));
+
+    if (!ordineValida) {
+      throw new TypeError(
+        `ordineaTriadei trebuie sa contina exact rolurile ${JSON.stringify(ROLURI_TRIADA)}, fiecare o singura data.`
+      );
+    }
+
+    const indexProdus = ordineaTriadei.indexOf("produs");
+    if (indexProdus === 1) {
+      throw new Error(
+        '"produs" nu poate fi la mijlocul triadei — rezultatul trebuie sa fie primul sau ultimul (separat de ceilalti doi printr-un "="), altfel ecuatia nu are sens.'
+      );
+    }
+
+    const tabel = document.getElementById(tabelId);
+    if (!(tabel instanceof HTMLTableElement)) {
+      throw new TypeError(`Nu există un <table> cu id-ul „${tabelId}”.`);
+    }
+
+    const colgroup = tabel.querySelector("colgroup");
     const idCadru = new Set(COLOANE_CADRU.map((c) => idColoana(c)));
+    const restAcum = [...colgroup.children].map((c) => c.id).filter((id) => !idCadru.has(id));
 
-    const cadruAcum = idAcum.filter((id) => idCadru.has(id));
-    const restAcum = idAcum.filter((id) => !idCadru.has(id));
-    const grupOperanzi = cadruAcum.filter((id) => id !== idProdus && id !== idEgal);
-    const produsEPrimul = cadruAcum[0] === idProdus;
+    const [r0, r1, r2] = ordineaTriadei;
+    const cadruNou = indexProdus === 2
+      ? [idColoana(r0), idColoana("x"), idColoana(r1), idColoana("egal"), idColoana(r2)]
+      : [idColoana(r0), idColoana("egal"), idColoana(r1), idColoana("x"), idColoana(r2)];
 
-    const cadruNou = produsEPrimul
-      ? [...grupOperanzi, idEgal, idProdus]
-      : [idProdus, idEgal, ...grupOperanzi];
-
-    return [...cadruNou, ...restAcum];
+    return gliseazaColoaneMultipleInConfiguratie(tabelId, [...cadruNou, ...restAcum], durataMs);
   }
 
   function createTablaInmultiriiTabelQuiz() {
@@ -1146,11 +1203,17 @@
     }
 
     // Bucla de alternare F2: cat timp durata > 0, la fiecare `durataMs`
-    // schimba orientarea ecuatiei (vezi ordineaOglinditaF2 mai sus). Auto-
-    // rescheduleaza-se singura (nu setInterval) — asa nu se pot suprapune 2
-    // chemari daca o animatie dureaza mai mult decat era planificat.
-    // `incercariEsuate` numara AMBELE cazuri "tabelul lipseste" si "coloana
-    // se anima deja (rocada)" — acelasi tipar de siguranta ca la
+    // schimba orientarea ecuatiei — foloseste schimbaFactForm() (mai sus),
+    // deci trece prin ACELASI wrapper general pe care l-ar folosi orice alt
+    // cod care ar vrea sa navigheze intre fact forms. Aici alegem tinta
+    // simplu: daca produs e ultimul acum (F2=STANGA), mutam-l primul
+    // (F2=DREAPTA), si invers — pastrand mereu ordinea curenta a celorlalte
+    // doua roluri (nu atinge F1, treaba rocadei).
+    //
+    // Auto-rescheduleaza-se singura (nu setInterval) — asa nu se pot
+    // suprapune 2 chemari daca o animatie dureaza mai mult decat era
+    // planificat. `incercariEsuate` numara AMBELE cazuri "tabelul lipseste"
+    // si "coloana se anima deja (rocada)" — acelasi tipar de siguranta ca la
     // planificaRedimensionareAutomata mai jos (max ~5s), ca sa nu bucleze la
     // infinit daca userul a trecut la alt quiz cat timp asta rula.
     async function buclaAlternareF2() {
@@ -1172,11 +1235,16 @@
 
           oColoanaSeAnimeaza = true;
           try {
-            await gliseazaColoaneMultipleInConfiguratie(ID_TABLE, ordineaOglinditaF2(tabel), durataMs);
+            const ordineaCurenta = citesteOrdineaTriadei(ID_TABLE);
+            const ordineaTinta = ordineaCurenta[2] === "produs"
+              ? ["produs", ordineaCurenta[0], ordineaCurenta[1]]
+              : [ordineaCurenta[1], ordineaCurenta[2], "produs"];
+            await schimbaFactForm(ID_TABLE, ordineaTinta, durataMs);
             incercariEsuate = 0;
           } catch {
             incercariEsuate += 1;
             if (incercariEsuate > 50) return;
+            await asteapta(100);
           } finally {
             oColoanaSeAnimeaza = false;
           }
