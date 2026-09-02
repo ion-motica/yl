@@ -827,10 +827,17 @@
   // inmultire — terminologie EFF, documente de referinta/EFF-REFERENCE.md,
   // sectiunile 3-4 (F1 = familia faptului, comutat = interschimba a si b;
   // F2 = orientarea ecuatiei, STANGA = "a op b = result", DREAPTA =
-  // "result = a op b"). Un fapt complet are 8 fact forms (4 F1 x 2 F2), dar
-  // acest tabel arata STRICT inmultiri — F1 "complementar"/"complementar
-  // comutat" ar transforma-o in impartire, fara sens aici — deci raman 4
-  // fact forms valide, reprezentate simplu ca o ordine a 3 roluri:
+  // "result = a op b"). Un fapt complet are 8 fact forms VALIDE (4 F1 x 2
+  // F2) — toate 8 sunt parte din taxonomia EFF, niciuna nu e "mai putin
+  // valida" decat alta.
+  //
+  // Limitarea de mai jos e a ACESTUI TABEL, nu a EFF-ului: schimbaFactForm()
+  // poate ajunge doar la 4 din cele 8, pentru ca tabelul arata STRICT
+  // inmultiri — celelalte 4 (F1 "complementar"/"complementar comutat") ar
+  // cere sa afiseze o IMPARTIRE (ex. "produs / nr-tabla = factor"), lucru
+  // pe care acest tabel nu-l face deloc azi (ar insemna alt operator, "/",
+  // si alt rol pt. fiecare numar — nu doar o reordonare a acelorasi 3 roluri
+  // cu "x" intre ele). Cele 4 reprezentabile azi, ca ordine a 3 roluri:
   //
   //     ["factor", "nr-tabla", "produs"]  ->  "factor x nr-tabla = produs"  (ff, F1 initial + F2 STANGA)
   //     ["nr-tabla", "factor", "produs"]  ->  "nr-tabla x factor = produs"  (F1 comutat + F2 STANGA)
