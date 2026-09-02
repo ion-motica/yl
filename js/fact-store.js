@@ -52,7 +52,21 @@
   }
 
   function writeState(state) {
-    getStorage().setItem(STORAGE_KEY, JSON.stringify(state));
+    // getStorage() e deja aparata contra lipsei de localStorage (vezi mai
+    // sus), dar setItem() poate arunca si separat, cand storage-ul EXISTA
+    // dar e plin (QuotaExceededError) — caz real, nu ipotetic: a blocat
+    // jocul in productie (02.09.2026), pt. ca aceasta aruncare, netratata,
+    // urca prin tot lantul sincron pana in handlerul de click si il
+    // intrerupe la mijloc (vezi recordAttempt mai jos, apelat din
+    // `dupa_turn_apasare` INAINTE de `dupaRaspunsCorect`, care e cel ce
+    // chiar avanseaza jocul — daca scrierea arunca, acela nu mai ruleaza).
+    // Aici inghitim eroarea: progresul acelei incercari nu se salveaza de
+    // data asta, dar jocul continua normal.
+    try {
+      getStorage().setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+      console.warn("FactStore: nu s-a putut salva progresul (localStorage plin?).", error);
+    }
   }
 
   function normalizeAttempt(attempt = {}) {
