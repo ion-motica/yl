@@ -67,17 +67,17 @@
   // "marimeFontPct") ca sa nu reinterpretam gresit o valoare veche salvata ca
   // procent, acum ca px.
   const LC_MARIME_FONT_PX = "tablaInmultiriiTabel.marimeFontPx";
-  const MARIME_FONT_PX_IMPLICITA = 16;
+  const MARIME_FONT_PX_IMPLICITA = 28;
   const MARIME_FONT_PX_MIN = 8;
   const MARIME_FONT_PX_MAX = 48;
   const MARIME_FONT_PX_PAS = 1;
-  // "Scris in numarare mai mic, camp CP separat, 50% implicit" (cerere user,
-  // 01.09.2026) — procent DIN marimea de mai sus. Ramane procent (nu px): un
+  // "Scris in numarare mai mic, camp CP separat, 75% implicit" (cerere user,
+  // 02.09.2026) — procent DIN marimea de mai sus. Ramane procent (nu px): un
   // font-size CSS in procent e relativ la parinte PRIN DEFINITIE — functioneaza
   // corect indiferent ca parintele (#ti-wrapper) e acum in px, fara calcul
   // manual (vezi stilPartajat).
   const LC_MARIME_FONT_NUMARARE_PCT = "tablaInmultiriiTabel.marimeFontNumararePct";
-  const MARIME_FONT_NUMARARE_IMPLICITA = 50;
+  const MARIME_FONT_NUMARARE_IMPLICITA = 75;
   const MARIME_FONT_NUMARARE_MIN = 10;
   const MARIME_FONT_NUMARARE_MAX = 100;
   const MARIME_FONT_NUMARARE_PAS = 1;
@@ -458,6 +458,11 @@
         options: [...options],
         correctIndex,
         hintMessage: extra.hintMessage ?? HINT_MESSAGE,
+        // Opt-out din fitNumberText (falling-engine.js, cerere user,
+        // 01.09.2026): quiz-ul isi gestioneaza singur marimea continutului
+        // (campurile CP "Marime font"/"Scris in numarare %"), nu vrem sa i-o
+        // suprascrie o functie gandita pt. prompturi text simple.
+        fixedTextSize: true,
         ...extra,
       };
     }
@@ -484,6 +489,7 @@
         elementeDivIntrebare: elementePatchTranzitie(vechiFactor, factorCurent),
         options: [...options],
         correctIndex,
+        fixedTextSize: true,
       });
     }
 

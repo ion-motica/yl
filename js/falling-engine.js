@@ -146,6 +146,28 @@
       return el.scrollWidth;
     }
 
+    // Starea neutra a lui topNumberEl — fara nicio urma din fitNumberText mai
+    // jos (font-size/transform/scalare la incapere in lift). Extrasa separat
+    // (nu doar liniile din capul lui runFit) ca sa poata fi chemata si direct,
+    // de quizurile cu `fixedTextSize:true` (cerere user, 01.09.2026): acelea
+    // sar peste restul lui fitNumberText, dar tot au nevoie sa curete ce-a
+    // lasat un quiz ANTERIOR pe element — fitNumberText e singurul loc care
+    // reseteaza vreodata aceste proprietati, deci fara apelul asta ar ramane
+    // "lipite" stiluri vechi la comutarea intre quizuri.
+    function resetNumberTextStyle(el) {
+      el.style.fontSize = "";
+      el.style.transform = "";
+      el.style.transformOrigin = "";
+      el.style.textAlign = "";
+      el.style.boxSizing = "";
+      el.style.display = "";
+      el.style.width = "";
+      el.style.maxWidth = "";
+      el.style.marginLeft = "";
+      el.style.marginRight = "";
+      el.style.overflow = "";
+    }
+
     function fitNumberText(el) {
       if (!el) return;
 
@@ -153,8 +175,7 @@
         const maxWidth = questionMaxWidth();
         if (maxWidth <= 0) return;
 
-        el.style.fontSize = "";
-        el.style.transform = "";
+        resetNumberTextStyle(el);
         el.style.transformOrigin = "center top";
         el.style.textAlign = "center";
         el.style.boxSizing = "border-box";
@@ -256,7 +277,8 @@
       fallY = frac * travelSpan();
       dom.falling.style.top = `${fallY}px`;
       if (dom.topNumberEl && lastRoundState) {
-        fitNumberText(dom.topNumberEl);
+        if (lastRoundState.fixedTextSize) resetNumberTextStyle(dom.topNumberEl);
+        else fitNumberText(dom.topNumberEl);
       }
       config.onResize?.();
     }
@@ -661,7 +683,8 @@
       // un slot care arata deja raspunsul.
       slot.classList.remove(placeholder.clasa);
       slot.classList.add("q-correct");
-      fitNumberText(dom.topNumberEl);
+      if (state?.fixedTextSize) resetNumberTextStyle(dom.topNumberEl);
+      else fitNumberText(dom.topNumberEl);
       return true;
     }
 
@@ -820,7 +843,23 @@
         }
         fm?.classList.remove("has-singapore-bond");
       }
-      fitNumberText(dom.topNumberEl);
+      // `fixedTextSize: true` (cerere user, 01.09.2026): opt-out PUNCTUAL, per
+      // quiz/subquiz, din fitNumberText() de mai jos. Rolul ei ramane intact
+      // pt. restul quizurilor — micsoreaza/scaleaza fontul lui topNumberEl ca
+      // sa incapa un prompt text lung in latimea liftului (introdusa in
+      // c41d8c4, "bagare sub radical"; esentiala pe telefon, unde liftul e
+      // ingust). Problema: ruleaza la ORICE re-randare (nu doar la coborarea
+      // liftului) si scrie direct font-size/transform pe topNumberEl — un
+      // quiz care isi gestioneaza SINGUR dimensiunea continutului sau
+      // (ex. tabla-inmultirii-tabel.js, cu propriile campuri CP de marime
+      // font) se pomenea cu propriile setari suprascrise/scalate de-o functie
+      // gandita pt. text simplu, nu pt. un <table> intreg.
+      // NU se sare doar peste apel: fitNumberText e SINGURUL loc care
+      // reseteaza aceste stiluri, deci un quiz cu opt-out tot trebuie sa
+      // curete ce-a lasat quiz-ul ANTERIOR (vezi resetNumberTextStyle mai
+      // sus) — altfel ramane cu font-size/transform "lipite" de la altcineva.
+      if (state.fixedTextSize) resetNumberTextStyle(dom.topNumberEl);
+      else fitNumberText(dom.topNumberEl);
 
       dom.optionBtns.forEach((btn, i) => {
         const val = state.options?.[i];
