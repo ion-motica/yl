@@ -983,10 +983,28 @@
   // incercat acolo, spre deosebire de inmultire.
   const SIMBOL_INMULTIRE = "x";
   const SIMBOL_IMPARTIRE = ":";
-  // Simbolul cand tabla curenta e de adunare (getAdunareActiva) — vezi
-  // valoareStaticaCelula si schimbaFactForm mai jos (acolo unde scriu
-  // simbolul in coloana "x", ambele verifica intai adunarea, INAINTE de F1).
+  // Simbolurile cand tabla curenta e de adunare (getAdunareActiva) — vezi
+  // simbolEfectiv() mai jos.
   const SIMBOL_ADUNARE = "+";
+  const SIMBOL_SCADERE = "-";
+
+  // Simbolul REAL de afisat, tinand cont de "Comută pe tabla adunării" —
+  // BUG gasit de user (02.09.2026, ex. "8=10+2" in loc de "8=10-2"): prima
+  // versiune folosea mereu "+" cat timp adunarea era activa, indiferent de
+  // F1 — corect DOAR pt. formele directe (f1_initial/f1_comutat, simbol de
+  // inmultire "x"), dar face ecuatia FALSA pt. formele complementare
+  // (f1_complementar*, simbol de impartire ":"): acolo produsul (suma) e un
+  // operand DAT, nu rezultatul, deci operatia care leaga cele 3 numere e
+  // scaderea, nu adunarea (10-2=8, nu 10+2=8). Adunarea/scaderea sunt
+  // operatii inverse una alteia, exact cum inmultirea/impartirea sunt
+  // inverse una alteia — simbolul de adunare "mosteneste" aceeasi distinctie
+  // F1 ca simbolul de inmultire: "x" (forme directe) -> "+", ":" (forme
+  // complementare) -> "-". Cand adunarea NU e activa, intoarce simbolul
+  // primit neschimbat (comportamentul de dinainte, neatins).
+  function simbolEfectiv(simbolInmultireSauImpartire, adunareActiva) {
+    if (!adunareActiva) return simbolInmultireSauImpartire;
+    return simbolInmultireSauImpartire === SIMBOL_IMPARTIRE ? SIMBOL_SCADERE : SIMBOL_ADUNARE;
+  }
 
   // Pt. fiecare F1: cei doi operanzi (in ordinea de citire a PERECHII,
   // inainte de F2) si rolul care ramane singur (rezultatul perechii).
@@ -1074,10 +1092,11 @@
     // "Comută pe tabla adunării" (alta functie, vezi LC_ADUNARE_ACTIVA) poate
     // fi activa in acelasi timp cu o mutare de coloane — adunarea comuta la
     // fel ca inmultirea, deci rocada/alternareF2 raman semnificative si
-    // pt. ea, dar simbolul REAL de scris e mereu "+" cat timp e activa,
-    // indiferent ce a calculat F1_TRANSFORMARI mai sus (acela stie doar de
-    // x/":", nu si de adunare).
-    const simbolDeScris = adunareActiva ? SIMBOL_ADUNARE : simbol;
+    // pt. ea, dar simbolul REAL de scris trebuie tradus prin simbolEfectiv()
+    // (vezi comentariul de acolo — "+" pt. formele directe, "-" pt. cele
+    // complementare, NU mereu "+"), indiferent ce a calculat F1_TRANSFORMARI
+    // mai sus (acela stie doar de x/":", nu si de adunare/scadere).
+    const simbolDeScris = simbolEfectiv(simbol, adunareActiva);
     for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) {
       const span = document.getElementById(idCelula("x", f))?.querySelector("span");
       if (span) span.textContent = simbolDeScris;
@@ -1273,6 +1292,11 @@
     // proaspat porneste mereu la f1_initial+stanga, deci orice fact form e
     // valabil pt. prima rotatie a noului nivel.
     let ultimaFactForm = null;
+    // ResizeObserver pe #ti-wrapper — vezi resincronizeazaRamele/
+    // porniObservatorRezizeRama mai jos. O singura instanta, refolosita
+    // (nu recreata) la fiecare nivel nou — doar tinta ei (.observe) se
+    // schimba, cand wrapper-ul e reconstruit.
+    let observatorRezizeRama = null;
 
     // Rezultatul randului — produsul (inmultire) sau suma (adunare), dupa
     // instantaneul de nivel adunareActivaNivel (nu getAdunareActiva() live —
@@ -1326,12 +1350,13 @@
       }
       switch (coloana) {
         case "factor": return String(f);
-        // "Comută pe tabla adunării" are prioritate: cat timp e activa,
-        // simbolul e mereu "+", indiferent ce F1 a calculat operatorCurent
-        // (acela stie doar de x/":" — vezi SIMBOL_ADUNARE mai sus si
-        // schimbaFactForm, care aplica aceeasi prioritate la scrierea live
-        // din timpul unei mutari de coloane).
-        case "x": return adunareActivaNivel ? SIMBOL_ADUNARE : operatorCurent;
+        // "Comută pe tabla adunării" trece simbolul prin simbolEfectiv() —
+        // vezi comentariul de acolo (nu e mereu "+": formele complementare
+        // au nevoie de "-", altfel ecuatia devine falsa, ex. "8=10+2" gresit
+        // in loc de "8=10-2" — bug gasit de user, 02.09.2026). Aceeasi
+        // functie e folosita si de schimbaFactForm, ca scrierea live din
+        // timpul unei mutari de coloane sa ramana consistenta.
+        case "x": return simbolEfectiv(operatorCurent, adunareActivaNivel);
         case "nr-tabla": return String(level);
         case "egal": return "=";
         case "produs": return String(rezultatPentru(f));
@@ -1721,9 +1746,58 @@
     function planificaRamaLaNivelNou() {
       const nivelDePlanificat = level;
       asteaptaTabelulPictat(nivelDePlanificat, () => {
+        porniObservatorRezizeRama();
         const celule = idCeluleExtremeCadru(factorCurent);
         if (celule) creeazaRama(ID_WRAPPER, ID_RAMA_INTREBARE, celule.stanga, celule.dreapta, STIL_RAMA_INTREBARE);
       });
+    }
+
+    // Reancoreaza INSTANT (durataMs=0) toate ramele active la geometria lor
+    // CURENTA — spre deosebire de gliseazaRama*/planificaRama*, care le MUTA
+    // la o intrebare NOUA, asta doar corecteaza pozitia unor rame deja
+    // corect tintite (acelasi rand/coloane, aceeasi tinta), fara sa schimbe
+    // la ce tintesc. Foloseste mutaRama, care oricum nu face nimic daca rama
+    // ceruta inca nu exista (creeazaRama nu a rulat inca) — sigur de apelat
+    // oricand. Vezi porniObservatorRezizeRama mai jos pt. cand se declanseaza.
+    function resincronizeazaRamele() {
+      if (factorCurent == null) return;
+      const celuleIntrebare = idCeluleExtremeCadru(factorCurent);
+      if (celuleIntrebare) {
+        mutaRama(ID_WRAPPER, ID_RAMA_INTREBARE, celuleIntrebare.stanga, celuleIntrebare.dreapta, 0).catch(() => {});
+      }
+      mutaRama(ID_WRAPPER, ID_RAMA_NUMARARE, idCelula("numarare1", 1), idCelula(`numarare${level}`, factorCurent), 0)
+        .catch(() => {});
+      mutaRama(ID_WRAPPER, ID_RAMA_ADUNARI_REPETATE, idCelula("adunari-repetate", 1), idCelula("adunari-repetate", factorCurent), 0)
+        .catch(() => {});
+    }
+
+    // BUG gasit de user (02.09.2026: "la inmultirea cu 10 rama nu e bine,
+    // acopera doar si partial 0" — reprodus abia in Playwright, dupa mai
+    // multe incercari, cu "Toate eq forms" activ si multe intrebari la rand).
+    // Cauza reala: #ti-wrapper are `text-align:center` (vezi
+    // construiesteTabelComplet) — tabelul (mai ingust decat wrapper-ul) se
+    // CENTREAZA in interiorul lui, deci offsetLeft-ul unei celule (relativ
+    // la wrapper, folosit de colturiColoaneAB) INCLUDE acest "gol" de
+    // centrare. Daca LATIMEA wrapper-ului se schimba din motive STRAINE de
+    // acest quiz (alt panou de pe pagina creste/scade in inaltime, apare/
+    // dispare o bara de scroll — vezi panoul "Timpi raspuns" din CP —
+    // DEPANARE), tabelul se recentreaza cu alt gol — dar rama, calculata O
+    // SINGURA DATA la ultima mutaRama, ramane "inghetata" la vechiul offset,
+    // ramane in urma. Exact ce a raportat userul.
+    //
+    // Fix: ResizeObserver pe #ti-wrapper — la orice schimbare de dimensiune
+    // a lui, INDIFERENT de cauza (n-are de-a face doar cu "Timpi raspuns" —
+    // orice alt panou viitor cu acelasi efect e acoperit la fel), toate
+    // ramele se reancoreaza instant la geometria REALA curenta.
+    function porniObservatorRezizeRama() {
+      const wrapper = document.getElementById(ID_WRAPPER);
+      if (!wrapper) return;
+      if (!observatorRezizeRama) {
+        observatorRezizeRama = new ResizeObserver(() => resincronizeazaRamele());
+      } else {
+        observatorRezizeRama.disconnect();
+      }
+      observatorRezizeRama.observe(wrapper);
     }
 
     // Rama "verticala" (numarare / adunari-repetate) — spre deosebire de rama
