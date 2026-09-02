@@ -55,6 +55,9 @@
   const ID_HEADER_ROW = `${PREFIX}-header-row`;
   const ID_WRAPPER = `${PREFIX}-wrapper`;
   const ID_TABLE = `${PREFIX}-table`;
+  // "Rama intrebarii" (cerere user, 02.09.2026) — vezi sectiunea RAMA
+  // INTREBARE mai jos.
+  const ID_RAMA_INTREBARE = `${PREFIX}-rama-intrebare`;
 
   // Cheile in LayoutConfig (localStorage) pt. panoul CP al acestui quiz —
   // vezi `appendTablaInmultiriiTabelControlPanel` mai jos.
@@ -143,6 +146,7 @@
   const PADDING_MAX = 30;
   const PADDING_PAS = 1;
   const CULOARE_GRILA = "#2d3d52"; // acelasi gri-albastru ca bordura .menu-toggle
+  const CULOARE_RAMA_INTREBARE = "yellow"; // "bordura galbena" (cerere user) — distinct de portocaliul placeholderului
 
   // "Mutare coloane" (cerere user, 02.09.2026) — la fiecare intrebare noua,
   // in ACELASI nivel, tabelul poate anima o reordonare de coloane. Exact UN
@@ -1081,6 +1085,94 @@
     return gliseazaColoaneMultipleInConfiguratie(tabelId, [...cadru.map(idColoana), ...restAcum], durataMs);
   }
 
+  // ============================= RAMA INTREBARE ==============================
+  //
+  // "Rama intrebarii" (cerere user, 02.09.2026) — un dreptunghi cu bordura
+  // galbena, FARA umplere (continut 100% transparent), care incadreaza STRICT
+  // fapt-ul aritmetic testat (cele 5 coloane cadru, oricare ar fi ordinea lor
+  // curenta dupa o mutare de coloane). Inlocuieste vechiul chenar cu colturi
+  // rotunjite, scos explicit mai devreme ("e o prostie, va fi inlocuit de
+  // altceva") — spre deosebire de acela (stiluri bakeate pe fiecare celula a
+  // randului, se strica la reordonare), rama e UN SINGUR div separat,
+  // `position:absolute` peste tabel, ale carui 4 coordonate (left/top/width/
+  // height) se recalculeaza din pozitia REALA a celulelor de fiecare data —
+  // nu se poate "strica" la reordonare, oricat de des s-ar intampla.
+  //
+  // Trei functii module-level (fara acces la starea vreunui quiz anume, ca si
+  // schimbaFactForm mai sus) — generice (primesc idul ramei ca parametru), nu
+  // presupun ca exista o singura rama pe tabel (posibil sa mai apara rame
+  // separate pt. alte grupuri de coloane, discutat cu userul 02.09.2026, dar
+  // nu cerut inca):
+  //   - colturiColoaneAB(wrapperId, idStanga, idDreapta) — PURA, calculeaza
+  //     dreptunghiul (left/top/width/height, relativ la wrapper) care
+  //     incadreaza ambele celule date. Foloseste offsetLeft/offsetTop/
+  //     offsetWidth/offsetHeight (relative direct la offsetParent — vezi
+  //     `position:relative` pe wrapper, in construiesteTabelComplet), NU
+  //     getBoundingClientRect(): rocadaColoane/gliseazaColoaneMultipleIn-
+  //     Configuratie reordoneaza coloanele SINCRON, dar anima tranzitia cu
+  //     `transform` — iar getBoundingClientRect() ar citi pozitia FALSA,
+  //     inca-in-tranzitie, exact in clipa in care ruleazaMutareaColoanelor-
+  //     DacaActiva + glisiazaRamaLaFactorCurent ruleaza una dupa alta (gasit
+  //     empiric, verificare Playwright, 02.09.2026). offsetLeft & co. sunt
+  //     calculate din layout, NEATINSE de transform — dau direct pozitia
+  //     FINALA, chiar daca vizual coloana inca gliseaza spre ea.
+  //   - creeazaRama(wrapperId, ramaId, idStanga, idDreapta) — creeaza div-ul
+  //     (scotand intai unul vechi cu acelasi id, daca exista), il pozitioneaza
+  //     cu colturiColoaneAB() si il adauga in wrapper.
+  //   - mutaRama(wrapperId, ramaId, idStanga, idDreapta, durataMs) —
+  //     recalculeaza colturile cu colturiColoaneAB() si anima DIV-UL DEJA
+  //     EXISTENT pana acolo, prin tranzitie CSS pe left/top/width/height (nu
+  //     FLIP ca la coloane — rama nu e un nod mutat prin DOM, ci un
+  //     dreptunghi ale carui 4 valori se schimba). durataMs=0 = salt instant.
+  function colturiColoaneAB(wrapperId, idCelulaStanga, idCelulaDreapta) {
+    const wrapper = document.getElementById(wrapperId);
+    const stanga = document.getElementById(idCelulaStanga);
+    const dreapta = document.getElementById(idCelulaDreapta);
+    if (!wrapper || !stanga || !dreapta) return null;
+    const stangaX = Math.min(stanga.offsetLeft, dreapta.offsetLeft);
+    const dreaptaX = Math.max(stanga.offsetLeft + stanga.offsetWidth, dreapta.offsetLeft + dreapta.offsetWidth);
+    const sus = Math.min(stanga.offsetTop, dreapta.offsetTop);
+    const jos = Math.max(stanga.offsetTop + stanga.offsetHeight, dreapta.offsetTop + dreapta.offsetHeight);
+    return {
+      left: stangaX,
+      top: sus,
+      width: dreaptaX - stangaX,
+      height: jos - sus,
+    };
+  }
+
+  function creeazaRama(wrapperId, ramaId, idCelulaStanga, idCelulaDreapta) {
+    const wrapper = document.getElementById(wrapperId);
+    const colturi = colturiColoaneAB(wrapperId, idCelulaStanga, idCelulaDreapta);
+    if (!wrapper || !colturi) return null;
+    document.getElementById(ramaId)?.remove();
+    const rama = document.createElement("div");
+    rama.id = ramaId;
+    rama.style.cssText =
+      `position:absolute;box-sizing:border-box;pointer-events:none;` +
+      `border:3px solid ${CULOARE_RAMA_INTREBARE};background:transparent;` +
+      `left:${colturi.left}px;top:${colturi.top}px;width:${colturi.width}px;height:${colturi.height}px;`;
+    wrapper.appendChild(rama);
+    return rama;
+  }
+
+  async function mutaRama(wrapperId, ramaId, idCelulaStanga, idCelulaDreapta, durataMs) {
+    const rama = document.getElementById(ramaId);
+    const colturi = colturiColoaneAB(wrapperId, idCelulaStanga, idCelulaDreapta);
+    if (!rama || !colturi) return false;
+    rama.style.transition = durataMs > 0
+      ? `left ${durataMs}ms ease-in-out, top ${durataMs}ms ease-in-out, ` +
+        `width ${durataMs}ms ease-in-out, height ${durataMs}ms ease-in-out`
+      : "none";
+    rama.style.left = `${colturi.left}px`;
+    rama.style.top = `${colturi.top}px`;
+    rama.style.width = `${colturi.width}px`;
+    rama.style.height = `${colturi.height}px`;
+    if (durataMs <= 0) return true;
+    await new Promise((resolve) => setTimeout(resolve, durataMs));
+    return true;
+  }
+
   function createTablaInmultiriiTabelQuiz() {
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore } = global;
@@ -1287,8 +1379,10 @@
       // "ti-grila" din CP (vezi appendTablaInmultiriiTabelControlPanel) —
       // toate ajustabile live, fara sa retrimita tot tabelul.
       const clasaGrila = getArataGrila() ? " ti-grila" : "";
+      // `position:relative` — ancora pt. rama intrebarii mai jos (div separat,
+      // `position:absolute`, calculat relativ la acest wrapper).
       const stilWrapper =
-        `text-align:center;font-size:${getMarimeFontPx()}px;` +
+        `text-align:center;font-size:${getMarimeFontPx()}px;position:relative;` +
         `--ti-pad-x:${getPaddingLateralPx()}px;--ti-pad-y:${getPaddingVerticalPx()}px;` +
         `--ti-mic-font-scala:${getMarimeFontNumararePct()}%;`;
       return (
@@ -1381,6 +1475,7 @@
       construiesteOptiuni();
       sincronizeazaOrchestratorul(vechiFactor);
       ruleazaMutareaColoanelorDacaActiva(vechiFactor);
+      glisiazaRamaLaFactorCurent(vechiFactor);
     }
 
     // Aplica un fact form complet (F1+F2) prin schimbaFactForm() (module-
@@ -1426,6 +1521,62 @@
       return aleasa;
     }
 
+    // Ordinea VIZUALA curenta a celor 5 coloane cadru (nume de rol, ex.
+    // ["nr-tabla","x","factor","egal","produs"]) — citita direct din DOM
+    // (colgroup), la fel ca citesteOrdineaTriadei mai sus, dar pt. toate
+    // cele 5 (nu doar cele 3 numerice) — are nevoie si de "x"/"egal" ca sa
+    // stie care sunt CAPETELE grupului (extremele), nu doar rolurile
+    // numerice. Folosita de rama intrebarii (vezi idCeluleExtremeCadru).
+    function coloaneCadruInOrdineaCurenta() {
+      const tabel = document.getElementById(ID_TABLE);
+      const colgroup = tabel?.querySelector("colgroup");
+      if (!colgroup) return null;
+      const rolDupaId = new Map(COLOANE_CADRU.map((c) => [idColoana(c), c]));
+      const ordonate = [...colgroup.children].map((c) => rolDupaId.get(c.id)).filter((rol) => rol !== undefined);
+      return ordonate.length === COLOANE_CADRU.length ? ordonate : null;
+    }
+
+    // Id-urile celulelor STANGA/DREAPTA (extremele grupului cadru) pt. randul
+    // factorului `f`, in ordinea VIZUALA curenta — astea sunt cele doua id-uri
+    // pe care le cere mutaRama/creeazaRama (vezi sectiunea RAMA INTREBARE).
+    function idCeluleExtremeCadru(f) {
+      const ordonate = coloaneCadruInOrdineaCurenta();
+      if (!ordonate) return null;
+      return {
+        stanga: idCelula(ordonate[0], f),
+        dreapta: idCelula(ordonate[ordonate.length - 1], f),
+      };
+    }
+
+    // Durata (ms) modului "Mutare coloane" CURENT selectat — indiferent care
+    // e activ, exact unul dintre cele trei. Rama intrebarii isi sincronizeaza
+    // glisarea pe aceeasi durata (cerere user, 02.09.2026: "cred ca va fi
+    // egal si cu cel pt mutare coloane"), ca sa para ACELASI gest, nu doua
+    // animatii independente care nu se termina deodata.
+    function duratMutareColoaneCurenta() {
+      const mod = getMutareColoaneMod();
+      if (mod === "alternareF2") return getAlternareF2DurataMs();
+      if (mod === "toateEqForms") return getToateEqFormsDurataMs();
+      return getRocadaDurataMs();
+    }
+
+    // Gliseaza rama intrebarii la randul factorului CURENT — apelata dupa
+    // ruleazaMutareaColoanelorDacaActiva (vezi pregatesteFactor mai jos), ca
+    // sa citeasca ordinea coloanelor DUPA ce o eventuala mutare si-a scris
+    // deja noua ordine in colgroup (mutarile din acest fisier reordoneaza
+    // DOM-ul sincron, chiar daca animatia lor vizuala mai dureaza — vezi
+    // comentariile din rocadaColoane/gliseazaColoaneMultipleInConfiguratie).
+    // Nimic de facut la prima intrebare a unui nivel (vechiFactor==null) —
+    // acolo rama nu exista inca, se ocupa planificaRamaLaNivelNou (mai jos)
+    // de crearea ei, o data ce tabelul chiar apare in DOM.
+    function glisiazaRamaLaFactorCurent(vechiFactor) {
+      if (vechiFactor == null) return;
+      const celule = idCeluleExtremeCadru(factorCurent);
+      if (!celule) return;
+      mutaRama(ID_WRAPPER, ID_RAMA_INTREBARE, celule.stanga, celule.dreapta, duratMutareColoaneCurenta())
+        .catch(() => {});
+    }
+
     function ruleazaMutareaColoanelorDacaActiva(vechiFactor) {
       if (vechiFactor == null || oColoanaSeAnimeaza) return;
       const mod = getMutareColoaneMod();
@@ -1464,13 +1615,12 @@
         .finally(() => { oColoanaSeAnimeaza = false; });
     }
 
-    // Ruleaza redimensionareAutomataTabelInmultiri() o SINGURA DATA per nivel
-    // (cerere user, 02.09.2026) — dupa aceea userul poate ajusta manual
-    // "Scris mic %" din CP fara sa-i fie suprascrisa valoarea pana la
-    // urmatorul nivel. `ultimulNivelRedimensionat` tine minte pt. ce nivel
-    // s-a rulat deja, ca sa nu se repete la fiecare rerandare DIN interiorul
-    // aceluiasi nivel (raspuns corect pe alt factor, patch de tranzitie etc.
-    // — acelea NU trec prin incepeNivel()).
+    // Asteapta pana tabelul NIVELULUI CERUT chiar exista in DOM, apoi cheama
+    // `onGata()` — vezi motivul intarzierii mai jos. Extras dintr-un singur
+    // apelant initial (planificaRedimensionareAutomata) cand a mai aparut un
+    // al doilea consumator identic (planificaRamaLaNivelNou, 02.09.2026):
+    // ambele au nevoie de EXACT acelasi lucru, un moment sigur dupa care
+    // tabelul e garantat pictat — nu de doua bucle de polling separate.
     //
     // Tabelul din DOM nu reflecta neaparat inca noul nivel in clipa asta: la
     // avansul NATURAL de nivel (dupaRaspunsCorect), incepeNivel() ruleaza
@@ -1480,20 +1630,16 @@
     // (trebuie sa fie exact `level`) daca tabelul AFISAT chiar corespunde
     // nivelului curent, cu reincercari limitate (max ~5s) — acopera atat
     // pornirea directa (fara nicio pauza), cat si avansul natural (cu pauza).
-    function planificaRedimensionareAutomata() {
-      const nivelDePlanificat = level;
+    function asteaptaTabelulPictat(nivelAsteptat, onGata) {
       let incercariRamase = 50;
       const incearca = () => {
-        if (level !== nivelDePlanificat) return; // nivelul s-a schimbat iar intre timp, planul asta nu mai e valid
+        if (level !== nivelAsteptat) return; // nivelul s-a schimbat iar intre timp, planul asta nu mai e valid
         const wrapper = document.getElementById(ID_WRAPPER);
         const coloaneNumarareInDom = wrapper
           ? wrapper.querySelectorAll('[id^="ti-numarare"]').length / (MAX_FACTOR - MIN_FACTOR + 1)
           : -1;
-        if (coloaneNumarareInDom === nivelDePlanificat) {
-          if (ultimulNivelRedimensionat !== nivelDePlanificat) {
-            ultimulNivelRedimensionat = nivelDePlanificat;
-            redimensionareAutomataTabelInmultiri();
-          }
+        if (coloaneNumarareInDom === nivelAsteptat) {
+          onGata();
           return;
         }
         incercariRamase -= 1;
@@ -1501,6 +1647,38 @@
         setTimeout(incearca, 100);
       };
       requestAnimationFrame(incearca);
+    }
+
+    // Ruleaza redimensionareAutomataTabelInmultiri() o SINGURA DATA per nivel
+    // (cerere user, 02.09.2026) — dupa aceea userul poate ajusta manual
+    // "Scris mic %" din CP fara sa-i fie suprascrisa valoarea pana la
+    // urmatorul nivel. `ultimulNivelRedimensionat` tine minte pt. ce nivel
+    // s-a rulat deja, ca sa nu se repete la fiecare rerandare DIN interiorul
+    // aceluiasi nivel (raspuns corect pe alt factor, patch de tranzitie etc.
+    // — acelea NU trec prin incepeNivel()).
+    function planificaRedimensionareAutomata() {
+      const nivelDePlanificat = level;
+      asteaptaTabelulPictat(nivelDePlanificat, () => {
+        if (ultimulNivelRedimensionat !== nivelDePlanificat) {
+          ultimulNivelRedimensionat = nivelDePlanificat;
+          redimensionareAutomataTabelInmultiri();
+        }
+      });
+    }
+
+    // Creeaza rama intrebarii (vezi sectiunea RAMA INTREBARE, module-level)
+    // la prima intrebare a unui nivel nou — tabelul tocmai reconstruit nu are
+    // inca nicio rama (cea veche, daca a existat, a disparut o data cu tot
+    // DOM-ul vechi). Citeste `factorCurent` in interiorul callback-ului (nu
+    // il capteaza inainte) — la momentul cand `onGata` chiar ruleaza poate
+    // trece ceva timp (pauza de schimbare de nivel), dar `factorCurent`
+    // ramane oricum valabil pt. ACELASI nivel (garantat de asteaptaTabelulPictat).
+    function planificaRamaLaNivelNou() {
+      const nivelDePlanificat = level;
+      asteaptaTabelulPictat(nivelDePlanificat, () => {
+        const celule = idCeluleExtremeCadru(factorCurent);
+        if (celule) creeazaRama(ID_WRAPPER, ID_RAMA_INTREBARE, celule.stanga, celule.dreapta);
+      });
     }
 
     function incepeNivel() {
@@ -1512,6 +1690,7 @@
       ultimaFactForm = null;
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
+      planificaRamaLaNivelNou();
     }
 
     // Motor 3 butoane (M3B): regula unica ramane neatinsa — "corect
