@@ -2966,13 +2966,53 @@ body {
   padding: 0.5rem;
   font-size: 0.72rem;
   line-height: 1.4;
-  white-space: pre-wrap;
-  word-break: break-all;
   max-height: 12rem;
   overflow-y: auto;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid #2a3548;
   border-radius: 6px;
+}
+
+.storage-usage-total {
+  margin-bottom: 0.35rem;
+  opacity: 0.85;
+}
+
+.storage-usage-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.storage-usage-size {
+  flex: none;
+  width: 4.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.storage-usage-key {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.storage-usage-delete {
+  flex: none;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 0.68rem;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.storage-usage-delete:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .asnw-onboarding-layer {

@@ -1437,7 +1437,9 @@
     // ce e stocat pe mai multe aparate, inclusiv telefon, unde nu exista
     // consola usor accesibila). Afiseaza exact ce ar arata si un
     // `Object.keys(localStorage).map(...)` din consola — dar vizibil direct
-    // pe ecran, pe orice aparat. Read-only: nu sterge nimic singur.
+    // pe ecran, pe orice aparat, cu buton de stergere per cheie (cu
+    // confirmare — actiune ireversibila, nu trebuie sa poata pleca dintr-un
+    // singur click gresit).
     (function buildStorageUsageSection() {
       const wrap = document.createElement("div");
       wrap.className = "control-panel-lift-field";
@@ -1452,9 +1454,9 @@
       refreshBtn.textContent = "Reîmprospătează";
       wrap.appendChild(refreshBtn);
 
-      const pre = document.createElement("pre");
-      pre.className = "control-panel-storage-usage";
-      wrap.appendChild(pre);
+      const lista = document.createElement("div");
+      lista.className = "control-panel-storage-usage";
+      wrap.appendChild(lista);
 
       function formateazaMarime(caractere) {
         if (caractere >= 1024 * 1024) return `${(caractere / (1024 * 1024)).toFixed(2)} MB`;
@@ -1463,24 +1465,58 @@
       }
 
       function reimprospateaza() {
+        lista.replaceChildren();
+
         let intrari;
         try {
           intrari = Object.keys(localStorage)
             .map((cheie) => [cheie, (localStorage.getItem(cheie) || "").length])
             .sort((a, b) => b[1] - a[1]);
         } catch (eroare) {
-          pre.textContent = "localStorage indisponibil pe acest aparat/mod de navigare.";
+          lista.textContent = "localStorage indisponibil pe acest aparat/mod de navigare.";
           return;
         }
         if (intrari.length === 0) {
-          pre.textContent = "(gol)";
+          lista.textContent = "(gol)";
           return;
         }
+
         const total = intrari.reduce((suma, [, marime]) => suma + marime, 0);
-        const linii = intrari.map(
-          ([cheie, marime]) => `${formateazaMarime(marime).padStart(9)}  ${cheie}`
-        );
-        pre.textContent = `Total: ${formateazaMarime(total)} (${intrari.length} chei)\n\n${linii.join("\n")}`;
+        const totalRow = document.createElement("div");
+        totalRow.className = "storage-usage-total";
+        totalRow.textContent = `Total: ${formateazaMarime(total)} (${intrari.length} chei)`;
+        lista.appendChild(totalRow);
+
+        intrari.forEach(([cheie, marime]) => {
+          const row = document.createElement("div");
+          row.className = "storage-usage-row";
+
+          const sizeEl = document.createElement("span");
+          sizeEl.className = "storage-usage-size";
+          sizeEl.textContent = formateazaMarime(marime);
+
+          const keyEl = document.createElement("span");
+          keyEl.className = "storage-usage-key";
+          keyEl.textContent = cheie;
+
+          const delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "storage-usage-delete";
+          delBtn.textContent = "Șterge";
+          delBtn.addEventListener("click", () => {
+            if (!confirm(`Sigur ștergi cheia "${cheie}"? Nu se poate anula.`)) return;
+            try {
+              localStorage.removeItem(cheie);
+            } catch (eroare) {
+              alert("Nu am putut șterge cheia.");
+              return;
+            }
+            reimprospateaza();
+          });
+
+          row.append(sizeEl, keyEl, delBtn);
+          lista.appendChild(row);
+        });
       }
 
       refreshBtn.addEventListener("click", reimprospateaza);
