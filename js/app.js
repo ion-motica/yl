@@ -1142,10 +1142,34 @@
     if (responseTimesInput) responseTimesInput.checked = showResponseTimes;
   }
 
+  // "Vizualizare 3 - Claude" (cerere user, 02.09.2026) — inainte era un <a>
+  // static in index.html, pinuit deasupra tuturor sectiunilor CP (vezi
+  // comentariul vechi din style.css, .cp-viz3-link). Acum e <button>, primul
+  // element din sectiunea "General" (cerere expresa user). Deschide pagina
+  // intr-un tab NUMIT (nu "_blank" simplu), ca reclick-urile sa refoloseasca
+  // acelasi tab in loc sa deschida unul nou de fiecare data — acelasi tipar
+  // ca deschidePaginaInTabNou() din Vizualizare logs/vizualizare-logs.js.
+  const PAGINA_VIZUALIZARE_3 = "Vizualizare 3 - Claude/vizualizare3.html";
+  const NUME_TAB_VIZUALIZARE_3 = "youlearn-vizualizare-3";
+  function deschideVizualizare3Claude() {
+    const url = window.location
+      ? new URL(PAGINA_VIZUALIZARE_3, window.location.href).href
+      : PAGINA_VIZUALIZARE_3;
+    return window.open?.(url, NUME_TAB_VIZUALIZARE_3) ?? null;
+  }
+  window.deschideVizualizare3Claude = deschideVizualizare3Claude;
+
   (function buildGeneralPanel() {
     const mount = cpShell.getMountEl("general");
     if (!mount) return;
     mount.replaceChildren();
+
+    const butonVizualizare3 = document.createElement("button");
+    butonVizualizare3.type = "button";
+    butonVizualizare3.className = "cp-viz3-link";
+    butonVizualizare3.textContent = "↗ Vizualizare 3";
+    butonVizualizare3.addEventListener("click", () => deschideVizualizare3Claude());
+    mount.appendChild(butonVizualizare3);
 
     const row = document.createElement("label");
     row.className = "control-panel-lift-row";

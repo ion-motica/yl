@@ -1780,17 +1780,22 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Nu e un capitol de defilat, ci o pagina separata: statica (nu vine din
-   CpRegistry), deci ramane vizibila indiferent de quiz-ul selectat. */
+/* Buton (nu link <a>, cum era inainte), primul element din sectiunea
+   "General" (cerere user, 02.09.2026) — pagina Vizualizare 3 e separata,
+   nu vine din CpRegistry. `border:none`/`width:100%`/`text-align:left`
+   reseteaza stilul implicit de <button> (acelasi tipar ca .cp-toc-item mai
+   sus, alt buton resetat din acelasi CP shell). */
 .cp-viz3-link {
-  flex-shrink: 0;
   display: block;
+  width: 100%;
   padding: 0.55rem 0.75rem;
+  border: none;
   border-bottom: 1px solid #2a3548;
   background: rgba(61, 156, 245, 0.1);
   color: var(--text);
   font-size: 0.85rem;
   font-weight: 600;
+  text-align: left;
   text-decoration: none;
   cursor: pointer;
 }
