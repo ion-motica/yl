@@ -2959,6 +2959,22 @@ body {
   cursor: not-allowed;
 }
 
+/* Mini-panou diagnostic localStorage din "CP — Depanare layout" — vezi
+   buildStorageUsageSection() din app.js. */
+.control-panel-storage-usage {
+  margin: 0.35rem 0 0;
+  padding: 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 12rem;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #2a3548;
+  border-radius: 6px;
+}
+
 .asnw-onboarding-layer {
   position: absolute;
   inset: 0;

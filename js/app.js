@@ -1431,6 +1431,62 @@
     row.append(input, span);
     mount.appendChild(row);
     applyDebugInfoBorders();
+
+    // Mini-panou de diagnostic localStorage (cerere user, 02.09.2026 — bug
+    // "quota exceeded" in fact-store.js, blocase jocul; trebuia comparat
+    // ce e stocat pe mai multe aparate, inclusiv telefon, unde nu exista
+    // consola usor accesibila). Afiseaza exact ce ar arata si un
+    // `Object.keys(localStorage).map(...)` din consola — dar vizibil direct
+    // pe ecran, pe orice aparat. Read-only: nu sterge nimic singur.
+    (function buildStorageUsageSection() {
+      const wrap = document.createElement("div");
+      wrap.className = "control-panel-lift-field";
+
+      const titlu = document.createElement("span");
+      titlu.textContent = "Stocare (localStorage) pe acest aparat:";
+      wrap.appendChild(titlu);
+
+      const refreshBtn = document.createElement("button");
+      refreshBtn.type = "button";
+      refreshBtn.className = "control-panel-asnw-reset";
+      refreshBtn.textContent = "Reîmprospătează";
+      wrap.appendChild(refreshBtn);
+
+      const pre = document.createElement("pre");
+      pre.className = "control-panel-storage-usage";
+      wrap.appendChild(pre);
+
+      function formateazaMarime(caractere) {
+        if (caractere >= 1024 * 1024) return `${(caractere / (1024 * 1024)).toFixed(2)} MB`;
+        if (caractere >= 1024) return `${(caractere / 1024).toFixed(1)} KB`;
+        return `${caractere} c.`;
+      }
+
+      function reimprospateaza() {
+        let intrari;
+        try {
+          intrari = Object.keys(localStorage)
+            .map((cheie) => [cheie, (localStorage.getItem(cheie) || "").length])
+            .sort((a, b) => b[1] - a[1]);
+        } catch (eroare) {
+          pre.textContent = "localStorage indisponibil pe acest aparat/mod de navigare.";
+          return;
+        }
+        if (intrari.length === 0) {
+          pre.textContent = "(gol)";
+          return;
+        }
+        const total = intrari.reduce((suma, [, marime]) => suma + marime, 0);
+        const linii = intrari.map(
+          ([cheie, marime]) => `${formateazaMarime(marime).padStart(9)}  ${cheie}`
+        );
+        pre.textContent = `Total: ${formateazaMarime(total)} (${intrari.length} chei)\n\n${linii.join("\n")}`;
+      }
+
+      refreshBtn.addEventListener("click", reimprospateaza);
+      reimprospateaza();
+      mount.appendChild(wrap);
+    })();
   })();
 
   aamArena = AamArena.create(dom);
