@@ -934,7 +934,10 @@
     if (!mount) return;
     mount.replaceChildren();
     if (typeof quiz?.appendTablaInmultiriiTabelControlPanel !== "function") return;
-    quiz.appendTablaInmultiriiTabelControlPanel(mount);
+    // { onChange: restartActiveRound } — bifa "Comută pe tabla adunării"
+    // restarteaza automat nivelul curent (cerere user, 02.09.2026), acelasi
+    // tipar ca la Tonomat/PreEquationNavigation mai sus.
+    quiz.appendTablaInmultiriiTabelControlPanel(mount, { onChange: restartActiveRound });
   }
 
   function renderPreEquationNavigationPanel() {

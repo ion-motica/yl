@@ -47,7 +47,10 @@
   // valoarea intoarsa de `esteCorect`.
   const MAX_APARITII_PER_FACT = 2;
 
-  const HINT_MESSAGE = "Alege produsul corect.";
+  // Doua variante, dupa bifa "Comută pe tabla adunării" (getAdunareActiva) —
+  // vezi hintMessageCurent() mai jos.
+  const HINT_MESSAGE_INMULTIRE = "Alege produsul corect.";
+  const HINT_MESSAGE_ADUNARE = "Alege suma corectă.";
   const PREFIX = "ti";
   const ID_HEADER_ROW = `${PREFIX}-header-row`;
   const ID_WRAPPER = `${PREFIX}-wrapper`;
@@ -55,6 +58,47 @@
 
   // Cheile in LayoutConfig (localStorage) pt. panoul CP al acestui quiz —
   // vezi `appendTablaInmultiriiTabelControlPanel` mai jos.
+
+  // "Comută pe tabla adunării" (bifa CP, cerere user 02.09.2026) — tot
+  // tabelul (aceleasi 10 randuri) trece de la "factor x nr-tabla = produs"
+  // la "factor + nr-tabla = suma". Implementata AICI, nu ca quiz separat, ca
+  // sa nu duplicam cod ("Facem bifa aici ca sa nu mai duplicam cod, vedem
+  // dupa" — user); daca se decide ulterior o solutie completa/separata,
+  // asta ramane varianta rapida.
+  //
+  // La bifare/debifare, nivelul curent se RESTARTEAZA automat (cerere user,
+  // 02.09.2026: "cand se aplica bifa se si trece automat la acelasi nivel,
+  // care va fi la cealalta operatie") — prin `opts.onChange` (vezi
+  // appendTablaInmultiriiTabelControlPanel mai jos), pe care app.js il leaga
+  // de `restartActiveRound()` (acelasi tipar ca la Tonomat/
+  // PreEquationNavigation: `appendXControlPanel(mount, { onChange })`).
+  // `restartActiveRound()` foloseste `engine.startRound(quiz.beginRound(...))`
+  // — ACEEASI cale ca la clickul pe un buton de nivel, singurul loc care
+  // CHIAR repicteaza tabelul (renderRound() din falling-engine.js). Motiv
+  // tehnic pt. de ce nu se poate mai simplu: `setCurrentItem()` (folosit de
+  // sincronizeazaOrchestratorul mai jos) doar actualizeaza o variabila
+  // interna, NU redeseneaza nimic (verificat empiric) — un restart complet
+  // de nivel e singura cale sigura sa apara instant noua operatie pe toate
+  // cele 10 randuri deodata, fara sa lase randuri "pe jumatate" in operatia
+  // veche. La fel ca la clickul pe un buton de nivel (chiar acelasi nivel),
+  // progresul nivelului curent (facts inchise) se reseteaza — comportament
+  // asteptat pt. un restart, nu un bug.
+  //
+  // Instantaneul adunareActivaNivel (in createTablaInmultiriiTabelQuiz, langa
+  // operatorCurent) ramane totusi util dincolo de restart: garanteaza ca
+  // TOATE cele 10 randuri ale unui nivel deja randat citesc aceeasi valoare,
+  // in loc sa recitim getAdunareActiva() separat in fiecare functie.
+  //
+  // NU atinge coloanele "numarare*"/"adunari-repetate" — raman calculate ca
+  // la inmultire-impartire (cerere expresa user: "lasa coloanele de
+  // numarare cal a inmultire-impartire, dar le vom schimba ulterior") — vezi
+  // valoareStaticaCelula. Ce se schimba cu adevarat: simbolul din coloana
+  // "x" (-> "+"), valoarea din coloana "produs" (-> suma), FactStore
+  // `operation` ("add" in loc de "mul" — confirmat explicit de user:
+  // "Evident, 'Adunari'"), hint-ul, promptul text si intervalul
+  // distractorilor — vezi rezultatPentru/adunareActivaNivel mai jos.
+  const LC_ADUNARE_ACTIVA = "tablaInmultiriiTabel.adunareActiva";
+
   const LC_ASCUNDE_TITLURI = "tablaInmultiriiTabel.ascundeTitluriColoane";
   const LC_ARATA_GRILA = "tablaInmultiriiTabel.arataGrila";
   const LC_PADDING_LATERAL = "tablaInmultiriiTabel.paddingLateralPx";
@@ -129,6 +173,22 @@
   const ALTERNARE_F2_DURATA_S_MIN = 0;
   const ALTERNARE_F2_DURATA_S_MAX = 5;
   const ALTERNARE_F2_DURATA_S_PAS = 0.1;
+
+  function getAdunareActiva() {
+    return global.LayoutConfig?.get(LC_ADUNARE_ACTIVA, false) ?? false;
+  }
+
+  function scrieAdunareActiva(activa) {
+    global.LayoutConfig?.set(LC_ADUNARE_ACTIVA, Boolean(activa));
+  }
+
+  // Mesajul de hint depinde de operatia curenta — parametru explicit (nu
+  // getAdunareActiva() direct), ca sa poata primi instantaneul de nivel
+  // (adunareActivaNivel), nu starea live din LayoutConfig — vezi comentariul
+  // de la LC_ADUNARE_ACTIVA mai sus.
+  function hintMessageCurent(adunareActiva) {
+    return adunareActiva ? HINT_MESSAGE_ADUNARE : HINT_MESSAGE_INMULTIRE;
+  }
 
   function getAscundeTitluriColoane() {
     return global.LayoutConfig?.get(LC_ASCUNDE_TITLURI, true) ?? true;
@@ -360,6 +420,22 @@
     factor: "factor", x: "x", "nr-tabla": "nr tabla", egal: "egal", produs: "produs",
     numarare1: "numarare", "adunari-repetate": "adunari repetate", counter: "counter",
   };
+
+  // Eticheta headerului coloanei — de obicei ETICHETE_HEADER de mai sus, dar
+  // "x" si "produs" se citesc altfel cand tabla curenta e de adunare (bifa
+  // "Comută pe tabla adunării"): headerul e ascuns implicit (vezi
+  // getAscundeTitluriColoane), dar daca userul il arata, trebuie sa
+  // corespunda cu ce arata efectiv celulele (vezi valoareStaticaCelula), nu
+  // sa ramana "x"/"produs" peste un rand care arata de fapt "+"/suma.
+  // Parametru explicit (nu getAdunareActiva() direct) — vezi
+  // hintMessageCurent mai sus, acelasi motiv.
+  function etichetaHeader(coloana, adunareActiva) {
+    if (adunareActiva) {
+      if (coloana === "x") return "+";
+      if (coloana === "produs") return "sumă";
+    }
+    return ETICHETE_HEADER[coloana] ?? "";
+  }
 
   // Stilul de baza al celulelor traieste intr-un <style> imbricat in wrapper
   // (vezi construiesteTabelComplet), nu inline per celula — asa incat
@@ -860,6 +936,10 @@
   // incercat acolo, spre deosebire de inmultire.
   const SIMBOL_INMULTIRE = "x";
   const SIMBOL_IMPARTIRE = ":";
+  // Simbolul cand tabla curenta e de adunare (getAdunareActiva) — vezi
+  // valoareStaticaCelula si schimbaFactForm mai jos (acolo unde scriu
+  // simbolul in coloana "x", ambele verifica intai adunarea, INAINTE de F1).
+  const SIMBOL_ADUNARE = "+";
 
   // Pt. fiecare F1: cei doi operanzi (in ordinea de citire a PERECHII,
   // inainte de F2) si rolul care ramane singur (rezultatul perechii).
@@ -926,8 +1006,10 @@
   // acum (vezi operatorCurent + aplicaFactForm mai jos, in
   // createTablaInmultiriiTabelQuiz), ca urmatoarea intrebare din acelasi
   // nivel sa continue sa arate simbolul corect — elementePatchTranzitie
-  // rescrie inclusiv celula "x" la fiecare intrebare noua.
-  async function schimbaFactForm(tabelId, f1, f2, durataMs) {
+  // rescrie inclusiv celula "x" la fiecare intrebare noua. Acelasi motiv
+  // pt. parametrul `adunareActiva`: vine din instantaneul de nivel al
+  // apelantului (adunareActivaNivel), nu dintr-o citire proprie.
+  async function schimbaFactForm(tabelId, f1, f2, durataMs, adunareActiva) {
     const { cadru, simbol } = calculeazaCadruPentruFactForm(f1, f2);
 
     const tabel = document.getElementById(tabelId);
@@ -935,9 +1017,16 @@
       throw new TypeError(`Nu există un <table> cu id-ul „${tabelId}”.`);
     }
 
+    // "Comută pe tabla adunării" (alta functie, vezi LC_ADUNARE_ACTIVA) poate
+    // fi activa in acelasi timp cu o mutare de coloane — adunarea comuta la
+    // fel ca inmultirea, deci rocada/alternareF2 raman semnificative si
+    // pt. ea, dar simbolul REAL de scris e mereu "+" cat timp e activa,
+    // indiferent ce a calculat F1_TRANSFORMARI mai sus (acela stie doar de
+    // x/":", nu si de adunare).
+    const simbolDeScris = adunareActiva ? SIMBOL_ADUNARE : simbol;
     for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) {
       const span = document.getElementById(idCelula("x", f))?.querySelector("span");
-      if (span) span.textContent = simbol;
+      if (span) span.textContent = simbolDeScris;
     }
 
     const colgroup = tabel.querySelector("colgroup");
@@ -990,16 +1079,33 @@
     // exclusiv) anima pe tabelul curent — evita sa pornim o a doua animatie
     // cat timp prima inca ruleaza (copil care raspunde f. rapid).
     let oColoanaSeAnimeaza = false;
+    // Instantaneul bifei "Comută pe tabla adunării" pt. nivelul curent — vezi
+    // explicatia completa la LC_ADUNARE_ACTIVA. Refacut la fiecare
+    // incepeNivel() (incl. restartul automat declansat chiar de bifa, prin
+    // opts.onChange) si in resetLevelState — nu citim live getAdunareActiva()
+    // in restul fisierului, ca toate cele 10 randuri ale unui nivel deja
+    // randat sa ramana garantat in ACEEASI operatie.
+    let adunareActivaNivel = getAdunareActiva();
 
-    function produsPentru(f, targetLevel = level) { return f * targetLevel; }
+    // Rezultatul randului — produsul (inmultire) sau suma (adunare), dupa
+    // instantaneul de nivel adunareActivaNivel (nu getAdunareActiva() live —
+    // vezi comentariul de la declaratia ei). Nume neutru (nu "produsPentru")
+    // din 02.09.2026, de cand poate calcula si suma.
+    function rezultatPentru(f, targetLevel = level) {
+      return adunareActivaNivel ? f + targetLevel : f * targetLevel;
+    }
 
-    // Acelasi fapt (a=nivel, b=factor) ca la adaptorul existent
-    // js/conexe-table-quiz/adapters/multiplication.js — asa incercarile de
-    // aici si de la "Tabla inmultirii - intrebari ajutatoare 5*?=15" se
-    // aduna pe ACELASI record din FactStore, nu pe doua paralele.
+    // Acelasi fapt (a=nivel, b=factor) ca la adaptoarele existente
+    // js/conexe-table-quiz/adapters/multiplication.js (operation "mul") si
+    // js/conexe-table-quiz/adapters/addition.js (operation "add") — asa
+    // incercarile de-aici (in oricare mod, vezi getAdunareActiva) se aduna
+    // pe ACELASI record din FactStore cu cele din quizurile dedicate, nu pe
+    // unul paralel. "add"/"mul" sunt string-urile EXACTE cerute de
+    // FactCatalog (js/fact-catalog.js, OPERATORS) — confirmat cu userul
+    // explicit ("Evident, 'Adunari'"), nu presupus.
     function factForRow(f, targetLevel = level) {
       return FactCatalog.createFact({
-        operation: "mul",
+        operation: adunareActivaNivel ? "add" : "mul",
         promptForm: FactCatalog.PROMPT_FORMS.result,
         values: { a: targetLevel, b: f },
       });
@@ -1033,12 +1139,15 @@
       }
       switch (coloana) {
         case "factor": return String(f);
-        // Simbolul depinde de F1 (vezi schimbaFactForm/operatorCurent) —
-        // "x" implicit, ":" cand fact form-ul curent e o impartire.
-        case "x": return operatorCurent;
+        // "Comută pe tabla adunării" are prioritate: cat timp e activa,
+        // simbolul e mereu "+", indiferent ce F1 a calculat operatorCurent
+        // (acela stie doar de x/":" — vezi SIMBOL_ADUNARE mai sus si
+        // schimbaFactForm, care aplica aceeasi prioritate la scrierea live
+        // din timpul unei mutari de coloane).
+        case "x": return adunareActivaNivel ? SIMBOL_ADUNARE : operatorCurent;
         case "nr-tabla": return String(level);
         case "egal": return "=";
-        case "produs": return String(produsPentru(f));
+        case "produs": return String(rezultatPentru(f));
         // "scrie 2+ pe fiecare rand pe acare acum e doar 2" (user, 01.09.2026)
         // — inlocuieste randul-schela cu "+" separat.
         case "adunari-repetate": return `${level}+`;
@@ -1071,7 +1180,7 @@
     function continutCelula(coloana, f, esteActiv) {
       const valoare =
         coloana === "produs" && esteActiv
-          ? placeholder.marcaj(produsPentru(f) >= 10)
+          ? placeholder.marcaj(rezultatPentru(f) >= 10)
           : valoareStaticaCelula(coloana, f);
       return `<span>${valoare}</span>`;
     }
@@ -1089,7 +1198,7 @@
 
     function headerRowHtml() {
       const celule = coloanePentruNivel(level).map((coloana) => {
-        const text = ETICHETE_HEADER[coloana] ?? "";
+        const text = etichetaHeader(coloana, adunareActivaNivel);
         const stilRotit = text ? "writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;margin:0 auto;" : "";
         return (
           `<td id="${idColoana(coloana)}-header" class="${claseCelula(coloana)}" style="height:5em;vertical-align:bottom;">` +
@@ -1160,13 +1269,21 @@
       return COLOANE_CADRU.map((coloana) => ({ id: idCelula(coloana, factorCurent), html: continutCelula(coloana, factorCurent, true) }));
     }
 
+    // Promptul text (fallback/aria) al rundei curente — string-ul EXACT
+    // trebuie sa coincida in ambele locuri unde se construieste vederea
+    // rundei (vederePentruRunda si sincronizeazaOrchestratorul), de-aia
+    // functie separata, nu doua template-uri copiate.
+    function promptText() {
+      return `${factorCurent}${adunareActivaNivel ? "+" : "x"}${level}=?`;
+    }
+
     function vederePentruRunda(extra = {}) {
       return {
-        prompt: `${factorCurent}x${level}=?`,
+        prompt: promptText(),
         promptHtml: construiesteTabelComplet(),
         options: [...options],
         correctIndex,
-        hintMessage: extra.hintMessage ?? HINT_MESSAGE,
+        hintMessage: extra.hintMessage ?? hintMessageCurent(adunareActivaNivel),
         // Opt-out din fitNumberText (falling-engine.js, cerere user,
         // 01.09.2026): quiz-ul isi gestioneaza singur marimea continutului
         // (campurile CP "Marime font"/"Scris in numarare %"), nu vrem sa i-o
@@ -1181,9 +1298,13 @@
     }
 
     function construiesteOptiuni() {
-      const corect = produsPentru(factorCurent);
-      // "distractorii random din intervalul 1-level*10" (user, 01.09.2026).
-      const max = level * MAX_FACTOR;
+      const corect = rezultatPentru(factorCurent);
+      // "distractorii random din intervalul 1-level*10" (user, 01.09.2026)
+      // — la inmultire. `rezultatPentru(MAX_FACTOR)` da automat marginea
+      // corecta si la adunare (level+MAX_FACTOR, suma maxima posibila pe
+      // nivelul asta) — ACEEASI functie ca la `corect` mai sus, deci nu se
+      // pot desincroniza intre ele daca se schimba vreodata formula.
+      const max = rezultatPentru(MAX_FACTOR);
       const candidati = [];
       for (let v = 1; v <= max; v++) if (v !== corect) candidati.push(v);
       const gresite = shuffle(candidati).slice(0, 2);
@@ -1193,7 +1314,7 @@
 
     function sincronizeazaOrchestratorul(vechiFactor) {
       orchestrator.getCurrentRuntime().setCurrentItem({
-        prompt: `${factorCurent}x${level}=?`,
+        prompt: promptText(),
         promptHtml: construiesteTabelComplet(),
         elementeDivIntrebare: elementePatchTranzitie(vechiFactor, factorCurent),
         options: [...options],
@@ -1217,7 +1338,7 @@
     // simbol ("x"/":") sa foloseasca urmatoarea intrebare din acelasi nivel.
     async function aplicaFactForm(f1, f2, durataMs) {
       operatorCurent = F1_TRANSFORMARI[f1].simbol;
-      return schimbaFactForm(ID_TABLE, f1, f2, durataMs);
+      return schimbaFactForm(ID_TABLE, f1, f2, durataMs, adunareActivaNivel);
     }
 
     // Comuta vizual coloanele la fiecare intrebare noua DIN ACELASI nivel
@@ -1311,6 +1432,7 @@
       for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) neterminate.push(f);
       aparitiiPerFact = {};
       operatorCurent = SIMBOL_INMULTIRE;
+      adunareActivaNivel = getAdunareActiva();
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
     }
@@ -1332,10 +1454,10 @@
       return global.SubquizDefinition.define({
         id: "tabel",
         title: "tabel",
-        hintMessage: HINT_MESSAGE,
+        hintMessage: hintMessageCurent(adunareActivaNivel),
         esteCorect: (_item, index) => {
           apasariInAparitiaCurenta += 1;
-          return Number(options[index]) === produsPentru(factorCurent);
+          return Number(options[index]) === rezultatPentru(factorCurent);
         },
         generator: () => ({}),
         mesaje: {
@@ -1458,6 +1580,7 @@
         options = [];
         correctIndex = 0;
         operatorCurent = SIMBOL_INMULTIRE;
+        adunareActivaNivel = getAdunareActiva();
       },
 
       switchLevel(nextLevel) {
@@ -1507,7 +1630,7 @@
       // Tiparul de DOM (label+checkbox, div.pre-eq-stepper-field) copiat din
       // `appendRigleTabla110ControlPanel` (js/quizzes/rigle-tabla-1-10.js),
       // ca sa arate la fel ca restul panourilor CP.
-      appendTablaInmultiriiTabelControlPanel(mount) {
+      appendTablaInmultiriiTabelControlPanel(mount, opts) {
         if (!mount) return;
         mount.replaceChildren();
 
@@ -1552,6 +1675,13 @@
           mount.appendChild(field);
         };
 
+        // Restarteaza automat nivelul curent (opts.onChange, vezi
+        // comentariul de la LC_ADUNARE_ACTIVA) — singura cale sa apara
+        // instant noua operatie pe toate cele 10 randuri.
+        addBifa("Comută pe tabla adunării", getAdunareActiva, (activa) => {
+          scrieAdunareActiva(activa);
+          opts?.onChange?.();
+        });
         addBifa("Ascunde titluri coloane", getAscundeTitluriColoane, scrieAscundeTitluriColoane);
         addBifa("Arata grila tabel", getArataGrila, scrieArataGrila);
         addStepper("Padding cell lateral", getPaddingLateralPx, scriePaddingLateralPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
@@ -1603,7 +1733,7 @@
           set: scrieMutareColoaneMod,
           // Rerandeaza tot panoul — stepperul de durata afisat mai jos
           // trebuie sa corespunda modului nou ales.
-          onChange: () => this.appendTablaInmultiriiTabelControlPanel(mount),
+          onChange: () => this.appendTablaInmultiriiTabelControlPanel(mount, opts),
         });
 
         if (getMutareColoaneMod() === "alternareF2") {
