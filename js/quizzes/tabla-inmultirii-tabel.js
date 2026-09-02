@@ -49,6 +49,7 @@
   const PREFIX = "ti";
   const ID_HEADER_ROW = `${PREFIX}-header-row`;
   const ID_WRAPPER = `${PREFIX}-wrapper`;
+  const ID_FRAME = `${PREFIX}-frame`;
 
   // Cheile in LayoutConfig (localStorage) pt. panoul CP al acestui quiz —
   // vezi `appendTablaInmultiriiTabelControlPanel` mai jos.
@@ -56,10 +57,13 @@
   const LC_ARATA_GRILA = "tablaInmultiriiTabel.arataGrila";
   const LC_PADDING_LATERAL = "tablaInmultiriiTabel.paddingLateralPx";
   const LC_PADDING_VERTICAL = "tablaInmultiriiTabel.paddingVerticalPx";
-  const LC_MARIME_FONT_PCT = "tablaInmultiriiTabel.marimeFontPct";
-  const MARIME_FONT_IMPLICITA = 100;
-  const MARIME_FONT_MIN = 50;
-  const MARIME_FONT_MAX = 200;
+  const LC_MARIME_FONT_PX = "tablaInmultiriiTabel.marimeFontPx";
+  // "campul cu dimensiune litera sa dea marimea fontului, nu procent" (user,
+  // 01.09.2026) — vezi comentariul de la `programeazaRepozitionare` pt. de ce
+  // un procent era chiar cauza tehnica a "resetului la caderea liftului".
+  const MARIME_FONT_IMPLICITA = 16;
+  const MARIME_FONT_MIN = 8;
+  const MARIME_FONT_MAX = 48;
   const MARIME_FONT_PAS = 1; // "vreau pas 1, nu 10" (user, 01.09.2026)
   const PADDING_MIN = 0;
   const PADDING_MAX = 30;
@@ -82,8 +86,74 @@
     return global.LayoutConfig?.get(LC_PADDING_VERTICAL, 0) ?? 0;
   }
 
-  function getMarimeFontPct() {
-    return global.LayoutConfig?.get(LC_MARIME_FONT_PCT, MARIME_FONT_IMPLICITA) ?? MARIME_FONT_IMPLICITA;
+  function getMarimeFontPx() {
+    return global.LayoutConfig?.get(LC_MARIME_FONT_PX, MARIME_FONT_IMPLICITA) ?? MARIME_FONT_IMPLICITA;
+  }
+
+  // Repozitioneaza chenarul-overlay (vezi mai jos) pe randul activ curent,
+  // citit din DOM (elementul cu clasa placeholderului), nu dintr-o inchidere
+  // legata de o instanta de quiz — asa poate fi apelat si din scrierile CP de
+  // mai jos, care sunt functii comune, nu metode de instanta.
+  //
+  // `requestAnimationFrame`: motorul aplica randarea (promptHtml/patch) STRICT
+  // sincron, in acelasi apel care a produs vederea — dar noi nu avem un semnal
+  // direct de "acum e in DOM". requestAnimationFrame ruleaza abia la
+  // urmatorul repaint, dupa ce orice scriere sincrona in DOM (a motorului) s-a
+  // terminat deja — sigur, fara sondare (`setTimeout`/polling).
+  function repozitioneazaChenar() {
+    const wrapper = document.getElementById(ID_WRAPPER);
+    const cadru = document.getElementById(ID_FRAME);
+    if (!wrapper || !cadru) return;
+    const tdProdus = wrapper.querySelector(`.${placeholderGeneric.clasa}`)?.closest("td");
+    const f = tdProdus?.id?.startsWith(`${PREFIX}-produs-`) ? tdProdus.id.slice(`${PREFIX}-produs-`.length) : null;
+    const tdFactor = f != null ? document.getElementById(idCelula("factor", f)) : null;
+    if (!tdProdus || !tdFactor) {
+      cadru.style.display = "none";
+      return;
+    }
+    const rWrapper = wrapper.getBoundingClientRect();
+    const r1 = tdFactor.getBoundingClientRect();
+    const r2 = tdProdus.getBoundingClientRect();
+    cadru.style.display = "block";
+    cadru.style.left = `${r1.left - rWrapper.left}px`;
+    cadru.style.top = `${r1.top - rWrapper.top}px`;
+    cadru.style.width = `${r2.right - r1.left}px`;
+    cadru.style.height = `${Math.max(r1.height, r2.height)}px`;
+  }
+
+  function programeazaRepozitionare() {
+    if (typeof global.requestAnimationFrame === "function") {
+      global.requestAnimationFrame(repozitioneazaChenar);
+    } else {
+      repozitioneazaChenar();
+    }
+  }
+
+  // O singura data, pt. toata durata paginii — cadrul trebuie repozitionat si
+  // la redimensionarea ferestrei (rotire telefon, bara URL etc.), nu doar la
+  // schimbari facute de quiz. Verifica mereu `#ti-wrapper` prin id, deci e
+  // ieftin si inofensiv cand acest quiz nu e cel activ (nu gaseste nimic, se
+  // opreste imediat).
+  global.addEventListener?.("resize", programeazaRepozitionare);
+
+  // De ce NU e suficient sa chemam `programeazaRepozitionare()` doar din
+  // codul nostru (`pregatesteFactor` etc.): verificat empiric in browser —
+  // motorul nu aplica raspunsul corect instant, ci dupa animatia de "urcare"
+  // a numarului ales spre intrebare (`animateRising`, falling-engine.js).
+  // `pregatesteFactor` ruleaza sincron, MULT inainte ca patch-ul cu noul rand
+  // sa ajunga cu adevarat in DOM — un singur `requestAnimationFrame` programat
+  // atunci nimereste un moment gol (nici randul vechi, nici cel nou), ascunde
+  // cadrul, si nimic nu-l mai repozitioneaza dupa aceea. Solutie: un
+  // MutationObserver global, care reactioneaza la schimbarea REALA din DOM,
+  // oricand ar veni ea — nu la momentul din codul nostru. `attributes:false`
+  // exclude updateurile continue de `style.top` ale liftului care cade
+  // (foarte frecvente), observam doar `childList` (exact ce schimba
+  // `tinta.innerHTML = html` din `aplicaElementeDivIntrebare`).
+  if (typeof global.MutationObserver === "function" && global.document?.body) {
+    new global.MutationObserver(programeazaRepozitionare).observe(global.document.body, {
+      childList: true,
+      subtree: true,
+    });
   }
 
   // Scrierile de mai jos ating direct DOM-ul deja randat (prin id fix), NU
@@ -95,11 +165,13 @@
   // Grila si padding-ul folosesc variabile CSS pe `#ti-wrapper` (vezi
   // `stilPartajat()`), nu stil inline per celula — o schimbare live nu
   // trebuie sa parcurga ~120 celule din DOM, doar sa schimbe o singura
-  // proprietate pe wrapper; cascada CSS face restul.
+  // proprietate pe wrapper; cascada CSS face restul. Fiecare scriere
+  // reprogrameaza si chenarul: dimensiunile celulelor s-au schimbat.
   function scrieAscundeTitluriColoane(ascunse) {
     global.LayoutConfig?.set(LC_ASCUNDE_TITLURI, ascunse);
     const rand = document.getElementById(ID_HEADER_ROW);
     if (rand) rand.style.display = ascunse ? "none" : "";
+    programeazaRepozitionare();
   }
 
   function scrieArataGrila(arata) {
@@ -111,6 +183,7 @@
     const clamped = Math.min(PADDING_MAX, Math.max(PADDING_MIN, Math.round(valoare)));
     global.LayoutConfig?.set(LC_PADDING_LATERAL, clamped);
     document.getElementById(ID_WRAPPER)?.style.setProperty("--ti-pad-x", `${clamped}px`);
+    programeazaRepozitionare();
     return clamped;
   }
 
@@ -118,14 +191,16 @@
     const clamped = Math.min(PADDING_MAX, Math.max(PADDING_MIN, Math.round(valoare)));
     global.LayoutConfig?.set(LC_PADDING_VERTICAL, clamped);
     document.getElementById(ID_WRAPPER)?.style.setProperty("--ti-pad-y", `${clamped}px`);
+    programeazaRepozitionare();
     return clamped;
   }
 
-  function scrieMarimeFontPct(valoare) {
+  function scrieMarimeFontPx(valoare) {
     const clamped = Math.min(MARIME_FONT_MAX, Math.max(MARIME_FONT_MIN, Math.round(valoare)));
-    global.LayoutConfig?.set(LC_MARIME_FONT_PCT, clamped);
+    global.LayoutConfig?.set(LC_MARIME_FONT_PX, clamped);
     const wrapper = document.getElementById(ID_WRAPPER);
-    if (wrapper) wrapper.style.fontSize = `${clamped}%`;
+    if (wrapper) wrapper.style.fontSize = `${clamped}px`;
+    programeazaRepozitionare();
     return clamped;
   }
 
@@ -140,10 +215,6 @@
     "numarare1", "numarare2", "numarare3", "spatiu2",
     "adunari-repetate", "counter",
   ];
-  const COLOANE_CADRU = ["factor", "x", "nr-tabla", "egal", "produs"];
-  const POZITIE_IN_CADRU = {
-    factor: "prim", x: "mijloc", "nr-tabla": "mijloc", egal: "mijloc", produs: "ultim",
-  };
   const ETICHETE_HEADER = {
     factor: "factor", x: "x", "nr-tabla": "nr tabla", egal: "egal", produs: "produs",
     numarare1: "numarare", "adunari-repetate": "adunari repetate", counter: "counter",
@@ -154,10 +225,15 @@
   // "Arata grila"/padding-urile din CP sa se schimbe live pe TOATE celulele
   // deodata (o singura proprietate CSS pe wrapper, nu o bucla peste ~120
   // noduri DOM). Fiecare <td> primeste doar `class="ti-cell"`.
+  // Fara `min-width` — "am zis spatiu intre scris si margine minim... coloanele
+  // cu x/3/= sunt cat cele cu 2 cifre" (user, 01.09.2026): un min-width comun
+  // tuturor celulelor fortase coloanele inguste (x, egal, nr-tabla la nivel
+  // mic) sa fie la fel de late ca cele cu 2 cifre. Fara el, fiecare coloana se
+  // dimensioneaza singura, dupa propriul continut (layout normal de tabel).
   function stilPartajat() {
     return (
       `.ti-cell{padding:var(--ti-pad-y,0) var(--ti-pad-x,0);border:1px solid transparent;` +
-      `text-align:center;min-width:1.5em;color:var(--text);box-sizing:border-box;}` +
+      `text-align:center;color:var(--text);box-sizing:border-box;}` +
       `#${ID_WRAPPER}.ti-grila .ti-cell{border-color:${CULOARE_GRILA};}`
     );
   }
@@ -185,31 +261,17 @@
       `${placeholderGeneric.semn}${spatiuRezervat ? " " : ""}</span>`,
   };
 
-  // Chenarul intrebarii curente — bordura galbena (var(--win), aceeasi
-  // culoare de accent ca la ".option.selected"/semnul "?"), colturi rotunjite
-  // ca la butoanele din aplicatie (.menu-toggle: border-radius 8px).
-  //
-  // "sa nu fie punctat, sa fie continuu" (user, 01.09.2026) — cu 5 <span>-uri
-  // separate (cate unul per celula incadrata), un <span> simplu (display
-  // inline implicit) se poate alinia vertical usor diferit de la o celula la
-  // alta (inaltimea liniei nu e garantat identica), rupand vizual linia de
-  // sus/jos in segmente. Fix: fiecare span umple exact inaltimea celulei lui
-  // (`display:flex;height:100%`) — toate 5 au atunci EXACT aceeasi pozitie
-  // pt. border-top/bottom, indiferent de continut. `margin-left:-1px` pe
-  // toate in afara de prima suprapune usor marginea cu vecina din stanga, ca
-  // sa nu ramana vizibil un gol de sub-pixel intre ele.
-  function stilCadru(pozitie) {
-    const baza =
-      "display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;" +
-      "border-top:2px solid var(--win);border-bottom:2px solid var(--win);";
-    if (pozitie === "prim") {
-      return baza + "border-left:2px solid var(--win);border-top-left-radius:8px;border-bottom-left-radius:8px;";
-    }
-    if (pozitie === "ultim") {
-      return baza + "margin-left:-1px;border-right:2px solid var(--win);border-top-right-radius:8px;border-bottom-right-radius:8px;";
-    }
-    return baza + "margin-left:-1px;";
-  }
+  // Chenarul intrebarii curente NU se mai deseneaza pe celule de tabel — "l-am
+  // cerut continuu, deasupra tabelului, nu desenat prin celule" (user,
+  // 01.09.2026: varianta anterioara, cu bordura pe 5 <span>-uri adiacente,
+  // arata "punctata" din cauza modului in care se aliniaza marginile intre
+  // celule vecine). E un singur <div id="ti-frame"> absolut pozitionat, sora
+  // cu <table> in interiorul #ti-wrapper (position:relative), repozitionat cu
+  // JS pe randul activ — vezi `repozitioneazaChenar` mai sus si markup-ul din
+  // `construiesteTabelComplet`.
+  const STIL_CADRU_OVERLAY =
+    "position:absolute;display:none;pointer-events:none;box-sizing:border-box;" +
+    "border:2px solid var(--win);border-radius:8px;";
 
   function createTablaInmultiriiTabelQuiz() {
     const { shuffle } = global.GameUtils;
@@ -291,18 +353,17 @@
       }
     }
 
-    // Continutul (fara <td>) al unei celule din grupul incadrat — comun
-    // randarii complete SI patch-ului de tranzitie, ca sa nu existe doua
-    // locuri care decid cum arata o celula (vezi js/bond-inventory.js pt.
-    // acelasi principiu).
+    // Continutul (fara <td>) al unei celule — comun randarii complete SI
+    // patch-ului de tranzitie, ca sa nu existe doua locuri care decid cum
+    // arata o celula (vezi js/bond-inventory.js pt. acelasi principiu).
+    // Nicio celula nu mai poarta stil de "incadrare" — chenarul e overlay
+    // separat (vezi STIL_CADRU_OVERLAY) — deci `esteActiv` conteaza DOAR pt.
+    // "produs" (numar sau placeholder "?").
     function continutCelula(coloana, f, esteActiv) {
       const valoare =
         coloana === "produs" && esteActiv
           ? placeholder.marcaj(produsPentru(f) >= 10)
           : valoareStaticaCelula(coloana, f);
-      if (esteActiv && COLOANE_CADRU.includes(coloana)) {
-        return `<span style="${stilCadru(POZITIE_IN_CADRU[coloana])}">${valoare}</span>`;
-      }
       return `<span>${valoare}</span>`;
     }
 
@@ -348,44 +409,32 @@
       // "sa dispara titlul 'Tabla inmultirii cu 2'" (user, 01.09.2026) — fara
       // caption deasupra tabelului.
       //
-      // `border-collapse:separate` (nu `collapse`): in modul collapse,
-      // bordurile a doua celule adiacente se combina intr-una singura, ceea ce
-      // strica exact coltul rotunjit de la capetele chenarului (vezi stilCadru).
-      // `id="ID_WRAPPER"` + `font-size`/`--ti-pad-x`/`--ti-pad-y`/clasa
-      // "ti-grila" din CP (vezi appendTablaInmultiriiTabelControlPanel) —
-      // toate ajustabile live, fara sa retrimita tot tabelul.
+      // `position:relative` pe wrapper: ancora pt. `#ti-frame`, overlay-ul
+      // absolut pozitionat cu JS (vezi `repozitioneazaChenar`) — chenarul nu
+      // se mai deseneaza pe celule. `font-size` in px (nu %) + `--ti-pad-x`/
+      // `--ti-pad-y`/clasa "ti-grila" din CP — toate ajustabile live, fara sa
+      // retrimita tot tabelul.
       const clasaGrila = getArataGrila() ? " ti-grila" : "";
       const stilWrapper =
-        `text-align:center;font-size:${getMarimeFontPct()}%;` +
+        `position:relative;text-align:center;font-size:${getMarimeFontPx()}px;` +
         `--ti-pad-x:${getPaddingLateralPx()}px;--ti-pad-y:${getPaddingVerticalPx()}px;`;
       return (
         `<div id="${ID_WRAPPER}" class="${clasaGrila.trim()}" style="${stilWrapper}">` +
         `<style>${stilPartajat()}</style>` +
+        `<div id="${ID_FRAME}" style="${STIL_CADRU_OVERLAY}"></div>` +
         `<table style="border-collapse:separate;border-spacing:0;margin:0 auto;font-family:'Segoe UI', system-ui, sans-serif;">` +
         colgroupHtml() + headerRowHtml() + randuri.join("") +
         `</table></div>`
       );
     }
 
-    // Patch-ul de tranzitie: doar cele 5 celule ale randului vechi (dezincadrate)
-    // si ale randului nou (incadrate) — restul tabelului nu se atinge.
-    function elementePatchTranzitie(vechiFactor, nouFactor) {
-      const patch = [];
-      for (const coloana of COLOANE_CADRU) {
-        if (vechiFactor != null && vechiFactor !== nouFactor) {
-          patch.push({ id: idCelula(coloana, vechiFactor), html: continutCelula(coloana, vechiFactor, false) });
-        }
-        patch.push({ id: idCelula(coloana, nouFactor), html: continutCelula(coloana, nouFactor, true) });
-      }
-      return patch;
-    }
-
-    function elementePatchDoarUnframe(vechiFactor) {
-      return COLOANE_CADRU.map((coloana) => ({ id: idCelula(coloana, vechiFactor), html: continutCelula(coloana, vechiFactor, false) }));
-    }
-
-    function elementePatchCurent() {
-      return COLOANE_CADRU.map((coloana) => ({ id: idCelula(coloana, factorCurent), html: continutCelula(coloana, factorCurent, true) }));
+    // Patch-ul de tranzitie: doar celula "produs" a randului nou (pusa pe
+    // placeholder). Randul vechi nu mai are nevoie de patch — `produs`-ul lui
+    // a fost deja dezvaluit in loc de `revealAnswerInPlace`
+    // (falling-engine.js), iar restul celulelor nu poarta niciun stil legat
+    // de "activ" (chenarul e overlay separat, vezi STIL_CADRU_OVERLAY).
+    function elementePatchProdus(f, esteActiv) {
+      return [{ id: idCelula("produs", f), html: continutCelula("produs", f, esteActiv) }];
     }
 
     function vederePentruRunda(extra = {}) {
@@ -399,8 +448,8 @@
       };
     }
 
-    function vederePentruTranzitie(vechiFactor, extra = {}) {
-      return { ...vederePentruRunda(extra), elementeDivIntrebare: elementePatchTranzitie(vechiFactor, factorCurent) };
+    function vederePentruTranzitie(extra = {}) {
+      return { ...vederePentruRunda(extra), elementeDivIntrebare: elementePatchProdus(factorCurent, true) };
     }
 
     function construiesteOptiuni() {
@@ -414,28 +463,29 @@
       correctIndex = options.indexOf(String(corect));
     }
 
-    function sincronizeazaOrchestratorul(vechiFactor) {
+    function sincronizeazaOrchestratorul() {
       orchestrator.getCurrentRuntime().setCurrentItem({
         prompt: `${factorCurent}x${level}=?`,
         promptHtml: construiesteTabelComplet(),
-        elementeDivIntrebare: elementePatchTranzitie(vechiFactor, factorCurent),
+        elementeDivIntrebare: elementePatchProdus(factorCurent, true),
         options: [...options],
         correctIndex,
       });
     }
 
-    function pregatesteFactor(nou, vechiFactor) {
+    function pregatesteFactor(nou) {
       factorCurent = nou;
       apasariInAparitiaCurenta = 0;
       construiesteOptiuni();
-      sincronizeazaOrchestratorul(vechiFactor);
+      sincronizeazaOrchestratorul();
+      programeazaRepozitionare();
     }
 
     function incepeNivel() {
       neterminate = [];
       for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) neterminate.push(f);
       aparitiiPerFact = {};
-      pregatesteFactor(alegeFactorCurent(), null);
+      pregatesteFactor(alegeFactorCurent());
     }
 
     // Motor 3 butoane (M3B): regula unica ramane neatinsa — "corect
@@ -475,14 +525,15 @@
             const factId = factForRow(rezolvatFactor).factId;
             aparitiiPerFact[factId] = (aparitiiPerFact[factId] ?? 0) + 1;
             const factGata = rcpa || aparitiiPerFact[factId] >= MAX_APARITII_PER_FACT;
-            const patchUnframe = elementePatchDoarUnframe(rezolvatFactor);
+            // Randul rezolvat nu mai are nevoie de patch propriu — vezi
+            // comentariul de la `elementePatchProdus`.
 
             if (factGata) {
               neterminate = neterminate.filter((f) => f !== rezolvatFactor);
             }
 
             if (neterminate.length > 0) {
-              pregatesteFactor(alegeFactorCurent(), rezolvatFactor);
+              pregatesteFactor(alegeFactorCurent());
               return {
                 action: "continue",
                 view: {
@@ -495,12 +546,15 @@
                   // comun — falling-engine.js declanseaza flash-ul doar daca
                   // `result.flash` e truthy, deci lipsa lui il opreste doar aici.
                   message: "Corect!",
-                  ...vederePentruTranzitie(rezolvatFactor),
+                  ...vederePentruTranzitie(),
                 },
               };
             }
 
-            const holdView = { ...vederePentruRunda({ hintMessage: "" }), elementeDivIntrebare: patchUnframe };
+            // Chenarul dispare singur: `repozitioneazaChenar` nu mai gaseste
+            // placeholderul (randul rezolvat era ultimul, deja dezvaluit).
+            programeazaRepozitionare();
+            const holdView = vederePentruRunda({ hintMessage: "" });
 
             if (level >= MAX_LEVEL) {
               gameCompleted = true;
@@ -600,13 +654,14 @@
 
       onTimeout(meta = {}) {
         recordAttempt(false, null, { ...meta, timedOut: true });
+        programeazaRepozitionare();
         return {
           outcome: "timeout",
           flash: "wrong",
           message: "Prea târziu! Alege produsul corect.",
           resetFall: true,
           ...vederePentruRunda({ hintMessage: "" }),
-          elementeDivIntrebare: elementePatchCurent(),
+          elementeDivIntrebare: elementePatchProdus(factorCurent, true),
         };
       },
 
@@ -673,7 +728,7 @@
         addBifa("Arata grila tabel", getArataGrila, scrieArataGrila);
         addStepper("Padding cell lateral", getPaddingLateralPx, scriePaddingLateralPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
         addStepper("Padding cell vertical", getPaddingVerticalPx, scriePaddingVerticalPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
-        addStepper("Marime font", getMarimeFontPct, scrieMarimeFontPct, MARIME_FONT_MIN, MARIME_FONT_MAX, MARIME_FONT_PAS);
+        addStepper("Marime font (px)", getMarimeFontPx, scrieMarimeFontPx, MARIME_FONT_MIN, MARIME_FONT_MAX, MARIME_FONT_PAS);
       },
     };
   }
