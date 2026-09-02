@@ -351,11 +351,24 @@
   // deci spatiul de mai jos nu supravietuieste dupa revelare; scopul lui e
   // doar sa faca starea "?" sa ocupe deja latimea unui numar de 2 cifre,
   // ca sa nu sara latimea celulei exact in clipa revelarii.
+  //
+  // FARA padding pe span (cerere user, 02.09.2026 — "tabelul se lateste, apoi
+  // se restrange cand dispare fundalul"): cauza reala era `padding:0 0.2em`
+  // pus DOAR pe celula activa — o celula mai "umflata" decat surorile ei din
+  // aceeasi coloana devine cea mai lata, deci coloana se largeste cat ea; la
+  // intrebarea urmatoare, cand celula se rescrie fara portocaliu, padding-ul
+  // dispare si coloana se ingusteaza la loc. `revealAnswerInPlace` schimba
+  // doar `textContent`/`classList` (falling-engine.js) — NU atinge style-ul
+  // inline, deci padding-ul ramanea acolo si dupa revelare, pana la
+  // intrebarea urmatoare. Fix: fundalul umple celula prin
+  // `display:flex;height:100%`, fara padding propriu (acelasi tipar ca la
+  // vechiul chenar, stilCadru, acum scos) — latimea celulei nu mai depinde
+  // deloc de starea placeholderului.
   const placeholderGeneric = global.PlaceholderRaspuns.creeaza("?");
   const placeholder = {
     ...placeholderGeneric,
     marcaj: (spatiuRezervat) =>
-      `<span class="${placeholderGeneric.clasa}" style="background:orange;color:#000;font-weight:700;border-radius:0.2em;padding:0 0.2em;">` +
+      `<span class="${placeholderGeneric.clasa}" style="display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;background:orange;color:#000;font-weight:700;border-radius:0.2em;">` +
       `${placeholderGeneric.semn}${spatiuRezervat ? " " : ""}</span>`,
   };
 
