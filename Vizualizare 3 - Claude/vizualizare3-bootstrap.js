@@ -185,7 +185,14 @@
     buton.type = "button";
     buton.textContent = "Import log JSON din Downloads";
     buton.addEventListener("click", () => input.click());
-    fragment.append(buton, input);
+    // Importul NU se mai salveaza in localStorage (vezi motivul complet la
+    // salveazaImport() mai jos) — il anuntam direct aici, unde userul chiar
+    // apasa butonul.
+    const nota = document.createElement("div");
+    nota.className = "viz3-nota-dinamica";
+    nota.textContent =
+      "Importul ține doar pentru sesiunea curentă — dispare la refresh. Dacă vrei să-l păstrezi, ține fișierul JSON descărcat în siguranță pe acest dispozitiv.";
+    fragment.append(buton, input, nota);
     return fragment;
   }
 
@@ -2178,8 +2185,11 @@
     return rand;
   }
 
-  // Alegerea sursei NU sterge nimic: importul salvat ramane pe loc, oricat ai
-  // comuta. De-aia butonul lui e mereu acolo, doar dezactivat cat n-ai importat.
+  // Alegerea sursei NU sterge importul din memorie: poti comuta intre
+  // jurnal/import/fixture oricat, cat tine sesiunea curenta — dar importul
+  // NU mai supravietuieste unui refresh (nu se mai salveaza in localStorage,
+  // cerere user 02.09.2026 — vezi salveazaImport() mai jos). De-aia butonul
+  // lui e mereu acolo, doar dezactivat cat n-ai (re)importat in sesiunea asta.
   function butonAlegeSursa(id, eticheta) {
     const buton = document.createElement("button");
     buton.type = "button";
@@ -3360,24 +3370,17 @@
     // Ramane implicitul.
   }
 
-  // Fisierul importat tine minte peste refresh (localStorage), ca sa nu-l
-  // pierzi la un F5 din greseala. `null` = nu e niciun import activ; userul
-  // a revenit explicit la sursa live sau n-a importat inca nimic.
-  const CHEIE_IMPORT_SALVAT = "viz3_import_jurnal_salvat";
-
-  function citesteImportSalvat() {
-    try {
-      const brut = global.localStorage?.getItem(CHEIE_IMPORT_SALVAT);
-      if (!brut) return null;
-      const parsat = JSON.parse(brut);
-      if (!parsat || !Array.isArray(parsat.inregistrari)) return null;
-      return parsat;
-    } catch {
-      return null;
-    }
-  }
-
-  let importSalvat = citesteImportSalvat();
+  // Fisierul importat tine minte DOAR in memorie, cat tine sesiunea curenta
+  // — NU se mai salveaza in localStorage (cerere user, 02.09.2026; pana
+  // atunci se salva sub cheia "viz3_import_jurnal_salvat"). Un singur
+  // import de cateva MB umplea aproape toata cota de ~5MB a site-ului,
+  // impartita cu TOATE celelalte module — asta bloca silentios salvarea
+  // progresului de joc din Tabla inmultirii, fara nicio legatura vizibila
+  // intre cele doua pt. cine nu citea un stack trace. Fisierul ales de
+  // user chiar de pe discul lui E deja backup-ul lui — nu mai facem o a
+  // doua copie, mai mare, in browser; vezi si nota din butonImportaJurnal()
+  // mai sus. `null` = nu e niciun import activ in sesiunea asta.
+  let importSalvat = null;
 
   // Migrare de la schema cu 2 surse: „import" salvat fara vreun fisier
   // importat insemna, pe vechea semantica, jurnalul real. Pe cea noua ar fi
@@ -3390,11 +3393,6 @@
 
   function salveazaImport(nume, inregistrari) {
     importSalvat = { nume, inregistrari };
-    try {
-      global.localStorage?.setItem(CHEIE_IMPORT_SALVAT, JSON.stringify(importSalvat));
-    } catch {
-      // Storage plin sau indisponibil: importul tot merge pentru sesiunea curenta.
-    }
   }
 
   // Ce reprezentari sunt bifate (se afiseaza simultan) si adâncimea fotografiei
