@@ -825,38 +825,47 @@
   //
   // "Fact form" (ff) = ordinea de citire a celor 3 numere dintr-un fapt de
   // inmultire — terminologie EFF, documente de referinta/EFF-REFERENCE.md,
-  // sectiunile 3-4 (F1 = familia faptului, comutat = interschimba a si b;
-  // F2 = orientarea ecuatiei, STANGA = "a op b = result", DREAPTA =
-  // "result = a op b"). Un fapt complet are 8 fact forms VALIDE (4 F1 x 2
-  // F2) — toate 8 sunt parte din taxonomia EFF, niciuna nu e "mai putin
-  // valida" decat alta.
+  // sectiunile 3-4. F1 = familia faptului — 4 chei EXACT ca in referinta
+  // (vezi si documente de referinta/eff-config.js): f1_initial, f1_comutat
+  // (interschimba a si b), f1_complementar si f1_complementar_comutat
+  // (operatia INVERSA — pt. inmultire, impartirea). F2 = orientarea
+  // ecuatiei: "stanga" (doua_nr_in_STANGA in referinta) = "a op b = result",
+  // "dreapta" (doua_nr_in_DREAPTA) = "result = a op b". 4 F1 x 2 F2 = toate
+  // cele 8 fact forms — TOATE valide EFF in mod egal (cerere user,
+  // 02.09.2026: "eff inseamna 8 forme valide, nu 4" — corectie fata de o
+  // formulare gresita anterioara aici, care le trata pe 4 ca "mai putin
+  // valide").
   //
-  // Limitarea de mai jos e a ACESTUI TABEL, nu a EFF-ului: schimbaFactForm()
-  // poate ajunge doar la 4 din cele 8, pentru ca tabelul arata STRICT
-  // inmultiri — celelalte 4 (F1 "complementar"/"complementar comutat") ar
-  // cere sa afiseze o IMPARTIRE (ex. "produs / nr-tabla = factor"), lucru
-  // pe care acest tabel nu-l face deloc azi (ar insemna alt operator, "/",
-  // si alt rol pt. fiecare numar — nu doar o reordonare a acelorasi 3 roluri
-  // cu "x" intre ele). Cele 4 reprezentabile azi, ca ordine a 3 roluri:
-  //
-  //     ["factor", "nr-tabla", "produs"]  ->  "factor x nr-tabla = produs"  (ff, F1 initial + F2 STANGA)
-  //     ["nr-tabla", "factor", "produs"]  ->  "nr-tabla x factor = produs"  (F1 comutat + F2 STANGA)
-  //     ["produs", "factor", "nr-tabla"]  ->  "produs = factor x nr-tabla"  (F1 initial + F2 DREAPTA)
-  //     ["produs", "nr-tabla", "factor"]  ->  "produs = nr-tabla x factor"  (F1 comutat + F2 DREAPTA)
-  //
-  // "produs" NU poate fi la mijloc (["factor","produs","nr-tabla"] ar
-  // insemna literal "factor = produs x nr-tabla", fals in general) — pozitia
-  // lui produs (index 0 sau 2) decide F2; ordinea celorlalte doua decide F1.
-  //
-  // Cele doua functii de mai jos raspund cererii userului (02.09.2026):
-  // "citeste ordinea curenta a col din tabel, vede unde este inmultirea,
-  // [...] declanseaza swapurile simultane pt a ajunge la fact form 2".
+  // Simbolul operatiei depinde STRICT de F1: f1_initial/f1_comutat -> "x"
+  // (produs = factor x nr-tabla, in oricare ordine — inmultirea comuta);
+  // f1_complementar/f1_complementar_comutat -> ":" (notatie scolara
+  // romaneasca de impartire, ex. "12:3=4"), cu produsul mereu primul operand
+  // (dividend) — impartirea NU comuta, deci nu exista "alta ordine" de
+  // incercat acolo, spre deosebire de inmultire.
+  const SIMBOL_INMULTIRE = "x";
+  const SIMBOL_IMPARTIRE = ":";
+
+  // Pt. fiecare F1: cei doi operanzi (in ordinea de citire a PERECHII,
+  // inainte de F2) si rolul care ramane singur (rezultatul perechii).
+  // Derivat direct din tabelul F1 al EFF-REFERENCE.md (a=factor,
+  // b=nr-tabla, result=produs, op=x, op_invers=":") — conventie aleasa
+  // aici ca "factor x nr-tabla = produs" (f1_initial + stanga) sa coincida
+  // cu forma implicita a acestui tabel.
+  const F1_TRANSFORMARI = {
+    f1_initial:              { operand1: "factor", operand2: "nr-tabla", rezultat: "produs", simbol: SIMBOL_INMULTIRE },
+    f1_comutat:              { operand1: "nr-tabla", operand2: "factor", rezultat: "produs", simbol: SIMBOL_INMULTIRE },
+    f1_complementar:         { operand1: "produs", operand2: "nr-tabla", rezultat: "factor", simbol: SIMBOL_IMPARTIRE },
+    f1_complementar_comutat: { operand1: "produs", operand2: "factor", rezultat: "nr-tabla", simbol: SIMBOL_IMPARTIRE },
+  };
+
   const ROLURI_TRIADA = ["factor", "nr-tabla", "produs"];
 
-  // Pasul 1: citeste ordinea CURENTA a celor 3 roluri numerice direct din
-  // DOM (colgroup) — nu presupune nicio stare retinuta separat, ca sa
-  // functioneze corect indiferent ce a facut deja rocada comutativitate
-  // (F1) intre timp.
+  // Citeste ordinea CURENTA a celor 3 roluri numerice direct din DOM
+  // (colgroup) — nu presupune nicio stare retinuta separat pt. POZITIA lor
+  // (doar simbolul "x"/":" are nevoie de stare urmarita, vezi
+  // operatorCurent mai jos — pozitia se poate citi mereu direct din ce e
+  // deja pe ecran, indiferent ce a facut deja rocada comutativitate intre
+  // timp).
   function citesteOrdineaTriadei(tabelId) {
     const tabel = document.getElementById(tabelId);
     if (!(tabel instanceof HTMLTableElement)) {
@@ -869,49 +878,57 @@
       .filter((rol) => rol !== undefined);
   }
 
-  // Pasii 2-3: primeste fact form-ul TINTA ca ordine a celor 3 roluri (vezi
-  // tabelul de mai sus) si declanseaza glisarea simultana pana acolo, cu
-  // gliseazaColoaneMultipleInConfiguratie() — nu rocadaColoane(), care
+  // Partea PURA (fara DOM) a schimbarii de fact form — separata explicit,
+  // usor de verificat independent (toate cele 8 combinatii) fara sa aiba
+  // nevoie de tabel/DOM. Intoarce ordinea celor 5 coloane cadru, ca NUME de
+  // rol (nu id-uri DOM), plus simbolul de scris in coloana "x".
+  function calculeazaCadruPentruFactForm(f1, f2) {
+    const transformare = F1_TRANSFORMARI[f1];
+    if (!transformare) {
+      throw new TypeError(`f1 trebuie sa fie una din: ${Object.keys(F1_TRANSFORMARI).join(", ")}.`);
+    }
+    if (f2 !== "stanga" && f2 !== "dreapta") {
+      throw new TypeError('f2 trebuie sa fie "stanga" sau "dreapta".');
+    }
+    const { operand1, operand2, rezultat, simbol } = transformare;
+    const cadru = f2 === "stanga"
+      ? [operand1, "x", operand2, "egal", rezultat]
+      : [rezultat, "egal", operand1, "x", operand2];
+    return { cadru, simbol };
+  }
+
+  // Muta tabelul in fact form-ul TINTA (F1 + F2), cu glisare simultana —
+  // gliseazaColoaneMultipleInConfiguratie() (nu rocadaColoane, care
   // interschimba mereu exact 2 coloane fixe si nu poate muta produs+egal la
-  // cealalta extremitate. "x" si "egal" se plaseaza automat langa perechea
-  // corecta; coloanele din afara triadei (spatiu1, numarare*, spatiu2,
-  // adunari-repetate, counter) raman neatinse, la coada listei, in ordinea
-  // lor curenta din DOM.
-  async function schimbaFactForm(tabelId, ordineaTriadei, durataMs) {
-    const ordineValida =
-      Array.isArray(ordineaTriadei) &&
-      ordineaTriadei.length === 3 &&
-      new Set(ordineaTriadei).size === 3 &&
-      ordineaTriadei.every((rol) => ROLURI_TRIADA.includes(rol));
-
-    if (!ordineValida) {
-      throw new TypeError(
-        `ordineaTriadei trebuie sa contina exact rolurile ${JSON.stringify(ROLURI_TRIADA)}, fiecare o singura data.`
-      );
-    }
-
-    const indexProdus = ordineaTriadei.indexOf("produs");
-    if (indexProdus === 1) {
-      throw new Error(
-        '"produs" nu poate fi la mijlocul triadei — rezultatul trebuie sa fie primul sau ultimul (separat de ceilalti doi printr-un "="), altfel ecuatia nu are sens.'
-      );
-    }
+  // cealalta extremitate). Simbolul ("x" sau ":") traieste in CONTINUTUL
+  // celulelor coloanei "x" (10 randuri), nu in pozitia ei — glisarea muta
+  // NODURI, nu schimba text — deci il scriem separat, direct, INAINTE de
+  // glisare.
+  //
+  // Functie module-level (fara acces la starea vreunui quiz anume) — quizul
+  // care o foloseste trebuie sa-si tina singur, separat, care simbol e activ
+  // acum (vezi operatorCurent + aplicaFactForm mai jos, in
+  // createTablaInmultiriiTabelQuiz), ca urmatoarea intrebare din acelasi
+  // nivel sa continue sa arate simbolul corect — elementePatchTranzitie
+  // rescrie inclusiv celula "x" la fiecare intrebare noua.
+  async function schimbaFactForm(tabelId, f1, f2, durataMs) {
+    const { cadru, simbol } = calculeazaCadruPentruFactForm(f1, f2);
 
     const tabel = document.getElementById(tabelId);
     if (!(tabel instanceof HTMLTableElement)) {
       throw new TypeError(`Nu există un <table> cu id-ul „${tabelId}”.`);
     }
 
+    for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) {
+      const span = document.getElementById(idCelula("x", f))?.querySelector("span");
+      if (span) span.textContent = simbol;
+    }
+
     const colgroup = tabel.querySelector("colgroup");
     const idCadru = new Set(COLOANE_CADRU.map((c) => idColoana(c)));
     const restAcum = [...colgroup.children].map((c) => c.id).filter((id) => !idCadru.has(id));
 
-    const [r0, r1, r2] = ordineaTriadei;
-    const cadruNou = indexProdus === 2
-      ? [idColoana(r0), idColoana("x"), idColoana(r1), idColoana("egal"), idColoana(r2)]
-      : [idColoana(r0), idColoana("egal"), idColoana(r1), idColoana("x"), idColoana(r2)];
-
-    return gliseazaColoaneMultipleInConfiguratie(tabelId, [...cadruNou, ...restAcum], durataMs);
+    return gliseazaColoaneMultipleInConfiguratie(tabelId, [...cadru.map(idColoana), ...restAcum], durataMs);
   }
 
   function createTablaInmultiriiTabelQuiz() {
@@ -943,6 +960,15 @@
     // Nivelul pt. care s-a rulat deja redimensionareAutomataTabelInmultiri()
     // — vezi planificaRedimensionareAutomata().
     let ultimulNivelRedimensionat = null;
+    // Simbolul curent scris in coloana "x" — "x" sau ":" (vezi
+    // schimbaFactForm/aplicaFactForm). NU se poate citi din pozitia
+    // coloanelor in DOM (spre deosebire de ordinea celor 3 roluri, care se
+    // citeste mereu direct din colgroup) — un fapt de inmultire poate avea
+    // AICI ambiguitate reala doar pe simbol, nu pe pozitie, deci e singura
+    // stare care chiar trebuie tinuta minte separat. Resetat la fiecare
+    // nivel nou (incepeNivel), ca un tabel proaspat sa porneasca mereu la
+    // inmultire.
+    let operatorCurent = SIMBOL_INMULTIRE;
     // Adevarat cat timp O SINGURA reordonare de coloane (fie rocada F1, fie
     // alternarea F2 — vezi ruleazaRocadaDacaActiva/buclaAlternareF2 mai jos)
     // anima pe tabelul curent. IMPARTASIT intre cele doua in mod deliberat:
@@ -999,7 +1025,9 @@
       }
       switch (coloana) {
         case "factor": return String(f);
-        case "x": return "x";
+        // Simbolul depinde de F1 (vezi schimbaFactForm/operatorCurent) —
+        // "x" implicit, ":" cand fact form-ul curent e o impartire.
+        case "x": return operatorCurent;
         case "nr-tabla": return String(level);
         case "egal": return "=";
         case "produs": return String(produsPentru(f));
@@ -1196,6 +1224,16 @@
         .finally(() => { oColoanaSeAnimeaza = false; });
     }
 
+    // Aplica un fact form complet (F1+F2) prin schimbaFactForm() (module-
+    // level), actualizand IN ACELASI TIMP operatorCurent — singurul motiv
+    // pt. care exista acest wrapper subtire: schimbaFactForm() nu are acces
+    // la starea per-instanta a quizului, deci nu poate tine minte singur ce
+    // simbol ("x"/":") sa foloseasca urmatoarea intrebare din acelasi nivel.
+    async function aplicaFactForm(f1, f2, durataMs) {
+      operatorCurent = F1_TRANSFORMARI[f1].simbol;
+      return schimbaFactForm(ID_TABLE, f1, f2, durataMs);
+    }
+
     // Scrie + porneste bucla daca tocmai s-a activat (0 -> valoare pozitiva)
     // — spre deosebire de celelalte steppere din acest fisier (functii
     // module-level), asta are nevoie sa porneasca buclaAlternareF2(), care
@@ -1210,12 +1248,18 @@
     }
 
     // Bucla de alternare F2: cat timp durata > 0, la fiecare `durataMs`
-    // schimba orientarea ecuatiei — foloseste schimbaFactForm() (mai sus),
-    // deci trece prin ACELASI wrapper general pe care l-ar folosi orice alt
-    // cod care ar vrea sa navigheze intre fact forms. Aici alegem tinta
-    // simplu: daca produs e ultimul acum (F2=STANGA), mutam-l primul
-    // (F2=DREAPTA), si invers — pastrand mereu ordinea curenta a celorlalte
-    // doua roluri (nu atinge F1, treaba rocadei).
+    // schimba orientarea ecuatiei — foloseste aplicaFactForm()/
+    // schimbaFactForm() (mai sus), deci trece prin ACELASI wrapper general
+    // pe care l-ar folosi orice alt cod care ar vrea sa navigheze intre
+    // fact forms. Domeniul ei ramane STRICT f1_initial/f1_comutat (numai
+    // inmultire, "x") — nu atinge niciodata impartirea; daca in viitor va
+    // trebui sa alterneze si prin f1_complementar*, e alta cerere.
+    //
+    // F1 curent NU e citit din operatorCurent (ar fi ambiguu — initial si
+    // comutat au acelasi simbol "x"), ci DEDUS din ordinea reala a
+    // operanzilor din DOM: daca "factor" e primul dintre cei doi operanzi
+    // ACUM, suntem in f1_initial, altfel f1_comutat — asa se compune corect
+    // cu rocada comutativitate, care poate i-a schimbat deja ordinea.
     //
     // Auto-rescheduleaza-se singura (nu setInterval) — asa nu se pot
     // suprapune 2 chemari daca o animatie dureaza mai mult decat era
@@ -1242,11 +1286,12 @@
 
           oColoanaSeAnimeaza = true;
           try {
-            const ordineaCurenta = citesteOrdineaTriadei(ID_TABLE);
-            const ordineaTinta = ordineaCurenta[2] === "produs"
-              ? ["produs", ordineaCurenta[0], ordineaCurenta[1]]
-              : [ordineaCurenta[1], ordineaCurenta[2], "produs"];
-            await schimbaFactForm(ID_TABLE, ordineaTinta, durataMs);
+            const ordineaCurenta = citesteOrdineaTriadei(ID_TABLE); // [r0,r1,r2]
+            const produsPrimul = ordineaCurenta[0] === "produs";
+            const [operand1Real] = produsPrimul ? ordineaCurenta.slice(1) : ordineaCurenta;
+            const f1 = operand1Real === "factor" ? "f1_initial" : "f1_comutat";
+            const f2Nou = produsPrimul ? "stanga" : "dreapta";
+            await aplicaFactForm(f1, f2Nou, durataMs);
             incercariEsuate = 0;
           } catch {
             incercariEsuate += 1;
@@ -1304,6 +1349,7 @@
       neterminate = [];
       for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) neterminate.push(f);
       aparitiiPerFact = {};
+      operatorCurent = SIMBOL_INMULTIRE;
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
       buclaAlternareF2();
@@ -1451,6 +1497,7 @@
         apasariInAparitiaCurenta = 0;
         options = [];
         correctIndex = 0;
+        operatorCurent = SIMBOL_INMULTIRE;
       },
 
       switchLevel(nextLevel) {
