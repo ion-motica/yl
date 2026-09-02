@@ -113,6 +113,22 @@
   const ROCADA_DURATA_S_MAX = 5;
   const ROCADA_DURATA_S_PAS = 0.1;
 
+  // "Alternare a=b*c cu b*c=a" (cerere user, 02.09.2026) — orientarea F2 a
+  // ecuatiei (documente de referinta/EFF-REFERENCE.md, sectiunea 4): la
+  // fiecare `durataMs`, tabelul alterneaza intre "factor x nr-tabla =
+  // produs" (F2 = STANGA, forma implicita a tabelului) si "produs = factor
+  // x nr-tabla" (F2 = DREAPTA). Independenta de rocada de mai sus (F1 —
+  // comutat = interschimba a si b); impreuna acopera 4 din cele 8 "fact
+  // forms" ale unui fapt de inmultire (celelalte 4 ar fi impartiri, F1
+  // complementar — nu au sens in acest quiz, care arata strict inmultiri).
+  // 0 = FUNCTIA DEZACTIVATA COMPLET (acelasi tipar ca la rocada) — tabelul
+  // ramane in forma implicita.
+  const LC_ALTERNARE_F2_DURATA_MS = "tablaInmultiriiTabel.alternareF2DurataMs";
+  const ALTERNARE_F2_DURATA_S_IMPLICITA = 0;
+  const ALTERNARE_F2_DURATA_S_MIN = 0;
+  const ALTERNARE_F2_DURATA_S_MAX = 15;
+  const ALTERNARE_F2_DURATA_S_PAS = 1;
+
   function getAscundeTitluriColoane() {
     return global.LayoutConfig?.get(LC_ASCUNDE_TITLURI, true) ?? true;
   }
@@ -147,6 +163,15 @@
 
   function getRocadaDurataS() {
     return getRocadaDurataMs() / 1000;
+  }
+
+  function getAlternareF2DurataMs() {
+    const implicitMs = ALTERNARE_F2_DURATA_S_IMPLICITA * 1000;
+    return global.LayoutConfig?.get(LC_ALTERNARE_F2_DURATA_MS, implicitMs) ?? implicitMs;
+  }
+
+  function getAlternareF2DurataS() {
+    return getAlternareF2DurataMs() / 1000;
   }
 
   // Rotunjit la 0.1s (pasul stepper-ului) INAINTE de conversia in ms, ca sa
@@ -339,6 +364,10 @@
   function idCelula(coloana, f) { return `${PREFIX}-${coloana}-${f}`; }
   function idRand(f) { return `${PREFIX}-rand-${f}`; }
   function idColoana(coloana) { return `${PREFIX}-col-${coloana}`; }
+
+  function asteapta(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   // Placeholderul standard, cu fundal portocaliu in loc de galben (cerere
   // user). Pastreaza clasa `placeholder-pt-raspuns` neschimbata — de ea are
@@ -560,6 +589,267 @@
     }
   }
 
+  // Reordoneaza TOATE coloanele unui <table> intr-o configuratie data, cu
+  // animatie simultana — "alternare F2" (cerere user, 02.09.2026). Spre
+  // deosebire de rocadaColoane() (exact 2 coloane), asta primeste ordinea
+  // FINALA completa — necesar cand grupul "produs"+"egal" se muta la
+  // cealalta extremitate a celor 5 coloane cadru (nu doar interschimba 2).
+  // Functie primita de la user aproape verbatim (generata initial cu
+  // ChatGPT) — aceleasi conditii ca la rocadaColoane(): <colgroup> cu cate
+  // un <col id="..."> per coloana, fiecare rand cu exact o celula per
+  // coloana, fara rowspan/colspan.
+  async function gliseazaColoaneMultipleInConfiguratie(
+    tabelId,
+    ordineFinalaColoaneIds,
+    durataAnimatieInMs
+  ) {
+    const tabel = document.getElementById(tabelId);
+
+    if (!(tabel instanceof HTMLTableElement)) {
+      throw new TypeError(`Nu există un <table> cu id-ul „${tabelId}”.`);
+    }
+
+    if (!Array.isArray(ordineFinalaColoaneIds)) {
+      throw new TypeError('ordineFinalaColoaneIds trebuie să fie un Array.');
+    }
+
+    if (!Number.isFinite(durataAnimatieInMs) || durataAnimatieInMs < 0) {
+      throw new TypeError(
+        'durataAnimatieInMs trebuie să fie un număr finit mai mare sau egal cu 0.'
+      );
+    }
+
+    const colgroupuri = [...tabel.children]
+      .filter(element => element.tagName === 'COLGROUP');
+
+    if (colgroupuri.length !== 1) {
+      throw new Error('Tabelul trebuie să aibă exact un <colgroup> direct.');
+    }
+
+    const colgroup = colgroupuri[0];
+    const coloaneInitiale = [...colgroup.children]
+      .filter(element => element instanceof HTMLTableColElement);
+
+    if (coloaneInitiale.length !== colgroup.children.length) {
+      throw new Error('<colgroup> trebuie să conțină direct numai elemente <col>.');
+    }
+
+    if (coloaneInitiale.length === 0) {
+      throw new Error('Tabelul trebuie să conțină cel puțin o coloană.');
+    }
+
+    if (coloaneInitiale.some(coloana => coloana.span !== 1)) {
+      throw new Error('Nu sunt acceptate elemente <col> cu span diferit de 1.');
+    }
+
+    const iduriInitiale = coloaneInitiale.map(coloana => coloana.id);
+
+    if (iduriInitiale.some(id => id === '')) {
+      throw new Error('Fiecare element <col> trebuie să aibă un id.');
+    }
+
+    if (new Set(iduriInitiale).size !== iduriInitiale.length) {
+      throw new Error('ID-urile elementelor <col> trebuie să fie unice.');
+    }
+
+    if (ordineFinalaColoaneIds.length !== coloaneInitiale.length) {
+      throw new Error(
+        'Ordinea finală trebuie să conțină toate coloanele tabelului, exact o dată.'
+      );
+    }
+
+    if (ordineFinalaColoaneIds.some(id => typeof id !== 'string' || id === '')) {
+      throw new TypeError(
+        'Fiecare ID din ordinea finală trebuie să fie un șir nevid.'
+      );
+    }
+
+    const iduriFinaleUnice = new Set(ordineFinalaColoaneIds);
+
+    if (iduriFinaleUnice.size !== ordineFinalaColoaneIds.length) {
+      throw new Error('Ordinea finală conține ID-uri duplicate.');
+    }
+
+    const iduriInitialeSet = new Set(iduriInitiale);
+    const idNecunoscut = ordineFinalaColoaneIds.find(
+      id => !iduriInitialeSet.has(id)
+    );
+
+    if (idNecunoscut !== undefined) {
+      throw new Error(
+        `„${idNecunoscut}” nu este ID-ul unei coloane din tabelul „${tabelId}”.`
+      );
+    }
+
+    const randuri = [...tabel.rows];
+
+    for (const rand of randuri) {
+      const celule = [...rand.cells];
+      const areCeluleCombinate = celule.some(
+        celula => celula.colSpan !== 1 || celula.rowSpan !== 1
+      );
+
+      if (celule.length !== coloaneInitiale.length || areCeluleCombinate) {
+        throw new Error(
+          'Fiecare rând trebuie să aibă exact o celulă pentru fiecare coloană, fără rowspan/colspan.'
+        );
+      }
+    }
+
+    const ordineaEsteDejaCorecta = iduriInitiale.every(
+      (id, index) => id === ordineFinalaColoaneIds[index]
+    );
+
+    if (ordineaEsteDejaCorecta) {
+      return false;
+    }
+
+    const tabeleInAnimatie =
+      gliseazaColoaneMultipleInConfiguratie.tabeleInAnimatie ||
+      (gliseazaColoaneMultipleInConfiguratie.tabeleInAnimatie = new WeakSet());
+
+    if (tabeleInAnimatie.has(tabel)) {
+      throw new Error(`Tabelul „${tabelId}” are deja o glisare în desfășurare.`);
+    }
+
+    if (durataAnimatieInMs > 0) {
+      if (!tabel.isConnected) {
+        throw new Error(
+          'Tabelul trebuie să fie conectat la document pentru a fi animat.'
+        );
+      }
+
+      const dreptunghiTabel = tabel.getBoundingClientRect();
+      if (dreptunghiTabel.width === 0 || dreptunghiTabel.height === 0) {
+        throw new Error(
+          'Tabelul trebuie să fie vizibil și să aibă dimensiuni nenule.'
+        );
+      }
+    }
+
+    const indexInitialDupaId = new Map(
+      iduriInitiale.map((id, index) => [id, index])
+    );
+    const coloanaDupaId = new Map(
+      coloaneInitiale.map(coloana => [coloana.id, coloana])
+    );
+    const coloaneFinale = ordineFinalaColoaneIds.map(
+      id => coloanaDupaId.get(id)
+    );
+    const celuleInitialePeRand = randuri.map(rand => [...rand.cells]);
+    const toateCelulele = celuleInitialePeRand.flat();
+    const pozitiiInitiale = new Map(
+      toateCelulele.map(celula => [celula, celula.getBoundingClientRect()])
+    );
+    const stiluriInitiale = new Map(
+      toateCelulele.map(celula => [celula, {
+        transition: celula.style.transition,
+        transform: celula.style.transform,
+        position: celula.style.position,
+        zIndex: celula.style.zIndex,
+        backgroundColor: celula.style.backgroundColor,
+        willChange: celula.style.willChange,
+        pointerEvents: celula.style.pointerEvents
+      }])
+    );
+
+    tabeleInAnimatie.add(tabel);
+
+    try {
+      for (const coloana of coloaneFinale) {
+        colgroup.append(coloana);
+      }
+
+      randuri.forEach((rand, indexRand) => {
+        const celuleInitiale = celuleInitialePeRand[indexRand];
+
+        for (const coloanaId of ordineFinalaColoaneIds) {
+          rand.append(celuleInitiale[indexInitialDupaId.get(coloanaId)]);
+        }
+      });
+
+      if (durataAnimatieInMs === 0) {
+        return true;
+      }
+
+      for (const celula of toateCelulele) {
+        const pozitieInitiala = pozitiiInitiale.get(celula);
+        const pozitieFinala = celula.getBoundingClientRect();
+        const deplasareX = pozitieInitiala.left - pozitieFinala.left;
+
+        celula.style.transition = 'none';
+        celula.style.transform = `translateX(${deplasareX}px)`;
+        celula.style.willChange = 'transform';
+
+        if (Math.abs(deplasareX) > 0.01) {
+          const indexInitial = celuleInitialePeRand
+            .find(celuleRand => celuleRand.includes(celula))
+            .indexOf(celula);
+
+          celula.style.position = 'relative';
+          celula.style.zIndex = String(20 + indexInitial);
+          celula.style.backgroundColor = 'transparent';
+          celula.style.pointerEvents = 'none';
+        }
+      }
+
+      await new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      );
+
+      for (const celula of toateCelulele) {
+        celula.style.transition =
+          `transform ${durataAnimatieInMs}ms ease-in-out`;
+        celula.style.transform = 'translateX(0)';
+      }
+
+      await new Promise(resolve => setTimeout(resolve, durataAnimatieInMs));
+      return true;
+    } finally {
+      for (const celula of toateCelulele) {
+        const stil = stiluriInitiale.get(celula);
+        celula.style.transition = stil.transition;
+        celula.style.transform = stil.transform;
+        celula.style.position = stil.position;
+        celula.style.zIndex = stil.zIndex;
+        celula.style.backgroundColor = stil.backgroundColor;
+        celula.style.willChange = stil.willChange;
+        celula.style.pointerEvents = stil.pointerEvents;
+      }
+
+      tabeleInAnimatie.delete(tabel);
+    }
+  }
+
+  // Citeste ordinea CURENTA a celor 5 coloane cadru direct din DOM (colgroup)
+  // si intoarce ordinea "oglindita" F2: muta grupul "egal"+"produs" la
+  // CEALALTA extremitate fata de unde e acum, pastrand ordinea interna a
+  // celorlalte 3 coloane (factor/x/nr-tabla) EXACT cum sunt azi in DOM — asa
+  // se compune corect cu rocada comutativitate (F1), care poate le-a
+  // schimbat deja ordinea intre ele. "b x c" ramane "b x c" la oglindire, nu
+  // devine "c x b" — doar cele doua parti ale ecuatiei isi schimba locul,
+  // fara sa amestece si rolul lui F1 (asta ar duplica ce face deja rocada).
+  // Coloanele de dupa produs (spatiu1, numarare*, spatiu2, adunari-repetate,
+  // counter) raman neatinse, la coada listei.
+  function ordineaOglinditaF2(tabel) {
+    const colgroup = tabel.querySelector("colgroup");
+    const idAcum = [...colgroup.children].map((c) => c.id);
+    const idProdus = idColoana("produs");
+    const idEgal = idColoana("egal");
+    const idCadru = new Set(COLOANE_CADRU.map((c) => idColoana(c)));
+
+    const cadruAcum = idAcum.filter((id) => idCadru.has(id));
+    const restAcum = idAcum.filter((id) => !idCadru.has(id));
+    const grupOperanzi = cadruAcum.filter((id) => id !== idProdus && id !== idEgal);
+    const produsEPrimul = cadruAcum[0] === idProdus;
+
+    const cadruNou = produsEPrimul
+      ? [...grupOperanzi, idEgal, idProdus]
+      : [idProdus, idEgal, ...grupOperanzi];
+
+    return [...cadruNou, ...restAcum];
+  }
+
   function createTablaInmultiriiTabelQuiz() {
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore } = global;
@@ -589,11 +879,19 @@
     // Nivelul pt. care s-a rulat deja redimensionareAutomataTabelInmultiri()
     // — vezi planificaRedimensionareAutomata().
     let ultimulNivelRedimensionat = null;
-    // Adevarat cat timp o animatie de rocada (vezi ruleazaRocadaDacaActiva)
-    // e in desfasurare pe tabelul curent — evita sa chemam rocadaColoane()
-    // a doua oara cat timp prima chemare inca animeaza (ar arunca eroare,
-    // vezi implementarea ei).
-    let rocadaInCurs = false;
+    // Adevarat cat timp O SINGURA reordonare de coloane (fie rocada F1, fie
+    // alternarea F2 — vezi ruleazaRocadaDacaActiva/buclaAlternareF2 mai jos)
+    // anima pe tabelul curent. IMPARTASIT intre cele doua in mod deliberat:
+    // rocadaColoane() si gliseazaColoaneMultipleInConfiguratie() au FIECARE
+    // propriul WeakSet intern de "tabele in animatie", dar SEPARATE intre
+    // ele — fara acest flag comun, cele doua ar putea anima SIMULTAN pe
+    // acelasi tabel (rocada schimba factor/nr-tabla exact cat alternarea F2
+    // muta tot grupul cadru), suprascriindu-si reciproc style-urile inline.
+    let oColoanaSeAnimeaza = false;
+    // Adevarat cat timp bucla de alternare F2 ruleaza deja — evita 2 instante
+    // pornite din greseala (ex. un click pe stepper chiar cand incepeNivel()
+    // a pornit-o deja).
+    let alternareF2Activa = false;
 
     function produsPentru(f, targetLevel = level) { return f * targetLevel; }
 
@@ -827,11 +1125,65 @@
     function ruleazaRocadaDacaActiva(vechiFactor) {
       if (vechiFactor == null) return;
       const durataMs = getRocadaDurataMs();
-      if (durataMs <= 0 || rocadaInCurs) return;
-      rocadaInCurs = true;
+      if (durataMs <= 0 || oColoanaSeAnimeaza) return;
+      oColoanaSeAnimeaza = true;
       rocadaColoane(ID_TABLE, idColoana("factor"), idColoana("nr-tabla"), durataMs)
         .catch(() => {})
-        .finally(() => { rocadaInCurs = false; });
+        .finally(() => { oColoanaSeAnimeaza = false; });
+    }
+
+    // Scrie + porneste bucla daca tocmai s-a activat (0 -> valoare pozitiva)
+    // — spre deosebire de celelalte steppere din acest fisier (functii
+    // module-level), asta are nevoie sa porneasca buclaAlternareF2(), care
+    // e stare per-instanta de quiz, nu doar sa persiste o valoare in
+    // LayoutConfig.
+    function scrieAlternareF2DurataS(valoare) {
+      const clampat = Math.min(ALTERNARE_F2_DURATA_S_MAX, Math.max(ALTERNARE_F2_DURATA_S_MIN, valoare));
+      const rotunjit = Math.round(clampat);
+      global.LayoutConfig?.set(LC_ALTERNARE_F2_DURATA_MS, rotunjit * 1000);
+      buclaAlternareF2();
+      return rotunjit;
+    }
+
+    // Bucla de alternare F2: cat timp durata > 0, la fiecare `durataMs`
+    // schimba orientarea ecuatiei (vezi ordineaOglinditaF2 mai sus). Auto-
+    // rescheduleaza-se singura (nu setInterval) — asa nu se pot suprapune 2
+    // chemari daca o animatie dureaza mai mult decat era planificat.
+    // `incercariEsuate` numara AMBELE cazuri "tabelul lipseste" si "coloana
+    // se anima deja (rocada)" — acelasi tipar de siguranta ca la
+    // planificaRedimensionareAutomata mai jos (max ~5s), ca sa nu bucleze la
+    // infinit daca userul a trecut la alt quiz cat timp asta rula.
+    async function buclaAlternareF2() {
+      if (alternareF2Activa) return;
+      alternareF2Activa = true;
+      let incercariEsuate = 0;
+      try {
+        for (;;) {
+          const durataMs = getAlternareF2DurataMs();
+          if (durataMs <= 0) return; // dezactivat - se reporneste din scrieAlternareF2DurataS
+
+          const tabel = document.getElementById(ID_TABLE);
+          if (!tabel || oColoanaSeAnimeaza) {
+            incercariEsuate += 1;
+            if (incercariEsuate > 50) return; // alt quiz activ / blocaj persistent - renuntam curat
+            await asteapta(100);
+            continue;
+          }
+
+          oColoanaSeAnimeaza = true;
+          try {
+            await gliseazaColoaneMultipleInConfiguratie(ID_TABLE, ordineaOglinditaF2(tabel), durataMs);
+            incercariEsuate = 0;
+          } catch {
+            incercariEsuate += 1;
+            if (incercariEsuate > 50) return;
+          } finally {
+            oColoanaSeAnimeaza = false;
+          }
+        }
+      } finally {
+        alternareF2Activa = false;
+      }
     }
 
     // Ruleaza redimensionareAutomataTabelInmultiri() o SINGURA DATA per nivel
@@ -879,6 +1231,7 @@
       aparitiiPerFact = {};
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
+      buclaAlternareF2();
     }
 
     // Motor 3 butoane (M3B): regula unica ramane neatinsa — "corect
@@ -1136,6 +1489,14 @@
           ROCADA_DURATA_S_MIN,
           ROCADA_DURATA_S_MAX,
           ROCADA_DURATA_S_PAS
+        );
+        addStepper(
+          "Alternare a=b×c cu b×c=a (s)",
+          getAlternareF2DurataS,
+          scrieAlternareF2DurataS,
+          ALTERNARE_F2_DURATA_S_MIN,
+          ALTERNARE_F2_DURATA_S_MAX,
+          ALTERNARE_F2_DURATA_S_PAS
         );
       },
     };
