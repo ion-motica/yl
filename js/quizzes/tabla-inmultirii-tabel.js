@@ -1,12 +1,14 @@
 // TABLA INMULTIRII - TABEL — intrebarea e tabla de inmultire completa a
 // nivelului curent (nr tabla = nivel, 1-10), randata ca <table> cu linii
-// invizibile. Un singur rand (factorul intrebat) arata "?" cu fundal
-// portocaliu in celula "produs", incadrat cu un dreptunghi cu colturi
-// rotunjite pe grupul "factor x nr-tabla = produs".
+// invizibile. Un singur rand (factorul intrebat) arata "?" pe fundal
+// portocaliu in celula "produs" — SINGURUL semnal vizual al intrebarii
+// active (fara chenar in jurul randului: scos explicit, user 02.09.2026 —
+// "e o prostie, va fi inlocuit de altceva").
 //
 // Fiecare celula, rand si coloana are id stabil (prefix "ti-"), ca sa poata
-// fi modificate punctual mai tarziu (reordonare/ascundere/highlight — cerute
-// de user, nu implementate inca). Trecerea intre randuri, in ACELASI nivel,
+// fi modificate punctual mai tarziu (ascundere/highlight — cerute de user,
+// nu implementate inca; reordonarea factor/nr-tabla exista, vezi
+// rocadaColoane() mai jos). Trecerea intre randuri, in ACELASI nivel,
 // nu retrimite tot tabelul: foloseste contractul "Mod scriere intrebare
 // noua" din falling-engine.js (`elementeDivIntrebare`, cauta
 // `data-element-div-intrebare="id"` deja randat si ii schimba doar
@@ -49,6 +51,7 @@
   const PREFIX = "ti";
   const ID_HEADER_ROW = `${PREFIX}-header-row`;
   const ID_WRAPPER = `${PREFIX}-wrapper`;
+  const ID_TABLE = `${PREFIX}-table`;
 
   // Cheile in LayoutConfig (localStorage) pt. panoul CP al acestui quiz —
   // vezi `appendTablaInmultiriiTabelControlPanel` mai jos.
@@ -97,6 +100,19 @@
   const PADDING_PAS = 1;
   const CULOARE_GRILA = "#2d3d52"; // acelasi gri-albastru ca bordura .menu-toggle
 
+  // "Rocada comutativitate every turn" (cerere user, 02.09.2026) — la fiecare
+  // intrebare noua, in ACELASI nivel, coloanele "factor" si "nr-tabla" isi
+  // schimba locul (animat), demonstrand a*b=b*a. Stocat in ms (unitatea
+  // naturala pt. o animatie); CP-ul arata/scrie in secunde — acelasi tipar
+  // ca la alte durate din proiect (ex. getPauzaFinalizareNivelMs() din
+  // addition-table-singapore-missing.js). 0 = FUNCTIA DEZACTIVATA COMPLET
+  // (cerere expresa user, nu doar "swap instant") — coloanele raman fixe.
+  const LC_ROCADA_DURATA_MS = "tablaInmultiriiTabel.rocadaDurataMs";
+  const ROCADA_DURATA_S_IMPLICITA = 1.5;
+  const ROCADA_DURATA_S_MIN = 0;
+  const ROCADA_DURATA_S_MAX = 5;
+  const ROCADA_DURATA_S_PAS = 0.1;
+
   function getAscundeTitluriColoane() {
     return global.LayoutConfig?.get(LC_ASCUNDE_TITLURI, true) ?? true;
   }
@@ -122,6 +138,27 @@
       global.LayoutConfig?.get(LC_MARIME_FONT_NUMARARE_PCT, MARIME_FONT_NUMARARE_IMPLICITA) ??
       MARIME_FONT_NUMARARE_IMPLICITA
     );
+  }
+
+  function getRocadaDurataMs() {
+    const implicitMs = ROCADA_DURATA_S_IMPLICITA * 1000;
+    return global.LayoutConfig?.get(LC_ROCADA_DURATA_MS, implicitMs) ?? implicitMs;
+  }
+
+  function getRocadaDurataS() {
+    return getRocadaDurataMs() / 1000;
+  }
+
+  // Rotunjit la 0.1s (pasul stepper-ului) INAINTE de conversia in ms, ca sa
+  // evitam erori de virgula mobila la clickuri repetate pe +/- (ex.
+  // 1.5 - 0.1 - 0.1 = 1.2999999999999998 fara rotunjire) — acelasi motiv
+  // pt. care celelalte steppere de mai sus rotunjesc (Math.round) inainte
+  // de a scrie in LayoutConfig.
+  function scrieRocadaDurataS(valoare) {
+    const clampat = Math.min(ROCADA_DURATA_S_MAX, Math.max(ROCADA_DURATA_S_MIN, valoare));
+    const rotunjit = Math.round(clampat * 10) / 10;
+    global.LayoutConfig?.set(LC_ROCADA_DURATA_MS, Math.round(rotunjit * 1000));
+    return rotunjit;
   }
 
   // Scrierile de mai jos ating direct DOM-ul deja randat (prin id fix), NU
@@ -265,10 +302,11 @@
       "adunari-repetate", "counter",
     ];
   }
+  // Cele 5 coloane care formeaza propozitia aritmetica "factor x nr-tabla =
+  // produs" — folosite azi doar pt. "Scris mic %" (claseCelula: tot ce nu e
+  // in acest grup primeste fontul mic). Nu mai desemneaza un chenar vizual
+  // (scos, vezi comentariul din capul fisierului).
   const COLOANE_CADRU = ["factor", "x", "nr-tabla", "egal", "produs"];
-  const POZITIE_IN_CADRU = {
-    factor: "prim", x: "mijloc", "nr-tabla": "mijloc", egal: "mijloc", produs: "ultim",
-  };
   // "x/nr-tabla/egal nu trebuie sa fie late cat celulele cu 2 cifre — latime
   // de 1 caracter" (cerere user, 01.09.2026) — vezi clasa "ti-cell-simbol" in
   // stilPartajat()/claseCelula().
@@ -321,30 +359,192 @@
       `${placeholderGeneric.semn}${spatiuRezervat ? " " : ""}</span>`,
   };
 
-  // Chenarul intrebarii curente — bordura galbena (var(--win), aceeasi
-  // culoare de accent ca la ".option.selected"/semnul "?"), colturi rotunjite
-  // ca la butoanele din aplicatie (.menu-toggle: border-radius 8px).
+  // Interschimba doua coloane intregi ale unui <table>, cu animatie —
+  // "rocada comutativitate" (cerere user, 02.09.2026: la fiecare intrebare
+  // noua, coloanele "factor" si "nr-tabla" isi schimba locul, demonstrand
+  // a*b=b*a). Functie primita de la user aproape verbatim (generata initial
+  // cu ChatGPT) — cere <colgroup> cu cate un <col id="..."> per coloana si
+  // fiecare rand cu exact o celula per coloana, fara rowspan/colspan; tabelul
+  // din construiesteTabelComplet() respecta deja ambele conditii, deci
+  // functia nu are nevoie de nicio adaptare.
   //
-  // "sa nu fie punctat, sa fie continuu" (user, 01.09.2026) — cu 5 <span>-uri
-  // separate (cate unul per celula incadrata), un <span> simplu (display
-  // inline implicit) se poate alinia vertical usor diferit de la o celula la
-  // alta (inaltimea liniei nu e garantat identica), rupand vizual linia de
-  // sus/jos in segmente. Fix: fiecare span umple exact inaltimea celulei lui
-  // (`display:flex;height:100%`) — toate 5 au atunci EXACT aceeasi pozitie
-  // pt. border-top/bottom, indiferent de continut. `margin-left:-1px` pe
-  // toate in afara de prima suprapune usor marginea cu vecina din stanga, ca
-  // sa nu ramana vizibil un gol de sub-pixel intre ele.
-  function stilCadru(pozitie) {
-    const baza =
-      "display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;" +
-      "border-top:2px solid var(--win);border-bottom:2px solid var(--win);";
-    if (pozitie === "prim") {
-      return baza + "border-left:2px solid var(--win);border-top-left-radius:8px;border-bottom-left-radius:8px;";
+  // Continutul celulelor (valoareStaticaCelula/continutCelula, mai jos) e
+  // legat de NUMELE coloanei, nu de pozitia ei vizuala — deci mutarea
+  // nodurilor DOM facuta aici nu strica nimic din ce genereaza restul
+  // fisierului. Fiecare celula/rand e identificat prin id (nu prin pozitie),
+  // deci reordonarea e sigura pt. orice alt cod care cauta un id anume.
+  async function rocadaColoane(tabelId, coloana1Id, coloana2Id, timpInMs) {
+    const tabel = document.getElementById(tabelId);
+    const coloana1 = document.getElementById(coloana1Id);
+    const coloana2 = document.getElementById(coloana2Id);
+
+    if (!(tabel instanceof HTMLTableElement)) {
+      throw new TypeError(`Nu există un <table> cu id-ul „${tabelId}”.`);
     }
-    if (pozitie === "ultim") {
-      return baza + "margin-left:-1px;border-right:2px solid var(--win);border-top-right-radius:8px;border-bottom-right-radius:8px;";
+
+    if (!(coloana1 instanceof HTMLTableColElement) ||
+        coloana1.closest('table') !== tabel) {
+      throw new TypeError(
+        `„${coloana1Id}” trebuie să fie id-ul unui <col> din tabelul „${tabelId}”.`
+      );
     }
-    return baza + "margin-left:-1px;";
+
+    if (!(coloana2 instanceof HTMLTableColElement) ||
+        coloana2.closest('table') !== tabel) {
+      throw new TypeError(
+        `„${coloana2Id}” trebuie să fie id-ul unui <col> din tabelul „${tabelId}”.`
+      );
+    }
+
+    if (!Number.isFinite(timpInMs) || timpInMs < 0) {
+      throw new TypeError(
+        'timpInMs trebuie să fie un număr finit mai mare sau egal cu 0.'
+      );
+    }
+
+    if (coloana1Id === coloana2Id) {
+      return false;
+    }
+
+    const colgroupuri = [...tabel.children]
+      .filter(element => element.tagName === 'COLGROUP');
+
+    if (colgroupuri.length !== 1) {
+      throw new Error('Tabelul trebuie să aibă exact un <colgroup>.');
+    }
+
+    const colgroup = colgroupuri[0];
+    const coloane = [...colgroup.children]
+      .filter(element => element instanceof HTMLTableColElement);
+
+    const indexColoana1 = coloane.indexOf(coloana1);
+    const indexColoana2 = coloane.indexOf(coloana2);
+
+    if (indexColoana1 === -1 || indexColoana2 === -1) {
+      throw new Error(
+        'Ambele coloane trebuie să fie copii direcți ai aceluiași <colgroup>.'
+      );
+    }
+
+    const randuri = [...tabel.rows];
+
+    for (const rand of randuri) {
+      const celule = [...rand.cells];
+      const areCeluleCombinate = celule.some(
+        celula => celula.colSpan !== 1 || celula.rowSpan !== 1
+      );
+
+      if (celule.length !== coloane.length || areCeluleCombinate) {
+        throw new Error(
+          'Fiecare rând trebuie să aibă exact o celulă pentru fiecare coloană, fără rowspan/colspan.'
+        );
+      }
+    }
+
+    const tabeleInAnimatie = rocadaColoane.tabeleInAnimatie ||
+      (rocadaColoane.tabeleInAnimatie = new WeakSet());
+
+    if (tabeleInAnimatie.has(tabel)) {
+      throw new Error(`Tabelul „${tabelId}” are deja o rocadă în desfășurare.`);
+    }
+
+    const celuleInitialePeRand = randuri.map(rand => [...rand.cells]);
+    const toateCelulele = celuleInitialePeRand.flat();
+    const celuleColoana1 = new Set(
+      celuleInitialePeRand.map(celule => celule[indexColoana1])
+    );
+    const celuleColoana2 = new Set(
+      celuleInitialePeRand.map(celule => celule[indexColoana2])
+    );
+    const celuleCareFacRocada = new Set([
+      ...celuleColoana1,
+      ...celuleColoana2
+    ]);
+
+    const pozitiiInitiale = new Map(
+      toateCelulele.map(celula => [celula, celula.getBoundingClientRect()])
+    );
+
+    const stiluriInitiale = new Map(
+      toateCelulele.map(celula => [celula, {
+        transition: celula.style.transition,
+        transform: celula.style.transform,
+        position: celula.style.position,
+        zIndex: celula.style.zIndex,
+        backgroundColor: celula.style.backgroundColor,
+        willChange: celula.style.willChange
+      }])
+    );
+
+    tabeleInAnimatie.add(tabel);
+
+    try {
+      const coloaneInOrdineaNoua = [...coloane];
+      [coloaneInOrdineaNoua[indexColoana1],
+       coloaneInOrdineaNoua[indexColoana2]] =
+        [coloaneInOrdineaNoua[indexColoana2],
+         coloaneInOrdineaNoua[indexColoana1]];
+
+      for (const coloana of coloaneInOrdineaNoua) {
+        colgroup.append(coloana);
+      }
+
+      randuri.forEach((rand, indexRand) => {
+        const celuleInOrdineaNoua = [...celuleInitialePeRand[indexRand]];
+        [celuleInOrdineaNoua[indexColoana1],
+         celuleInOrdineaNoua[indexColoana2]] =
+          [celuleInOrdineaNoua[indexColoana2],
+           celuleInOrdineaNoua[indexColoana1]];
+
+        for (const celula of celuleInOrdineaNoua) {
+          rand.append(celula);
+        }
+      });
+
+      if (timpInMs === 0) {
+        return true;
+      }
+
+      for (const celula of toateCelulele) {
+        const pozitieInitiala = pozitiiInitiale.get(celula);
+        const pozitieFinala = celula.getBoundingClientRect();
+        const deplasareX = pozitieInitiala.left - pozitieFinala.left;
+
+        celula.style.transition = 'none';
+        celula.style.transform = `translateX(${deplasareX}px)`;
+        celula.style.willChange = 'transform';
+
+        if (celuleCareFacRocada.has(celula)) {
+          celula.style.position = 'relative';
+          celula.style.zIndex = celuleColoana1.has(celula) ? '20' : '19';
+          celula.style.backgroundColor = 'transparent';
+        }
+      }
+
+      await new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      );
+
+      for (const celula of toateCelulele) {
+        celula.style.transition = `transform ${timpInMs}ms ease-in-out`;
+        celula.style.transform = 'translateX(0)';
+      }
+
+      await new Promise(resolve => setTimeout(resolve, timpInMs));
+      return true;
+    } finally {
+      for (const celula of toateCelulele) {
+        const stil = stiluriInitiale.get(celula);
+        celula.style.transition = stil.transition;
+        celula.style.transform = stil.transform;
+        celula.style.position = stil.position;
+        celula.style.zIndex = stil.zIndex;
+        celula.style.backgroundColor = stil.backgroundColor;
+        celula.style.willChange = stil.willChange;
+      }
+
+      tabeleInAnimatie.delete(tabel);
+    }
   }
 
   function createTablaInmultiriiTabelQuiz() {
@@ -376,6 +576,11 @@
     // Nivelul pt. care s-a rulat deja redimensionareAutomataTabelInmultiri()
     // — vezi planificaRedimensionareAutomata().
     let ultimulNivelRedimensionat = null;
+    // Adevarat cat timp o animatie de rocada (vezi ruleazaRocadaDacaActiva)
+    // e in desfasurare pe tabelul curent — evita sa chemam rocadaColoane()
+    // a doua oara cat timp prima chemare inca animeaza (ar arunca eroare,
+    // vezi implementarea ei).
+    let rocadaInCurs = false;
 
     function produsPentru(f, targetLevel = level) { return f * targetLevel; }
 
@@ -447,18 +652,16 @@
       return extra.length ? `ti-cell ${extra.join(" ")}` : "ti-cell";
     }
 
-    // Continutul (fara <td>) al unei celule din grupul incadrat — comun
-    // randarii complete SI patch-ului de tranzitie, ca sa nu existe doua
-    // locuri care decid cum arata o celula (vezi js/bond-inventory.js pt.
-    // acelasi principiu).
+    // Continutul (fara <td>) al unei celule — comun randarii complete SI
+    // patch-ului de tranzitie, ca sa nu existe doua locuri care decid cum
+    // arata o celula (vezi js/bond-inventory.js pt. acelasi principiu).
+    // Singurul semnal vizual al intrebarii active e "?" pe celula "produs"
+    // (fara chenar in jurul grupului — scos explicit, user 02.09.2026).
     function continutCelula(coloana, f, esteActiv) {
       const valoare =
         coloana === "produs" && esteActiv
           ? placeholder.marcaj(produsPentru(f) >= 10)
           : valoareStaticaCelula(coloana, f);
-      if (esteActiv && COLOANE_CADRU.includes(coloana)) {
-        return `<span style="${stilCadru(POZITIE_IN_CADRU[coloana])}">${valoare}</span>`;
-      }
       return `<span>${valoare}</span>`;
     }
 
@@ -506,7 +709,8 @@
       //
       // `border-collapse:separate` (nu `collapse`): in modul collapse,
       // bordurile a doua celule adiacente se combina intr-una singura, ceea ce
-      // strica exact coltul rotunjit de la capetele chenarului (vezi stilCadru).
+      // ar subtia liniile "Arata grila tabel" (fiecare .ti-cell isi are
+      // propria bordura, vezi stilPartajat).
       // `id="ID_WRAPPER"` + `font-size`/`--ti-pad-x`/`--ti-pad-y`/clasa
       // "ti-grila" din CP (vezi appendTablaInmultiriiTabelControlPanel) —
       // toate ajustabile live, fara sa retrimita tot tabelul.
@@ -518,7 +722,7 @@
       return (
         `<div id="${ID_WRAPPER}" class="${clasaGrila.trim()}" style="${stilWrapper}">` +
         `<style>${stilPartajat()}</style>` +
-        `<table style="border-collapse:separate;border-spacing:0;margin:0 auto;font-family:'Segoe UI', system-ui, sans-serif;">` +
+        `<table id="${ID_TABLE}" style="border-collapse:separate;border-spacing:0;margin:0 auto;font-family:'Segoe UI', system-ui, sans-serif;">` +
         colgroupHtml() + headerRowHtml() + randuri.join("") +
         `</table></div>`
       );
@@ -592,6 +796,29 @@
       apasariInAparitiaCurenta = 0;
       construiesteOptiuni();
       sincronizeazaOrchestratorul(vechiFactor);
+      ruleazaRocadaDacaActiva(vechiFactor);
+    }
+
+    // Comuta vizual coloanele "factor"/"nr-tabla" la fiecare intrebare noua
+    // DIN ACELASI nivel (vechiFactor != null — la prima intrebare a unui
+    // nivel nou tabelul tocmai a fost reconstruit integral in ordinea
+    // normala, deci nu exista o stare "dinainte" de la care sa animam un
+    // swap). Durata 0 = functia dezactivata complet (cerere expresa user) —
+    // coloanele raman fixe, nu se comuta niciodata.
+    //
+    // "Fire and forget": nu asteptam promisiunea — pregatesteFactor ramane
+    // sincron, ca tot restul motorului de raspuns. Daca o rocada e deja in
+    // desfasurare (copil care raspunde f. rapid), sarim peste turul asta:
+    // fara eroare, fara stare stricata, doar o animatie "sarita" — turul
+    // urmator reia normal.
+    function ruleazaRocadaDacaActiva(vechiFactor) {
+      if (vechiFactor == null) return;
+      const durataMs = getRocadaDurataMs();
+      if (durataMs <= 0 || rocadaInCurs) return;
+      rocadaInCurs = true;
+      rocadaColoane(ID_TABLE, idColoana("factor"), idColoana("nr-tabla"), durataMs)
+        .catch(() => {})
+        .finally(() => { rocadaInCurs = false; });
     }
 
     // Ruleaza redimensionareAutomataTabelInmultiri() o SINGURA DATA per nivel
@@ -888,6 +1115,14 @@
           MARIME_FONT_NUMARARE_MIN,
           MARIME_FONT_NUMARARE_MAX,
           MARIME_FONT_NUMARARE_PAS
+        );
+        addStepper(
+          "Rocada comutativitate (s)",
+          getRocadaDurataS,
+          scrieRocadaDurataS,
+          ROCADA_DURATA_S_MIN,
+          ROCADA_DURATA_S_MAX,
+          ROCADA_DURATA_S_PAS
         );
       },
     };
