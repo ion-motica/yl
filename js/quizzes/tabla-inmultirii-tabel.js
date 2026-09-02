@@ -55,9 +55,10 @@
   const ID_HEADER_ROW = `${PREFIX}-header-row`;
   const ID_WRAPPER = `${PREFIX}-wrapper`;
   const ID_TABLE = `${PREFIX}-table`;
-  // "Rama intrebarii" (cerere user, 02.09.2026) — vezi sectiunea RAMA
-  // INTREBARE mai jos.
+  // Rame (cerere user, 02.09.2026) — vezi sectiunea RAME mai jos.
   const ID_RAMA_INTREBARE = `${PREFIX}-rama-intrebare`;
+  const ID_RAMA_NUMARARE = `${PREFIX}-rama-numarare`;
+  const ID_RAMA_ADUNARI_REPETATE = `${PREFIX}-rama-adunari-repetate`;
 
   // Cheile in LayoutConfig (localStorage) pt. panoul CP al acestui quiz —
   // vezi `appendTablaInmultiriiTabelControlPanel` mai jos.
@@ -146,7 +147,6 @@
   const PADDING_MAX = 30;
   const PADDING_PAS = 1;
   const CULOARE_GRILA = "#2d3d52"; // acelasi gri-albastru ca bordura .menu-toggle
-  const CULOARE_RAMA_INTREBARE = "yellow"; // "bordura galbena" (cerere user) — distinct de portocaliul placeholderului
 
   // "Mutare coloane" (cerere user, 02.09.2026) — la fiecare intrebare noua,
   // in ACELASI nivel, tabelul poate anima o reordonare de coloane. Exact UN
@@ -527,11 +527,16 @@
   // `display:flex;height:100%`, fara padding propriu (acelasi tipar ca la
   // vechiul chenar, stilCadru, acum scos) — latimea celulei nu mai depinde
   // deloc de starea placeholderului.
+  // Culoarea de evidentiere a placeholderului — extrasa intr-o constanta
+  // (02.09.2026) ca sa poata fi reutilizata EXACT (nu doar "similara") de
+  // rama intrebarii mai jos: "aceeasi culoare cu care e evidentiat '?'"
+  // (cerere user) — vezi STIL_RAMA_INTREBARE.
+  const CULOARE_EVIDENTIERE_PLACEHOLDER = "orange";
   const placeholderGeneric = global.PlaceholderRaspuns.creeaza("?");
   const placeholder = {
     ...placeholderGeneric,
     marcaj: (spatiuRezervat) =>
-      `<span class="${placeholderGeneric.clasa}" style="display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;background:orange;color:#000;font-weight:700;border-radius:0.2em;">` +
+      `<span class="${placeholderGeneric.clasa}" style="display:flex;align-items:center;justify-content:center;height:100%;box-sizing:border-box;background:${CULOARE_EVIDENTIERE_PLACEHOLDER};color:#000;font-weight:700;border-radius:0.2em;">` +
       `${placeholderGeneric.semn}${spatiuRezervat ? " " : ""}</span>`,
   };
 
@@ -1085,24 +1090,41 @@
     return gliseazaColoaneMultipleInConfiguratie(tabelId, [...cadru.map(idColoana), ...restAcum], durataMs);
   }
 
-  // ============================= RAMA INTREBARE ==============================
+  // ================================= RAME =====================================
   //
-  // "Rama intrebarii" (cerere user, 02.09.2026) — un dreptunghi cu bordura
-  // galbena, FARA umplere (continut 100% transparent), care incadreaza STRICT
-  // fapt-ul aritmetic testat (cele 5 coloane cadru, oricare ar fi ordinea lor
-  // curenta dupa o mutare de coloane). Inlocuieste vechiul chenar cu colturi
-  // rotunjite, scos explicit mai devreme ("e o prostie, va fi inlocuit de
-  // altceva") — spre deosebire de acela (stiluri bakeate pe fiecare celula a
-  // randului, se strica la reordonare), rama e UN SINGUR div separat,
-  // `position:absolute` peste tabel, ale carui 4 coordonate (left/top/width/
-  // height) se recalculeaza din pozitia REALA a celulelor de fiecare data —
-  // nu se poate "strica" la reordonare, oricat de des s-ar intampla.
+  // Trei rame (cerere user, 02.09.2026), toate dreptunghiuri cu colturi
+  // rotunjite, `position:absolute` peste tabel — inlocuiesc vechiul chenar
+  // scos explicit mai devreme ("e o prostie, va fi inlocuit de altceva").
+  // CORECTIE (02.09.2026): prima versiune a ramei intrebarii avea colturi
+  // DREPTE si bordura GALBENA — gresit dedus din eliminarea vechiului chenar
+  // ("colturi rotunjite" descria implementarea VECHE (stiluri bakeate pe
+  // celule, se stricau la reordonare) ca fiind proasta, nu forma rotunjita
+  // in sine; iar culoarea trebuia sa coincida cu evidentierea lui "?", nu sa
+  // fie distincta). Vezi STIL_RAMA_INTREBARE mai jos.
+  //
+  //   - rama intrebarii — incadreaza STRICT fapt-ul aritmetic testat (cele 5
+  //     coloane cadru, oricare ar fi ordinea lor curenta). GLISEAZA intre
+  //     randuri (translatie), ramanand cam aceeasi marime.
+  //   - rama numarare — ancorata la RANDUL 1 al coloanelor "numarare1.."
+  //     "numarare<nivel>", se EXTINDE/RESTRANGE in jos pana la randul
+  //     factorului curent — coltul din dreapta-jos cade mereu exact pe
+  //     celula cu produsul (ultima coloana numarare, vezi valoareStaticaCelula,
+  //     cazul "numarare"). Ideea (user): "echivalentul inmultirii prin
+  //     numarare unu cate unu".
+  //   - rama adunari-repetate — acelasi tipar de extindere/restrangere ca
+  //     rama numarare, dar pe coloana "adunari-repetate" (o singura coloana,
+  //     nu un grup). Ideea (user): la 5x7, acopera "7+" de 5 ori — echivalentul
+  //     inmultirii prin adunari repetate.
+  //
+  // Fiecare div, ale carui 4 coordonate (left/top/width/height) se
+  // recalculeaza din pozitia REALA a celulelor de fiecare data — nu se poate
+  // "strica" la reordonare, oricat de des s-ar intampla (spre deosebire de
+  // vechiul chenar).
   //
   // Trei functii module-level (fara acces la starea vreunui quiz anume, ca si
-  // schimbaFactForm mai sus) — generice (primesc idul ramei ca parametru), nu
-  // presupun ca exista o singura rama pe tabel (posibil sa mai apara rame
-  // separate pt. alte grupuri de coloane, discutat cu userul 02.09.2026, dar
-  // nu cerut inca):
+  // schimbaFactForm mai sus) — primesc idul ramei SI stilul ei ca parametri
+  // (creeazaRama), nu presupun ca exista o singura rama pe tabel si nu
+  // cunosc culori/forme hardcodate:
   //   - colturiColoaneAB(wrapperId, idStanga, idDreapta) — PURA, calculeaza
   //     dreptunghiul (left/top/width/height, relativ la wrapper) care
   //     incadreaza ambele celule date. Foloseste offsetLeft/offsetTop/
@@ -1116,14 +1138,35 @@
   //     empiric, verificare Playwright, 02.09.2026). offsetLeft & co. sunt
   //     calculate din layout, NEATINSE de transform — dau direct pozitia
   //     FINALA, chiar daca vizual coloana inca gliseaza spre ea.
-  //   - creeazaRama(wrapperId, ramaId, idStanga, idDreapta) — creeaza div-ul
-  //     (scotand intai unul vechi cu acelasi id, daca exista), il pozitioneaza
-  //     cu colturiColoaneAB() si il adauga in wrapper.
+  //   - creeazaRama(wrapperId, ramaId, idStanga, idDreapta, stilRama) —
+  //     creeaza div-ul (scotand intai unul vechi cu acelasi id, daca exista),
+  //     il pozitioneaza cu colturiColoaneAB(), ii aplica stilRama (border +
+  //     background — geometria se adauga separat) si il adauga in wrapper.
   //   - mutaRama(wrapperId, ramaId, idStanga, idDreapta, durataMs) —
   //     recalculeaza colturile cu colturiColoaneAB() si anima DIV-UL DEJA
   //     EXISTENT pana acolo, prin tranzitie CSS pe left/top/width/height (nu
   //     FLIP ca la coloane — rama nu e un nod mutat prin DOM, ci un
   //     dreptunghi ale carui 4 valori se schimba). durataMs=0 = salt instant.
+  // Stilurile celor 3 rame — un singur loc, usor de comparat/ajustat.
+  const RAZA_COLT_RAMA = "0.2em"; // aceeasi raza ca la placeholder (marcaj mai sus)
+  const GROSIME_RAMA = "3px";
+  // Bordura ACEEASI culoare cu care e evidentiat "?" (vezi
+  // CULOARE_EVIDENTIERE_PLACEHOLDER mai sus) — fara umplere.
+  const STIL_RAMA_INTREBARE =
+    `border:${GROSIME_RAMA} solid ${CULOARE_EVIDENTIERE_PLACEHOLDER};` +
+    `border-radius:${RAZA_COLT_RAMA};background:transparent;`;
+  // Rosie, cu umplere rosie 75% transparenta (25% opaca) — "continutul rosu
+  // transparent 75%" (cerere user); bordura ramane opaca, doar fondul (rgba)
+  // e translucid. Vezi in raspuns explicatia cum se regleaza alpha-ul din
+  // inspectorul Firefox.
+  const STIL_RAMA_NUMARARE =
+    `border:${GROSIME_RAMA} solid red;` +
+    `border-radius:${RAZA_COLT_RAMA};background:rgba(255,0,0,0.25);`;
+  // Verde, fara umplere (100% transparenta).
+  const STIL_RAMA_ADUNARI_REPETATE =
+    `border:${GROSIME_RAMA} solid green;` +
+    `border-radius:${RAZA_COLT_RAMA};background:transparent;`;
+
   function colturiColoaneAB(wrapperId, idCelulaStanga, idCelulaDreapta) {
     const wrapper = document.getElementById(wrapperId);
     const stanga = document.getElementById(idCelulaStanga);
@@ -1141,7 +1184,7 @@
     };
   }
 
-  function creeazaRama(wrapperId, ramaId, idCelulaStanga, idCelulaDreapta) {
+  function creeazaRama(wrapperId, ramaId, idCelulaStanga, idCelulaDreapta, stilRama) {
     const wrapper = document.getElementById(wrapperId);
     const colturi = colturiColoaneAB(wrapperId, idCelulaStanga, idCelulaDreapta);
     if (!wrapper || !colturi) return null;
@@ -1150,7 +1193,7 @@
     rama.id = ramaId;
     rama.style.cssText =
       `position:absolute;box-sizing:border-box;pointer-events:none;` +
-      `border:3px solid ${CULOARE_RAMA_INTREBARE};background:transparent;` +
+      stilRama +
       `left:${colturi.left}px;top:${colturi.top}px;width:${colturi.width}px;height:${colturi.height}px;`;
     wrapper.appendChild(rama);
     return rama;
@@ -1476,6 +1519,8 @@
       sincronizeazaOrchestratorul(vechiFactor);
       ruleazaMutareaColoanelorDacaActiva(vechiFactor);
       glisiazaRamaLaFactorCurent(vechiFactor);
+      gliseazaRamaVerticalaLaFactorCurent(vechiFactor, ID_RAMA_NUMARARE, "numarare1", `numarare${level}`);
+      gliseazaRamaVerticalaLaFactorCurent(vechiFactor, ID_RAMA_ADUNARI_REPETATE, "adunari-repetate", "adunari-repetate");
     }
 
     // Aplica un fact form complet (F1+F2) prin schimbaFactForm() (module-
@@ -1677,8 +1722,47 @@
       const nivelDePlanificat = level;
       asteaptaTabelulPictat(nivelDePlanificat, () => {
         const celule = idCeluleExtremeCadru(factorCurent);
-        if (celule) creeazaRama(ID_WRAPPER, ID_RAMA_INTREBARE, celule.stanga, celule.dreapta);
+        if (celule) creeazaRama(ID_WRAPPER, ID_RAMA_INTREBARE, celule.stanga, celule.dreapta, STIL_RAMA_INTREBARE);
       });
+    }
+
+    // Rama "verticala" (numarare / adunari-repetate) — spre deosebire de rama
+    // intrebarii (care GLISEAZA intre randuri, ramanand cam aceeasi marime),
+    // astea raman ANCORATE la randul 1 si doar se EXTIND/RESTRANG in jos pana
+    // la randul factorului curent (cerere user, 02.09.2026) — coltul din
+    // dreapta-jos al ramei numarare cade mereu exact pe celula cu produsul.
+    // Generice: primesc NUMELE rolurilor de coloana stanga/dreapta (nu
+    // id-uri de celula) — cele doua rame difera doar prin ce coloana(e)
+    // acopera si ce stil au.
+    //
+    // La NIVEL NOU: creeaza rama STRICT pe randul 1 (inaltime minima), apoi o
+    // extinde IMEDIAT pana la randul factorului ales — vizibil ca o "crestere"
+    // chiar de la prima intrebare (cerere user: "TOATE incep simultan imediat
+    // dupa afisarea intrebarii ... si dureaza toate la fel de mult: tt"), nu
+    // un salt instant la marimea finala.
+    function planificaRamaVerticalaLaNivelNou(ramaId, coloanaStanga, coloanaDreapta, stilRama) {
+      const nivelDePlanificat = level;
+      asteaptaTabelulPictat(nivelDePlanificat, () => {
+        const idStangaR1 = idCelula(coloanaStanga, 1);
+        const idDreaptaR1 = idCelula(coloanaDreapta, 1);
+        creeazaRama(ID_WRAPPER, ramaId, idStangaR1, idDreaptaR1, stilRama);
+        mutaRama(ID_WRAPPER, ramaId, idStangaR1, idCelula(coloanaDreapta, factorCurent), duratMutareColoaneCurenta())
+          .catch(() => {});
+      });
+    }
+
+    // La schimbare de intrebare (acelasi nivel): doar extinde/restrange (un
+    // singur mutaRama, fara sa recreeze) — capatul de sus ramane fix la
+    // randul 1, capatul de jos gliseaza la noul rand activ.
+    function gliseazaRamaVerticalaLaFactorCurent(vechiFactor, ramaId, coloanaStanga, coloanaDreapta) {
+      if (vechiFactor == null) return; // se ocupa planificaRamaVerticalaLaNivelNou
+      mutaRama(
+        ID_WRAPPER,
+        ramaId,
+        idCelula(coloanaStanga, 1),
+        idCelula(coloanaDreapta, factorCurent),
+        duratMutareColoaneCurenta()
+      ).catch(() => {});
     }
 
     function incepeNivel() {
@@ -1691,6 +1775,8 @@
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
       planificaRamaLaNivelNou();
+      planificaRamaVerticalaLaNivelNou(ID_RAMA_NUMARARE, "numarare1", `numarare${level}`, STIL_RAMA_NUMARARE);
+      planificaRamaVerticalaLaNivelNou(ID_RAMA_ADUNARI_REPETATE, "adunari-repetate", "adunari-repetate", STIL_RAMA_ADUNARI_REPETATE);
     }
 
     // Motor 3 butoane (M3B): regula unica ramane neatinsa — "corect
@@ -1996,7 +2082,7 @@
 
         if (getMutareColoaneMod() === "alternareF2") {
           addStepper(
-            "Durata (s)",
+            "Durata mutare coloane (s)",
             getAlternareF2DurataS,
             scrieAlternareF2DurataS,
             ALTERNARE_F2_DURATA_S_MIN,
@@ -2005,7 +2091,7 @@
           );
         } else if (getMutareColoaneMod() === "toateEqForms") {
           addStepper(
-            "Durata (s)",
+            "Durata mutare coloane (s)",
             getToateEqFormsDurataS,
             scrieToateEqFormsDurataS,
             TOATE_EQ_FORMS_DURATA_S_MIN,
@@ -2014,7 +2100,7 @@
           );
         } else {
           addStepper(
-            "Durata (s)",
+            "Durata mutare coloane (s)",
             getRocadaDurataS,
             scrieRocadaDurataS,
             ROCADA_DURATA_S_MIN,
