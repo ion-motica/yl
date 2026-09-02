@@ -71,11 +71,22 @@
   const MARIME_FONT_PX_MIN = 8;
   const MARIME_FONT_PX_MAX = 48;
   const MARIME_FONT_PX_PAS = 1;
-  // "Scris in numarare mai mic, camp CP separat, 75% implicit" (cerere user,
-  // 02.09.2026) — procent DIN marimea de mai sus. Ramane procent (nu px): un
-  // font-size CSS in procent e relativ la parinte PRIN DEFINITIE — functioneaza
-  // corect indiferent ca parintele (#ti-wrapper) e acum in px, fara calcul
-  // manual (vezi stilPartajat).
+  // "Scris mic %" (redenumit din "Scris in numarare %", 02.09.2026, scop
+  // extins) — procent DIN marimea de mai sus, aplicat acum pe TOATE coloanele
+  // de dupa "produs" (spatiu1, numarare*, spatiu2, adunari-repetate, counter
+  // — vezi claseCelula), nu doar pe cele "numarare". Cheia LayoutConfig ramane
+  // neschimbata (semantica ei — un procent 0-100 — nu s-a schimbat, doar
+  // scopul vizual s-a largit), ca sa nu pierdem valoarea deja salvata de
+  // user. Ramane procent (nu px): un font-size CSS in procent e relativ la
+  // parinte PRIN DEFINITIE — functioneaza corect indiferent ca parintele
+  // (#ti-wrapper) e acum in px, fara calcul manual (vezi stilPartajat).
+  //
+  // Recalculata automat, o singura data la fiecare intrare intr-un nivel nou
+  // (cerere user, 02.09.2026) — vezi redimensionareAutomataTabelInmultiri()
+  // si planificaRedimensionareAutomata() mai jos: coloanele "numarare" cresc
+  // cu nivelul (pana la 10), deci tabelul se poate lati mai mult decat
+  // incape in cadrul albastru al intrebarii. Intre doua nivele, userul poate
+  // ajusta manual din CP fara sa-i fie suprascrisa valoarea.
   const LC_MARIME_FONT_NUMARARE_PCT = "tablaInmultiriiTabel.marimeFontNumararePct";
   const MARIME_FONT_NUMARARE_IMPLICITA = 75;
   const MARIME_FONT_NUMARARE_MIN = 10;
@@ -159,8 +170,78 @@
   function scrieMarimeFontNumararePct(valoare) {
     const clamped = Math.min(MARIME_FONT_NUMARARE_MAX, Math.max(MARIME_FONT_NUMARARE_MIN, Math.round(valoare)));
     global.LayoutConfig?.set(LC_MARIME_FONT_NUMARARE_PCT, clamped);
-    document.getElementById(ID_WRAPPER)?.style.setProperty("--ti-numarare-font-scala", `${clamped}%`);
+    document.getElementById(ID_WRAPPER)?.style.setProperty("--ti-mic-font-scala", `${clamped}%`);
     return clamped;
+  }
+
+  // Latimea disponibila in "cadrul albastru al intrebarii" (liftul) —
+  // ACEEASI cutie pe care questionMaxWidth() din falling-engine.js o masoara
+  // pt. fitNumberText (motivul pt. care acest quiz a optat afara din ea, vezi
+  // fixedTextSize mai sus: un <table> intreg are nevoie de logica proprie de
+  // fit, nu de shrink-to-fit generic pe text). #falling/.falling-inner sunt
+  // id/clase stabile din index.html, nu specifice acestui quiz.
+  function latimeDisponibilaInCadru() {
+    const lift = document.getElementById("falling");
+    if (!lift) return 0;
+    const rect = lift.getBoundingClientRect();
+    const inner = lift.querySelector(".falling-inner");
+    const padX = inner ? Math.max(12, (rect.width - inner.clientWidth) / 2 + 8) : 16;
+    return Math.max(0, Math.floor(rect.width - padX * 2));
+  }
+
+  // "mai mare"/"mai mic" fata de cadrul albastru (cerere user, 02.09.2026,
+  // numele si forma EXACT cum au fost cerute).
+  function comparaLatimeTabelCuLatimeDivAlbastru() {
+    const wrapper = document.getElementById(ID_WRAPPER);
+    if (!wrapper) return "mai mic";
+    const lc = latimeDisponibilaInCadru();
+    const lt = wrapper.getBoundingClientRect().width;
+    return lt > lc ? "mai mare" : "mai mic";
+  }
+
+  // Creste "Scris mic %" cu 1 cat timp mai are loc, apoi se opreste cu UN
+  // pas inapoi (cerere user, 02.09.2026): fara pasul inapoi, bucla s-ar opri
+  // exact pe prima valoare care DEPASESTE cadrul, nu pe ultima care inca
+  // incape. `scrieMarimeFontNumararePct` intoarce valoarea CLAMPATA — daca
+  // nu s-a schimbat fata de cea ceruta, am atins MARIME_FONT_NUMARARE_MAX si
+  // nu mai are unde creste (oprire, fara overflow de corectat).
+  function mareste() {
+    let precedenta = getMarimeFontNumararePct();
+    for (;;) {
+      const aplicata = scrieMarimeFontNumararePct(precedenta + 1);
+      if (aplicata === precedenta) return;
+      if (comparaLatimeTabelCuLatimeDivAlbastru() === "mai mare") {
+        scrieMarimeFontNumararePct(precedenta);
+        return;
+      }
+      precedenta = aplicata;
+    }
+  }
+
+  // Scade "Scris mic %" cu 1 cat timp tabelul tot depaseste cadrul. Se
+  // opreste exact cand incape (nu are nevoie de pas inapoi, spre deosebire de
+  // mareste() — "mai mic" e deja starea finala dorita). `scrieMarimeFontNumararePct`
+  // clampat la MARIME_FONT_NUMARARE_MIN opreste bucla si daca tabelul tot nu
+  // incape la minimul absolut (altfel ar bucla la infinit).
+  function micsoreaza() {
+    let valoare = getMarimeFontNumararePct();
+    while (comparaLatimeTabelCuLatimeDivAlbastru() === "mai mare") {
+      const aplicata = scrieMarimeFontNumararePct(valoare - 1);
+      if (aplicata === valoare) return;
+      valoare = aplicata;
+    }
+  }
+
+  // Singura functie apelata din afara — vezi planificaRedimensionareAutomata
+  // (in closure, stie cand tabelul nivelului curent chiar e in DOM). Exclusiv
+  // pt. acest quiz (cerere user, 02.09.2026): NU atinge "Marime font (px)"
+  // (marimea textului principal factor/x/nr-tabla/egal/produs — userul a
+  // cerut explicit sa ramana neschimbata, controlata STRICT manual din CP) —
+  // ajusteaza doar "Scris mic %", singurul procent care influenteaza latimea
+  // coloanelor "numarare", care se inmultesc cu nivelul (pana la 10).
+  function redimensionareAutomataTabelInmultiri() {
+    if (comparaLatimeTabelCuLatimeDivAlbastru() === "mai mare") micsoreaza();
+    else mareste();
   }
 
   // Numele canonice de coloana, exact cum le-a dat userul. "spatiu1"/"spatiu2"
@@ -208,10 +289,11 @@
       `text-align:center;min-width:1.5em;color:var(--text);box-sizing:border-box;}` +
       // "x/nr-tabla/egal ingusta la 1 caracter" (cerere user, 01.09.2026).
       `.ti-cell.ti-cell-simbol{min-width:1ch;}` +
-      // "scris in numarare mai mic" (cerere user, 01.09.2026) — procent CSS
-      // relativ la parintele mostenit (#ti-wrapper), calculeaza singur "N%
-      // din scrisul de la 3*5=15" fara nicio aritmetica in JS.
-      `.ti-cell.ti-cell-numarare{font-size:var(--ti-numarare-font-scala,50%);}` +
+      // "Scris mic %" — toate coloanele de dupa "produs" (cerere user,
+      // 02.09.2026, vezi claseCelula) — procent CSS relativ la parintele
+      // mostenit (#ti-wrapper), calculeaza singur "N% din scrisul de la
+      // 3*5=15" fara nicio aritmetica in JS.
+      `.ti-cell.ti-cell-mic{font-size:var(--ti-mic-font-scala,50%);}` +
       `#${ID_WRAPPER}.ti-grila .ti-cell{border-color:${CULOARE_GRILA};}`
     );
   }
@@ -291,6 +373,9 @@
     let options = [];
     let correctIndex = 0;
     let orchestrator = null;
+    // Nivelul pt. care s-a rulat deja redimensionareAutomataTabelInmultiri()
+    // — vezi planificaRedimensionareAutomata().
+    let ultimulNivelRedimensionat = null;
 
     function produsPentru(f, targetLevel = level) { return f * targetLevel; }
 
@@ -341,15 +426,24 @@
         // "scrie 2+ pe fiecare rand pe acare acum e doar 2" (user, 01.09.2026)
         // — inlocuieste randul-schela cu "+" separat.
         case "adunari-repetate": return `${level}+`;
-        case "counter": return "";
+        // Spatiu (nu string gol) — cerere user, 02.09.2026: coloanele-tampon
+        // dintre grupurile de coloane trebuie sa aiba continut vizibil (la
+        // fontul mic, ti-cell-mic), nu doar sa fie goale.
+        case "spatiu1": return " ";
+        case "spatiu2": return " ";
+        case "counter": return " ";
         default: return "";
       }
     }
 
+    // "toate coloanele dupa produs au font size dat de campul Scris mic %"
+    // (cerere user, 02.09.2026) — COLOANE_CADRU e EXACT {factor,x,nr-tabla,
+    // egal,produs}, deci "nu e in COLOANE_CADRU" == "e dupa produs", fara sa
+    // mai enumeram separat spatiu1/numarare*/spatiu2/adunari-repetate/counter.
     function claseCelula(coloana) {
       const extra = [];
       if (COLOANE_INGUSTE.includes(coloana)) extra.push("ti-cell-simbol");
-      if (coloana.startsWith("numarare")) extra.push("ti-cell-numarare");
+      if (!COLOANE_CADRU.includes(coloana)) extra.push("ti-cell-mic");
       return extra.length ? `ti-cell ${extra.join(" ")}` : "ti-cell";
     }
 
@@ -420,7 +514,7 @@
       const stilWrapper =
         `text-align:center;font-size:${getMarimeFontPx()}px;` +
         `--ti-pad-x:${getPaddingLateralPx()}px;--ti-pad-y:${getPaddingVerticalPx()}px;` +
-        `--ti-numarare-font-scala:${getMarimeFontNumararePct()}%;`;
+        `--ti-mic-font-scala:${getMarimeFontNumararePct()}%;`;
       return (
         `<div id="${ID_WRAPPER}" class="${clasaGrila.trim()}" style="${stilWrapper}">` +
         `<style>${stilPartajat()}</style>` +
@@ -500,11 +594,51 @@
       sincronizeazaOrchestratorul(vechiFactor);
     }
 
+    // Ruleaza redimensionareAutomataTabelInmultiri() o SINGURA DATA per nivel
+    // (cerere user, 02.09.2026) — dupa aceea userul poate ajusta manual
+    // "Scris mic %" din CP fara sa-i fie suprascrisa valoarea pana la
+    // urmatorul nivel. `ultimulNivelRedimensionat` tine minte pt. ce nivel
+    // s-a rulat deja, ca sa nu se repete la fiecare rerandare DIN interiorul
+    // aceluiasi nivel (raspuns corect pe alt factor, patch de tranzitie etc.
+    // — acelea NU trec prin incepeNivel()).
+    //
+    // Tabelul din DOM nu reflecta neaparat inca noul nivel in clipa asta: la
+    // avansul NATURAL de nivel (dupaRaspunsCorect), incepeNivel() ruleaza
+    // INAINTE de pauza/bannerul de schimbare de nivel (schimbare-de-nivel.js)
+    // — promptHtml-ul nou nu ajunge in DOM decat dupa ce se termina acea
+    // pauza. Verificam prin numarul de coloane "numarare" deja randate
+    // (trebuie sa fie exact `level`) daca tabelul AFISAT chiar corespunde
+    // nivelului curent, cu reincercari limitate (max ~5s) — acopera atat
+    // pornirea directa (fara nicio pauza), cat si avansul natural (cu pauza).
+    function planificaRedimensionareAutomata() {
+      const nivelDePlanificat = level;
+      let incercariRamase = 50;
+      const incearca = () => {
+        if (level !== nivelDePlanificat) return; // nivelul s-a schimbat iar intre timp, planul asta nu mai e valid
+        const wrapper = document.getElementById(ID_WRAPPER);
+        const coloaneNumarareInDom = wrapper
+          ? wrapper.querySelectorAll('[id^="ti-numarare"]').length / (MAX_FACTOR - MIN_FACTOR + 1)
+          : -1;
+        if (coloaneNumarareInDom === nivelDePlanificat) {
+          if (ultimulNivelRedimensionat !== nivelDePlanificat) {
+            ultimulNivelRedimensionat = nivelDePlanificat;
+            redimensionareAutomataTabelInmultiri();
+          }
+          return;
+        }
+        incercariRamase -= 1;
+        if (incercariRamase <= 0) return; // siguranta: tabelul nu s-a materializat, renuntam curat
+        setTimeout(incearca, 100);
+      };
+      requestAnimationFrame(incearca);
+    }
+
     function incepeNivel() {
       neterminate = [];
       for (let f = MIN_FACTOR; f <= MAX_FACTOR; f++) neterminate.push(f);
       aparitiiPerFact = {};
       pregatesteFactor(alegeFactorCurent(), null);
+      planificaRedimensionareAutomata();
     }
 
     // Motor 3 butoane (M3B): regula unica ramane neatinsa — "corect
@@ -688,9 +822,12 @@
         return vederePentruRunda();
       },
 
-      // CP - Tabla inmultirii - Tabel (cerere user, 01.09.2026): bifa
-      // "Ascunde titluri coloane" (implicit bifata) + steppere pt. padding,
-      // marime font (px) si marime scris in coloanele "numarare" (%).
+      // CP - Tabla inmultirii - Tabel (cerere user, 01.09.2026, extins
+      // 02.09.2026): bifa "Ascunde titluri coloane" (implicit bifata) +
+      // steppere pt. padding, marime font principal (px, manual STRICT) si
+      // "Scris mic %" (auto-calculat o data pe nivel, vezi
+      // planificaRedimensionareAutomata — userul poate regla manual intre
+      // nivele).
       // Tiparul de DOM (label+checkbox, div.pre-eq-stepper-field) copiat din
       // `appendRigleTabla110ControlPanel` (js/quizzes/rigle-tabla-1-10.js),
       // ca sa arate la fel ca restul panourilor CP.
@@ -745,7 +882,7 @@
         addStepper("Padding cell vertical", getPaddingVerticalPx, scriePaddingVerticalPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
         addStepper("Marime font (px)", getMarimeFontPx, scrieMarimeFontPx, MARIME_FONT_PX_MIN, MARIME_FONT_PX_MAX, MARIME_FONT_PX_PAS);
         addStepper(
-          'Scris in "numarare" %',
+          "Scris mic %",
           getMarimeFontNumararePct,
           scrieMarimeFontNumararePct,
           MARIME_FONT_NUMARARE_MIN,
