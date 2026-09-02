@@ -100,34 +100,35 @@
   const PADDING_PAS = 1;
   const CULOARE_GRILA = "#2d3d52"; // acelasi gri-albastru ca bordura .menu-toggle
 
-  // "Rocada comutativitate every turn" (cerere user, 02.09.2026) — la fiecare
-  // intrebare noua, in ACELASI nivel, coloanele "factor" si "nr-tabla" isi
-  // schimba locul (animat), demonstrand a*b=b*a. Stocat in ms (unitatea
-  // naturala pt. o animatie); CP-ul arata/scrie in secunde — acelasi tipar
-  // ca la alte durate din proiect (ex. getPauzaFinalizareNivelMs() din
-  // addition-table-singapore-missing.js). 0 = FUNCTIA DEZACTIVATA COMPLET
-  // (cerere expresa user, nu doar "swap instant") — coloanele raman fixe.
+  // "Mutare coloane" (cerere user, 02.09.2026) — la fiecare intrebare noua,
+  // in ACELASI nivel, tabelul poate anima o reordonare de coloane. Exact UN
+  // mod activ deodata, ales dintr-un dropdown in CP ("Mutare coloane:"):
+  //
+  //   - "rocada"      — coloanele "factor" si "nr-tabla" isi schimba locul
+  //                      (F1 comutat), demonstrand a*b=b*a.
+  //   - "alternareF2" — orientarea ecuatiei alterneaza intre "factor x
+  //                      nr-tabla = produs" (F2 STANGA) si "produs = factor
+  //                      x nr-tabla" (F2 DREAPTA) — vezi documente de
+  //                      referinta/EFF-REFERENCE.md, sectiunea 4.
+  //
+  // Fiecare mod are propria durata (secunde, stocata in ms — unitatea
+  // naturala pt. o animatie). 0 = modul ala, DACA E SELECTAT, e dezactivat
+  // complet (cerere expresa user, nu doar "swap instant") — coloanele raman
+  // fixe.
+  const LC_MUTARE_COLOANE_MOD = "tablaInmultiriiTabel.mutareColoaneMod";
+  const MUTARE_COLOANE_MOD_IMPLICIT = "rocada";
+
   const LC_ROCADA_DURATA_MS = "tablaInmultiriiTabel.rocadaDurataMs";
   const ROCADA_DURATA_S_IMPLICITA = 1.5;
   const ROCADA_DURATA_S_MIN = 0;
   const ROCADA_DURATA_S_MAX = 5;
   const ROCADA_DURATA_S_PAS = 0.1;
 
-  // "Alternare a=b*c cu b*c=a" (cerere user, 02.09.2026) — orientarea F2 a
-  // ecuatiei (documente de referinta/EFF-REFERENCE.md, sectiunea 4): la
-  // fiecare `durataMs`, tabelul alterneaza intre "factor x nr-tabla =
-  // produs" (F2 = STANGA, forma implicita a tabelului) si "produs = factor
-  // x nr-tabla" (F2 = DREAPTA). Independenta de rocada de mai sus (F1 —
-  // comutat = interschimba a si b); impreuna acopera 4 din cele 8 "fact
-  // forms" ale unui fapt de inmultire (celelalte 4 ar fi impartiri, F1
-  // complementar — nu au sens in acest quiz, care arata strict inmultiri).
-  // 0 = FUNCTIA DEZACTIVATA COMPLET (acelasi tipar ca la rocada) — tabelul
-  // ramane in forma implicita.
   const LC_ALTERNARE_F2_DURATA_MS = "tablaInmultiriiTabel.alternareF2DurataMs";
   const ALTERNARE_F2_DURATA_S_IMPLICITA = 0;
   const ALTERNARE_F2_DURATA_S_MIN = 0;
-  const ALTERNARE_F2_DURATA_S_MAX = 15;
-  const ALTERNARE_F2_DURATA_S_PAS = 1;
+  const ALTERNARE_F2_DURATA_S_MAX = 5;
+  const ALTERNARE_F2_DURATA_S_PAS = 0.1;
 
   function getAscundeTitluriColoane() {
     return global.LayoutConfig?.get(LC_ASCUNDE_TITLURI, true) ?? true;
@@ -174,6 +175,17 @@
     return getAlternareF2DurataMs() / 1000;
   }
 
+  function getMutareColoaneMod() {
+    const stocat = global.LayoutConfig?.get(LC_MUTARE_COLOANE_MOD, MUTARE_COLOANE_MOD_IMPLICIT);
+    return stocat === "alternareF2" ? "alternareF2" : "rocada";
+  }
+
+  function scrieMutareColoaneMod(mod) {
+    const valid = mod === "alternareF2" ? "alternareF2" : "rocada";
+    global.LayoutConfig?.set(LC_MUTARE_COLOANE_MOD, valid);
+    return valid;
+  }
+
   // Rotunjit la 0.1s (pasul stepper-ului) INAINTE de conversia in ms, ca sa
   // evitam erori de virgula mobila la clickuri repetate pe +/- (ex.
   // 1.5 - 0.1 - 0.1 = 1.2999999999999998 fara rotunjire) — acelasi motiv
@@ -183,6 +195,14 @@
     const clampat = Math.min(ROCADA_DURATA_S_MAX, Math.max(ROCADA_DURATA_S_MIN, valoare));
     const rotunjit = Math.round(clampat * 10) / 10;
     global.LayoutConfig?.set(LC_ROCADA_DURATA_MS, Math.round(rotunjit * 1000));
+    return rotunjit;
+  }
+
+  // Acelasi motiv de rotunjire ca la scrieRocadaDurataS.
+  function scrieAlternareF2DurataS(valoare) {
+    const clampat = Math.min(ALTERNARE_F2_DURATA_S_MAX, Math.max(ALTERNARE_F2_DURATA_S_MIN, valoare));
+    const rotunjit = Math.round(clampat * 10) / 10;
+    global.LayoutConfig?.set(LC_ALTERNARE_F2_DURATA_MS, Math.round(rotunjit * 1000));
     return rotunjit;
   }
 
@@ -364,10 +384,6 @@
   function idCelula(coloana, f) { return `${PREFIX}-${coloana}-${f}`; }
   function idRand(f) { return `${PREFIX}-rand-${f}`; }
   function idColoana(coloana) { return `${PREFIX}-col-${coloana}`; }
-
-  function asteapta(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
 
   // Placeholderul standard, cu fundal portocaliu in loc de galben (cerere
   // user). Pastreaza clasa `placeholder-pt-raspuns` neschimbata — de ea are
@@ -969,19 +985,11 @@
     // nivel nou (incepeNivel), ca un tabel proaspat sa porneasca mereu la
     // inmultire.
     let operatorCurent = SIMBOL_INMULTIRE;
-    // Adevarat cat timp O SINGURA reordonare de coloane (fie rocada F1, fie
-    // alternarea F2 — vezi ruleazaRocadaDacaActiva/buclaAlternareF2 mai jos)
-    // anima pe tabelul curent. IMPARTASIT intre cele doua in mod deliberat:
-    // rocadaColoane() si gliseazaColoaneMultipleInConfiguratie() au FIECARE
-    // propriul WeakSet intern de "tabele in animatie", dar SEPARATE intre
-    // ele — fara acest flag comun, cele doua ar putea anima SIMULTAN pe
-    // acelasi tabel (rocada schimba factor/nr-tabla exact cat alternarea F2
-    // muta tot grupul cadru), suprascriindu-si reciproc style-urile inline.
+    // Adevarat cat timp o reordonare de coloane (rocada F1 SAU alternarea
+    // F2 — mereu cel mult una, vezi "Mutare coloane" in CP, dropdown
+    // exclusiv) anima pe tabelul curent — evita sa pornim o a doua animatie
+    // cat timp prima inca ruleaza (copil care raspunde f. rapid).
     let oColoanaSeAnimeaza = false;
-    // Adevarat cat timp bucla de alternare F2 ruleaza deja — evita 2 instante
-    // pornite din greseala (ex. un click pe stepper chiar cand incepeNivel()
-    // a pornit-o deja).
-    let alternareF2Activa = false;
 
     function produsPentru(f, targetLevel = level) { return f * targetLevel; }
 
@@ -1199,29 +1207,7 @@
       apasariInAparitiaCurenta = 0;
       construiesteOptiuni();
       sincronizeazaOrchestratorul(vechiFactor);
-      ruleazaRocadaDacaActiva(vechiFactor);
-    }
-
-    // Comuta vizual coloanele "factor"/"nr-tabla" la fiecare intrebare noua
-    // DIN ACELASI nivel (vechiFactor != null — la prima intrebare a unui
-    // nivel nou tabelul tocmai a fost reconstruit integral in ordinea
-    // normala, deci nu exista o stare "dinainte" de la care sa animam un
-    // swap). Durata 0 = functia dezactivata complet (cerere expresa user) —
-    // coloanele raman fixe, nu se comuta niciodata.
-    //
-    // "Fire and forget": nu asteptam promisiunea — pregatesteFactor ramane
-    // sincron, ca tot restul motorului de raspuns. Daca o rocada e deja in
-    // desfasurare (copil care raspunde f. rapid), sarim peste turul asta:
-    // fara eroare, fara stare stricata, doar o animatie "sarita" — turul
-    // urmator reia normal.
-    function ruleazaRocadaDacaActiva(vechiFactor) {
-      if (vechiFactor == null) return;
-      const durataMs = getRocadaDurataMs();
-      if (durataMs <= 0 || oColoanaSeAnimeaza) return;
-      oColoanaSeAnimeaza = true;
-      rocadaColoane(ID_TABLE, idColoana("factor"), idColoana("nr-tabla"), durataMs)
-        .catch(() => {})
-        .finally(() => { oColoanaSeAnimeaza = false; });
+      ruleazaMutareaColoanelorDacaActiva(vechiFactor);
     }
 
     // Aplica un fact form complet (F1+F2) prin schimbaFactForm() (module-
@@ -1234,76 +1220,51 @@
       return schimbaFactForm(ID_TABLE, f1, f2, durataMs);
     }
 
-    // Scrie + porneste bucla daca tocmai s-a activat (0 -> valoare pozitiva)
-    // — spre deosebire de celelalte steppere din acest fisier (functii
-    // module-level), asta are nevoie sa porneasca buclaAlternareF2(), care
-    // e stare per-instanta de quiz, nu doar sa persiste o valoare in
-    // LayoutConfig.
-    function scrieAlternareF2DurataS(valoare) {
-      const clampat = Math.min(ALTERNARE_F2_DURATA_S_MAX, Math.max(ALTERNARE_F2_DURATA_S_MIN, valoare));
-      const rotunjit = Math.round(clampat);
-      global.LayoutConfig?.set(LC_ALTERNARE_F2_DURATA_MS, rotunjit * 1000);
-      buclaAlternareF2();
-      return rotunjit;
-    }
-
-    // Bucla de alternare F2: cat timp durata > 0, la fiecare `durataMs`
-    // schimba orientarea ecuatiei — foloseste aplicaFactForm()/
-    // schimbaFactForm() (mai sus), deci trece prin ACELASI wrapper general
-    // pe care l-ar folosi orice alt cod care ar vrea sa navigheze intre
-    // fact forms. Domeniul ei ramane STRICT f1_initial/f1_comutat (numai
-    // inmultire, "x") — nu atinge niciodata impartirea; daca in viitor va
-    // trebui sa alterneze si prin f1_complementar*, e alta cerere.
+    // Comuta vizual coloanele la fiecare intrebare noua DIN ACELASI nivel
+    // (vechiFactor != null — la prima intrebare a unui nivel nou tabelul
+    // tocmai a fost reconstruit integral in ordinea normala, deci nu exista
+    // o stare "dinainte" de la care sa animam un swap). Exact UN mod activ
+    // deodata (dropdown "Mutare coloane:" din CP — vezi getMutareColoaneMod):
     //
-    // F1 curent NU e citit din operatorCurent (ar fi ambiguu — initial si
-    // comutat au acelasi simbol "x"), ci DEDUS din ordinea reala a
-    // operanzilor din DOM: daca "factor" e primul dintre cei doi operanzi
-    // ACUM, suntem in f1_initial, altfel f1_comutat — asa se compune corect
-    // cu rocada comutativitate, care poate i-a schimbat deja ordinea.
+    //   - "rocada"      — rocadaColoane() interschimba "factor"/"nr-tabla"
+    //                      (F1 comutat), oriunde s-ar afla ele acum.
+    //   - "alternareF2" — aplicaFactForm() alterneaza orientarea (F2),
+    //                      pastrand ordinea curenta a operanzilor (deci daca
+    //                      userul trece ulterior pe modul "rocada", cele
+    //                      doua nu se calca reciproc).
     //
-    // Auto-rescheduleaza-se singura (nu setInterval) — asa nu se pot
-    // suprapune 2 chemari daca o animatie dureaza mai mult decat era
-    // planificat. `incercariEsuate` numara AMBELE cazuri "tabelul lipseste"
-    // si "coloana se anima deja (rocada)" — acelasi tipar de siguranta ca la
-    // planificaRedimensionareAutomata mai jos (max ~5s), ca sa nu bucleze la
-    // infinit daca userul a trecut la alt quiz cat timp asta rula.
-    async function buclaAlternareF2() {
-      if (alternareF2Activa) return;
-      alternareF2Activa = true;
-      let incercariEsuate = 0;
-      try {
-        for (;;) {
-          const durataMs = getAlternareF2DurataMs();
-          if (durataMs <= 0) return; // dezactivat - se reporneste din scrieAlternareF2DurataS
+    // Durata 0 pt. modul selectat = functia dezactivata complet (cerere
+    // expresa user) — coloanele raman fixe, nu se misca niciodata.
+    //
+    // "Fire and forget": nu asteptam promisiunea — pregatesteFactor ramane
+    // sincron, ca tot restul motorului de raspuns. Daca o mutare e deja in
+    // desfasurare (copil care raspunde f. rapid), sarim peste turul asta:
+    // fara eroare, fara stare stricata, doar o animatie "sarita" — turul
+    // urmator reia normal.
+    function ruleazaMutareaColoanelorDacaActiva(vechiFactor) {
+      if (vechiFactor == null || oColoanaSeAnimeaza) return;
 
-          const tabel = document.getElementById(ID_TABLE);
-          if (!tabel || oColoanaSeAnimeaza) {
-            incercariEsuate += 1;
-            if (incercariEsuate > 50) return; // alt quiz activ / blocaj persistent - renuntam curat
-            await asteapta(100);
-            continue;
-          }
-
-          oColoanaSeAnimeaza = true;
-          try {
-            const ordineaCurenta = citesteOrdineaTriadei(ID_TABLE); // [r0,r1,r2]
-            const produsPrimul = ordineaCurenta[0] === "produs";
-            const [operand1Real] = produsPrimul ? ordineaCurenta.slice(1) : ordineaCurenta;
-            const f1 = operand1Real === "factor" ? "f1_initial" : "f1_comutat";
-            const f2Nou = produsPrimul ? "stanga" : "dreapta";
-            await aplicaFactForm(f1, f2Nou, durataMs);
-            incercariEsuate = 0;
-          } catch {
-            incercariEsuate += 1;
-            if (incercariEsuate > 50) return;
-            await asteapta(100);
-          } finally {
-            oColoanaSeAnimeaza = false;
-          }
-        }
-      } finally {
-        alternareF2Activa = false;
+      if (getMutareColoaneMod() === "alternareF2") {
+        const durataMs = getAlternareF2DurataMs();
+        if (durataMs <= 0) return;
+        const ordineaCurenta = citesteOrdineaTriadei(ID_TABLE); // [r0,r1,r2]
+        const produsPrimul = ordineaCurenta[0] === "produs";
+        const [operand1Real] = produsPrimul ? ordineaCurenta.slice(1) : ordineaCurenta;
+        const f1 = operand1Real === "factor" ? "f1_initial" : "f1_comutat";
+        const f2Nou = produsPrimul ? "stanga" : "dreapta";
+        oColoanaSeAnimeaza = true;
+        aplicaFactForm(f1, f2Nou, durataMs)
+          .catch(() => {})
+          .finally(() => { oColoanaSeAnimeaza = false; });
+        return;
       }
+
+      const durataMs = getRocadaDurataMs();
+      if (durataMs <= 0) return;
+      oColoanaSeAnimeaza = true;
+      rocadaColoane(ID_TABLE, idColoana("factor"), idColoana("nr-tabla"), durataMs)
+        .catch(() => {})
+        .finally(() => { oColoanaSeAnimeaza = false; });
     }
 
     // Ruleaza redimensionareAutomataTabelInmultiri() o SINGURA DATA per nivel
@@ -1352,7 +1313,6 @@
       operatorCurent = SIMBOL_INMULTIRE;
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
-      buclaAlternareF2();
     }
 
     // Motor 3 butoane (M3B): regula unica ramane neatinsa — "corect
@@ -1542,7 +1502,8 @@
       // steppere pt. padding, marime font principal (px, manual STRICT) si
       // "Scris mic %" (auto-calculat o data pe nivel, vezi
       // planificaRedimensionareAutomata — userul poate regla manual intre
-      // nivele).
+      // nivele), plus dropdown-ul "Mutare coloane:" (rocada / alternare F2,
+      // exclusiv) cu stepperul de durata al modului curent selectat.
       // Tiparul de DOM (label+checkbox, div.pre-eq-stepper-field) copiat din
       // `appendRigleTabla110ControlPanel` (js/quizzes/rigle-tabla-1-10.js),
       // ca sa arate la fel ca restul panourilor CP.
@@ -1604,22 +1565,66 @@
           MARIME_FONT_NUMARARE_MAX,
           MARIME_FONT_NUMARARE_PAS
         );
-        addStepper(
-          "Rocada comutativitate (s)",
-          getRocadaDurataS,
-          scrieRocadaDurataS,
-          ROCADA_DURATA_S_MIN,
-          ROCADA_DURATA_S_MAX,
-          ROCADA_DURATA_S_PAS
-        );
-        addStepper(
-          "Alternare a=b×c cu b×c=a (s)",
-          getAlternareF2DurataS,
-          scrieAlternareF2DurataS,
-          ALTERNARE_F2_DURATA_S_MIN,
-          ALTERNARE_F2_DURATA_S_MAX,
-          ALTERNARE_F2_DURATA_S_PAS
-        );
+        // Dropdown compact, pe acelasi rand cu titlul lui — tipar reutilizat
+        // din appendSelectField (js/quizzes/addition-table-singapore-missing.js),
+        // ca sa arate la fel ca restul campurilor "select" din CP-urile
+        // proiectului. Doar UN mod de mutare a coloanelor activ deodata
+        // (cerere user, 02.09.2026: "e mai compact decat radio buttons") —
+        // vezi ruleazaMutareaColoanelorDacaActiva.
+        const appendSelectField = ({ eticheta, optiuni, get, set, onChange }) => {
+          const field = document.createElement("div");
+          field.className = "control-panel-lift-field control-panel-lift-field-inline";
+          const label = document.createElement("label");
+          label.textContent = eticheta;
+          const select = document.createElement("select");
+          optiuni.forEach(({ value, text }) => {
+            const optiune = document.createElement("option");
+            optiune.value = value;
+            optiune.textContent = text;
+            select.appendChild(optiune);
+          });
+          select.value = get();
+          select.addEventListener("change", () => {
+            set(select.value);
+            onChange?.();
+          });
+          field.append(label, select);
+          mount.appendChild(field);
+          return select;
+        };
+
+        appendSelectField({
+          eticheta: "Mutare coloane:",
+          optiuni: [
+            { value: "rocada", text: "Rocada comutativitate (s)" },
+            { value: "alternareF2", text: "Alternare a=b×c cu b×c=a (s)" },
+          ],
+          get: getMutareColoaneMod,
+          set: scrieMutareColoaneMod,
+          // Rerandeaza tot panoul — stepperul de durata afisat mai jos
+          // trebuie sa corespunda modului nou ales.
+          onChange: () => this.appendTablaInmultiriiTabelControlPanel(mount),
+        });
+
+        if (getMutareColoaneMod() === "alternareF2") {
+          addStepper(
+            "Durata (s)",
+            getAlternareF2DurataS,
+            scrieAlternareF2DurataS,
+            ALTERNARE_F2_DURATA_S_MIN,
+            ALTERNARE_F2_DURATA_S_MAX,
+            ALTERNARE_F2_DURATA_S_PAS
+          );
+        } else {
+          addStepper(
+            "Durata (s)",
+            getRocadaDurataS,
+            scrieRocadaDurataS,
+            ROCADA_DURATA_S_MIN,
+            ROCADA_DURATA_S_MAX,
+            ROCADA_DURATA_S_PAS
+          );
+        }
       },
     };
   }
