@@ -148,12 +148,26 @@
   // in ACELASI nivel, tabelul poate anima o reordonare de coloane. Exact UN
   // mod activ deodata, ales dintr-un dropdown in CP ("Mutare coloane:"):
   //
-  //   - "rocada"      — coloanele "factor" si "nr-tabla" isi schimba locul
-  //                      (F1 comutat), demonstrand a*b=b*a.
-  //   - "alternareF2" — orientarea ecuatiei alterneaza intre "factor x
-  //                      nr-tabla = produs" (F2 STANGA) si "produs = factor
-  //                      x nr-tabla" (F2 DREAPTA) — vezi documente de
-  //                      referinta/EFF-REFERENCE.md, sectiunea 4.
+  //   - "rocada"       — coloanele "factor" si "nr-tabla" isi schimba locul
+  //                       (F1 comutat), demonstrand a*b=b*a.
+  //   - "alternareF2"  — orientarea ecuatiei alterneaza intre "factor x
+  //                       nr-tabla = produs" (F2 STANGA) si "produs = factor
+  //                       x nr-tabla" (F2 DREAPTA) — vezi documente de
+  //                       referinta/EFF-REFERENCE.md, sectiunea 4.
+  //   - "toateEqForms" — "Toate eq forms cu ? la nr. mare" (cerere user,
+  //                       02.09.2026): sare la ALT fact form (dintre toate
+  //                       cele 8 — 4 F1 x 2 F2, vezi SCHIMBA FACT FORM mai
+  //                       jos), niciodata acelasi doua intrebari la rand.
+  //                       "?" ramane mereu pe rolul "produs" (celula cu
+  //                       placeholder e gasita prin id, nu prin pozitie —
+  //                       vezi continutCelula), care e mereu numarul cel mai
+  //                       mare din triada (factor,nr-tabla >= 1, deci
+  //                       produs = factor*nr-tabla >= ambele) — chiar si
+  //                       cand fact form-ul e unul de "impartire" (simbol
+  //                       ":", f1_complementar*, unde produs e in mod normal
+  //                       un operand DAT, nu rezultatul), intrebarea ramane
+  //                       aceeasi ("cat fac factor x nr-tabla?"), doar
+  //                       imbracata intr-o alta forma vizuala (ex. "?:3=4").
   //
   // Fiecare mod are propria durata (secunde, stocata in ms — unitatea
   // naturala pt. o animatie). 0 = modul ala, DACA E SELECTAT, e dezactivat
@@ -161,6 +175,7 @@
   // fixe.
   const LC_MUTARE_COLOANE_MOD = "tablaInmultiriiTabel.mutareColoaneMod";
   const MUTARE_COLOANE_MOD_IMPLICIT = "rocada";
+  const MUTARE_COLOANE_MODURI_VALIDE = new Set(["rocada", "alternareF2", "toateEqForms"]);
 
   const LC_ROCADA_DURATA_MS = "tablaInmultiriiTabel.rocadaDurataMs";
   const ROCADA_DURATA_S_IMPLICITA = 1.5;
@@ -173,6 +188,12 @@
   const ALTERNARE_F2_DURATA_S_MIN = 0;
   const ALTERNARE_F2_DURATA_S_MAX = 5;
   const ALTERNARE_F2_DURATA_S_PAS = 0.1;
+
+  const LC_TOATE_EQ_FORMS_DURATA_MS = "tablaInmultiriiTabel.toateEqFormsDurataMs";
+  const TOATE_EQ_FORMS_DURATA_S_IMPLICITA = 0;
+  const TOATE_EQ_FORMS_DURATA_S_MIN = 0;
+  const TOATE_EQ_FORMS_DURATA_S_MAX = 5;
+  const TOATE_EQ_FORMS_DURATA_S_PAS = 0.1;
 
   function getAdunareActiva() {
     return global.LayoutConfig?.get(LC_ADUNARE_ACTIVA, false) ?? false;
@@ -235,13 +256,22 @@
     return getAlternareF2DurataMs() / 1000;
   }
 
+  function getToateEqFormsDurataMs() {
+    const implicitMs = TOATE_EQ_FORMS_DURATA_S_IMPLICITA * 1000;
+    return global.LayoutConfig?.get(LC_TOATE_EQ_FORMS_DURATA_MS, implicitMs) ?? implicitMs;
+  }
+
+  function getToateEqFormsDurataS() {
+    return getToateEqFormsDurataMs() / 1000;
+  }
+
   function getMutareColoaneMod() {
     const stocat = global.LayoutConfig?.get(LC_MUTARE_COLOANE_MOD, MUTARE_COLOANE_MOD_IMPLICIT);
-    return stocat === "alternareF2" ? "alternareF2" : "rocada";
+    return MUTARE_COLOANE_MODURI_VALIDE.has(stocat) ? stocat : MUTARE_COLOANE_MOD_IMPLICIT;
   }
 
   function scrieMutareColoaneMod(mod) {
-    const valid = mod === "alternareF2" ? "alternareF2" : "rocada";
+    const valid = MUTARE_COLOANE_MODURI_VALIDE.has(mod) ? mod : MUTARE_COLOANE_MOD_IMPLICIT;
     global.LayoutConfig?.set(LC_MUTARE_COLOANE_MOD, valid);
     return valid;
   }
@@ -263,6 +293,14 @@
     const clampat = Math.min(ALTERNARE_F2_DURATA_S_MAX, Math.max(ALTERNARE_F2_DURATA_S_MIN, valoare));
     const rotunjit = Math.round(clampat * 10) / 10;
     global.LayoutConfig?.set(LC_ALTERNARE_F2_DURATA_MS, Math.round(rotunjit * 1000));
+    return rotunjit;
+  }
+
+  // Acelasi motiv de rotunjire ca la scrieRocadaDurataS.
+  function scrieToateEqFormsDurataS(valoare) {
+    const clampat = Math.min(TOATE_EQ_FORMS_DURATA_S_MAX, Math.max(TOATE_EQ_FORMS_DURATA_S_MIN, valoare));
+    const rotunjit = Math.round(clampat * 10) / 10;
+    global.LayoutConfig?.set(LC_TOATE_EQ_FORMS_DURATA_MS, Math.round(rotunjit * 1000));
     return rotunjit;
   }
 
@@ -956,6 +994,13 @@
 
   const ROLURI_TRIADA = ["factor", "nr-tabla", "produs"];
 
+  // Toate cele 8 combinatii F1 x F2 posibile — folosite de modul "Toate eq
+  // forms" (vezi aleeFactFormDiferita/ruleazaMutareaColoanelorDacaActiva, in
+  // createTablaInmultiriiTabelQuiz).
+  const TOATE_FACT_FORMS = Object.keys(F1_TRANSFORMARI).flatMap((f1) =>
+    ["stanga", "dreapta"].map((f2) => ({ f1, f2 }))
+  );
+
   // Citeste ordinea CURENTA a celor 3 roluri numerice direct din DOM
   // (colgroup) — nu presupune nicio stare retinuta separat pt. POZITIA lor
   // (doar simbolul "x"/":" are nevoie de stare urmarita, vezi
@@ -1086,6 +1131,13 @@
     // in restul fisierului, ca toate cele 10 randuri ale unui nivel deja
     // randat sa ramana garantat in ACEEASI operatie.
     let adunareActivaNivel = getAdunareActiva();
+    // Ultimul fact form ales de modul "Toate eq forms" — vezi
+    // aleeFactFormDiferita/ruleazaMutareaColoanelorDacaActiva mai jos. Evita
+    // sa alegem din nou ACELASI fact form doua intrebari la rand ("la ALT
+    // eqform", cerere user). Resetat la fiecare nivel nou — un tabel
+    // proaspat porneste mereu la f1_initial+stanga, deci orice fact form e
+    // valabil pt. prima rotatie a noului nivel.
+    let ultimaFactForm = null;
 
     // Rezultatul randului — produsul (inmultire) sau suma (adunare), dupa
     // instantaneul de nivel adunareActivaNivel (nu getAdunareActiva() live —
@@ -1362,10 +1414,34 @@
     // desfasurare (copil care raspunde f. rapid), sarim peste turul asta:
     // fara eroare, fara stare stricata, doar o animatie "sarita" — turul
     // urmator reia normal.
+    // Alege un fact form (F1+F2) diferit de ultimul aplicat de acest mod —
+    // vezi ultimaFactForm mai sus. shuffle() e acelasi utilitar folosit de
+    // alegeFactorCurent mai sus, nu Math.random() direct.
+    function aleeFactFormDiferita() {
+      const candidati = ultimaFactForm
+        ? TOATE_FACT_FORMS.filter((ff) => ff.f1 !== ultimaFactForm.f1 || ff.f2 !== ultimaFactForm.f2)
+        : TOATE_FACT_FORMS;
+      const aleasa = shuffle(candidati)[0];
+      ultimaFactForm = aleasa;
+      return aleasa;
+    }
+
     function ruleazaMutareaColoanelorDacaActiva(vechiFactor) {
       if (vechiFactor == null || oColoanaSeAnimeaza) return;
+      const mod = getMutareColoaneMod();
 
-      if (getMutareColoaneMod() === "alternareF2") {
+      if (mod === "toateEqForms") {
+        const durataMs = getToateEqFormsDurataMs();
+        if (durataMs <= 0) return;
+        const { f1, f2 } = aleeFactFormDiferita();
+        oColoanaSeAnimeaza = true;
+        aplicaFactForm(f1, f2, durataMs)
+          .catch(() => {})
+          .finally(() => { oColoanaSeAnimeaza = false; });
+        return;
+      }
+
+      if (mod === "alternareF2") {
         const durataMs = getAlternareF2DurataMs();
         if (durataMs <= 0) return;
         const ordineaCurenta = citesteOrdineaTriadei(ID_TABLE); // [r0,r1,r2]
@@ -1433,6 +1509,7 @@
       aparitiiPerFact = {};
       operatorCurent = SIMBOL_INMULTIRE;
       adunareActivaNivel = getAdunareActiva();
+      ultimaFactForm = null;
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
     }
@@ -1581,6 +1658,7 @@
         correctIndex = 0;
         operatorCurent = SIMBOL_INMULTIRE;
         adunareActivaNivel = getAdunareActiva();
+        ultimaFactForm = null;
       },
 
       switchLevel(nextLevel) {
@@ -1728,6 +1806,7 @@
           optiuni: [
             { value: "rocada", text: "Rocada comutativitate (s)" },
             { value: "alternareF2", text: "Alternare a=b×c cu b×c=a (s)" },
+            { value: "toateEqForms", text: "Toate eq forms cu ? la nr. mare (s)" },
           ],
           get: getMutareColoaneMod,
           set: scrieMutareColoaneMod,
@@ -1744,6 +1823,15 @@
             ALTERNARE_F2_DURATA_S_MIN,
             ALTERNARE_F2_DURATA_S_MAX,
             ALTERNARE_F2_DURATA_S_PAS
+          );
+        } else if (getMutareColoaneMod() === "toateEqForms") {
+          addStepper(
+            "Durata (s)",
+            getToateEqFormsDurataS,
+            scrieToateEqFormsDurataS,
+            TOATE_EQ_FORMS_DURATA_S_MIN,
+            TOATE_EQ_FORMS_DURATA_S_MAX,
+            TOATE_EQ_FORMS_DURATA_S_PAS
           );
         } else {
           addStepper(
