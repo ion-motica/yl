@@ -172,6 +172,24 @@
   //                       un operand DAT, nu rezultatul), intrebarea ramane
   //                       aceeasi ("cat fac factor x nr-tabla?"), doar
   //                       imbracata intr-o alta forma vizuala (ex. "?:3=4").
+  //   - "toateEqFormsFaraNrTabla" — "Toate eq forms fara numarul subtablei
+  //                       ca ?" (cerere user, 02.09.2026): ca "toateEqForms",
+  //                       dar "?" NU mai e fix pe "produs" — se muta pe rolul
+  //                       "rezultat" al fact form-ului ales (vezi
+  //                       rolIntrebareCurent, valoareCorectaPentru mai jos),
+  //                       deci poate ajunge pe "factor" (la f1_complementar)
+  //                       sau ramane pe "produs" (f1_initial/f1_comutat) —
+  //                       NICIODATA pe "nr-tabla" (f1_complementar_comutat,
+  //                       exclus din pool, vezi TOATE_FACT_FORMS_FARA_NR_TABLA):
+  //                       "nr-tabla" e CONSTANT pe tot nivelul (mereu = level),
+  //                       deci o intrebare cu "?" acolo ar avea mereu acelasi
+  //                       raspuns, indiferent de rand — nu testeaza nimic.
+  //   - "toateEqFormsOriceRol" — "Toate eq forms, orice rol ca ?" (cerere
+  //                       user, 02.09.2026): la fel ca varianta de mai sus,
+  //                       dar FARA excluderea lui "nr-tabla" — toate cele 8
+  //                       forme raman posibile, deci "?" poate ajunge si pe
+  //                       "nr-tabla" (intrebare cu raspuns constant pe tot
+  //                       nivelul — acceptata explicit de user pt. acest mod).
   //
   // Fiecare mod are propria durata (secunde, stocata in ms — unitatea
   // naturala pt. o animatie). 0 = modul ala, DACA E SELECTAT, e dezactivat
@@ -179,7 +197,13 @@
   // fixe.
   const LC_MUTARE_COLOANE_MOD = "tablaInmultiriiTabel.mutareColoaneMod";
   const MUTARE_COLOANE_MOD_IMPLICIT = "rocada";
-  const MUTARE_COLOANE_MODURI_VALIDE = new Set(["rocada", "alternareF2", "toateEqForms"]);
+  const MUTARE_COLOANE_MODURI_VALIDE = new Set([
+    "rocada",
+    "alternareF2",
+    "toateEqForms",
+    "toateEqFormsFaraNrTabla",
+    "toateEqFormsOriceRol",
+  ]);
 
   const LC_ROCADA_DURATA_MS = "tablaInmultiriiTabel.rocadaDurataMs";
   const ROCADA_DURATA_S_IMPLICITA = 1.5;
@@ -198,6 +222,20 @@
   const TOATE_EQ_FORMS_DURATA_S_MIN = 0;
   const TOATE_EQ_FORMS_DURATA_S_MAX = 5;
   const TOATE_EQ_FORMS_DURATA_S_PAS = 0.1;
+
+  const LC_TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_MS =
+    "tablaInmultiriiTabel.toateEqFormsFaraNrTablaDurataMs";
+  const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_IMPLICITA = 0;
+  const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MIN = 0;
+  const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MAX = 5;
+  const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_PAS = 0.1;
+
+  const LC_TOATE_EQ_FORMS_ORICE_ROL_DURATA_MS =
+    "tablaInmultiriiTabel.toateEqFormsOriceRolDurataMs";
+  const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_IMPLICITA = 0;
+  const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MIN = 0;
+  const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MAX = 5;
+  const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_PAS = 0.1;
 
   function getAdunareActiva() {
     return global.LayoutConfig?.get(LC_ADUNARE_ACTIVA, false) ?? false;
@@ -269,6 +307,24 @@
     return getToateEqFormsDurataMs() / 1000;
   }
 
+  function getToateEqFormsFaraNrTablaDurataMs() {
+    const implicitMs = TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_IMPLICITA * 1000;
+    return global.LayoutConfig?.get(LC_TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_MS, implicitMs) ?? implicitMs;
+  }
+
+  function getToateEqFormsFaraNrTablaDurataS() {
+    return getToateEqFormsFaraNrTablaDurataMs() / 1000;
+  }
+
+  function getToateEqFormsOriceRolDurataMs() {
+    const implicitMs = TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_IMPLICITA * 1000;
+    return global.LayoutConfig?.get(LC_TOATE_EQ_FORMS_ORICE_ROL_DURATA_MS, implicitMs) ?? implicitMs;
+  }
+
+  function getToateEqFormsOriceRolDurataS() {
+    return getToateEqFormsOriceRolDurataMs() / 1000;
+  }
+
   function getMutareColoaneMod() {
     const stocat = global.LayoutConfig?.get(LC_MUTARE_COLOANE_MOD, MUTARE_COLOANE_MOD_IMPLICIT);
     return MUTARE_COLOANE_MODURI_VALIDE.has(stocat) ? stocat : MUTARE_COLOANE_MOD_IMPLICIT;
@@ -305,6 +361,28 @@
     const clampat = Math.min(TOATE_EQ_FORMS_DURATA_S_MAX, Math.max(TOATE_EQ_FORMS_DURATA_S_MIN, valoare));
     const rotunjit = Math.round(clampat * 10) / 10;
     global.LayoutConfig?.set(LC_TOATE_EQ_FORMS_DURATA_MS, Math.round(rotunjit * 1000));
+    return rotunjit;
+  }
+
+  // Acelasi motiv de rotunjire ca la scrieRocadaDurataS.
+  function scrieToateEqFormsFaraNrTablaDurataS(valoare) {
+    const clampat = Math.min(
+      TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MAX,
+      Math.max(TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MIN, valoare)
+    );
+    const rotunjit = Math.round(clampat * 10) / 10;
+    global.LayoutConfig?.set(LC_TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_MS, Math.round(rotunjit * 1000));
+    return rotunjit;
+  }
+
+  // Acelasi motiv de rotunjire ca la scrieRocadaDurataS.
+  function scrieToateEqFormsOriceRolDurataS(valoare) {
+    const clampat = Math.min(
+      TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MAX,
+      Math.max(TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MIN, valoare)
+    );
+    const rotunjit = Math.round(clampat * 10) / 10;
+    global.LayoutConfig?.set(LC_TOATE_EQ_FORMS_ORICE_ROL_DURATA_MS, Math.round(rotunjit * 1000));
     return rotunjit;
   }
 
@@ -1021,11 +1099,21 @@
 
   const ROLURI_TRIADA = ["factor", "nr-tabla", "produs"];
 
-  // Toate cele 8 combinatii F1 x F2 posibile — folosite de modul "Toate eq
-  // forms" (vezi aleeFactFormDiferita/ruleazaMutareaColoanelorDacaActiva, in
-  // createTablaInmultiriiTabelQuiz).
+  // Toate cele 8 combinatii F1 x F2 posibile — folosite de toate modurile
+  // "Toate eq forms*" (vezi aleeFactFormDiferita/ruleazaMutareaColoanelorDacaActiva,
+  // in createTablaInmultiriiTabelQuiz).
   const TOATE_FACT_FORMS = Object.keys(F1_TRANSFORMARI).flatMap((f1) =>
     ["stanga", "dreapta"].map((f2) => ({ f1, f2 }))
+  );
+
+  // Subset fara formele care ar pune "?" pe "nr-tabla" (cerere user,
+  // 02.09.2026 — "toate eq forms except numarul subtablei"). "nr-tabla" e
+  // CONSTANT pe tot nivelul (ex. mereu 7 la tabla lui 7) — o intrebare cu "?"
+  // acolo ar avea mereu acelasi raspuns corect, indiferent de rand, deci nu
+  // testeaza nimic. F1_TRANSFORMARI[f1].rezultat = rolul care devine "?"
+  // pt. acel f1 (vezi rolIntrebareCurent mai jos).
+  const TOATE_FACT_FORMS_FARA_NR_TABLA = TOATE_FACT_FORMS.filter(
+    (ff) => F1_TRANSFORMARI[ff.f1].rezultat !== "nr-tabla"
   );
 
   // Citeste ordinea CURENTA a celor 3 roluri numerice direct din DOM
@@ -1292,6 +1380,14 @@
     // proaspat porneste mereu la f1_initial+stanga, deci orice fact form e
     // valabil pt. prima rotatie a noului nivel.
     let ultimaFactForm = null;
+    // Rolul din triada (factor/nr-tabla/produs) pe care sta "?" ACUM — vezi
+    // continutCelula/esteCorect/construiesteOptiuni mai jos. Implicit
+    // "produs" (comportamentul dintotdeauna, valabil pt. rocada/alternareF2/
+    // toateEqForms) — DOAR modurile "toateEqFormsFaraNrTabla" si
+    // "toateEqFormsOriceRol" il schimba, in ruleazaMutareaColoanelorDacaActiva,
+    // pe rolul "rezultat" al fact form-ului ales (cerere user, 02.09.2026).
+    // Resetat la fiecare nivel nou, ca ultimaFactForm.
+    let rolIntrebareCurent = "produs";
     // ResizeObserver pe #ti-wrapper — vezi resincronizeazaRamele/
     // porniObservatorRezizeRama mai jos. O singura instanta, refolosita
     // (nu recreata) la fiecare nivel nou — doar tinta ei (.observe) se
@@ -1304,6 +1400,19 @@
     // din 02.09.2026, de cand poate calcula si suma.
     function rezultatPentru(f, targetLevel = level) {
       return adunareActivaNivel ? f + targetLevel : f * targetLevel;
+    }
+
+    // Valoarea corecta pt. rolul care e ACUM "?" (rolIntrebareCurent) — de
+    // regula "produs" (rezultatPentru, ca dintotdeauna), dar la modurile
+    // "toateEqFormsFaraNrTabla"/"toateEqFormsOriceRol" poate fi "factor"
+    // (chiar randul, f) sau "nr-tabla" (nivelul, constant). Un singur loc
+    // care stie asta — folosit de randare (continutCelula), de verificarea
+    // raspunsului (esteCorect) si de generarea optiunilor
+    // (construiesteOptiuni), ca sa nu se poata desincroniza intre ele.
+    function valoareCorectaPentru(f, targetLevel = level) {
+      if (rolIntrebareCurent === "factor") return f;
+      if (rolIntrebareCurent === "nr-tabla") return targetLevel;
+      return rezultatPentru(f, targetLevel);
     }
 
     // Acelasi fapt (a=nivel, b=factor) ca la adaptoarele existente
@@ -1387,12 +1496,14 @@
     // Continutul (fara <td>) al unei celule — comun randarii complete SI
     // patch-ului de tranzitie, ca sa nu existe doua locuri care decid cum
     // arata o celula (vezi js/bond-inventory.js pt. acelasi principiu).
-    // Singurul semnal vizual al intrebarii active e "?" pe celula "produs"
-    // (fara chenar in jurul grupului — scos explicit, user 02.09.2026).
+    // Singurul semnal vizual al intrebarii active e "?" pe celula al carei
+    // rol e rolIntrebareCurent — de regula "produs" (fara chenar in jurul
+    // grupului — scos explicit, user 02.09.2026), dar poate fi "factor" la
+    // modurile "toateEqForms*" noi (vezi valoareCorectaPentru mai sus).
     function continutCelula(coloana, f, esteActiv) {
       const valoare =
-        coloana === "produs" && esteActiv
-          ? placeholder.marcaj(rezultatPentru(f) >= 10)
+        coloana === rolIntrebareCurent && esteActiv
+          ? placeholder.marcaj(valoareCorectaPentru(f) >= 10)
           : valoareStaticaCelula(coloana, f);
       return `<span>${valoare}</span>`;
     }
@@ -1511,16 +1622,42 @@
       return { ...vederePentruRunda(extra), elementeDivIntrebare: elementePatchTranzitie(vechiFactor, factorCurent) };
     }
 
+    // Candidati de distractor pt. rolul "nr-tabla" — spre deosebire de
+    // "factor"/"produs" (unde raspunsul corect variaza cu randul f, deci un
+    // interval larg 1..max ofera destule valori PLAUZIBILE), "nr-tabla" e
+    // CONSTANT pe tot nivelul (mereu = level) — un interval larg ar da
+    // distractori evident departati (usor de eliminat prin comparatie), deci
+    // ii alegem explicit din vecinatatea lui level (ex. la nivel 7: 6,8,5,9...).
+    function candidatiDistractorNrTabla() {
+      const candidati = [];
+      for (let delta = 1; candidati.length < 8; delta++) {
+        if (level - delta >= 1) candidati.push(level - delta);
+        candidati.push(level + delta);
+      }
+      return candidati;
+    }
+
     function construiesteOptiuni() {
-      const corect = rezultatPentru(factorCurent);
+      const corect = valoareCorectaPentru(factorCurent);
       // "distractorii random din intervalul 1-level*10" (user, 01.09.2026)
       // — la inmultire. `rezultatPentru(MAX_FACTOR)` da automat marginea
       // corecta si la adunare (level+MAX_FACTOR, suma maxima posibila pe
       // nivelul asta) — ACEEASI functie ca la `corect` mai sus, deci nu se
-      // pot desincroniza intre ele daca se schimba vreodata formula.
-      const max = rezultatPentru(MAX_FACTOR);
-      const candidati = [];
-      for (let v = 1; v <= max; v++) if (v !== corect) candidati.push(v);
+      // pot desincroniza intre ele daca se schimba vreodata formula. La
+      // modurile "toateEqForms*" (cerere user, 02.09.2026), rolIntrebareCurent
+      // poate fi si "factor" (interval 1..MAX_FACTOR) sau "nr-tabla"
+      // (candidatiDistractorNrTabla — vezi comentariul de acolo).
+      let candidati;
+      if (rolIntrebareCurent === "factor") {
+        candidati = [];
+        for (let v = MIN_FACTOR; v <= MAX_FACTOR; v++) if (v !== corect) candidati.push(v);
+      } else if (rolIntrebareCurent === "nr-tabla") {
+        candidati = candidatiDistractorNrTabla().filter((v) => v !== corect);
+      } else {
+        const max = rezultatPentru(MAX_FACTOR);
+        candidati = [];
+        for (let v = 1; v <= max; v++) if (v !== corect) candidati.push(v);
+      }
       const gresite = shuffle(candidati).slice(0, 2);
       options = shuffle([corect, gresite[0], gresite[1]]).map(String);
       correctIndex = options.indexOf(String(corect));
@@ -1540,9 +1677,17 @@
     function pregatesteFactor(nou, vechiFactor) {
       factorCurent = nou;
       apasariInAparitiaCurenta = 0;
+      // ruleazaMutareaColoanelorDacaActiva INAINTE de construiesteOptiuni/
+      // sincronizeazaOrchestratorul (ordine schimbata, cerere user,
+      // 02.09.2026): la modurile "toateEqForms*" ea decide si
+      // rolIntrebareCurent (pe ce rol sta "?" acum) — optiunile si patch-ul
+      // de randare de mai jos trebuie sa vada valoarea NOUA, nu pe cea
+      // ramasa de la intrebarea anterioara. Pt. celelalte moduri (rocada/
+      // alternareF2/toateEqForms), rolIntrebareCurent ramane oricum "produs"
+      // — reordonarea nu le schimba comportamentul.
+      ruleazaMutareaColoanelorDacaActiva(vechiFactor);
       construiesteOptiuni();
       sincronizeazaOrchestratorul(vechiFactor);
-      ruleazaMutareaColoanelorDacaActiva(vechiFactor);
       glisiazaRamaLaFactorCurent(vechiFactor);
       gliseazaRamaVerticalaLaFactorCurent(vechiFactor, ID_RAMA_NUMARARE, "numarare1", `numarare${level}`);
       gliseazaRamaVerticalaLaFactorCurent(vechiFactor, ID_RAMA_ADUNARI_REPETATE, "adunari-repetate", "adunari-repetate");
@@ -1582,10 +1727,12 @@
     // Alege un fact form (F1+F2) diferit de ultimul aplicat de acest mod —
     // vezi ultimaFactForm mai sus. shuffle() e acelasi utilitar folosit de
     // alegeFactorCurent mai sus, nu Math.random() direct.
-    function aleeFactFormDiferita() {
+    // `pool` — de regula TOATE_FACT_FORMS (8), dar modul "toateEqFormsFaraNrTabla"
+    // paseaza TOATE_FACT_FORMS_FARA_NR_TABLA (6) — vezi ruleazaMutareaColoanelorDacaActiva.
+    function aleeFactFormDiferita(pool = TOATE_FACT_FORMS) {
       const candidati = ultimaFactForm
-        ? TOATE_FACT_FORMS.filter((ff) => ff.f1 !== ultimaFactForm.f1 || ff.f2 !== ultimaFactForm.f2)
-        : TOATE_FACT_FORMS;
+        ? pool.filter((ff) => ff.f1 !== ultimaFactForm.f1 || ff.f2 !== ultimaFactForm.f2)
+        : pool;
       const aleasa = shuffle(candidati)[0];
       ultimaFactForm = aleasa;
       return aleasa;
@@ -1627,6 +1774,8 @@
       const mod = getMutareColoaneMod();
       if (mod === "alternareF2") return getAlternareF2DurataMs();
       if (mod === "toateEqForms") return getToateEqFormsDurataMs();
+      if (mod === "toateEqFormsFaraNrTabla") return getToateEqFormsFaraNrTablaDurataMs();
+      if (mod === "toateEqFormsOriceRol") return getToateEqFormsOriceRolDurataMs();
       return getRocadaDurataMs();
     }
 
@@ -1650,6 +1799,30 @@
     function ruleazaMutareaColoanelorDacaActiva(vechiFactor) {
       if (vechiFactor == null || oColoanaSeAnimeaza) return;
       const mod = getMutareColoaneMod();
+
+      // Cele doua moduri noi (cerere user, 02.09.2026) sunt singurele care
+      // muta "?" de pe "produs" — vezi rolIntrebareCurent (declaratie mai
+      // sus) si valoareCorectaPentru. Toate celelalte moduri de mai jos
+      // reseteaza explicit inapoi pe "produs", ca o eventuala trecere
+      // anterioara prin unul din aceste doua (cu "?" pe alt rol) sa nu
+      // ramana "agatata" dupa ce userul schimba modul din dropdown.
+      if (mod === "toateEqFormsFaraNrTabla" || mod === "toateEqFormsOriceRol") {
+        const durataMs =
+          mod === "toateEqFormsFaraNrTabla"
+            ? getToateEqFormsFaraNrTablaDurataMs()
+            : getToateEqFormsOriceRolDurataMs();
+        if (durataMs <= 0) return;
+        const pool = mod === "toateEqFormsFaraNrTabla" ? TOATE_FACT_FORMS_FARA_NR_TABLA : TOATE_FACT_FORMS;
+        const { f1, f2 } = aleeFactFormDiferita(pool);
+        rolIntrebareCurent = F1_TRANSFORMARI[f1].rezultat;
+        oColoanaSeAnimeaza = true;
+        aplicaFactForm(f1, f2, durataMs)
+          .catch(() => {})
+          .finally(() => { oColoanaSeAnimeaza = false; });
+        return;
+      }
+
+      rolIntrebareCurent = "produs";
 
       if (mod === "toateEqForms") {
         const durataMs = getToateEqFormsDurataMs();
@@ -1846,6 +2019,7 @@
       operatorCurent = SIMBOL_INMULTIRE;
       adunareActivaNivel = getAdunareActiva();
       ultimaFactForm = null;
+      rolIntrebareCurent = "produs";
       pregatesteFactor(alegeFactorCurent(), null);
       planificaRedimensionareAutomata();
       planificaRamaLaNivelNou();
@@ -1873,7 +2047,7 @@
         hintMessage: hintMessageCurent(adunareActivaNivel),
         esteCorect: (_item, index) => {
           apasariInAparitiaCurenta += 1;
-          return Number(options[index]) === rezultatPentru(factorCurent);
+          return Number(options[index]) === valoareCorectaPentru(factorCurent);
         },
         generator: () => ({}),
         mesaje: {
@@ -1998,6 +2172,7 @@
         operatorCurent = SIMBOL_INMULTIRE;
         adunareActivaNivel = getAdunareActiva();
         ultimaFactForm = null;
+        rolIntrebareCurent = "produs";
       },
 
       switchLevel(nextLevel) {
@@ -2146,6 +2321,8 @@
             { value: "rocada", text: "Rocada comutativitate (s)" },
             { value: "alternareF2", text: "Alternare a=b×c cu b×c=a (s)" },
             { value: "toateEqForms", text: "Toate eq forms cu ? la nr. mare (s)" },
+            { value: "toateEqFormsFaraNrTabla", text: "Toate eq forms fără numărul subtablei ca ? (s)" },
+            { value: "toateEqFormsOriceRol", text: "Toate eq forms, orice rol ca ? (s)" },
           ],
           get: getMutareColoaneMod,
           set: scrieMutareColoaneMod,
@@ -2171,6 +2348,24 @@
             TOATE_EQ_FORMS_DURATA_S_MIN,
             TOATE_EQ_FORMS_DURATA_S_MAX,
             TOATE_EQ_FORMS_DURATA_S_PAS
+          );
+        } else if (getMutareColoaneMod() === "toateEqFormsFaraNrTabla") {
+          addStepper(
+            "Durata mutare coloane (s)",
+            getToateEqFormsFaraNrTablaDurataS,
+            scrieToateEqFormsFaraNrTablaDurataS,
+            TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MIN,
+            TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MAX,
+            TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_PAS
+          );
+        } else if (getMutareColoaneMod() === "toateEqFormsOriceRol") {
+          addStepper(
+            "Durata mutare coloane (s)",
+            getToateEqFormsOriceRolDurataS,
+            scrieToateEqFormsOriceRolDurataS,
+            TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MIN,
+            TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MAX,
+            TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_PAS
           );
         } else {
           addStepper(
