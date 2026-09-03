@@ -1173,6 +1173,38 @@
     butonVizualizare3.addEventListener("click", () => deschideVizualizare3Claude());
     mount.appendChild(butonVizualizare3);
 
+    // Buton HTML clasic, fara clasa CSS (acelasi tipar ca butonVizualizare3
+    // mai sus) — cerere user, 03.09.2026: link la quizul activ CU parametrii
+    // curenti din CP, gata de copiat/trimis. Foloseste contractul
+    // getSharedLink(), implementat pana acum doar in tabla-inmultirii-tabel.js
+    // (mirror dupa equations-e3-e6.js) — pt. orice alt quiz care nu-l are
+    // inca, butonul nu apare (vezi if-ul din listener).
+    const TEXT_BUTON_LINK = "Generează link la quizul curent cu parametrii curenți și copy in clipboard";
+    const butonGenereazaLink = document.createElement("button");
+    butonGenereazaLink.type = "button";
+    butonGenereazaLink.textContent = TEXT_BUTON_LINK;
+    butonGenereazaLink.addEventListener("click", async () => {
+      if (!quiz || typeof quiz.getSharedLink !== "function") return;
+      const link = quiz.getSharedLink();
+      const arataConfirmare = () => {
+        butonGenereazaLink.textContent = "Link copiat!";
+        setTimeout(() => {
+          butonGenereazaLink.textContent = TEXT_BUTON_LINK;
+        }, 1500);
+      };
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(link);
+          arataConfirmare();
+          return;
+        }
+      } catch (_) {
+        // cade pe fallback-ul de mai jos
+      }
+      window.prompt("Copiaza linkul de mai jos:", link);
+    });
+    mount.appendChild(butonGenereazaLink);
+
     const row = document.createElement("label");
     row.className = "control-panel-lift-row";
     const input = document.createElement("input");

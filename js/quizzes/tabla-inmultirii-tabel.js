@@ -406,6 +406,54 @@
     return rotunjit;
   }
 
+  // Dispatch pe mod -> getter/setter de durata (secunde) — folosit STRICT de
+  // getSharedConfig/applySharedConfig (link de partajare, vezi mai jos).
+  // "faraMutari" lipsa intentionat: nu are durata (0 fix, tratat separat).
+  const DURATA_MOD_GETTERS_S = {
+    rocada: getRocadaDurataS,
+    alternareF2: getAlternareF2DurataS,
+    toateEqForms: getToateEqFormsDurataS,
+    toateEqFormsFaraNrTabla: getToateEqFormsFaraNrTablaDurataS,
+    toateEqFormsOriceRol: getToateEqFormsOriceRolDurataS,
+  };
+  const DURATA_MOD_SETTERS_S = {
+    rocada: scrieRocadaDurataS,
+    alternareF2: scrieAlternareF2DurataS,
+    toateEqForms: scrieToateEqFormsDurataS,
+    toateEqFormsFaraNrTabla: scrieToateEqFormsFaraNrTablaDurataS,
+    toateEqFormsOriceRol: scrieToateEqFormsOriceRolDurataS,
+  };
+
+  // Encodare base64url (RFC 4648, fara padding) pt. linkul de partajare —
+  // acelasi cod ca in equations-e3-e6.js (getSharedLink). Nu e o masura de
+  // securitate (e trivial reversibila) — doar face parametrul `cfg` sigur
+  // intr-un URL. Siguranta reala vine din applySharedConfig mai jos, care
+  // valideaza/clampeaza fiecare camp separat, indiferent ce trimite linkul.
+  function base64UrlEncode(text) {
+    const toBase64 =
+      typeof global.btoa === "function"
+        ? global.btoa.bind(global)
+        : typeof Buffer !== "undefined"
+          ? (value) => Buffer.from(value, "binary").toString("base64")
+          : null;
+
+    if (!toBase64) return encodeURIComponent(text);
+
+    if (typeof global.TextEncoder === "function") {
+      const bytes = new global.TextEncoder().encode(text);
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return toBase64(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    return toBase64(unescape(encodeURIComponent(text)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  }
+
   // Scrierile de mai jos ating direct DOM-ul deja randat (prin id fix), NU
   // trec prin round-ul quizului — o schimbare de layout din CP nu trebuie sa
   // ceara `pickNextRound()` (ar reporni nivelul curent si ar pierde progresul
@@ -2201,6 +2249,67 @@
         adunareActivaNivel = getAdunareActiva();
         ultimaFactForm = null;
         rolIntrebareCurent = "produs";
+      },
+
+      // Link de partajare (cerere user, 03.09.2026: buton in CP - General,
+      // "Genereaza link la quizul curent cu parametrii curenti si copy in
+      // clipboard"). Tiparul e identic cu equations-e3-e6.js
+      // (getSharedConfig/getSharedLink/applySharedConfig), consumat deja de
+      // js/startup-quiz.js + js/app.js (applyRequestedQuizConfig, apelat la
+      // fiecare switchQuiz — INAINTE de engine.startRound). Site-ul e static
+      // (GitHub Pages, fara server), deci linkul nu poate "ataca" nimic azi —
+      // dar validarea stricta de mai jos (whitelist + clamp pe FIECARE camp,
+      // niciodata asignare bruta) e ceruta explicit ca disciplina anticipata
+      // pt. ziua cand va exista un server care sa citeasca acesti parametri.
+      getSharedConfig() {
+        const mod = getMutareColoaneMod();
+        const getDurataS = DURATA_MOD_GETTERS_S[mod];
+        return {
+          v: 1,
+          nivel: level,
+          mutareColoane: mod,
+          mutareColoaneDurataS: mod === "faraMutari" ? 0 : getDurataS ? getDurataS() : 0,
+          adunareActiva: getAdunareActiva(),
+        };
+      },
+
+      getSharedLink(baseHref) {
+        const fallbackHref = "index.html";
+        const base = global.location?.href ?? "http://localhost/";
+        const currentHref = baseHref ?? global.location?.href ?? fallbackHref;
+        const url = new URL(currentHref, base);
+        url.hash = "";
+        url.search = "";
+        url.searchParams.set("quiz", QUIZ_ID);
+        url.searchParams.set("cfg", base64UrlEncode(JSON.stringify(this.getSharedConfig())));
+        return url.href;
+      },
+
+      // Fiecare camp e validat/clampat INDIVIDUAL, niciodata asignat brut —
+      // shared poate veni dintr-un URL, deci e input netrusted prin definitie
+      // (vezi comentariul de mai sus). Un camp lipsa sau invalid cade pe
+      // valoarea implicita sigura, nu arunca eroare si nu strica restul.
+      applySharedConfig(shared = {}) {
+        if (!shared || typeof shared !== "object" || Array.isArray(shared)) return false;
+
+        const nivelCerut = Number(shared.nivel);
+        level = Number.isFinite(nivelCerut)
+          ? Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, Math.round(nivelCerut)))
+          : LEVEL_IMPLICIT;
+
+        // scrieMutareColoaneMod valideaza deja intern (mod necunoscut ->
+        // MUTARE_COLOANE_MOD_IMPLICIT) — vezi definitia mai sus.
+        const mod = scrieMutareColoaneMod(shared.mutareColoane);
+
+        const durataCeruta = Number(shared.mutareColoaneDurataS);
+        const scrieDurataS = DURATA_MOD_SETTERS_S[mod];
+        if (scrieDurataS && Number.isFinite(durataCeruta)) scrieDurataS(durataCeruta);
+
+        scrieAdunareActiva(Boolean(shared.adunareActiva));
+
+        gameCompleted = false;
+        this.resetLevelState();
+        return true;
       },
 
       switchLevel(nextLevel) {
