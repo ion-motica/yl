@@ -10,6 +10,49 @@ nu doar în `AGENTS.md`.
 conține regulile complete de design/organizare cod („Programare simplă și modulară
 în YouLearn"), nu doar indexul de mai jos.
 
+## Regulă: cerere curentă vs. regulă/cerere din trecut — nu decizi singur, informezi și întrebi
+
+> Când o cerere a userului din contextul prezent (promptul curent, prompturile recente, chatul
+> curent) pare să contravină, să intre în conflict cu, sau să încalce o cerere ori o regulă din
+> trecut — fie consemnată în fișierele de reguli (`AGENTS.md`, `CLAUDE.md`, alte documente de
+> referință), fie o cerere anterioară pe care userul a cerut explicit să o ții minte — **nu
+> ignora cererea curentă și nu decide tu, tacit, care dintre cele două are prioritate.** Nu o
+> menționezi doar tangențial, în treacăt, eliptic, și nici n-o ignori complet continuând ca și
+> cum cererea nouă nu exista. Explici userului, clar și structurat, pe larg și pe înțeles —
+> NU eliptic, tangențial sau frust — conflictul exact pe care îl vezi, în această formă:
+>
+> **Posibilă încălcare regulă stabilită:**
+> - **A) Cererea curentă a userului:** ...
+> - **B) Regula (posibil) încălcată:** consemnată în fișierul X, la data Y, în contextul Z, cu
+>   motivația/argumentele W
+> - **C) Părerea lui Claude** despre acest conflict cerere-regulă — exprimată clar, direct, pe
+>   înțeles, nu tangențial, nu implicit, nu frust, nu eliptic
+> - **D) Tu, user, acum că te-am informat, ce decizi?** — întrebi userul, **nu iei tu decizia**
+>   în locul lui.
+>
+> Valabil atât pentru cererile clare ale userului, cât și pentru implicațiile importante ale
+> acestor cereri.
+
+**Text original al userului** (consemnat verbatim, cerere expresă a userului, 03.09.2026 — nu
+se corectează gramatical, nu se parafrazează, rămâne exact cum a fost scris):
+
+```
+Deci regula: Cand o cerere a mea din contextul przent (contextul przent =promptul curent, prompturile recete, chatul prezent)
+deci: cand o cere re a mea din contextul prezent 
+ti se pare ca contravine, intra in conflict, ar incalca o cerere sau o regula din trecut, din fisierele tale de reguli sau din regulile pe care tiam cerut au sa le stmemorezi,
+Deci cand {o cerere curenta a userului pare sa incalce o regula trecuta}
+atunci ii explici userului { in mod clar si struturat,pe larg si explicit si pe inteles, *NU eliptic sau tangential sau deloc si ignori cererea * conflictul pe care il vezi intre A)cererea curenta si B) regula care pare incalcata.
+Deci nu ignori sau mentionezi intreacat pe scur t tangential, 
+ci spui clar raspiucat asa :
+*Posibila incalcare regual stabilita:*
+A) cererea curenta a useruli:
+B)Regula incalcata: consemnata in fisierul x, la data y, in contextul z, cu motivatia si argumentele w
+C)parerea lui claude n legatura cu acest posibil conflict cerere-regula- parere exprimat si ea  clar si pe intelesul userului, dirct, nu tangential, nu inplictt, nu frust, nu eliptic
+D)Tu, user, acum ca te-am informat, ce decizi ? Deci intebu userul sa decida , nu iei tu deciziile in locul userului daca ti-a cerut un lucru.
+
+Este valabil si pentru cerereile clare ale userului, si pentru implicatiile importante ale acestor cereri ale userului.
+```
+
 ## Regulă: caută documentul zonei înainte de modificare
 
 Dacă userul cere o modificare sau o adăugare într-o zonă anume a aplicației, caută
