@@ -26,16 +26,11 @@ const EXCEPTIE_END = "CP-DECLARATIV-EXCEPTIE:END";
 // Fiecare intrare cere un motiv explicit + dată; când decizia se lămurește,
 // intrarea se șterge de aici (și fie codul se șterge, fie primește marcaje
 // CP-DECLARATIV-EXCEPTIE ca oricare altă excepție documentată).
-const EXCEPTII_PUNCTUALE = [
-  {
-    fisier: "js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js",
-    functie: "appendSq2ControlPanelUnused",
-    motiv:
-      'Cod păstrat explicit prin decizie user 29.07.2026 ("ramane ascuns ' +
-      'integral") — în așteptarea deciziei user dacă rămâne excepție ' +
-      "documentată sau se șterge (discuție 03.09.2026).",
-  },
-];
+//
+// Goală azi (03.09.2026) — singurul caz folosit aici
+// (appendSq2ControlPanelUnused, multiplication-1120-v4-intensiv-multipli-234.js)
+// a fost șters complet, decizie user, 03.09.2026 ("nu mai are rost păstrat").
+const EXCEPTII_PUNCTUALE = [];
 
 const PATTERNS = [
   {

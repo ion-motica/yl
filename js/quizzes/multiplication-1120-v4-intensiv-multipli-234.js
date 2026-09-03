@@ -345,8 +345,10 @@
     // setSq2Config (mai jos, in obiectul returnat) ramane STRICT neatins —
     // API public separat, testat direct
     // (tests/multiplication-1120-v4-intensiv-multipli-234.test.js), fara
-    // legatura cu acest tabel. appendSq2ControlPanelUnused (mai sus) nu mai
-    // e expusa in obiectul returnat — cod mort, ignorat, nu migrat.
+    // legatura cu acest tabel. Panoul CP vechi al lui sq2
+    // (appendSq2ControlPanelUnused, cod pastrat ascuns prin decizie user
+    // 29.07.2026) a fost sters complet, decizie user, 03.09.2026 ("nu mai
+    // are rost pastrat") — nu mai exista panou CP pt. sq2 in acest fisier.
     //
     // Sliderele "Rotire forme"/"Nr. forme ecuatie sq3"/"Nr. turns per
     // fact"/"Nr. eq forms sq5" NU au dupaSchimbare — codul vechi nu apela
@@ -1664,164 +1666,6 @@
           message: "Subquiz 5: Fluent party",
         },
       };
-    }
-
-    // Panoul CP al lui sq2 ramane definit (cod pastrat), dar nu mai e expus pe
-    // obiectul quizului -> CpRegistry il considera dezactivat, deci nu se
-    // afiseaza. Decizie user, 29.07.2026 ("ramane ascuns integral").
-    function appendSq2ControlPanelUnused(mount, hooks = {}) {
-      if (!mount) return;
-      const intensiveModeRow = document.createElement("div");
-      intensiveModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-      const intensiveModeText = document.createElement("span");
-      intensiveModeText.textContent = "Mod Intensiv:";
-      intensiveModeRow.appendChild(intensiveModeText);
-      [
-        ["vbs", "subq1"],
-        ["sbs", "subq2"],
-        ["alternate", "alternate"],
-        ["random", "random order"],
-      ].forEach(([mode, labelText]) => {
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "sq2-intensive-mode";
-        input.value = mode;
-        input.checked = intensiveMode === mode;
-        input.addEventListener("change", () => {
-          intensiveMode = mode;
-          if (mode === "alternate") nextAlternateIntensiveTarget = SQ2_VBS_ID;
-          writeSetting(SQ2_INTENSIVE_MODE_KEY, mode);
-          hooks.onChange?.();
-        });
-        label.append(input, document.createTextNode(labelText));
-        intensiveModeRow.appendChild(label);
-      });
-
-      const sbsAnswerRow = document.createElement("div");
-      sbsAnswerRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-      const sbsAnswerText = document.createElement("span");
-      sbsAnswerText.textContent = "Raspunsuri din:";
-      sbsAnswerRow.appendChild(sbsAnswerText);
-      const factorInput = document.createElement("input");
-      const productInput = document.createElement("input");
-      function syncSbsAnswerSources() {
-        sbsAnswerFromFactor = factorInput.checked;
-        sbsAnswerFromProduct = productInput.checked;
-        if (!sbsAnswerFromFactor && !sbsAnswerFromProduct) {
-          sbsAnswerFromFactor = true;
-          factorInput.checked = true;
-        }
-        writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, sbsAnswerFromFactor);
-        writeSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, sbsAnswerFromProduct);
-        hooks.onChange?.();
-      }
-      [
-        [factorInput, "factor", sbsAnswerFromFactor],
-        [productInput, "produs", sbsAnswerFromProduct],
-      ].forEach(([input, labelText, checked]) => {
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-        input.type = "checkbox";
-        input.checked = checked;
-        input.addEventListener("change", syncSbsAnswerSources);
-        label.append(input, document.createTextNode(labelText));
-        sbsAnswerRow.appendChild(label);
-      });
-
-      const factRow = document.createElement("div");
-      factRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-      const factLabelEl = document.createElement("span");
-      factLabelEl.textContent = "Nr facts de intarit simultan in Sq2 EFF VBS:";
-      factRow.appendChild(factLabelEl);
-      [1, 2, 3, 4].forEach((count) => {
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "sq2-eff-vbs-fact-count";
-        input.value = String(count);
-        input.checked = sq2FactCount === count;
-        input.addEventListener("change", () => {
-          sq2FactCount = count;
-          writeSetting(SQ2_FACT_COUNT_KEY, count);
-          hooks.onChange?.();
-        });
-        label.append(input, document.createTextNode(String(count)));
-        factRow.appendChild(label);
-      });
-
-      const eqFormRow = document.createElement("div");
-      eqFormRow.className = "control-panel-lift-field sq2-eff-vbs-slider-field";
-      const eqFormHead = document.createElement("div");
-      eqFormHead.className = "sq2-eff-vbs-slider-head";
-      const eqFormLabel = document.createElement("label");
-      eqFormLabel.textContent = "Nr. eq forms in sq2:";
-      const eqFormOut = document.createElement("span");
-      eqFormOut.className = "control-panel-lift-slider-out";
-      eqFormOut.textContent = String(sq2EqFormCount);
-      const eqFormSlider = document.createElement("input");
-      eqFormSlider.type = "range";
-      eqFormSlider.min = String(SQ2_EQ_FORM_MIN);
-      eqFormSlider.max = String(SQ2_EQ_FORM_MAX);
-      eqFormSlider.step = "1";
-      eqFormSlider.value = String(sq2EqFormCount);
-      eqFormSlider.className = "sq2-eff-vbs-slider";
-      eqFormSlider.addEventListener("input", () => {
-        sq2EqFormCount = clampChoice(
-          eqFormSlider.value,
-          rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX),
-          SQ2_EQ_FORM_MAX
-        );
-        eqFormOut.textContent = String(sq2EqFormCount);
-        writeSetting(SQ2_EQ_FORM_COUNT_KEY, sq2EqFormCount);
-      });
-      eqFormHead.append(eqFormLabel, eqFormOut);
-      eqFormRow.append(eqFormHead, eqFormSlider);
-
-      const exitRow = document.createElement("div");
-      exitRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-      const exitText = document.createElement("span");
-      exitText.textContent = "Se iese din SQ2 dupa ce fiecare fact are:";
-      exitRow.appendChild(exitText);
-      [3, 4, 5].forEach((count) => {
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "sq2-eff-vbs-exit-count";
-        input.value = String(count);
-        input.checked = sq2ExitCount === count;
-        input.addEventListener("change", () => {
-          sq2ExitCount = count;
-          writeSetting(SQ2_EXIT_COUNT_KEY, count);
-          hooks.onChange?.();
-        });
-        label.append(input, document.createTextNode(String(count)));
-        exitRow.appendChild(label);
-      });
-
-      const exitModeRow = document.createElement("div");
-      exitModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-      ["correct", "any"].forEach((mode) => {
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "sq2-eff-vbs-exit-mode";
-        input.value = mode;
-        input.checked = sq2ExitMode === mode;
-        input.addEventListener("change", () => {
-          sq2ExitMode = mode;
-          writeSetting(SQ2_EXIT_MODE_KEY, mode);
-          hooks.onChange?.();
-        });
-        label.append(input, document.createTextNode(mode === "correct" ? "corect" : "corect sau incorect"));
-        exitModeRow.appendChild(label);
-      });
-
-      mount.append(intensiveModeRow, sbsAnswerRow, factRow, eqFormRow, exitRow, exitModeRow);
     }
 
     // ---- CP SQ3 --------------------------------------------------------------

@@ -196,20 +196,21 @@ Migrate (03.09.2026), toate verificate cu `npm test` + Playwright end-to-end
   (campul "Intrare in sq5" apare doar cand "Ruleaza sq5" e pe modul B).
   `setSq2Config` (contract public `{ok, rejected}`, testat separat)
   **ramas neatins** — nu are legatura cu acest tabel. `appendSq2ControlPanelUnused`
-  NU e cod mort obisnuit (corectie 03.09.2026: exista un comentariu chiar
-  deasupra lui — "Panoul CP al lui sq2 ramane definit (cod pastrat), dar nu
-  mai e expus pe obiectul quizului -> CpRegistry il considera dezactivat,
-  deci nu se afiseaza. Decizie user, 29.07.2026 ('ramane ascuns integral')"
-  — deci o decizie user explicita sa fie PASTRAT, doar ascuns, nu sters.
-  Tratat provizoriu ca exceptie punctuala in
-  `scripts/check-cp-optiuni-declarative.mjs` (`EXCEPTII_PUNCTUALE`), in
-  asteptarea deciziei userului daca ramane exceptie documentata permanent
-  (cu marcaje `CP-DECLARATIV-EXCEPTIE`) sau se sterge. **La aceeasi migrare
-  s-au gasit si sters** (03.09.2026) `sq5SliderRow`/`sq5StepperRow` — doi
-  helperi DOM bruti ramasi orfani dupa migrarea `appendSq3ControlPanel`/
-  `appendSq5ControlPanel` la motor, fara niciun apelant (confirmat prin
-  grep) si fara nicio decizie user in spate — cod mort obisnuit, nu cazul
-  `appendSq2ControlPanelUnused`.
+  NU era cod mort obisnuit: avea un comentariu chiar deasupra lui — "Panoul
+  CP al lui sq2 ramane definit (cod pastrat), dar nu mai e expus pe obiectul
+  quizului -> CpRegistry il considera dezactivat, deci nu se afiseaza.
+  Decizie user, 29.07.2026 ('ramane ascuns integral')" — deci o decizie user
+  explicita sa fie PASTRAT, doar ascuns, nu sters. Descoperit 03.09.2026 la
+  scrierea checkului de enforcement, semnalat userului (format "posibila
+  incalcare regula stabilita"); userul a decis acelasi 03.09.2026 sa-l
+  stearga totusi ("nu mai are rost pastrat") — **sters complet**, decizia
+  din 29.07.2026 fiind explicit suprascrisa de cea din 03.09.2026. Comentariul
+  care il referea (langa `setSq2Config`, mai sus in fisier) actualizat sa
+  reflecte stergerea. **La aceeasi migrare s-au gasit si sters** (03.09.2026)
+  `sq5SliderRow`/`sq5StepperRow` — doi helperi DOM bruti ramasi orfani dupa
+  migrarea `appendSq3ControlPanel`/`appendSq5ControlPanel` la motor, fara
+  niciun apelant (confirmat prin grep) si fara nicio decizie user in spate —
+  cod mort obisnuit, caz diferit de `appendSq2ControlPanelUnused`.
 
 Teste: `tests/motor-optiuni-control-panel.test.js` (motorul, izolat — toate
 cele 5 tipuri, plus validare pe input malitios/invalid per tip),
@@ -242,11 +243,12 @@ imperativ pe care motorul le inlocuieste.
 2. **`EXCEPTII_PUNCTUALE`** (lista in scriptul insusi) — STRICT pt. cazuri
    unde sursa nu poate fi marcata inca (ex: o decizie user in asteptare, cat
    timp fisierul nu se modifica pana la raspuns). Foloseste numele functiei +
-   brace-matching ca sa goleasca acea zona inainte de scanare. Azi un singur
-   caz: `appendSq2ControlPanelUnused` din
-   `multiplication-1120-v4-intensiv-multipli-234.js` — in asteptarea
-   deciziei userului (vezi bulletul dedicat mai sus) daca ramane exceptie
-   documentata permanent (cu marcaje, ca la 1.) sau se sterge complet.
+   brace-matching ca sa goleasca acea zona inainte de scanare. **Goala azi**
+   (03.09.2026) — singurul caz folosit (`appendSq2ControlPanelUnused` din
+   `multiplication-1120-v4-intensiv-multipli-234.js`, vezi bulletul dedicat
+   mai sus) s-a rezolvat prin stergerea completa a functiei, nu printr-o
+   exceptie permanenta — mecanismul ramane in script, gata pt. urmatorul caz
+   real.
 
 **Gasit la scriere (03.09.2026), corectat inainte de a activa checkul**: 2
 helperi DOM bruti orfani (`sq5SliderRow`/`sq5StepperRow`, cod mort obisnuit,
