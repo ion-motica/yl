@@ -155,36 +155,60 @@ Migrate (03.09.2026), toate verificate cu `npm test` + Playwright end-to-end
   (`effectiveAnswerMode()`/`effectiveUnknownSymbol()`), nu direct valoarea
   bruta din config.
 
+- **`js/quizzes/addition-table-singapore-missing.js`** — migrare completa, 10
+  campuri (6 numar, 3 enum, 1 culoare — primul folosit REAL de motor). Efect
+  secundar compus real: `setIlustrareLa("toate")` dezactiveaza automat
+  "Spectacol la final de level" (deja in `setIlustrareLa`), UI-ul re-desenat
+  prin `dupaSchimbare: rerandeaza` ca al doilea select sa arate schimbarea.
+- **`js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js`** — migrare
+  completa a panoului `appendSq2ControlPanel` (6 campuri, primul `tip: "set"`
+  folosit real). `setSq2Config` — API public separat, testat direct in 3
+  fisiere de teste, cu contract `{ok, rejected}` — **ramas STRICT neatins**,
+  nu are legatura cu tabelul declarativ. Testele existente
+  (`tests/jurnal-intrebari.test.js`) actualizate sa incarce motorul.
+- **`js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js`** — DOUA
+  panouri CP separate in acelasi fisier (Sq3: 5 campuri; Sq5: 7 campuri),
+  fiecare cu propriul `campurileCP`. Cazuri noi: **doua tipuri de hook**
+  (`hooks.onChange` vs `hooks.onRouteChange` — al doilea cand schimbarea
+  cere repornirea rutei de subquiz-uri, nu doar re-randare CP) si
+  `activCand` folosit pt. prima data pe o vizibilitate REAL conditionata
+  (campul "Intrare in sq5" apare doar cand "Ruleaza sq5" e pe modul B).
+  `appendSq2ControlPanelUnused` (cod mort, nu mai apare in obiectul
+  returnat) si `setSq2Config` (acelasi contract public testat separat)
+  **ramase neatinse**, nemigrate — nu au legatura cu acest tabel.
+
 Teste: `tests/motor-optiuni-control-panel.test.js` (motorul, izolat — toate
 cele 5 tipuri, plus validare pe input malitios/invalid per tip),
 `tests/tabla-inmultirii-tabel-share-link.test.js`,
-`tests/equations-e3-e6.test.js` (actualizat).
+`tests/equations-e3-e6.test.js`, `tests/jurnal-intrebari.test.js`
+(actualizate sa incarce motorul).
 
 ## Ce ramane de facut
 
-3 quizuri cu panou CP propriu, inca nemigrate: `addition-table-singapore-missing.js`,
-`multiplication-1120-v3-train-eff-eq-forms.js`,
-`multiplication-1120-v4-intensiv-multipli-234.js` (Sq3 + Sq5). Plus sectiunea
-"Culori" din `rigle-tabla-1-10.js` (vezi mai sus — intrebare arhitecturala
-deschisa, nu simpla migrare).
+Toate cele 7 quizuri cu panou CP propriu identificate initial sunt migrate
+(03.09.2026). Ramane deschisa DOAR sectiunea "Culori" din
+`rigle-tabla-1-10.js` (vezi mai sus — intrebare arhitecturala, nu simpla
+migrare) — restul e complet.
 
-Tipuri de camp deja acoperite de motor dar inca nefolosite de niciun quiz
-migrat: `culoare` (candidati: `rigle-tabla-1-10` — daca se rezolva intrebarea
-de mai sus —, `addition-table-singapore-missing`), `numar` cu
-`stilAfisare: "slider"` fara `formateazaAfisare` custom (multiplication-1120-v3).
+Ultimul pas planificat: un check automat
+(`scripts/check-cp-optiuni-declarative.mjs` sau similar) care interzice cod
+DOM imperativ nou pt. optiuni CP in afara motorului — cerere user,
+03.09.2026: "sa nu se mai poata face adaugari in cp decat prin acest motor
+cu date stocate in text". Se poate activa acum ca migrarea de baza s-a
+terminat, cu 2 exceptii explicite necesare (STRICT documentate, nu
+"gauri" accidentale): sectiunea "Culori" din `rigle-tabla-1-10.js`
+(intrebare arhitecturala deschisa) si `setSq2Config`/
+`appendSq2ControlPanelUnused` (API public separat, testat, fara legatura cu
+optiunile CP declarative).
 
-Ultimul pas planificat, dupa ce TOATE panourile CP sunt migrate (inclusiv
-decizia pt. "Culori"): un check automat (`scripts/check-cp-optiuni-declarative.mjs`
-sau similar) care interzice cod DOM imperativ nou pt. optiuni CP in afara
-motorului — cerere user, 03.09.2026: "sa nu se mai poata face adaugari in cp
-decat prin acest motor cu date stocate in text". Nu se activeaza inainte de
-migrarea completa (ar bloca commit-uri normale pe cod inca nemigrat).
-
-Aceasta structura **e prima trecere**, dupa o analiza a tuturor celor 8 panouri CP
-existente la momentul scrierii — nu varianta finala. S-a ajustat deja de doua ori
-pe parcurs (`formateazaAfisare`, `eticheta` pe radio) exact cum s-a anticipat
-("faci o prima structura de standarduri, apoi o ajustezi ... pe masura ce
-implementezi fiecare quiz").
+Aceasta structura **a trecut prin ajustari reale** pe parcursul migrarii
+(`formateazaAfisare`, `eticheta` pe radio), exact cum s-a anticipat ("faci o
+prima structura de standarduri, apoi o ajustezi ... pe masura ce
+implementezi fiecare quiz") — dar schema de baza (5 tipuri de camp, get/set,
+dupaSchimbare, activCand, inDOM) s-a dovedit suficienta pt. toate cele 8
+panouri CP existente in proiect, inclusiv cazurile mai neobisnuite (doua
+tipuri de hook, doua panouri separate in acelasi fisier, valori enum
+booleene/numerice, sliders cu text formatat custom).
 
 ## Verificare (cum confirmi ca merge)
 

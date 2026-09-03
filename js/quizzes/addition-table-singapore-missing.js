@@ -55,6 +55,76 @@
     if (global.LayoutConfig) global.LayoutConfig.set(CHEIE_PLUTIRE_CIFRE, Boolean(valoare));
   }
 
+  // Tabelul declarativ de optiuni CP (documente de referinta/
+  // standard-optiuni-cp.md).
+  // `reaplicaIlustratieLive`: doar campurile care schimba dimensiuni ale
+  // ilustratiei (nu doar timpi) o folosesc — vezi comentariul original de
+  // la "afecteazaMasurarea" mai jos, in appendIlustrareMereControlPanel.
+  // `rerandeaza`: doar "ilustrareLa" — setIlustrareLa poate schimba SI
+  // spectacolFinalDeLevel (dezactiveaza automat "Spectacol 1" cand alegi
+  // "toate" — vezi efectul intern din setIlustrareLa mai sus), deci celalalt
+  // select trebuie re-desenat ca sa arate valoarea proaspata.
+  function campurileCP(reaplicaIlustratieLive, rerandeaza) {
+    return [
+      { cheie: "vitezaReasezareMereS", tip: "numar", eticheta: "Viteza reasezare mere (s)",
+        min: 0.5, max: 10, pas: 0.1, zecimale: 1,
+        get: () => global.IlustrareBonduri.getDurataTranzitieMs() / 1000,
+        set: (s) => global.IlustrareBonduri.setDurataTranzitieMs(Math.round(s * 1000)) },
+      { cheie: "pauzaFinalizareNivelS", tip: "numar", eticheta: "Pauza la finalizare nivel (s)",
+        min: 0, max: 5, pas: 0.5, zecimale: 1,
+        get: () => getPauzaFinalizareNivelMs() / 1000,
+        set: (s) => setPauzaFinalizareNivelMs(Math.round(s * 1000)) },
+      { cheie: "marireFontPct", tip: "numar", eticheta: "Marire font (%)",
+        min: 20, max: 300, pas: 5,
+        get: () => global.IlustrareBonduri.getMarireFontPct(),
+        set: (pct) => global.IlustrareBonduri.setMarireFontPct(pct),
+        dupaSchimbare: reaplicaIlustratieLive },
+      { cheie: "diametruDiscPct", tip: "numar", eticheta: "Diametru disc (% din font)",
+        min: 20, max: 300, pas: 5,
+        get: () => global.IlustrareBonduri.getDiametruDiscPct(),
+        set: (pct) => global.IlustrareBonduri.setDiametruDiscPct(pct),
+        dupaSchimbare: reaplicaIlustratieLive },
+      { cheie: "paddingCosRem", tip: "numar", eticheta: "Padding cos (rem)",
+        min: 0, max: 0.5, pas: 0.05, zecimale: 2,
+        get: () => global.IlustrareBonduri.getPaddingCosRem(),
+        set: (rem) => global.IlustrareBonduri.setPaddingCosRem(rem),
+        dupaSchimbare: reaplicaIlustratieLive },
+      { cheie: "randTargetLatimePct", tip: "numar", eticheta: "Randul ocupa (% din latimea divului)",
+        min: 20, max: 100, pas: 5,
+        get: () => global.IlustrareBonduri.getRandTargetLatimePct(),
+        set: (pct) => global.IlustrareBonduri.setRandTargetLatimePct(pct),
+        dupaSchimbare: reaplicaIlustratieLive },
+      { cheie: "spectacolFinalDeLevel", tip: "enum", eticheta: "Spectacol la final de level:",
+        optiuni: [
+          { valoare: "nimic", text: "nimic" },
+          { valoare: "spectacol1", text: "Spectacol 1" },
+        ],
+        get: getSpectacolFinalDeLevel,
+        set: setSpectacolFinalDeLevel },
+      { cheie: "ilustrareLa", tip: "enum", eticheta: "Ilustratie la:",
+        optiuni: [
+          { valoare: "toate", text: "toate bondurile cu răspuns" },
+          { valoare: "curent", text: "răspunsul curent" },
+        ],
+        get: getIlustrareLa,
+        set: setIlustrareLa,
+        dupaSchimbare: rerandeaza },
+      { cheie: "traiectorieBile", tip: "enum", eticheta: "Traiectorie bile:",
+        optiuni: [
+          { valoare: "oblic", text: "Oblic" },
+          { valoare: "orizontal", text: "Orizontal" },
+        ],
+        get: () => global.IlustrareBonduri.getTraiectorieBile(),
+        set: (v) => global.IlustrareBonduri.setTraiectorieBile(v) },
+      { cheie: "culoareDisc", tip: "culoare", eticheta: "Culoare bila:",
+        get: () => global.IlustrareBonduri.getCuloareDisc(),
+        set: (hex) => global.IlustrareBonduri.setCuloareDisc(hex) },
+      { cheie: "plutireCifre", tip: "bifa", eticheta: "Plutire răspuns numeric spre ilustrație",
+        get: getPlutireCifre,
+        set: setPlutireCifre },
+    ];
+  }
+
   // Setarea CP "Pauza la finalizare nivel:" (cerere user, 01.09.2026) — cat
   // timp ramane vizibil tabelul colorat COMPLET dupa raspunsul care
   // finalizeaza nivelul, inainte sa avanseze la nivelul urmator. Implicit
@@ -679,17 +749,14 @@
         if (!mount) return;
         mount.replaceChildren();
 
-        // Un singur stepper generic pt. toate cele 3-4 campuri numerice ale
-        // acestui panou (vezi documente de referinta/razgandire-ieftina.md —
-        // acelasi tipar ca appendStepper din pre-equations-eff-navigation.js).
-        // `afecteazaMasurarea`: campurile care schimba dimensiuni ale
-        // ilustratiei re-randeaza IMEDIAT tot ce e vizibil ACUM (vezi
-        // reaplicaIlustratieLive mai jos) — cerere user (01.09.2026): "nu vad
-        // modificarea imediat ... bilele si cosurile dispar si reapar abia la
-        // urmatoarea apasare de buton" (bug-ul vechii implementari, care
-        // apela ilustrareBonduri.reseteaza() — asta STERGEA ilustratia
-        // curenta SI orice clona acumulata, fara sa le redeseneze pana la
-        // urmatorul raspuns).
+        // `reaplicaIlustratieLive` ramane locala (foloseste `ilustrareBonduri`
+        // + `latimeDisponibilaPentruIlustratie`, ambele de closure din
+        // create()) — cerere user (01.09.2026): "nu vad modificarea imediat
+        // ... bilele si cosurile dispar si reapar abia la urmatoarea apasare
+        // de buton" (bug-ul vechii implementari, care apela
+        // ilustrareBonduri.reseteaza() — asta STERGEA ilustratia curenta SI
+        // orice clona acumulata, fara sa le redeseneze pana la urmatorul
+        // raspuns).
         const reaplicaIlustratieLive = () => {
           const randEl = document.getElementById("top-number")?.querySelector(".inventar-bonduri-rand");
           if (!randEl) return;
@@ -700,221 +767,10 @@
           });
         };
 
-        const appendStepperField = ({ eticheta, min, max, pas, zecimale, get, set, afecteazaMasurarea }) => {
-          const rotunjeste = (v) => {
-            const factor = 10 ** zecimale;
-            return Math.round(v * factor) / factor;
-          };
-
-          const field = document.createElement("div");
-          field.className = "control-panel-lift-field pre-eq-stepper-field";
-          const label = document.createElement("label");
-          label.textContent = eticheta;
-          const controls = document.createElement("div");
-          controls.className = "pre-eq-stepper";
-
-          const minus = document.createElement("button");
-          minus.type = "button";
-          minus.textContent = "-";
-          const input = document.createElement("input");
-          input.type = "number";
-          input.min = String(min);
-          input.max = String(max);
-          input.step = String(pas);
-          input.value = rotunjeste(get()).toFixed(zecimale);
-          const plus = document.createElement("button");
-          plus.type = "button";
-          plus.textContent = "+";
-
-          const aplica = (valoare) => {
-            const clamped = Math.min(max, Math.max(min, rotunjeste(valoare)));
-            set(clamped);
-            input.value = clamped.toFixed(zecimale);
-            if (afecteazaMasurarea) reaplicaIlustratieLive();
-          };
-
-          minus.addEventListener("click", () => aplica(Number(input.value) - pas));
-          plus.addEventListener("click", () => aplica(Number(input.value) + pas));
-          input.addEventListener("change", () => aplica(Number(input.value)));
-
-          controls.append(minus, input, plus);
-          field.append(label, controls);
-          mount.appendChild(field);
-        };
-
-        appendStepperField({
-          eticheta: "Viteza reasezare mere (s)",
-          min: 0.5,
-          max: 10,
-          pas: 0.1,
-          zecimale: 1,
-          get: () => global.IlustrareBonduri.getDurataTranzitieMs() / 1000,
-          set: (s) => global.IlustrareBonduri.setDurataTranzitieMs(Math.round(s * 1000)),
-          afecteazaMasurarea: false,
-        });
-
-        appendStepperField({
-          eticheta: "Pauza la finalizare nivel (s)",
-          min: 0,
-          max: 5,
-          pas: 0.5,
-          zecimale: 1,
-          get: () => getPauzaFinalizareNivelMs() / 1000,
-          set: (s) => setPauzaFinalizareNivelMs(Math.round(s * 1000)),
-          afecteazaMasurarea: false,
-        });
-
-        appendStepperField({
-          eticheta: "Marire font (%)",
-          min: 20,
-          max: 300,
-          pas: 5,
-          zecimale: 0,
-          get: () => global.IlustrareBonduri.getMarireFontPct(),
-          set: (pct) => global.IlustrareBonduri.setMarireFontPct(pct),
-          afecteazaMasurarea: true,
-        });
-
-        appendStepperField({
-          eticheta: "Diametru disc (% din font)",
-          min: 20,
-          max: 300,
-          pas: 5,
-          zecimale: 0,
-          get: () => global.IlustrareBonduri.getDiametruDiscPct(),
-          set: (pct) => global.IlustrareBonduri.setDiametruDiscPct(pct),
-          afecteazaMasurarea: true,
-        });
-
-        appendStepperField({
-          eticheta: "Padding cos (rem)",
-          min: 0,
-          max: 0.5,
-          pas: 0.05,
-          zecimale: 2,
-          get: () => global.IlustrareBonduri.getPaddingCosRem(),
-          set: (rem) => global.IlustrareBonduri.setPaddingCosRem(rem),
-          afecteazaMasurarea: true,
-        });
-
-        appendStepperField({
-          eticheta: "Randul ocupa (% din latimea divului)",
-          min: 20,
-          max: 100,
-          pas: 5,
-          zecimale: 0,
-          get: () => global.IlustrareBonduri.getRandTargetLatimePct(),
-          set: (pct) => global.IlustrareBonduri.setRandTargetLatimePct(pct),
-          afecteazaMasurarea: true,
-        });
-
-        // Dropdown compact, pe acelasi rand cu titlul lui — tipar reutilizat
-        // de toate campurile "select" ale acestui panou (cerere user,
-        // 01.09.2026: "sa se incadreze pe acelasi rand cu titlul, sa nu mai
-        // ocupe randul urmator, mai compact").
-        const appendSelectField = ({ eticheta, optiuni, get, set, onChange }) => {
-          const field = document.createElement("div");
-          field.className = "control-panel-lift-field control-panel-lift-field-inline";
-          const label = document.createElement("label");
-          label.textContent = eticheta;
-          const select = document.createElement("select");
-          optiuni.forEach(({ value, text }) => {
-            const optiune = document.createElement("option");
-            optiune.value = value;
-            optiune.textContent = text;
-            select.appendChild(optiune);
-          });
-          select.value = get();
-          select.addEventListener("change", () => {
-            set(select.value);
-            onChange?.();
-          });
-          field.append(label, select);
-          mount.appendChild(field);
-          return select;
-        };
-
-        // "Spectacol la final de level" (cerere user, 31.08.2026) —
-        // deocamdata 2 optiuni: "nimic" (comportamentul de azi, implicit) si
-        // "Spectacol 1" (cascada, vezi ilustrareBonduri.joacaSpectacolFinal
-        // si construieste_pasul_de_serie_terminata, mai sus).
-        const selectSpectacol = appendSelectField({
-          eticheta: "Spectacol la final de level:",
-          optiuni: [
-            { value: "nimic", text: "nimic" },
-            { value: "spectacol1", text: "Spectacol 1" },
-          ],
-          get: getSpectacolFinalDeLevel,
-          set: setSpectacolFinalDeLevel,
-        });
-
-        // "Ilustratie la:" (cerere user, 31.08.2026, trecut din radio in
-        // dropdown 01.09.2026) — "toate bondurile cu raspuns" (fiecare bv
-        // rezolvat isi pastreaza ilustratia proprie definitiv, acumuland pe
-        // masura ce raspunzi — implicit) vs "raspunsul curent" (o singura
-        // ilustratie vie care se muta de la un bv la altul). Alegerea
-        // "toate" dezactiveaza automat Spectacol 1 (vezi setIlustrareLa) —
-        // sincronizam aici si dropdown-ul de mai sus.
-        appendSelectField({
-          eticheta: "Ilustratie la:",
-          optiuni: [
-            { value: "toate", text: "toate bondurile cu răspuns" },
-            { value: "curent", text: "răspunsul curent" },
-          ],
-          get: getIlustrareLa,
-          set: setIlustrareLa,
-          onChange: () => {
-            selectSpectacol.value = getSpectacolFinalDeLevel();
-          },
-        });
-
-        // "Traiectorie bile:" (cerere user, 01.09.2026) — "Oblic" (implicit,
-        // comportamentul de dintotdeauna, linie dreapta) vs "Orizontal"
-        // (bila ramane la nivelul cosului care se muta pe verticala, se
-        // deplaseaza spre celalalt cos pe orizontala, simultan).
-        appendSelectField({
-          eticheta: "Traiectorie bile:",
-          optiuni: [
-            { value: "oblic", text: "Oblic" },
-            { value: "orizontal", text: "Orizontal" },
-          ],
-          get: () => global.IlustrareBonduri.getTraiectorieBile(),
-          set: (valoare) => global.IlustrareBonduri.setTraiectorieBile(valoare),
-        });
-
-        // Color picker "Culoare bila:" (cerere user, 01.09.2026) — culoarea
-        // FIXA a discurilor (.ilustrare-bonduri-disc), pana acum hardcodata
-        // in CSS (#0f1419, aproape neagra) — independenta de culoarea
-        // cosului. Se propaga singura, live, prin variabila CSS globala
-        // (vezi setCuloareDisc), fara sa fie nevoie sa reumplem cosurile —
-        // acelasi tipar ca --ilustrare-font-scala.
-        const fieldCuloareDisc = document.createElement("div");
-        fieldCuloareDisc.className = "control-panel-lift-field control-panel-lift-field-inline";
-        const labelCuloareDisc = document.createElement("label");
-        labelCuloareDisc.textContent = "Culoare bila:";
-        const inputCuloareDisc = document.createElement("input");
-        inputCuloareDisc.type = "color";
-        inputCuloareDisc.value = global.IlustrareBonduri.getCuloareDisc();
-        inputCuloareDisc.addEventListener("input", () => {
-          global.IlustrareBonduri.setCuloareDisc(inputCuloareDisc.value);
-        });
-        fieldCuloareDisc.append(labelCuloareDisc, inputCuloareDisc);
-        mount.appendChild(fieldCuloareDisc);
-
-        // Bifa "Plutire raspuns numeric spre ilustratie:" (cerere user,
-        // 01.09.2026) — vezi getPlutireCifre/setPlutireCifre si zborul din
-        // dupaRaspunsCorect, mai sus. Implicit PORNIT.
-        const fieldPlutireCifre = document.createElement("label");
-        fieldPlutireCifre.className = "control-panel-lift-field control-panel-lift-field-inline control-panel-radio-option";
-        const inputPlutireCifre = document.createElement("input");
-        inputPlutireCifre.type = "checkbox";
-        inputPlutireCifre.checked = getPlutireCifre();
-        inputPlutireCifre.addEventListener("change", () => {
-          setPlutireCifre(inputPlutireCifre.checked);
-        });
-        fieldPlutireCifre.append(inputPlutireCifre, document.createTextNode(" Plutire răspuns numeric spre ilustrație"));
-        mount.appendChild(fieldPlutireCifre);
+        const rerandeaza = () => this.appendIlustrareMereControlPanel(mount);
+        global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileCP(reaplicaIlustratieLive, rerandeaza));
       },
+
 
       isCompleted: () => gameCompleted,
       setCompleted: (value) => {

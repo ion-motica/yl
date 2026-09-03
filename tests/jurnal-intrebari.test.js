@@ -57,6 +57,7 @@ function loadQuizScripts() {
     "js/subquiz/subquiz-definition.js",
     "js/subquiz/subquiz-orchestrator.js",
     "js/motor-3-butoane.js",
+    "js/motor-optiuni-control-panel.js",
     "js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js",
     "js/quizzes/multiplication-1120-v3-train-eff-eq-forms-jurnal.js",
   ].forEach(loadScript);
@@ -233,6 +234,7 @@ describe("JurnalIntrebari", () => {
     delete globalThis.SubquizDefinition;
     delete globalThis.SubquizOrchestrator;
     delete globalThis.Mul1120V3TrainEffEqFormsQuiz;
+    delete globalThis.MotorOptiuniControlPanel;
     delete globalThis.document;
     delete globalThis.open;
     delete globalThis.location;

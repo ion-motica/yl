@@ -154,6 +154,75 @@
     let sbsAnswerFromFactor = readBoolSetting(SQ2_SBS_ANSWER_FACTOR_KEY, true);
     let sbsAnswerFromProduct = readBoolSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, false);
     ensureSbsAnswerSource();
+
+    // Tabelul declarativ de optiuni CP (documente de referinta/
+    // standard-optiuni-cp.md). setSq2Config (mai jos, in obiectul returnat)
+    // ramane STRICT neatins — API public separat, testat direct in
+    // tests/multiplication-1120-v3-train-eff-eq-forms.test.js +
+    // tests/jurnal-intrebari.test.js + multiplication-1120-v4 (contract
+    // {ok, rejected}, nu {tip,get,set} — nu are legatura cu acest tabel.
+    // `hooks`: transmis de apelant (appendSq2ControlPanel), acelasi obiect
+    // ca in codul vechi (doar hooks.onChange, apelat dupa fiecare schimbare).
+    function campurileCP(hooks) {
+      return [
+        { cheie: "intensiveMode", tip: "enum", stilAfisare: "radio", eticheta: "Mod Intensiv:",
+          optiuni: [
+            { valoare: "vbs", text: "subq1" },
+            { valoare: "sbs", text: "subq2" },
+            { valoare: "alternate", text: "alternate" },
+            { valoare: "random", text: "random order" },
+          ],
+          get: () => intensiveMode,
+          set: (v) => {
+            intensiveMode = v;
+            if (v === "alternate") nextAlternateIntensiveTarget = SQ2_VBS_ID;
+            writeSetting(SQ2_INTENSIVE_MODE_KEY, v);
+          },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "sbsAnswerSource", tip: "set", eticheta: "Raspunsuri din:",
+          optiuni: [
+            { valoare: "factor", text: "factor" },
+            { valoare: "produs", text: "produs" },
+          ],
+          minSelectate: 1,
+          get: () => [
+            ...(sbsAnswerFromFactor ? ["factor"] : []),
+            ...(sbsAnswerFromProduct ? ["produs"] : []),
+          ],
+          set: (v) => {
+            sbsAnswerFromFactor = v.includes("factor");
+            sbsAnswerFromProduct = v.includes("produs");
+            writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, sbsAnswerFromFactor);
+            writeSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, sbsAnswerFromProduct);
+          },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "factCount", tip: "enum", stilAfisare: "radio",
+          eticheta: "Nr facts de intarit simultan in Sq2 EFF VBS:",
+          optiuni: [1, 2, 3, 4].map((n) => ({ valoare: n, text: String(n) })),
+          get: () => sq2FactCount,
+          set: (v) => { sq2FactCount = v; writeSetting(SQ2_FACT_COUNT_KEY, sq2FactCount); },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "eqFormCount", tip: "numar", stilAfisare: "slider", eticheta: "Nr. eq forms in sq2:",
+          min: SQ2_EQ_FORM_MIN, max: SQ2_EQ_FORM_MAX,
+          get: () => sq2EqFormCount,
+          set: (v) => { sq2EqFormCount = v; writeSetting(SQ2_EQ_FORM_COUNT_KEY, sq2EqFormCount); } },
+        { cheie: "exitCount", tip: "enum", stilAfisare: "radio",
+          eticheta: "Se iese din SQ2 dupa ce fiecare fact are:",
+          optiuni: [3, 4, 5].map((n) => ({ valoare: n, text: String(n) })),
+          get: () => sq2ExitCount,
+          set: (v) => { sq2ExitCount = v; writeSetting(SQ2_EXIT_COUNT_KEY, sq2ExitCount); },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "exitMode", tip: "enum", stilAfisare: "radio",
+          optiuni: [
+            { valoare: "correct", text: "corect" },
+            { valoare: "any", text: "corect sau incorect" },
+          ],
+          get: () => sq2ExitMode,
+          set: (v) => { sq2ExitMode = v; writeSetting(SQ2_EXIT_MODE_KEY, sq2ExitMode); },
+          dupaSchimbare: () => hooks.onChange?.() },
+      ];
+    }
+
     const shared = {
       baseState: null,
       sq2State: null,
@@ -1046,157 +1115,9 @@
       appendSq2ControlPanel(mount, hooks = {}) {
         if (!mount) return;
         appendJurnalButtons(mount);
-        const intensiveModeRow = document.createElement("div");
-        intensiveModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-        const intensiveModeText = document.createElement("span");
-        intensiveModeText.textContent = "Mod Intensiv:";
-        intensiveModeRow.appendChild(intensiveModeText);
-        [
-          ["vbs", "subq1"],
-          ["sbs", "subq2"],
-          ["alternate", "alternate"],
-          ["random", "random order"],
-        ].forEach(([mode, labelText]) => {
-          const label = document.createElement("label");
-          label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = "sq2-intensive-mode";
-          input.value = mode;
-          input.checked = intensiveMode === mode;
-          input.addEventListener("change", () => {
-            intensiveMode = mode;
-            if (mode === "alternate") nextAlternateIntensiveTarget = SQ2_VBS_ID;
-            writeSetting(SQ2_INTENSIVE_MODE_KEY, mode);
-            hooks.onChange?.();
-          });
-          label.append(input, document.createTextNode(labelText));
-          intensiveModeRow.appendChild(label);
-        });
-
-        const sbsAnswerRow = document.createElement("div");
-        sbsAnswerRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-        const sbsAnswerText = document.createElement("span");
-        sbsAnswerText.textContent = "Raspunsuri din:";
-        sbsAnswerRow.appendChild(sbsAnswerText);
-        const factorInput = document.createElement("input");
-        const productInput = document.createElement("input");
-        function syncSbsAnswerSources() {
-          sbsAnswerFromFactor = factorInput.checked;
-          sbsAnswerFromProduct = productInput.checked;
-          if (!sbsAnswerFromFactor && !sbsAnswerFromProduct) {
-            sbsAnswerFromFactor = true;
-            factorInput.checked = true;
-          }
-          writeSetting(SQ2_SBS_ANSWER_FACTOR_KEY, sbsAnswerFromFactor);
-          writeSetting(SQ2_SBS_ANSWER_PRODUCT_KEY, sbsAnswerFromProduct);
-          hooks.onChange?.();
-        }
-        [
-          [factorInput, "factor", sbsAnswerFromFactor],
-          [productInput, "produs", sbsAnswerFromProduct],
-        ].forEach(([input, labelText, checked]) => {
-          const label = document.createElement("label");
-          label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-          input.type = "checkbox";
-          input.checked = checked;
-          input.addEventListener("change", syncSbsAnswerSources);
-          label.append(input, document.createTextNode(labelText));
-          sbsAnswerRow.appendChild(label);
-        });
-
-        const factRow = document.createElement("div");
-        factRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-        const factLabelEl = document.createElement("span");
-        factLabelEl.textContent = "Nr facts de intarit simultan in Sq2 EFF VBS:";
-        factRow.appendChild(factLabelEl);
-        [1, 2, 3, 4].forEach((count) => {
-          const label = document.createElement("label");
-          label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = "sq2-eff-vbs-fact-count";
-          input.value = String(count);
-          input.checked = sq2FactCount === count;
-          input.addEventListener("change", () => {
-            sq2FactCount = count;
-            writeSetting(SQ2_FACT_COUNT_KEY, count);
-            hooks.onChange?.();
-          });
-          label.append(input, document.createTextNode(String(count)));
-          factRow.appendChild(label);
-        });
-
-        const eqFormRow = document.createElement("div");
-        eqFormRow.className = "control-panel-lift-field sq2-eff-vbs-slider-field";
-        const eqFormHead = document.createElement("div");
-        eqFormHead.className = "sq2-eff-vbs-slider-head";
-        const eqFormLabel = document.createElement("label");
-        eqFormLabel.textContent = "Nr. eq forms in sq2:";
-        const eqFormOut = document.createElement("span");
-        eqFormOut.className = "control-panel-lift-slider-out";
-        eqFormOut.textContent = String(sq2EqFormCount);
-        const eqFormSlider = document.createElement("input");
-        eqFormSlider.type = "range";
-        eqFormSlider.min = String(SQ2_EQ_FORM_MIN);
-        eqFormSlider.max = String(SQ2_EQ_FORM_MAX);
-        eqFormSlider.step = "1";
-        eqFormSlider.value = String(sq2EqFormCount);
-        eqFormSlider.className = "sq2-eff-vbs-slider";
-        eqFormSlider.addEventListener("input", () => {
-          sq2EqFormCount = clampChoice(
-            eqFormSlider.value,
-            rangeChoices(SQ2_EQ_FORM_MIN, SQ2_EQ_FORM_MAX),
-            SQ2_EQ_FORM_MAX
-          );
-          eqFormOut.textContent = String(sq2EqFormCount);
-          writeSetting(SQ2_EQ_FORM_COUNT_KEY, sq2EqFormCount);
-        });
-        eqFormHead.append(eqFormLabel, eqFormOut);
-        eqFormRow.append(eqFormHead, eqFormSlider);
-
-        const exitRow = document.createElement("div");
-        exitRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-        const exitText = document.createElement("span");
-        exitText.textContent = "Se iese din SQ2 dupa ce fiecare fact are:";
-        exitRow.appendChild(exitText);
-        [3, 4, 5].forEach((count) => {
-          const label = document.createElement("label");
-          label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = "sq2-eff-vbs-exit-count";
-          input.value = String(count);
-          input.checked = sq2ExitCount === count;
-          input.addEventListener("change", () => {
-            sq2ExitCount = count;
-            writeSetting(SQ2_EXIT_COUNT_KEY, count);
-            hooks.onChange?.();
-          });
-          label.append(input, document.createTextNode(String(count)));
-          exitRow.appendChild(label);
-        });
-
-        const exitModeRow = document.createElement("div");
-        exitModeRow.className = "control-panel-lift-field sq2-eff-vbs-field";
-        ["correct", "any"].forEach((mode) => {
-          const label = document.createElement("label");
-          label.className = "control-panel-lift-row sq2-eff-vbs-radio";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = "sq2-eff-vbs-exit-mode";
-          input.value = mode;
-          input.checked = sq2ExitMode === mode;
-          input.addEventListener("change", () => {
-            sq2ExitMode = mode;
-            writeSetting(SQ2_EXIT_MODE_KEY, mode);
-            hooks.onChange?.();
-          });
-          label.append(input, document.createTextNode(mode === "correct" ? "corect" : "corect sau incorect"));
-          exitModeRow.appendChild(label);
-        });
-
-        mount.append(intensiveModeRow, sbsAnswerRow, factRow, eqFormRow, exitRow, exitModeRow);
+        const campuriMount = document.createElement("div");
+        mount.appendChild(campuriMount);
+        global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(hooks));
       },
 
       // Bug reparat (vezi documente de referinta/RAPORT-motor-comun-raspuns.md,

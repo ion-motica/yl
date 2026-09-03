@@ -340,6 +340,100 @@
     let sq5BlocLen = readNumberSetting(SQ5_BLOC_LEN_KEY, rangeChoices(SQ5_BLOC_LEN_MIN, SQ5_BLOC_LEN_MAX), SQ5_BLOC_LEN_DEFAULT);
     let sq5RolConstPct = readPercentSetting(SQ5_ROL_CONST_PCT_KEY, SQ5_ROL_CONST_PCT_DEFAULT);
 
+    // Tabelele declarative de optiuni CP (documente de referinta/
+    // standard-optiuni-cp.md) — DOUA panouri separate (Sq3, Sq5), nu unul.
+    // setSq2Config (mai jos, in obiectul returnat) ramane STRICT neatins —
+    // API public separat, testat direct
+    // (tests/multiplication-1120-v4-intensiv-multipli-234.test.js), fara
+    // legatura cu acest tabel. appendSq2ControlPanelUnused (mai sus) nu mai
+    // e expusa in obiectul returnat — cod mort, ignorat, nu migrat.
+    //
+    // Sliderele "Rotire forme"/"Nr. forme ecuatie sq3"/"Nr. turns per
+    // fact"/"Nr. eq forms sq5" NU au dupaSchimbare — codul vechi nu apela
+    // hooks.onChange() pt. ele (doar scriau si actualizau textul propriu).
+    function campurileSq3CP(hooks) {
+      return [
+        { cheie: "sq3ShowStack", tip: "bifa", eticheta: "Afiseaza grupul de factori impreuna",
+          get: () => sq3ShowStack,
+          set: (v) => { sq3ShowStack = v; writeSetting(SQ3_SHOW_STACK_KEY, sq3ShowStack); },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "sq3HighlightCurrent", tip: "bifa", eticheta: "Evidentiaza factul testat curent",
+          get: () => sq3HighlightCurrent,
+          set: (v) => { sq3HighlightCurrent = v; writeSetting(SQ3_HIGHLIGHT_CURRENT_KEY, sq3HighlightCurrent); },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "sq3DimUntested", tip: "bifa", eticheta: "Dez-evidentiaza factele netestate in turul curent",
+          get: () => sq3DimUntested,
+          set: (v) => { sq3DimUntested = v; writeSetting(SQ3_DIM_UNTESTED_KEY, sq3DimUntested); },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "sq3RotateEvery", tip: "numar", stilAfisare: "slider", eticheta: "Rotire forme la fiecare (0 = deloc):",
+          min: 0, max: SQ3_ROTATE_EVERY_MAX,
+          get: () => sq3RotateEvery,
+          set: (v) => { sq3RotateEvery = v; writeSetting(SQ3_ROTATE_EVERY_KEY, sq3RotateEvery); } },
+        { cheie: "sq3EqFormCount", tip: "numar", stilAfisare: "slider", eticheta: "Nr. forme de ecuatie in sq3:",
+          min: SQ3_EQ_FORM_MIN, max: SQ3_EQ_FORM_MAX,
+          get: () => sq3EqFormCount,
+          set: (v) => { sq3EqFormCount = v; writeSetting(SQ3_EQ_FORM_COUNT_KEY, sq3EqFormCount); } },
+      ];
+    }
+
+    // `rerandeaza`: STRICT pt. campul "sq5Mode" — schimbarea lui decide
+    // vizibilitatea campului "sq5Entry" (activCand), deci panoul local
+    // trebuie redesenat (nu doar hook-ul extern onRouteChange/onChange).
+    function campurileSq5CP(hooks, rerandeaza) {
+      return [
+        { cheie: "sq5Mode", tip: "enum", stilAfisare: "radio", eticheta: "Ruleaza sq5 Fluent party:",
+          optiuni: [
+            { valoare: "A", text: "Level 0, inaintea tuturor nivelurilor, cu toate subtablele" },
+            { valoare: "B", text: "in interiorul fiecarui nivel" },
+          ],
+          get: () => sq5Mode,
+          set: (v) => { sq5Mode = v; writeSetting(SQ5_MODE_KEY, sq5Mode); },
+          dupaSchimbare: () => { rerandeaza(); (hooks.onRouteChange ?? hooks.onChange)?.(); } },
+        { cheie: "sq5Entry", tip: "enum", stilAfisare: "radio", eticheta: "Intrare in sq5 (doar mod B):",
+          optiuni: [
+            { valoare: "levelStart", text: "La inceputul nivelului" },
+            { valoare: "random", text: "Random intre alte subquizuri" },
+            { valoare: "levelEnd", text: "La finalul nivelului" },
+          ],
+          get: () => sq5Entry,
+          set: (v) => { sq5Entry = v; writeSetting(SQ5_ENTRY_KEY, sq5Entry); },
+          activCand: (valori) => valori.sq5Mode === "B",
+          dupaSchimbare: () => (hooks.onRouteChange ?? hooks.onChange)?.() },
+        { cheie: "sq5TurnsPerFact", tip: "numar", stilAfisare: "slider", eticheta: "Nr. de turns per fact:",
+          min: SQ5_TURNS_MIN, max: SQ5_TURNS_MAX,
+          get: () => sq5TurnsPerFact,
+          set: (v) => { sq5TurnsPerFact = v; writeSetting(SQ5_TURNS_KEY, sq5TurnsPerFact); } },
+        { cheie: "sq5EqFormCount", tip: "numar", stilAfisare: "slider",
+          eticheta: "Nr. de eq forms (creste +1 la fiecare zi noua de folosire; se opreste daca muti manual sliderul):",
+          min: SQ5_EQ_FORM_MIN, max: SQ5_EQ_FORM_MAX,
+          get: () => sq5EqFormCount,
+          set: (v) => {
+            sq5EqFormCount = v;
+            sq5EqFormManual = true;
+            writeSetting(SQ5_EQ_FORM_COUNT_KEY, sq5EqFormCount);
+            writeSetting(SQ5_EQ_FORM_MANUAL_KEY, true);
+          } },
+        { cheie: "sq5SbsPct", tip: "numar",
+          eticheta: "SBS % (aproximativ — restul intrebarilor sunt o intrebare pe rand, buton diferit de fiecare data):",
+          min: SQ5_PCT_MIN, max: SQ5_PCT_MAX, pas: SQ5_PCT_STEP,
+          get: () => sq5SbsPct,
+          set: (v) => { sq5SbsPct = v; writeSetting(SQ5_SBS_PCT_KEY, sq5SbsPct); },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "sq5BlocLen", tip: "numar",
+          eticheta: "Lungime sir (guverneaza si blocurile SBS, si cele fara SBS — ca procentul de mai sus sa fie corect):",
+          min: SQ5_BLOC_LEN_MIN, max: SQ5_BLOC_LEN_MAX,
+          get: () => sq5BlocLen,
+          set: (v) => { sq5BlocLen = v; writeSetting(SQ5_BLOC_LEN_KEY, sq5BlocLen); },
+          dupaSchimbare: () => hooks.onChange?.() },
+        { cheie: "sq5RolConstPct", tip: "numar",
+          eticheta: "Din blocurile SBS, cate cu rol constant % (rol1 = factor/impartitor/cat; rol2 = produs/deimpartit):",
+          min: SQ5_PCT_MIN, max: SQ5_PCT_MAX, pas: SQ5_PCT_STEP,
+          get: () => sq5RolConstPct,
+          set: (v) => { sq5RolConstPct = v; writeSetting(SQ5_ROL_CONST_PCT_KEY, sq5RolConstPct); },
+          dupaSchimbare: () => hooks.onChange?.() },
+      ];
+    }
+
     // Level 0 (mod A) — traiesc IN AFARA lui `shared` si nu se ating de
     // `resetLevelState()`, ca sa supravietuiasca schimbarii de nivel (R7 din
     // plan): altfel fiecare click pe butoanele 1-10 ar reporni o runda de
@@ -1735,94 +1829,7 @@
     function appendSq3ControlPanel(mount, hooks = {}) {
       if (!mount) return;
       appendJurnalButtons(mount);
-
-      function bifaRow(labelText, checked, onToggle) {
-        const row = document.createElement("div");
-        row.className = "control-panel-lift-field sq3-field";
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row";
-        const input = document.createElement("input");
-        input.type = "checkbox";
-        input.checked = checked;
-        input.addEventListener("change", () => {
-          onToggle(input.checked);
-          hooks.onChange?.();
-        });
-        label.append(input, document.createTextNode(labelText));
-        row.appendChild(label);
-        return row;
-      }
-
-      const stackRow = bifaRow("Afiseaza grupul de factori impreuna", sq3ShowStack, (checked) => {
-        sq3ShowStack = checked;
-        writeSetting(SQ3_SHOW_STACK_KEY, sq3ShowStack);
-      });
-      const highlightRow = bifaRow("Evidentiaza factul testat curent", sq3HighlightCurrent, (checked) => {
-        sq3HighlightCurrent = checked;
-        writeSetting(SQ3_HIGHLIGHT_CURRENT_KEY, sq3HighlightCurrent);
-      });
-      const dimRow = bifaRow(
-        "Dez-evidentiaza factele netestate in turul curent",
-        sq3DimUntested,
-        (checked) => {
-          sq3DimUntested = checked;
-          writeSetting(SQ3_DIM_UNTESTED_KEY, sq3DimUntested);
-        }
-      );
-
-      const rotateRow = document.createElement("div");
-      rotateRow.className = "control-panel-lift-field sq3-slider-field";
-      const rotateHead = document.createElement("div");
-      rotateHead.className = "sq3-slider-head";
-      const rotateLabel = document.createElement("label");
-      rotateLabel.textContent = "Rotire forme la fiecare (0 = deloc):";
-      const rotateOut = document.createElement("span");
-      rotateOut.className = "control-panel-lift-slider-out";
-      rotateOut.textContent = String(sq3RotateEvery);
-      const rotateSlider = document.createElement("input");
-      rotateSlider.type = "range";
-      rotateSlider.min = "0";
-      rotateSlider.max = String(SQ3_ROTATE_EVERY_MAX);
-      rotateSlider.step = "1";
-      rotateSlider.value = String(sq3RotateEvery);
-      rotateSlider.className = "sq3-slider";
-      rotateSlider.addEventListener("input", () => {
-        sq3RotateEvery = clampChoice(rotateSlider.value, rangeChoices(0, SQ3_ROTATE_EVERY_MAX), 1);
-        rotateOut.textContent = String(sq3RotateEvery);
-        writeSetting(SQ3_ROTATE_EVERY_KEY, sq3RotateEvery);
-      });
-      rotateHead.append(rotateLabel, rotateOut);
-      rotateRow.append(rotateHead, rotateSlider);
-
-      const eqFormRow = document.createElement("div");
-      eqFormRow.className = "control-panel-lift-field sq3-slider-field";
-      const eqFormHead = document.createElement("div");
-      eqFormHead.className = "sq3-slider-head";
-      const eqFormLabel = document.createElement("label");
-      eqFormLabel.textContent = "Nr. forme de ecuatie in sq3:";
-      const eqFormOut = document.createElement("span");
-      eqFormOut.className = "control-panel-lift-slider-out";
-      eqFormOut.textContent = String(sq3EqFormCount);
-      const eqFormSlider = document.createElement("input");
-      eqFormSlider.type = "range";
-      eqFormSlider.min = String(SQ3_EQ_FORM_MIN);
-      eqFormSlider.max = String(SQ3_EQ_FORM_MAX);
-      eqFormSlider.step = "1";
-      eqFormSlider.value = String(sq3EqFormCount);
-      eqFormSlider.className = "sq3-slider";
-      eqFormSlider.addEventListener("input", () => {
-        sq3EqFormCount = clampChoice(
-          eqFormSlider.value,
-          rangeChoices(SQ3_EQ_FORM_MIN, SQ3_EQ_FORM_MAX),
-          4
-        );
-        eqFormOut.textContent = String(sq3EqFormCount);
-        writeSetting(SQ3_EQ_FORM_COUNT_KEY, sq3EqFormCount);
-      });
-      eqFormHead.append(eqFormLabel, eqFormOut);
-      eqFormRow.append(eqFormHead, eqFormSlider);
-
-      mount.append(stackRow, highlightRow, dimRow, rotateRow, eqFormRow);
+      global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileSq3CP(hooks));
     }
 
     // ---- CP SQ5 (Fluent party) -----------------------------------------------
@@ -1895,124 +1902,10 @@
     function appendSq5ControlPanel(mount, hooks = {}) {
       if (!mount) return;
       appendJurnalButtons(mount);
-
-      const modeRow = document.createElement("div");
-      modeRow.className = "control-panel-lift-field sq3-field";
-      const modeLabel = document.createElement("span");
-      modeLabel.textContent = "Ruleaza sq5 Fluent party:";
-      modeRow.appendChild(modeLabel);
-      [
-        ["A", "Level 0, inaintea tuturor nivelurilor, cu toate subtablele"],
-        ["B", "in interiorul fiecarui nivel"],
-      ].forEach(([mode, text]) => {
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row";
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "sq5-mode";
-        input.value = mode;
-        input.checked = sq5Mode === mode;
-        input.addEventListener("change", () => {
-          sq5Mode = mode;
-          writeSetting(SQ5_MODE_KEY, sq5Mode);
-          entryRow.style.display = sq5Mode === "B" ? "" : "none";
-          // Mod A/B decide CE se ruleaza (structural), spre deosebire de
-          // sliderele de mai jos care doar regleaza cum ruleaza sq5 odata
-          // intrat — de-aia foloseste onRouteChange (repornire), nu
-          // onChange (doar re-randare CP), altfel bifa n-are efect vizibil
-          // pana la urmatoarea schimbare naturala de nivel.
-          (hooks.onRouteChange ?? hooks.onChange)?.();
-        });
-        label.append(input, document.createTextNode(text));
-        modeRow.appendChild(label);
-      });
-
-      const entryRow = document.createElement("div");
-      entryRow.className = "control-panel-lift-field sq3-field";
-      const entryLabel = document.createElement("span");
-      entryLabel.textContent = "Intrare in sq5 (doar mod B):";
-      entryRow.appendChild(entryLabel);
-      [
-        ["levelStart", "La inceputul nivelului"],
-        ["random", "Random intre alte subquizuri"],
-        ["levelEnd", "La finalul nivelului"],
-      ].forEach(([entry, text]) => {
-        const label = document.createElement("label");
-        label.className = "control-panel-lift-row";
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "sq5-entry";
-        input.value = entry;
-        input.checked = sq5Entry === entry;
-        input.addEventListener("change", () => {
-          sq5Entry = entry;
-          writeSetting(SQ5_ENTRY_KEY, sq5Entry);
-          (hooks.onRouteChange ?? hooks.onChange)?.();
-        });
-        label.append(input, document.createTextNode(text));
-        entryRow.appendChild(label);
-      });
-      entryRow.style.display = sq5Mode === "B" ? "" : "none";
-
-      const rand_repetitii_programate = sq5SliderRow(
-        "Nr. de turns per fact:",
-        () => sq5TurnsPerFact,
-        SQ5_TURNS_MIN,
-        SQ5_TURNS_MAX,
-        (value) => {
-          sq5TurnsPerFact = value;
-          writeSetting(SQ5_TURNS_KEY, sq5TurnsPerFact);
-        }
-      );
-
-      const eqFormRow = sq5SliderRow(
-        "Nr. de eq forms (creste +1 la fiecare zi noua de folosire; se opreste daca muti manual sliderul):",
-        () => sq5EqFormCount,
-        SQ5_EQ_FORM_MIN,
-        SQ5_EQ_FORM_MAX,
-        (value) => {
-          sq5EqFormCount = value;
-          sq5EqFormManual = true;
-          writeSetting(SQ5_EQ_FORM_COUNT_KEY, sq5EqFormCount);
-          writeSetting(SQ5_EQ_FORM_MANUAL_KEY, true);
-        }
-      );
-
-      const sbsPctRow = sq5StepperRow(
-        "SBS % (aproximativ — restul intrebarilor sunt o intrebare pe rand, buton diferit de fiecare data):",
-        () => sq5SbsPct,
-        { min: SQ5_PCT_MIN, max: SQ5_PCT_MAX, step: SQ5_PCT_STEP },
-        (value) => {
-          sq5SbsPct = value;
-          writeSetting(SQ5_SBS_PCT_KEY, sq5SbsPct);
-          hooks.onChange?.();
-        }
-      );
-
-      const blocLenRow = sq5StepperRow(
-        "Lungime sir (guverneaza si blocurile SBS, si cele fara SBS — ca procentul de mai sus sa fie corect):",
-        () => sq5BlocLen,
-        { min: SQ5_BLOC_LEN_MIN, max: SQ5_BLOC_LEN_MAX, step: 1 },
-        (value) => {
-          sq5BlocLen = value;
-          writeSetting(SQ5_BLOC_LEN_KEY, sq5BlocLen);
-          hooks.onChange?.();
-        }
-      );
-
-      const rolConstRow = sq5StepperRow(
-        "Din blocurile SBS, cate cu rol constant % (rol1 = factor/impartitor/cat; rol2 = produs/deimpartit):",
-        () => sq5RolConstPct,
-        { min: SQ5_PCT_MIN, max: SQ5_PCT_MAX, step: SQ5_PCT_STEP },
-        (value) => {
-          sq5RolConstPct = value;
-          writeSetting(SQ5_ROL_CONST_PCT_KEY, sq5RolConstPct);
-          hooks.onChange?.();
-        }
-      );
-
-      mount.append(modeRow, entryRow, rand_repetitii_programate, eqFormRow, sbsPctRow, blocLenRow, rolConstRow);
+      const rerandeaza = () => appendSq5ControlPanel(mount, hooks);
+      global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileSq5CP(hooks, rerandeaza));
     }
+
 
     // ---- orchestrare + nivele --------------------------------------------
 
