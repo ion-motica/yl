@@ -1169,7 +1169,7 @@
     // stergerea regulii .cp-viz3-link din style.css.
     const butonVizualizare3 = document.createElement("button");
     butonVizualizare3.type = "button";
-    butonVizualizare3.textContent = "↗ Vizualizare 3";
+    butonVizualizare3.textContent = "Vizualizare 3";
     butonVizualizare3.addEventListener("click", () => deschideVizualizare3Claude());
     mount.appendChild(butonVizualizare3);
 
