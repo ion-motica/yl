@@ -855,6 +855,15 @@
           mount.appendChild(campuriMount);
           global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(rerandeaza));
 
+          // CP-DECLARATIV-EXCEPTIE:START — sectiunea Culori (mai jos) e o
+          // biblioteca personala (paleta max. 10 culori + scheme salvate cu
+          // save/see/edit/delete), persistenta intre sesiuni, NU configuratie
+          // de sesiune — nu se preteaza la formatul {tip,get,set} al
+          // motorului (stare compusa: element curent selectat local, lista
+          // de scheme cu id-uri proprii). Exceptie documentata, verificata
+          // explicit de scripts/check-cp-optiuni-declarative.mjs. Decizie
+          // 03.09.2026, vezi documente de referinta/standard-optiuni-cp.md.
+          //
           // Helper local, folosit STRICT de selectorul de "Element:" din
           // sectiunea Culori de mai jos (nemigrata la motor — vezi
           // comentariul de la campurileCP mai sus).
@@ -1027,6 +1036,7 @@
             salveazaSchemaCuloriCurenta();
             randeazaScheme();
           });
+          // CP-DECLARATIV-EXCEPTIE:END
         },
 
         // Niveluri reale — butoanele standard din „Alege quiz" → „Alegeti nivelul:"

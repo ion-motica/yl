@@ -117,6 +117,17 @@ Migrate (03.09.2026), toate verificate cu `npm test` + Playwright end-to-end
   get/set. A scos la iveala cod mort (`responseTimesInput`/
   `syncResponseTimesInput`, fara niciun apelant in afara locului unde
   checkbox-ul tocmai fusese creat).
+- **`js/app.js` (sectiunea Debug/"Depanare")** — gasita abia la scrierea
+  checkului de enforcement (03.09.2026), niciodata pe lista initiala de
+  migrare. Majoritatea delega deja la alte module (`AsnwProfile`,
+  `LevelChangeReward`) — cod curat, in afara domeniului acestui standard.
+  Un singur slider brut ("cate numere de la buton la ?", `asnwNumbersFlowCount`)
+  migrat la motor. Bifa "Border verde..." (`debugInfoBorders`) **ramasa
+  neatinsa**, marcata `CP-DECLARATIV-EXCEPTIE` — e dezactivata (nu doar
+  ascunsa) automat cand modul ASNW e activ, prin manipulare DOM directa
+  (`debugBordersInput.disabled`) in `applyDebugInfoBorders()`; motorul nu are
+  azi un concept de camp "vizibil dar dezactivat" (doar `activCand`, care
+  ASCUNDE complet).
 - **`js/quizzes/rigle-cl1.js`** — 18 campuri, migrare completa. A cerut 2
   extensii mici ale motorului: `formateazaAfisare` (text custom pe slider,
   ex. "de 3× mai încet" in loc de cifra bruta) si `eticheta` pe campurile
@@ -134,7 +145,17 @@ Migrate (03.09.2026), toate verificate cu `npm test` + Playwright end-to-end
   master-detail intre selector si picker. Nu se incadreaza curat in formatul
   "camp = {tip, get, set}". **Intrebare arhitecturala deschisa**: cum tratam
   sisteme CP compuse, cu stare si actiuni proprii — nu doar optiuni simple.
-  Nu blocheaza restul migrarii; ramane pt. o discutie separata.
+  Nu blocheaza restul migrarii; ramane pt. o discutie separata. Sectiunea e
+  marcata explicit cu comentarii `CP-DECLARATIV-EXCEPTIE:START`/`:END`
+  (03.09.2026), recunoscute de `scripts/check-cp-optiuni-declarative.mjs` —
+  vezi „Enforcement" mai jos. Corectie fata de o presupunere gresita facuta
+  in conversatie: migrarea celor 5 culori curente la campuri `culoare` NU ar
+  fi dat acestui quiz un link de partajare "gratis" — `rigle-tabla-1-10.js`
+  nu are deloc `getSharedConfig`/`getSharedLink`/`applySharedConfig` azi
+  (doar `tabla-inmultirii-tabel.js` si `equations-e3-e6.js` au share-link
+  complet implementat), deci acel beneficiu specific nu exista fara sa se
+  construiasca intai intreaga infrastructura de share-link pt. acest quiz —
+  scop mai mare decat migrarea panoului CP, nefacut acum.
 - **`js/quizzes/equations-e3-e6.js`** — al doilea quiz cu share-link,
   precedentul original (getSharedConfig/applySharedConfig scrise manual
   INAINTE sa existe motorul). Migrare completa, inclusiv `campul` "signMode"
@@ -173,9 +194,22 @@ Migrate (03.09.2026), toate verificate cu `npm test` + Playwright end-to-end
   cere repornirea rutei de subquiz-uri, nu doar re-randare CP) si
   `activCand` folosit pt. prima data pe o vizibilitate REAL conditionata
   (campul "Intrare in sq5" apare doar cand "Ruleaza sq5" e pe modul B).
-  `appendSq2ControlPanelUnused` (cod mort, nu mai apare in obiectul
-  returnat) si `setSq2Config` (acelasi contract public testat separat)
-  **ramase neatinse**, nemigrate — nu au legatura cu acest tabel.
+  `setSq2Config` (contract public `{ok, rejected}`, testat separat)
+  **ramas neatins** — nu are legatura cu acest tabel. `appendSq2ControlPanelUnused`
+  NU e cod mort obisnuit (corectie 03.09.2026: exista un comentariu chiar
+  deasupra lui — "Panoul CP al lui sq2 ramane definit (cod pastrat), dar nu
+  mai e expus pe obiectul quizului -> CpRegistry il considera dezactivat,
+  deci nu se afiseaza. Decizie user, 29.07.2026 ('ramane ascuns integral')"
+  — deci o decizie user explicita sa fie PASTRAT, doar ascuns, nu sters.
+  Tratat provizoriu ca exceptie punctuala in
+  `scripts/check-cp-optiuni-declarative.mjs` (`EXCEPTII_PUNCTUALE`), in
+  asteptarea deciziei userului daca ramane exceptie documentata permanent
+  (cu marcaje `CP-DECLARATIV-EXCEPTIE`) sau se sterge. **La aceeasi migrare
+  s-au gasit si sters** (03.09.2026) `sq5SliderRow`/`sq5StepperRow` — doi
+  helperi DOM bruti ramasi orfani dupa migrarea `appendSq3ControlPanel`/
+  `appendSq5ControlPanel` la motor, fara niciun apelant (confirmat prin
+  grep) si fara nicio decizie user in spate — cod mort obisnuit, nu cazul
+  `appendSq2ControlPanelUnused`.
 
 Teste: `tests/motor-optiuni-control-panel.test.js` (motorul, izolat — toate
 cele 5 tipuri, plus validare pe input malitios/invalid per tip),
@@ -183,23 +217,54 @@ cele 5 tipuri, plus validare pe input malitios/invalid per tip),
 `tests/equations-e3-e6.test.js`, `tests/jurnal-intrebari.test.js`
 (actualizate sa incarce motorul).
 
-## Ce ramane de facut
+## Enforcement (check automat)
 
-Toate cele 7 quizuri cu panou CP propriu identificate initial sunt migrate
-(03.09.2026). Ramane deschisa DOAR sectiunea "Culori" din
-`rigle-tabla-1-10.js` (vezi mai sus — intrebare arhitecturala, nu simpla
-migrare) — restul e complet.
+Cerere user, 03.09.2026: "sa nu se mai poata face adaugari in cp decat prin
+acest motor cu date stocate in text" — implementat, `scripts/check-cp-optiuni-declarative.mjs`
+(`npm run check:cp-optiuni`), rulat automat inaintea oricarui commit alaturi
+de `check:docs`/`check:encoding`/`test`.
 
-Ultimul pas planificat: un check automat
-(`scripts/check-cp-optiuni-declarative.mjs` sau similar) care interzice cod
-DOM imperativ nou pt. optiuni CP in afara motorului — cerere user,
-03.09.2026: "sa nu se mai poata face adaugari in cp decat prin acest motor
-cu date stocate in text". Se poate activa acum ca migrarea de baza s-a
-terminat, cu 2 exceptii explicite necesare (STRICT documentate, nu
-"gauri" accidentale): sectiunea "Culori" din `rigle-tabla-1-10.js`
-(intrebare arhitecturala deschisa) si `setSq2Config`/
-`appendSq2ControlPanelUnused` (API public separat, testat, fara legatura cu
-optiunile CP declarative).
+**Domeniu verificat**: `js/quizzes/*.js` + `js/app.js` — unde traiesc toate
+panourile CP ale quizurilor si sectiunile CP din shell-ul aplicatiei.
+`js/motor-optiuni-control-panel.js` exclus (e motorul insusi).
+
+**Ce detecteaza**: `document.createElement("select")` si atribuiri
+`.type = "checkbox"|"radio"|"number"|"range"|"color"` — tiparele de cod DOM
+imperativ pe care motorul le inlocuieste.
+
+**Mecanism de exceptie (2 cai, ambele cer motiv + data)**:
+
+1. **Marcaje in sursa** — `// CP-DECLARATIV-EXCEPTIE:START` / `:END` in jurul
+   blocului de cod, cu un comentariu explicit deasupra care spune de ce nu se
+   incadreaza in formatul declarativ. Folosit azi in 2 locuri:
+   - `js/quizzes/rigle-tabla-1-10.js` — sectiunea "Culori" (vezi mai sus).
+   - `js/app.js` — bifa "Border verde..." din panoul Debug (vezi mai sus).
+2. **`EXCEPTII_PUNCTUALE`** (lista in scriptul insusi) — STRICT pt. cazuri
+   unde sursa nu poate fi marcata inca (ex: o decizie user in asteptare, cat
+   timp fisierul nu se modifica pana la raspuns). Foloseste numele functiei +
+   brace-matching ca sa goleasca acea zona inainte de scanare. Azi un singur
+   caz: `appendSq2ControlPanelUnused` din
+   `multiplication-1120-v4-intensiv-multipli-234.js` — in asteptarea
+   deciziei userului (vezi bulletul dedicat mai sus) daca ramane exceptie
+   documentata permanent (cu marcaje, ca la 1.) sau se sterge complet.
+
+**Gasit la scriere (03.09.2026), corectat inainte de a activa checkul**: 2
+helperi DOM bruti orfani (`sq5SliderRow`/`sq5StepperRow`, cod mort obisnuit,
+sterse), 1 slider brut in panoul Debug (`js/app.js`, migrat la motor).
+
+**Domeniu NEACOPERIT, deliberat, gasit la scriere (03.09.2026)** — panouri CP
+complet separate, in afara celor 7 fisiere de quiz identificate initial,
+nemigrate si azi in afara scopului acestui check:
+
+- `js/falling-engine.js` — `buildLiftControlPanel()` (transparenta fundal
+  lift, latime lift, checkbox-uri "riseFromButton"/"revealAnswer...").
+- `js/aam-arena.js` — `buildControlPanel()` (checkbox-uri PANEL_SWITCHES +
+  extensii axa, `<select>` "Obiect afisat", slider viteza acolada).
+
+Ambele sunt panouri CP reale, comparabile ca marime cu un quiz migrat — nu
+niste cazuri marginale. Nu au fost migrate acum (scop nou, nu doar
+"terminarea" migrarii deja incepute) — raman pt. o decizie separata a
+userului daca se extinde proiectul si la ele.
 
 Aceasta structura **a trecut prin ajustari reale** pe parcursul migrarii
 (`formateazaAfisare`, `eticheta` pe radio), exact cum s-a anticipat ("faci o

@@ -1381,30 +1381,26 @@
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "tapRippleOnQuestion");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "numbersFlowToQ");
 
-    (function buildNumbersFlowSlider() {
-      const row = document.createElement("div");
-      row.className = "control-panel-lift-field";
-      const label = document.createElement("label");
-      label.textContent = "cate numere de la buton la ?";
-      const slider = document.createElement("input");
-      slider.type = "range";
-      slider.min = "1";
-      slider.max = "36";
-      slider.step = "1";
-      slider.value = String(
-        window.LayoutConfig?.get("asnwNumbersFlowCount", 6) ?? 6
-      );
-      const out = document.createElement("span");
-      out.className = "control-panel-lift-slider-out";
-      out.textContent = slider.value;
-      slider.addEventListener("input", () => {
-        out.textContent = slider.value;
-        window.LayoutConfig?.set("asnwNumbersFlowCount", Number(slider.value));
-        window.AsnwOnboarding?.sync?.();
-      });
-      row.append(label, slider, out);
-      mount.appendChild(row);
-    })();
+    // Optiune CP declarativa (documente de referinta/standard-optiuni-cp.md)
+    // — sub-container propriu, ca motorul sa poata face replaceChildren()
+    // pe el fara sa stearga restul panoului Debug.
+    const campuriMount = document.createElement("div");
+    mount.appendChild(campuriMount);
+    window.MotorOptiuniControlPanel.construiesteDOM(campuriMount, [
+      {
+        cheie: "asnwNumbersFlowCount",
+        tip: "numar",
+        eticheta: "cate numere de la buton la ?",
+        stilAfisare: "slider",
+        min: 1,
+        max: 36,
+        pas: 1,
+        implicit: 6,
+        get: () => window.LayoutConfig?.get("asnwNumbersFlowCount", 6) ?? 6,
+        set: (valoare) => window.LayoutConfig?.set("asnwNumbersFlowCount", valoare),
+        dupaSchimbare: () => window.AsnwOnboarding?.sync?.(),
+      },
+    ]);
 
     (function buildOnboardingDebugRow() {
       const row = document.createElement("div");
@@ -1446,6 +1442,14 @@
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "liftNoRiseTeleport");
     window.AsnwProfile?.appendCanonicalFlagRow(mount, "liftFixedQuestionBar");
 
+    // CP-DECLARATIV-EXCEPTIE:START — bifa "Border verde..." e dezactivata
+    // (disabled) automat cand modul ASNW e activ, prin debugBordersInput
+    // (variabila din scope-ul de mai sus) manipulata direct in
+    // applyDebugInfoBorders(). Motorul n-are azi un concept de camp "vizibil
+    // dar dezactivat" (doar activCand, care ASCUNDE complet) — o adaugare
+    // fortata ar pierde acest comportament. Exceptie documentata, verificata
+    // explicit de scripts/check-cp-optiuni-declarative.mjs. Decizie
+    // 03.09.2026, vezi documente de referinta/standard-optiuni-cp.md.
     const row = document.createElement("label");
     row.className = "control-panel-lift-row";
     const input = document.createElement("input");
@@ -1462,6 +1466,7 @@
     row.append(input, span);
     mount.appendChild(row);
     applyDebugInfoBorders();
+    // CP-DECLARATIV-EXCEPTIE:END
   })();
 
   aamArena = AamArena.create(dom);
