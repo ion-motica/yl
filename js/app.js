@@ -54,7 +54,6 @@
   const RESPONSE_TIMES_PER_FACT_MAX = 3;
   let showResponseTimes =
     window.LayoutConfig?.get(RESPONSE_TIMES_ENABLED_KEY, true) !== false;
-  let responseTimesInput = null;
   const responseTimesByFact = new Map();
 
   dom.getSwapQuestionIllustration = () =>
@@ -1138,10 +1137,6 @@
   renderIlustrareMereVitezaPanel();
   renderTablaInmultiriiTabelPanel();
 
-  function syncResponseTimesInput() {
-    if (responseTimesInput) responseTimesInput.checked = showResponseTimes;
-  }
-
   // "Vizualizare 3 - Claude" (cerere user, 02.09.2026) — inainte era un <a>
   // static in index.html, pinuit deasupra tuturor sectiunilor CP (vezi
   // comentariul vechi din style.css, .cp-viz3-link). Acum e <button>, primul
@@ -1205,22 +1200,24 @@
     });
     mount.appendChild(butonGenereazaLink);
 
-    const row = document.createElement("label");
-    row.className = "control-panel-lift-row";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = showResponseTimes;
-    responseTimesInput = input;
-    input.addEventListener("change", () => {
-      showResponseTimes = input.checked;
-      window.LayoutConfig?.set(RESPONSE_TIMES_ENABLED_KEY, showResponseTimes);
-      renderProgress();
-    });
-    const span = document.createElement("span");
-    span.textContent = "Afiseaza Timpi raspuns";
-    row.append(input, span);
-    mount.appendChild(row);
-    syncResponseTimesInput();
+    // Optiune CP declarativa (documente de referinta/standard-optiuni-cp.md)
+    // — sub-container propriu, ca motorul sa poata face replaceChildren()
+    // pe el fara sa stearga butoanele de actiune adaugate mai sus.
+    const campuriMount = document.createElement("div");
+    mount.appendChild(campuriMount);
+    window.MotorOptiuniControlPanel.construiesteDOM(campuriMount, [
+      {
+        cheie: "afiseazaTimpiRaspuns",
+        tip: "bifa",
+        eticheta: "Afiseaza Timpi raspuns",
+        get: () => showResponseTimes,
+        set: (valoare) => {
+          showResponseTimes = valoare;
+          window.LayoutConfig?.set(RESPONSE_TIMES_ENABLED_KEY, showResponseTimes);
+        },
+        dupaSchimbare: renderProgress,
+      },
+    ]);
 
     window.StartupQuiz?.appendStartupQuizControl(mount, {
       options: getQuizMenuOrder(),
