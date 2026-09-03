@@ -33,6 +33,8 @@
 //     pas: 1,             // implicit 1
 //     zecimale: 0,        // implicit 0 (rotunjire la afisare/validare)
 //     stilAfisare: "stepper" | "slider", // implicit "stepper"
+//     formateazaAfisare: (valoare) => text,  // (optional, doar slider) text
+//                          // custom in loc de cifra bruta — ex. "de 3x mai incet"
 //
 //     // specific tipului "set" (mai multe valori bifate simultan):
 //     optiuni: [{ valoare, text }, ...],
@@ -202,6 +204,12 @@
   }
 
   function construiesteEnumRadio(mount, camp, onSchimbare) {
+    if (camp.eticheta) {
+      const eticheta = document.createElement("p");
+      eticheta.className = "control-panel-lift-field";
+      eticheta.textContent = camp.eticheta;
+      mount.appendChild(eticheta);
+    }
     const numeGrup = `cp-radio-${camp.cheie}`;
     const valoareCurenta = camp.get();
     camp.optiuni.forEach(({ valoare, text }) => {
@@ -258,6 +266,7 @@
   }
 
   function construiesteNumarSlider(mount, camp, onSchimbare) {
+    const formateaza = camp.formateazaAfisare ?? String;
     const field = document.createElement("div");
     field.className = "control-panel-lift-field control-panel-lift-slider-field";
     const head = document.createElement("div");
@@ -266,7 +275,7 @@
     label.textContent = camp.eticheta;
     const out = document.createElement("span");
     out.className = "control-panel-lift-slider-out";
-    out.textContent = String(camp.get());
+    out.textContent = formateaza(camp.get());
     const slider = document.createElement("input");
     slider.type = "range";
     slider.min = String(camp.min);
@@ -275,7 +284,7 @@
     slider.value = String(camp.get());
     slider.addEventListener("input", () => {
       onSchimbare(Number(slider.value));
-      out.textContent = String(camp.get());
+      out.textContent = formateaza(camp.get());
     });
     head.append(label, out);
     field.append(head, slider);

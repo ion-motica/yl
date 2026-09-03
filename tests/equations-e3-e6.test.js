@@ -22,6 +22,7 @@ function loadQuiz() {
   loadScript("js/subquiz/subquiz-definition.js");
   loadScript("js/subquiz/subquiz-orchestrator.js");
   loadScript("js/motor-3-butoane.js");
+  loadScript("js/motor-optiuni-control-panel.js");
   loadScript("js/quizzes/equations-e3-e6.js");
 }
 
@@ -39,6 +40,7 @@ beforeEach(() => {
   delete globalThis.ItemGenerator;
   delete globalThis.SubquizDefinition;
   delete globalThis.SubquizOrchestrator;
+  delete globalThis.MotorOptiuniControlPanel;
 });
 
 test("registers the new quiz with the exact requested title", () => {

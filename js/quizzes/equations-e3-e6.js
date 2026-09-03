@@ -673,20 +673,6 @@
     ];
   }
 
-  function appendCheckbox(parent, labelText, checked, onChange) {
-    const row = document.createElement("label");
-    row.className = "control-panel-lift-row";
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = checked;
-    input.addEventListener("change", () => onChange(input.checked, input));
-    const span = document.createElement("span");
-    span.textContent = labelText;
-    row.append(input, span);
-    parent.appendChild(row);
-    return input;
-  }
-
   function base64UrlEncode(text) {
     const toBase64 =
       typeof global.btoa === "function"
@@ -721,6 +707,60 @@
     let completed = false;
     let orchestrator = null;
     const attemptLog = [];
+
+    // Tabelul declarativ de optiuni CP (documente de referinta/
+    // standard-optiuni-cp.md).
+    //
+    // `set()` scrie DOAR valoarea (normalizeConfig pe campul respectiv),
+    // FARA sa restarteze runda — motorul cheama set() o data per camp
+    // prezent in shared, la aplicaConfig (share-link); daca set() ar
+    // restarta de fiecare data, un link cu 4 campuri ar restarta runda de
+    // 4 ori la incarcare in loc de o singura data. Restart-ul ramane STRICT
+    // in dupaSchimbare (rulat doar la interactiune UI, niciodata din
+    // aplicaConfig — vezi motor-optiuni-control-panel.js) si, separat, o
+    // singura data la finalul applySharedConfig (mai jos).
+    //
+    // `notifyChange` (optional, doar UI): renderPreview + renderSharedLink +
+    // opts.onChange, dupa restart.
+    //
+    // `signMode` participa la share-link (fidelitate cu getSharedConfig
+    // dinainte de migrare) desi nu are control UI propriu — e mereu
+    // SAME_SIGN (normalizeConfig forteaza asta), decizie de dinainte.
+    function campurileCP(notifyChange = () => {}) {
+      const scrie = (patch) => {
+        quizConfig = normalizeConfig({ ...quizConfig, ...patch });
+      };
+      const dupaSchimbareUI = () => {
+        restartAfterConfigChange();
+        notifyChange();
+      };
+      return [
+        { cheie: "familyId", tip: "enum", stilAfisare: "radio", eticheta: "Tip quiz:",
+          optiuni: Object.values(FAMILY_DEFS).map((def) => ({ valoare: def.id, text: def.label })),
+          get: () => quizConfig.familyId,
+          set: (v) => scrie({ familyId: v }),
+          dupaSchimbare: dupaSchimbareUI },
+        { cheie: "operators", tip: "set", eticheta: "Semne incluse",
+          optiuni: OPS.map((op) => ({ valoare: op, text: op })),
+          minSelectate: 1,
+          get: () => [...quizConfig.operators],
+          set: (v) => scrie({ operators: v }),
+          dupaSchimbare: dupaSchimbareUI },
+        { cheie: "showSummaryInArena", tip: "bifa", eticheta: "Arata detalii in lista din arena",
+          get: () => quizConfig.showSummaryInArena,
+          set: (v) => scrie({ showSummaryInArena: v }),
+          dupaSchimbare: dupaSchimbareUI },
+        { cheie: "questionsPerRun", tip: "numar", eticheta: "Intrebari pe tura",
+          min: 5, max: 50,
+          get: () => quizConfig.questionsPerRun,
+          set: (v) => scrie({ questionsPerRun: v }),
+          dupaSchimbare: dupaSchimbareUI },
+        { cheie: "signMode", tip: "enum", inDOM: false,
+          optiuni: [{ valoare: SAME_SIGN, text: "same" }],
+          get: () => quizConfig.signMode,
+          set: (v) => scrie({ signMode: v }) },
+      ];
+    }
 
     function family() {
       return FAMILY_DEFS[quizConfig.familyId] || FAMILY_DEFS.E3;
@@ -948,14 +988,9 @@
         ...quizConfig,
         operators: [...quizConfig.operators],
       }),
-      getSharedConfig: () => ({
-        v: 1,
-        familyId: quizConfig.familyId,
-        operators: [...quizConfig.operators],
-        signMode: quizConfig.signMode,
-        showSummaryInArena: quizConfig.showSummaryInArena,
-        questionsPerRun: quizConfig.questionsPerRun,
-      }),
+      getSharedConfig() {
+        return { v: 1, ...global.MotorOptiuniControlPanel.citesteConfig(campurileCP()) };
+      },
       getSharedLink(baseHref) {
         const fallbackHref = "index.html";
         const base = global.location?.href ?? "http://localhost/";
@@ -968,14 +1003,8 @@
         return url.href;
       },
       applySharedConfig(shared = {}) {
-        if (!shared || typeof shared !== "object" || Array.isArray(shared)) return false;
-        quizConfig = normalizeConfig({
-          familyId: shared.familyId,
-          operators: shared.operators,
-          signMode: shared.signMode,
-          showSummaryInArena: shared.showSummaryInArena,
-          questionsPerRun: shared.questionsPerRun,
-        });
+        const ok = global.MotorOptiuniControlPanel.aplicaConfig(campurileCP(), shared);
+        if (!ok) return false;
         restartAfterConfigChange();
         return true;
       },
@@ -1016,88 +1045,9 @@
           opts.onChange?.();
         };
 
-        const familyField = document.createElement("div");
-        familyField.className = "control-panel-lift-field tonomat-family-field";
-        const familyLabel = document.createElement("span");
-        familyLabel.textContent = "Tip quiz:";
-        const familyList = document.createElement("div");
-        familyList.className = "tonomat-family-list";
-        Object.values(FAMILY_DEFS).forEach((def) => {
-          const choice = document.createElement("label");
-          choice.className = "tonomat-family-choice";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = "tonomat-family";
-          input.value = def.id;
-          input.checked = def.id === quizConfig.familyId;
-          input.addEventListener("change", () => {
-            if (!input.checked) return;
-            this.setTonomatConfig({ familyId: def.id });
-            notifyChange();
-          });
-          const text = document.createElement("span");
-          text.textContent = def.label;
-          choice.append(input, text);
-          familyList.appendChild(choice);
-        });
-        familyField.append(familyLabel, familyList);
-        mount.appendChild(familyField);
-
-        const opField = document.createElement("div");
-        opField.className = "control-panel-lift-field";
-        const opTitle = document.createElement("span");
-        opTitle.textContent = "Semne incluse";
-        const opRow = document.createElement("div");
-        opRow.className = "tonomat-op-row";
-        const opInputs = new Map();
-        OPS.forEach((op) => {
-          const label = document.createElement("label");
-          label.className = "tonomat-op-choice";
-          const input = document.createElement("input");
-          input.type = "checkbox";
-          input.checked = quizConfig.operators.includes(op);
-          input.addEventListener("change", () => {
-            const selected = [...opInputs.entries()]
-              .filter(([, el]) => el.checked)
-              .map(([key]) => key);
-            if (!selected.length) {
-              input.checked = true;
-              return;
-            }
-            this.setTonomatConfig({ operators: selected });
-            notifyChange();
-          });
-          const span = document.createElement("span");
-          span.textContent = op;
-          label.append(input, span);
-          opInputs.set(op, input);
-          opRow.appendChild(label);
-        });
-        opField.append(opTitle, opRow);
-        mount.appendChild(opField);
-
-        appendCheckbox(mount, "Arata detalii in lista din arena", quizConfig.showSummaryInArena, (checked) => {
-          this.setTonomatConfig({ showSummaryInArena: checked });
-          notifyChange();
-        });
-
-        const countField = document.createElement("div");
-        countField.className = "control-panel-lift-field";
-        const countLabel = document.createElement("label");
-        countLabel.textContent = "Intrebari pe tura";
-        const countInput = document.createElement("input");
-        countInput.type = "number";
-        countInput.min = "5";
-        countInput.max = "50";
-        countInput.step = "1";
-        countInput.value = String(quizConfig.questionsPerRun);
-        countInput.addEventListener("change", () => {
-          this.setTonomatConfig({ questionsPerRun: countInput.value });
-          countInput.value = String(quizConfig.questionsPerRun);
-          notifyChange();
-        });
-        countField.append(countLabel, countInput);
-        mount.appendChild(countField);
+        const campuriMount = document.createElement("div");
+        mount.appendChild(campuriMount);
+        global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(notifyChange));
 
         const shareField = document.createElement("div");
         shareField.className = "control-panel-lift-field tonomat-share";

@@ -338,6 +338,58 @@
 
   function createQuiz(config = {}) {
     let quizConfig = normalizeConfig(config);
+
+    // Tabelul declarativ de optiuni CP (documente de referinta/
+    // standard-optiuni-cp.md). `notifyChange` (opts.onChange?.()) e
+    // identic cu cel din codul vechi — nu redeseneaza local panoul (nici
+    // codul vechi n-o facea), deci "Intervale rezultate:" (text calculat,
+    // mai jos in appendPreEquationNavigationControlPanel) nu se
+    // actualizeaza live aici — comportament nemodificat de migrare.
+    function campurileCP(notifyChange) {
+      return [
+        { cheie: "operators", tip: "set", eticheta: "Semn",
+          optiuni: OP_FAMILIES.map((f) => ({ valoare: f.op, text: f.label })),
+          minSelectate: 1,
+          get: () => [...quizConfig.operators],
+          set: (v) => setConfig({ operators: v }),
+          dupaSchimbare: notifyChange },
+        { cheie: "retryCycleOnMistake", tip: "bifa", eticheta: "Reia ciclul daca a gresit",
+          get: () => quizConfig.retryCycleOnMistake,
+          set: (v) => setConfig({ retryCycleOnMistake: v }),
+          dupaSchimbare: notifyChange },
+        { cheie: "nearNextSet", tip: "bifa", eticheta: "Urmatorul set apropiat (ex 2 3 5 -> 2 4 6)",
+          get: () => quizConfig.nearNextSet,
+          set: (v) => setConfig({ nearNextSet: v }),
+          dupaSchimbare: notifyChange },
+        // La schimbarea modului, unknownSymbol se reseteaza la null (cade
+        // pe fallback-ul lui effectiveUnknownSymbol) — comportament vechi
+        // pastrat identic, nu doar o coincidenta de nume de camp.
+        { cheie: "answerMode", tip: "enum", stilAfisare: "radio", eticheta: "Raspuns ca:",
+          optiuni: [
+            { valoare: "number", text: "7" },
+            { valoare: "formula", text: "6+1" },
+            { valoare: "alternate", text: "alternat" },
+          ],
+          get: effectiveAnswerMode,
+          set: (v) => setConfig({ answerMode: v, unknownSymbol: null }),
+          dupaSchimbare: notifyChange },
+        { cheie: "unknownSymbol", tip: "enum", stilAfisare: "radio", eticheta: "Necunoscuta",
+          optiuni: [
+            { valoare: "?", text: "?" },
+            { valoare: "x", text: "x" },
+          ],
+          get: () => effectiveUnknownSymbol(),
+          set: (v) => setConfig({ unknownSymbol: v }),
+          dupaSchimbare: notifyChange },
+        { cheie: "intervalWidth", tip: "numar", eticheta: "Latime interval",
+          min: 1, max: 30, get: () => quizConfig.intervalWidth,
+          set: (v) => setConfig({ intervalWidth: v }), dupaSchimbare: notifyChange },
+        { cheie: "intervalStep", tip: "numar", eticheta: "Pas crestere interval",
+          min: 1, max: 20, get: () => quizConfig.intervalStep,
+          set: (v) => setConfig({ intervalStep: v }), dupaSchimbare: notifyChange },
+      ];
+    }
+
     let level = MIN_LEVEL;
     let currentTriangle = null;
     let previousTriangle = null;
@@ -708,175 +760,9 @@
 
         const notifyChange = () => opts.onChange?.();
 
-        function appendStepper(labelText, key, min, max) {
-          const field = document.createElement("div");
-          field.className = "control-panel-lift-field pre-eq-stepper-field";
-          const label = document.createElement("label");
-          label.textContent = labelText;
-          const controls = document.createElement("div");
-          controls.className = "pre-eq-stepper";
-          const minus = document.createElement("button");
-          minus.type = "button";
-          minus.textContent = "-";
-          const input = document.createElement("input");
-          input.type = "number";
-          input.min = String(min);
-          input.max = String(max);
-          input.step = "1";
-          input.value = String(quizConfig[key]);
-          const plus = document.createElement("button");
-          plus.type = "button";
-          plus.textContent = "+";
-
-          const applyValue = (value) => {
-            setConfig({ [key]: value });
-            input.value = String(quizConfig[key]);
-            notifyChange();
-          };
-
-          minus.addEventListener("click", () => {
-            applyValue(Number(input.value) - 1);
-          });
-          plus.addEventListener("click", () => {
-            applyValue(Number(input.value) + 1);
-          });
-          input.addEventListener("change", () => {
-            applyValue(input.value);
-          });
-
-          controls.append(minus, input, plus);
-          field.append(label, controls);
-          mount.appendChild(field);
-        }
-
-        const opField = document.createElement("div");
-        opField.className = "control-panel-lift-field pre-eq-inline-field";
-        const opTitle = document.createElement("span");
-        opTitle.textContent = "Semn";
-        const opRow = document.createElement("div");
-        opRow.className = "tonomat-op-row pre-eq-sign-row";
-        const opInputs = new Map();
-        OP_FAMILIES.forEach((family) => {
-          const label = document.createElement("label");
-          label.className = "tonomat-op-choice";
-          const input = document.createElement("input");
-          input.type = "checkbox";
-          input.value = family.op;
-          input.checked = quizConfig.operators.includes(family.op);
-          input.addEventListener("change", () => {
-            const selected = [...opInputs.entries()]
-              .filter(([, el]) => el.checked)
-              .map(([key]) => key);
-            if (!selected.length) {
-              input.checked = true;
-              return;
-            }
-            setConfig({ operators: selected });
-            notifyChange();
-          });
-          const span = document.createElement("span");
-          span.textContent = family.label;
-          label.append(input, span);
-          opInputs.set(family.op, input);
-          opRow.appendChild(label);
-        });
-        opField.append(opTitle, opRow);
-        mount.appendChild(opField);
-
-        const retryRow = document.createElement("label");
-        retryRow.className = "control-panel-lift-row";
-        const retryInput = document.createElement("input");
-        retryInput.type = "checkbox";
-        retryInput.checked = quizConfig.retryCycleOnMistake;
-        retryInput.addEventListener("change", () => {
-          setConfig({ retryCycleOnMistake: retryInput.checked });
-          notifyChange();
-        });
-        const retryText = document.createElement("span");
-        retryText.textContent = "Reia ciclul daca a gresit";
-        retryRow.append(retryInput, retryText);
-        mount.appendChild(retryRow);
-
-        const nearRow = document.createElement("label");
-        nearRow.className = "control-panel-lift-row";
-        const nearInput = document.createElement("input");
-        nearInput.type = "checkbox";
-        nearInput.checked = quizConfig.nearNextSet;
-        nearInput.addEventListener("change", () => {
-          setConfig({ nearNextSet: nearInput.checked });
-          notifyChange();
-        });
-        const nearText = document.createElement("span");
-        nearText.textContent = "Urmatorul set apropiat (ex 2 3 5 -> 2 4 6)";
-        nearRow.append(nearInput, nearText);
-        mount.appendChild(nearRow);
-
-        const modeField = document.createElement("div");
-        modeField.className = "control-panel-lift-field";
-        const modeTitle = document.createElement("span");
-        modeTitle.textContent = "Raspuns ca:";
-        const modeList = document.createElement("div");
-        modeList.className = "tonomat-op-row";
-        [
-          ["number", "7"],
-          ["formula", "6+1"],
-          ["alternate", "alternat"],
-        ].forEach(([mode, labelText]) => {
-          const label = document.createElement("label");
-          label.className = "tonomat-op-choice";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = "pre-eq-answer-mode";
-          input.value = mode;
-          input.checked = effectiveAnswerMode() === mode;
-          input.addEventListener("change", () => {
-            if (!input.checked) return;
-            setConfig({
-              answerMode: mode,
-              unknownSymbol: null,
-            });
-            notifyChange();
-          });
-          const span = document.createElement("span");
-          span.textContent = labelText;
-          label.append(input, span);
-          modeList.appendChild(label);
-        });
-        modeField.append(modeTitle, modeList);
-        mount.appendChild(modeField);
-
-        const unknownField = document.createElement("div");
-        unknownField.className = "control-panel-lift-field";
-        const unknownTitle = document.createElement("span");
-        unknownTitle.textContent = "Necunoscuta";
-        const unknownList = document.createElement("div");
-        unknownList.className = "tonomat-op-row";
-        [
-          ["?", "?"],
-          ["x", "x"],
-        ].forEach(([symbol, labelText]) => {
-          const label = document.createElement("label");
-          label.className = "tonomat-op-choice";
-          const input = document.createElement("input");
-          input.type = "radio";
-          input.name = "pre-eq-unknown-symbol";
-          input.value = symbol;
-          input.checked = effectiveUnknownSymbol() === symbol;
-          input.addEventListener("change", () => {
-            if (!input.checked) return;
-            setConfig({ unknownSymbol: symbol });
-            notifyChange();
-          });
-          const span = document.createElement("span");
-          span.textContent = labelText;
-          label.append(input, span);
-          unknownList.appendChild(label);
-        });
-        unknownField.append(unknownTitle, unknownList);
-        mount.appendChild(unknownField);
-
-        appendStepper("Latime interval", "intervalWidth", 1, 30);
-        appendStepper("Pas crestere interval", "intervalStep", 1, 20);
+        const campuriMount = document.createElement("div");
+        mount.appendChild(campuriMount);
+        global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(notifyChange));
 
         const intervalsRow = document.createElement("p");
         intervalsRow.className = "tonomat-preview-title pre-eq-intervals-row";

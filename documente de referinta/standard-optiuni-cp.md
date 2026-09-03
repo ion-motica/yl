@@ -103,35 +103,87 @@ Un quiz scrie o functie `campurileCP(...)` care returneaza `[camp1, camp2, ...]`
 
 ## Implementare de referinta
 
-`js/quizzes/tabla-inmultirii-tabel.js` — primul quiz migrat (03.09.2026), de la
-stilul vechi (helper-e locale `addBifa`/`addStepper`/`appendSelectField`,
-~65 de linii de cod DOM repetitiv + `getSharedConfig`/`applySharedConfig` scrise
-manual) la `campurileCP(quizPublicApi, opts, rerandeaza)` + motor. Rezultat:
-`appendTablaInmultiriiTabelControlPanel` a scazut la 4 linii; `getSharedConfig`/
-`applySharedConfig` la cate 3-6 linii fiecare, fara nicio validare scrisa de mana.
+Migrate (03.09.2026), toate verificate cu `npm test` + Playwright end-to-end
+(panoul CP arata/functioneaza identic, share-link cand exista):
 
-Teste: `tests/motor-optiuni-control-panel.test.js` (motorul, izolat — toate cele 5
-tipuri, plus validare pe input malitios/invalid per tip) si
-`tests/tabla-inmultirii-tabel-share-link.test.js` (contractul complet, prin motor).
+- **`js/quizzes/tabla-inmultirii-tabel.js`** — primul migrat, precedentul.
+  `appendTablaInmultiriiTabelControlPanel` de la ~65 de linii de cod DOM
+  repetitiv la 4; `getSharedConfig`/`applySharedConfig` de la validare scrisa
+  manual la 3-6 linii fiecare, fara nicio validare de mana.
+- **`js/app.js` (sectiunea General)** — categorie separata, nu per-quiz
+  (omisa din analiza initiala a "quizurilor cu panou CP"). Doar bifa
+  "Afiseaza Timpi raspuns" migrata; butoanele de actiune (Vizualizare3,
+  Genereaza link) raman cod simplu — nu au stare, motorul e pt. campuri
+  get/set. A scos la iveala cod mort (`responseTimesInput`/
+  `syncResponseTimesInput`, fara niciun apelant in afara locului unde
+  checkbox-ul tocmai fusese creat).
+- **`js/quizzes/rigle-cl1.js`** — 18 campuri, migrare completa. A cerut 2
+  extensii mici ale motorului: `formateazaAfisare` (text custom pe slider,
+  ex. "de 3× mai încet" in loc de cifra bruta) si `eticheta` pe campurile
+  enum-radio (sub-titlu mic deasupra unui grup radio, cand nu justifica un
+  `grup` intreg). Dependenta incrucisata (Suma Minim/Maxim — schimband unul,
+  celalalt se re-clampeaza) rezolvata prin `dupaSchimbare: rerandeaza`,
+  acelasi tipar ca la campul "mutareColoane" din tabla-inmultirii-tabel.
+- **`js/quizzes/rigle-tabla-1-10.js`** — migrare **partiala**, deliberat.
+  Toate campurile simple (Grila, Pozitie coloane, Numerotare, Bara mere,
+  Lift + Pornire + Scala, FOV, Dara) migrate. Sectiunea "Culori" (selector de
+  element + color picker + paleta personala de max. 10 culori + scheme
+  complete salvate/aplicate/sterse) **ramane cod vechi, neatins** — are stare
+  proprie (elementul curent selectat, tranzitorie, nepersistata), actiuni
+  compuse (salveaza/aplica un SET de 5 culori deodata) si o relatie
+  master-detail intre selector si picker. Nu se incadreaza curat in formatul
+  "camp = {tip, get, set}". **Intrebare arhitecturala deschisa**: cum tratam
+  sisteme CP compuse, cu stare si actiuni proprii — nu doar optiuni simple.
+  Nu blocheaza restul migrarii; ramane pt. o discutie separata.
+- **`js/quizzes/equations-e3-e6.js`** — al doilea quiz cu share-link,
+  precedentul original (getSharedConfig/applySharedConfig scrise manual
+  INAINTE sa existe motorul). Migrare completa, inclusiv `campul` "signMode"
+  (fara control UI propriu, mereu SAME_SIGN — `inDOM: false`, dar participa
+  la share-link pt. fidelitate cu formatul dinainte). **Capcana reala găsită
+  aici**: `set()` NU trebuie sa aiba efecte secundare (restart de runda) —
+  motorul cheama `set()` o data per camp prezent in `shared`, deci un `set()`
+  cu restart inclus ar restarta runda de N ori la un singur `applySharedConfig`
+  (N = nr. de campuri din link), in loc de o singura data. Restart-ul ramane
+  STRICT in `dupaSchimbare` (UI) si, separat, o singura data la finalul
+  `applySharedConfig` insusi. Testele existente (`tests/equations-e3-e6.test.js`,
+  scrise inainte de motor) au trebuit actualizate sa incarce
+  `motor-optiuni-control-panel.js`.
+- **`js/quizzes/pre-equations-eff-navigation.js`** — migrare completa, 7
+  campuri, inclusiv un efect secundar compus real (schimbarea "Raspuns ca"
+  reseteaza simultan "Necunoscuta" la null, care cade pe propriul fallback
+  calculat) si campuri al caror `get()` foloseste o functie cu fallback
+  (`effectiveAnswerMode()`/`effectiveUnknownSymbol()`), nu direct valoarea
+  bruta din config.
+
+Teste: `tests/motor-optiuni-control-panel.test.js` (motorul, izolat — toate
+cele 5 tipuri, plus validare pe input malitios/invalid per tip),
+`tests/tabla-inmultirii-tabel-share-link.test.js`,
+`tests/equations-e3-e6.test.js` (actualizat).
 
 ## Ce ramane de facut
 
-Alte 7 quizuri cu panou CP propriu, inca nemigrate (stilul vechi, functional, dar
-duplicat): `rigle-cl1.js`, `rigle-tabla-1-10.js` (aproape identice intre ele — cel
-mai clar caz de coeziune slaba), `equations-e3-e6.js`, `pre-equations-eff-navigation.js`,
-`addition-table-singapore-missing.js`, `multiplication-1120-v3-train-eff-eq-forms.js`,
-`multiplication-1120-v4-intensiv-multipli-234.js` (Sq3 + Sq5).
+3 quizuri cu panou CP propriu, inca nemigrate: `addition-table-singapore-missing.js`,
+`multiplication-1120-v3-train-eff-eq-forms.js`,
+`multiplication-1120-v4-intensiv-multipli-234.js` (Sq3 + Sq5). Plus sectiunea
+"Culori" din `rigle-tabla-1-10.js` (vezi mai sus — intrebare arhitecturala
+deschisa, nu simpla migrare).
 
-Tipuri de camp deja intalnite in aceste 7, testate in motor dar inca nefolosite de
-niciun quiz migrat: `enum` cu `stilAfisare: "radio"` (rigle-cl1, rigle-tabla-1-10),
-`numar` cu `stilAfisare: "slider"` (multiplication-1120-v3), `set` (checkbox
-multiplu — pre-equations-eff-navigation, equations-e3-e6), `culoare`
-(rigle-tabla-1-10, addition-table-singapore-missing).
+Tipuri de camp deja acoperite de motor dar inca nefolosite de niciun quiz
+migrat: `culoare` (candidati: `rigle-tabla-1-10` — daca se rezolva intrebarea
+de mai sus —, `addition-table-singapore-missing`), `numar` cu
+`stilAfisare: "slider"` fara `formateazaAfisare` custom (multiplication-1120-v3).
+
+Ultimul pas planificat, dupa ce TOATE panourile CP sunt migrate (inclusiv
+decizia pt. "Culori"): un check automat (`scripts/check-cp-optiuni-declarative.mjs`
+sau similar) care interzice cod DOM imperativ nou pt. optiuni CP in afara
+motorului — cerere user, 03.09.2026: "sa nu se mai poata face adaugari in cp
+decat prin acest motor cu date stocate in text". Nu se activeaza inainte de
+migrarea completa (ar bloca commit-uri normale pe cod inca nemigrat).
 
 Aceasta structura **e prima trecere**, dupa o analiza a tuturor celor 8 panouri CP
-existente la momentul scrierii — nu varianta finala. Se ajusteaza pe masura ce
-fiecare quiz se migreaza, daca apare un caz care nu se potriveste (cerere user:
-"faci o prima structura de standarduri, apoi o ajustezi ... pe masura ce
+existente la momentul scrierii — nu varianta finala. S-a ajustat deja de doua ori
+pe parcurs (`formateazaAfisare`, `eticheta` pe radio) exact cum s-a anticipat
+("faci o prima structura de standarduri, apoi o ajustezi ... pe masura ce
 implementezi fiecare quiz").
 
 ## Verificare (cum confirmi ca merge)

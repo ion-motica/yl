@@ -123,6 +123,94 @@
       const urmatorulFact = () =>
         global.RigleFacte.genereazaFact({ sumaMin: getSumaMin(), sumaMax: getSumaMax() });
 
+      // Tabelul declarativ de optiuni CP (documente de referinta/
+      // standard-optiuni-cp.md). `rerandeaza`: doar Minim/Maxim (Suma
+      // maxima) il folosesc — schimband unul, celalalt se re-clampeaza
+      // (vezi seteazaSumaMin/seteazaSumaMax mai sus), deci trebuie
+      // re-desenat tot panoul ca sa arate valoarea proaspata a amandurora
+      // (acelasi tipar ca la campul "mutareColoane" din
+      // tabla-inmultirii-tabel.js).
+      function campurileCP(rerandeaza) {
+        return [
+          { cheie: "gridVertical", tip: "bifa", eticheta: "Vertical", grup: "Grila",
+            get: getGridVertical,
+            set: (v) => { global.LayoutConfig?.set(GRID_VERTICAL_KEY, v); mounted?.setGridLines({ vertical: v }); } },
+          { cheie: "gridOrizontal", tip: "bifa", eticheta: "Orizontal",
+            get: getGridOrizontal,
+            set: (v) => { global.LayoutConfig?.set(GRID_ORIZONTAL_KEY, v); mounted?.setGridLines({ orizontal: v }); } },
+
+          { cheie: "coloaneTreime", tip: "enum", stilAfisare: "radio", grup: "Poziție coloane",
+            optiuni: [
+              { valoare: true, text: "Fiecare coloană are o treime din spațiu" },
+              { valoare: false, text: "În funcție de spațiu" },
+            ],
+            get: getColoaneTreime,
+            set: (v) => { global.LayoutConfig?.set(COL_TREIME_KEY, v); mounted?.setColumnLayout({ treime: v }); } },
+
+          { cheie: "sumaMin", tip: "numar", eticheta: "Minim", grup: "Suma maxima",
+            min: 1, max: 30, get: getSumaMin, set: seteazaSumaMin,
+            dupaSchimbare: () => { rerandeaza(); mounted?.reporneste(); } },
+          { cheie: "sumaMax", tip: "numar", eticheta: "Maxim",
+            min: 1, max: 30, get: getSumaMax, set: seteazaSumaMax,
+            dupaSchimbare: () => { rerandeaza(); mounted?.reporneste(); } },
+
+          { cheie: "numerotare", tip: "enum", stilAfisare: "radio", grup: "Numerotează rânduri din coloane",
+            optiuni: [
+              { valoare: "dezactivat", text: "Dezactivat" },
+              { valoare: "toate", text: "Pe toate rândurile" },
+              { valoare: "animat", text: "Animat fade-in pe coloana curentă" },
+            ],
+            get: getNumerotare,
+            set: (v) => { global.LayoutConfig?.set(NUMEROTARE_KEY, v); mounted?.setNumerotareRanduri({ mod: v }); } },
+          { cheie: "randuriInSus", tip: "numar", eticheta: "Câte rânduri în sus",
+            min: 1, max: 50, get: getRanduriInSus, set: seteazaRanduriInSus,
+            dupaSchimbare: () => mounted?.setNumerotareRanduri({ randuriInSus: getRanduriInSus() }) },
+          { cheie: "randuriInJos", tip: "numar", eticheta: "Câte rânduri în jos",
+            min: 1, max: 50, get: getRanduriInJos, set: seteazaRanduriInJos,
+            dupaSchimbare: () => mounted?.setNumerotareRanduri({ randuriInJos: getRanduriInJos() }) },
+
+          { cheie: "mereSubNumerotare", tip: "enum", stilAfisare: "radio", grup: "Bara cu mere",
+            optiuni: [
+              { valoare: true, text: "Sub numerotarea rândurilor" },
+              { valoare: false, text: "Deasupra numerotării rândurilor" },
+            ],
+            get: getMereSubNumerotare,
+            set: (v) => { global.LayoutConfig?.set(MERE_SUB_NUMEROTARE_KEY, v); mounted?.setPozitieMere({ subNumerotare: v }); } },
+          { cheie: "mereTransparenta", tip: "numar", eticheta: "Transparență bară mere",
+            min: 0, max: 100, get: getMereTransparenta, set: seteazaMereTransparenta,
+            dupaSchimbare: () => mounted?.setPozitieMere({ transparenta: getMereTransparenta() }) },
+
+          { cheie: "liftTransparenta", tip: "numar", eticheta: "Transparență fundal alb lift", grup: "Lift",
+            min: 0, max: 100, get: getLiftTransparenta, set: seteazaLiftTransparenta,
+            dupaSchimbare: () => mounted?.setLift({ transparentaFundal: getLiftTransparenta() }) },
+          { cheie: "liftMargine", tip: "bifa", eticheta: "Afișează marginea liftului",
+            get: getLiftMargine,
+            set: (v) => { global.LayoutConfig?.set(LIFT_MARGINE_KEY, v); mounted?.setLift({ margine: v }); } },
+
+          { cheie: "fovButon", tip: "bifa", eticheta: "Pe buton", grup: "Etichete (FOV Feedback Oranj Verde)",
+            get: getFovButon,
+            set: (v) => { global.LayoutConfig?.set(FOV_BUTON_KEY, v); mounted?.setFov({ buton: v }); } },
+          { cheie: "fovLift", tip: "bifa", eticheta: "Pe lift",
+            get: getFovLift,
+            set: (v) => { global.LayoutConfig?.set(FOV_LIFT_KEY, v); mounted?.setFov({ lift: v }); } },
+          { cheie: "fovLiftCorect", tip: "bifa", eticheta: "Cu animație pt. corect",
+            get: getFovLiftCorect,
+            set: (v) => { global.LayoutConfig?.set(FOV_LIFT_CORECT_KEY, v); mounted?.setFov({ animatieCorect: v }); } },
+          { cheie: "fovLiftViteza", tip: "numar", eticheta: "Viteza pătrățelului", stilAfisare: "slider",
+            min: 1, max: 10,
+            formateazaAfisare: (v) => (Number(v) <= 1 ? "viteza actuală" : `de ${v}× mai încet`),
+            get: getFovLiftViteza,
+            set: (v) => { global.LayoutConfig?.set(FOV_LIFT_VITEZA_KEY, v); mounted?.setFov({ divizorViteza: v }); } },
+
+          { cheie: "daraLungime", tip: "numar", eticheta: "Lungime dara", stilAfisare: "slider", grup: "Dara glorioasă",
+            min: 0, max: 10, get: getDaraLungime,
+            set: (v) => { global.LayoutConfig?.set(DARA_LUNGIME_KEY, v); mounted?.setDaraGlorioasa({ lungime: v }); } },
+          { cheie: "daraDesime", tip: "numar", eticheta: "Desime dara", stilAfisare: "slider",
+            min: 0, max: 100, get: getDaraDesime,
+            set: (v) => { global.LayoutConfig?.set(DARA_DESIME_KEY, v); mounted?.setDaraGlorioasa({ desime: v }); } },
+        ];
+      }
+
       return {
         customEngine: true,
         // Ține motorul 1 (FallingEngine) în standby cât timp Rigle e activ.
@@ -160,263 +248,8 @@
         // Numerotează rânduri, Bara cu mere (poziție/transparență), Lift, Etichete, Dara glorioasă.
         appendRigleControlPanel(mount) {
           if (!mount) return;
-          mount.replaceChildren();
-
-          const title = document.createElement("p");
-          title.className = "control-panel-lift-title";
-          title.textContent = "Grila";
-          mount.appendChild(title);
-
-          const addRow = (labelText, checked, onChange) => {
-            const row = document.createElement("label");
-            row.className = "control-panel-lift-row";
-            const input = document.createElement("input");
-            input.type = "checkbox";
-            input.checked = checked;
-            input.addEventListener("change", () => onChange(input.checked));
-            const span = document.createElement("span");
-            span.textContent = labelText;
-            row.append(input, span);
-            mount.appendChild(row);
-          };
-
-          addRow("Vertical", getGridVertical(), (checked) => {
-            global.LayoutConfig?.set(GRID_VERTICAL_KEY, checked);
-            mounted?.setGridLines({ vertical: checked });
-          });
-          addRow("Orizontal", getGridOrizontal(), (checked) => {
-            global.LayoutConfig?.set(GRID_ORIZONTAL_KEY, checked);
-            mounted?.setGridLines({ orizontal: checked });
-          });
-
-          const posTitle = document.createElement("p");
-          posTitle.className = "control-panel-lift-title";
-          posTitle.textContent = "Poziție coloane";
-          mount.appendChild(posTitle);
-
-          const addRadioRow = (labelText, value, currentValue, groupName, onChange) => {
-            const row = document.createElement("label");
-            row.className = "control-panel-lift-row";
-            const input = document.createElement("input");
-            input.type = "radio";
-            input.name = groupName;
-            input.checked = value === currentValue;
-            input.addEventListener("change", onChange);
-            const span = document.createElement("span");
-            span.textContent = labelText;
-            row.append(input, span);
-            mount.appendChild(row);
-          };
-
-          const treimeAcum = getColoaneTreime();
-          addRadioRow("Fiecare coloană are o treime din spațiu", true, treimeAcum, "rigle-col-pozitie", () => {
-            global.LayoutConfig?.set(COL_TREIME_KEY, true);
-            mounted?.setColumnLayout({ treime: true });
-          });
-          addRadioRow("În funcție de spațiu", false, treimeAcum, "rigle-col-pozitie", () => {
-            global.LayoutConfig?.set(COL_TREIME_KEY, false);
-            mounted?.setColumnLayout({ treime: false });
-          });
-
-          const sumaTitle = document.createElement("p");
-          sumaTitle.className = "control-panel-lift-title";
-          sumaTitle.textContent = "Suma maxima";
-          mount.appendChild(sumaTitle);
-
-          let minInput = null;
-          let maxInput = null;
-
-          const addStepper = (labelText, getValue, onApply, min, max, dupaAplicare) => {
-            const field = document.createElement("div");
-            field.className = "control-panel-lift-field pre-eq-stepper-field";
-            const label = document.createElement("label");
-            label.textContent = labelText;
-            const controls = document.createElement("div");
-            controls.className = "pre-eq-stepper";
-            const minus = document.createElement("button");
-            minus.type = "button";
-            minus.textContent = "-";
-            const input = document.createElement("input");
-            input.type = "number";
-            input.min = String(min);
-            input.max = String(max);
-            input.step = "1";
-            input.value = String(getValue());
-            const plus = document.createElement("button");
-            plus.type = "button";
-            plus.textContent = "+";
-
-            const apply = (valoare) => {
-              onApply(Number(valoare));
-              input.value = String(getValue());
-              dupaAplicare?.();
-            };
-
-            minus.addEventListener("click", () => apply(Number(input.value) - 1));
-            plus.addEventListener("click", () => apply(Number(input.value) + 1));
-            input.addEventListener("change", () => apply(input.value));
-
-            controls.append(minus, input, plus);
-            field.append(label, controls);
-            mount.appendChild(field);
-            return input;
-          };
-
-          minInput = addStepper("Minim", getSumaMin, seteazaSumaMin, 1, 30, () => {
-            maxInput.value = String(getSumaMax());
-            mounted?.reporneste();
-          });
-          maxInput = addStepper("Maxim", getSumaMax, seteazaSumaMax, 1, 30, () => {
-            minInput.value = String(getSumaMin());
-            mounted?.reporneste();
-          });
-
-          const numTitle = document.createElement("p");
-          numTitle.className = "control-panel-lift-title";
-          numTitle.textContent = "Numerotează rânduri din coloane";
-          mount.appendChild(numTitle);
-
-          const numerotareAcum = getNumerotare();
-          addRadioRow("Dezactivat", "dezactivat", numerotareAcum, "rigle-numerotare", () => {
-            global.LayoutConfig?.set(NUMEROTARE_KEY, "dezactivat");
-            mounted?.setNumerotareRanduri({ mod: "dezactivat" });
-          });
-          addRadioRow("Pe toate rândurile", "toate", numerotareAcum, "rigle-numerotare", () => {
-            global.LayoutConfig?.set(NUMEROTARE_KEY, "toate");
-            mounted?.setNumerotareRanduri({ mod: "toate" });
-          });
-          addRadioRow("Animat fade-in pe coloana curentă", "animat", numerotareAcum, "rigle-numerotare", () => {
-            global.LayoutConfig?.set(NUMEROTARE_KEY, "animat");
-            mounted?.setNumerotareRanduri({ mod: "animat" });
-          });
-
-          addStepper("Câte rânduri în sus", getRanduriInSus, seteazaRanduriInSus, 1, 50, () => {
-            mounted?.setNumerotareRanduri({ randuriInSus: getRanduriInSus() });
-          });
-          addStepper("Câte rânduri în jos", getRanduriInJos, seteazaRanduriInJos, 1, 50, () => {
-            mounted?.setNumerotareRanduri({ randuriInJos: getRanduriInJos() });
-          });
-
-          const merePozTitle = document.createElement("p");
-          merePozTitle.className = "control-panel-lift-title";
-          merePozTitle.textContent = "Bara cu mere";
-          mount.appendChild(merePozTitle);
-
-          const mereSubAcum = getMereSubNumerotare();
-          addRadioRow("Sub numerotarea rândurilor", true, mereSubAcum, "rigle-mere-pozitie", () => {
-            global.LayoutConfig?.set(MERE_SUB_NUMEROTARE_KEY, true);
-            mounted?.setPozitieMere({ subNumerotare: true });
-          });
-          addRadioRow("Deasupra numerotării rândurilor", false, mereSubAcum, "rigle-mere-pozitie", () => {
-            global.LayoutConfig?.set(MERE_SUB_NUMEROTARE_KEY, false);
-            mounted?.setPozitieMere({ subNumerotare: false });
-          });
-          addStepper("Transparență bară mere", getMereTransparenta, seteazaMereTransparenta, 0, 100, () => {
-            mounted?.setPozitieMere({ transparenta: getMereTransparenta() });
-          });
-
-          const liftTitle = document.createElement("p");
-          liftTitle.className = "control-panel-lift-title";
-          liftTitle.textContent = "Lift";
-          mount.appendChild(liftTitle);
-
-          addStepper("Transparență fundal alb lift", getLiftTransparenta, seteazaLiftTransparenta, 0, 100, () => {
-            mounted?.setLift({ transparentaFundal: getLiftTransparenta() });
-          });
-          addRow("Afișează marginea liftului", getLiftMargine(), (checked) => {
-            global.LayoutConfig?.set(LIFT_MARGINE_KEY, checked);
-            mounted?.setLift({ margine: checked });
-          });
-
-          const fovTitle = document.createElement("p");
-          fovTitle.className = "control-panel-lift-title";
-          fovTitle.textContent = "Etichete (FOV Feedback Oranj Verde)";
-          mount.appendChild(fovTitle);
-
-          addRow("Pe buton", getFovButon(), (checked) => {
-            global.LayoutConfig?.set(FOV_BUTON_KEY, checked);
-            mounted?.setFov({ buton: checked });
-          });
-          addRow("Pe lift", getFovLift(), (checked) => {
-            global.LayoutConfig?.set(FOV_LIFT_KEY, checked);
-            mounted?.setFov({ lift: checked });
-          });
-          addRow("Cu animație pt. corect", getFovLiftCorect(), (checked) => {
-            global.LayoutConfig?.set(FOV_LIFT_CORECT_KEY, checked);
-            mounted?.setFov({ animatieCorect: checked });
-          });
-
-          const vitezaRow = document.createElement("div");
-          vitezaRow.className = "control-panel-lift-field";
-          const vitezaLabel = document.createElement("label");
-          vitezaLabel.textContent = "Viteza pătrățelului";
-          const vitezaSlider = document.createElement("input");
-          vitezaSlider.type = "range";
-          vitezaSlider.min = "1";
-          vitezaSlider.max = "10";
-          vitezaSlider.step = "1";
-          vitezaSlider.value = String(getFovLiftViteza());
-          const vitezaOut = document.createElement("span");
-          vitezaOut.className = "control-panel-lift-slider-out";
-          const descrieViteza = (v) => (Number(v) <= 1 ? "viteza actuală" : `de ${v}× mai încet`);
-          vitezaOut.textContent = descrieViteza(vitezaSlider.value);
-          vitezaSlider.addEventListener("input", () => {
-            const v = Number(vitezaSlider.value);
-            global.LayoutConfig?.set(FOV_LIFT_VITEZA_KEY, v);
-            vitezaOut.textContent = descrieViteza(v);
-            mounted?.setFov({ divizorViteza: v });
-          });
-          vitezaRow.append(vitezaLabel, vitezaSlider, vitezaOut);
-          mount.appendChild(vitezaRow);
-
-          const daraTitle = document.createElement("p");
-          daraTitle.className = "control-panel-lift-title";
-          daraTitle.textContent = "Dara glorioasă";
-          mount.appendChild(daraTitle);
-
-          const lungimeRow = document.createElement("div");
-          lungimeRow.className = "control-panel-lift-field";
-          const lungimeLabel = document.createElement("label");
-          lungimeLabel.textContent = "Lungime dara";
-          const lungimeSlider = document.createElement("input");
-          lungimeSlider.type = "range";
-          lungimeSlider.min = "0";
-          lungimeSlider.max = "10";
-          lungimeSlider.step = "1";
-          lungimeSlider.value = String(getDaraLungime());
-          const lungimeOut = document.createElement("span");
-          lungimeOut.className = "control-panel-lift-slider-out";
-          lungimeOut.textContent = lungimeSlider.value;
-          lungimeSlider.addEventListener("input", () => {
-            const v = Number(lungimeSlider.value);
-            global.LayoutConfig?.set(DARA_LUNGIME_KEY, v);
-            lungimeOut.textContent = String(v);
-            mounted?.setDaraGlorioasa({ lungime: v });
-          });
-          lungimeRow.append(lungimeLabel, lungimeSlider, lungimeOut);
-          mount.appendChild(lungimeRow);
-
-          const desimeRow = document.createElement("div");
-          desimeRow.className = "control-panel-lift-field";
-          const desimeLabel = document.createElement("label");
-          desimeLabel.textContent = "Desime dara";
-          const desimeSlider = document.createElement("input");
-          desimeSlider.type = "range";
-          desimeSlider.min = "0";
-          desimeSlider.max = "100";
-          desimeSlider.step = "1";
-          desimeSlider.value = String(getDaraDesime());
-          const desimeOut = document.createElement("span");
-          desimeOut.className = "control-panel-lift-slider-out";
-          desimeOut.textContent = desimeSlider.value;
-          desimeSlider.addEventListener("input", () => {
-            const v = Number(desimeSlider.value);
-            global.LayoutConfig?.set(DARA_DESIME_KEY, v);
-            desimeOut.textContent = String(v);
-            mounted?.setDaraGlorioasa({ desime: v });
-          });
-          desimeRow.append(desimeLabel, desimeSlider, desimeOut);
-          mount.appendChild(desimeRow);
+          const rerandeaza = () => this.appendRigleControlPanel(mount);
+          global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileCP(rerandeaza));
         },
 
         // Stub-uri minime pentru orice apel neguardat din HUD.
