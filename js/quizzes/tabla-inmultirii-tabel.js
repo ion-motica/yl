@@ -20,6 +20,10 @@
   const QUIZ_ID = "tabla-inmultirii-tabel";
   const MIN_LEVEL = 1;
   const MAX_LEVEL = 10;
+  // Nivelul cu care porneste quizul la selectare (cerere user, 02.09.2026)
+  // — separat de MIN_LEVEL, care ramane limita inferioara REALA (nivelul 1
+  // tot e selectabil manual din butoanele de nivel).
+  const LEVEL_IMPLICIT = 2;
   const MIN_FACTOR = 1;
   const MAX_FACTOR = 10;
 
@@ -152,6 +156,11 @@
   // in ACELASI nivel, tabelul poate anima o reordonare de coloane. Exact UN
   // mod activ deodata, ales dintr-un dropdown in CP ("Mutare coloane:"):
   //
+  //   - "faraMutari"   — nicio animatie, coloanele raman fixe (cerere user,
+  //                       02.09.2026) — prima optiune din dropdown, dar NU
+  //                       implicitul (ramane "rocada"); echivalent cu orice
+  //                       alt mod dus manual la durata 0, dar explicit,
+  //                       fara sa mai fie nevoie de niciun stepper.
   //   - "rocada"       — coloanele "factor" si "nr-tabla" isi schimba locul
   //                       (F1 comutat), demonstrand a*b=b*a.
   //   - "alternareF2"  — orientarea ecuatiei alterneaza intre "factor x
@@ -198,6 +207,7 @@
   const LC_MUTARE_COLOANE_MOD = "tablaInmultiriiTabel.mutareColoaneMod";
   const MUTARE_COLOANE_MOD_IMPLICIT = "rocada";
   const MUTARE_COLOANE_MODURI_VALIDE = new Set([
+    "faraMutari",
     "rocada",
     "alternareF2",
     "toateEqForms",
@@ -1337,7 +1347,7 @@
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore } = global;
 
-    let level = MIN_LEVEL;
+    let level = LEVEL_IMPLICIT;
     let gameCompleted = false;
 
     // Factorii 1..10 neterminati in nivelul curent, mereu pastrati crescator
@@ -1782,6 +1792,7 @@
     // animatii independente care nu se termina deodata.
     function duratMutareColoaneCurenta() {
       const mod = getMutareColoaneMod();
+      if (mod === "faraMutari") return 0;
       if (mod === "alternareF2") return getAlternareF2DurataMs();
       if (mod === "toateEqForms") return getToateEqFormsDurataMs();
       if (mod === "toateEqFormsFaraNrTabla") return getToateEqFormsFaraNrTablaDurataMs();
@@ -1809,6 +1820,13 @@
     function ruleazaMutareaColoanelorDacaActiva(vechiFactor) {
       if (vechiFactor == null || oColoanaSeAnimeaza) return;
       const mod = getMutareColoaneMod();
+
+      // "faraMutari" — nimic de facut, niciodata: nicio mutare de coloane,
+      // "?" ramane pe "produs" (ca la rocada/alternareF2/toateEqForms).
+      if (mod === "faraMutari") {
+        rolIntrebareCurent = "produs";
+        return;
+      }
 
       // Cele doua moduri noi (cerere user, 02.09.2026) sunt singurele care
       // muta "?" de pe "produs" — vezi rolIntrebareCurent (declaratie mai
@@ -2328,6 +2346,7 @@
         appendSelectField({
           eticheta: "Mutare coloane:",
           optiuni: [
+            { value: "faraMutari", text: "Fara mutari de coloane" },
             { value: "rocada", text: "Rocada comutativitate (s)" },
             { value: "alternareF2", text: "Alternare a=b×c cu b×c=a (s)" },
             { value: "toateEqForms", text: "Toate eq forms cu ? la nr. mare (s)" },
@@ -2341,7 +2360,11 @@
           onChange: () => this.appendTablaInmultiriiTabelControlPanel(mount, opts),
         });
 
-        if (getMutareColoaneMod() === "alternareF2") {
+        // "faraMutari" nu are nimic de animat — fara stepper de durata
+        // (ar fi un control mort, fara efect vizibil).
+        if (getMutareColoaneMod() === "faraMutari") {
+          // niciun stepper
+        } else if (getMutareColoaneMod() === "alternareF2") {
           addStepper(
             "Durata mutare coloane (s) (0 pt dezactivare)",
             getAlternareF2DurataS,
