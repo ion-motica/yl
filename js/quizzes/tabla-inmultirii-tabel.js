@@ -205,6 +205,16 @@
     "toateEqFormsOriceRol",
   ]);
 
+  // Valoarea implicita pt. orice mod "Mutare coloane" care nu e rocada (ea
+  // isi are propriul implicit, mai vechi, 1.5) SI nu a fost inca atins
+  // manual de user (LayoutConfig.get cade pe implicit doar cand nu exista
+  // NIMIC salvat pt. cheia aia — vezi getAlternareF2DurataMs() etc. mai jos).
+  // Cerere user, 02.09.2026: implicitul de 0 (= dezactivat) la prima
+  // selectare a unui mod nou parea "stricat" (nu se misca nimic) — inlocuit
+  // cu o durata standard, rezonabila. Modurile deja atinse manual de user
+  // (are ceva salvat, chiar si 0 explicit) NU sunt afectate.
+  const DURATA_MUTARE_STANDARD_S = 0.8;
+
   const LC_ROCADA_DURATA_MS = "tablaInmultiriiTabel.rocadaDurataMs";
   const ROCADA_DURATA_S_IMPLICITA = 1.5;
   const ROCADA_DURATA_S_MIN = 0;
@@ -212,27 +222,27 @@
   const ROCADA_DURATA_S_PAS = 0.1;
 
   const LC_ALTERNARE_F2_DURATA_MS = "tablaInmultiriiTabel.alternareF2DurataMs";
-  const ALTERNARE_F2_DURATA_S_IMPLICITA = 0;
+  const ALTERNARE_F2_DURATA_S_IMPLICITA = DURATA_MUTARE_STANDARD_S;
   const ALTERNARE_F2_DURATA_S_MIN = 0;
   const ALTERNARE_F2_DURATA_S_MAX = 5;
   const ALTERNARE_F2_DURATA_S_PAS = 0.1;
 
   const LC_TOATE_EQ_FORMS_DURATA_MS = "tablaInmultiriiTabel.toateEqFormsDurataMs";
-  const TOATE_EQ_FORMS_DURATA_S_IMPLICITA = 0;
+  const TOATE_EQ_FORMS_DURATA_S_IMPLICITA = DURATA_MUTARE_STANDARD_S;
   const TOATE_EQ_FORMS_DURATA_S_MIN = 0;
   const TOATE_EQ_FORMS_DURATA_S_MAX = 5;
   const TOATE_EQ_FORMS_DURATA_S_PAS = 0.1;
 
   const LC_TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_MS =
     "tablaInmultiriiTabel.toateEqFormsFaraNrTablaDurataMs";
-  const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_IMPLICITA = 0;
+  const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_IMPLICITA = DURATA_MUTARE_STANDARD_S;
   const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MIN = 0;
   const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MAX = 5;
   const TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_PAS = 0.1;
 
   const LC_TOATE_EQ_FORMS_ORICE_ROL_DURATA_MS =
     "tablaInmultiriiTabel.toateEqFormsOriceRolDurataMs";
-  const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_IMPLICITA = 0;
+  const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_IMPLICITA = DURATA_MUTARE_STANDARD_S;
   const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MIN = 0;
   const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MAX = 5;
   const TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_PAS = 0.1;
@@ -2333,7 +2343,7 @@
 
         if (getMutareColoaneMod() === "alternareF2") {
           addStepper(
-            "Durata mutare coloane (s)",
+            "Durata mutare coloane (s) (0 pt dezactivare)",
             getAlternareF2DurataS,
             scrieAlternareF2DurataS,
             ALTERNARE_F2_DURATA_S_MIN,
@@ -2342,7 +2352,7 @@
           );
         } else if (getMutareColoaneMod() === "toateEqForms") {
           addStepper(
-            "Durata mutare coloane (s)",
+            "Durata mutare coloane (s) (0 pt dezactivare)",
             getToateEqFormsDurataS,
             scrieToateEqFormsDurataS,
             TOATE_EQ_FORMS_DURATA_S_MIN,
@@ -2351,7 +2361,7 @@
           );
         } else if (getMutareColoaneMod() === "toateEqFormsFaraNrTabla") {
           addStepper(
-            "Durata mutare coloane (s)",
+            "Durata mutare coloane (s) (0 pt dezactivare)",
             getToateEqFormsFaraNrTablaDurataS,
             scrieToateEqFormsFaraNrTablaDurataS,
             TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MIN,
@@ -2360,7 +2370,7 @@
           );
         } else if (getMutareColoaneMod() === "toateEqFormsOriceRol") {
           addStepper(
-            "Durata mutare coloane (s)",
+            "Durata mutare coloane (s) (0 pt dezactivare)",
             getToateEqFormsOriceRolDurataS,
             scrieToateEqFormsOriceRolDurataS,
             TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MIN,
@@ -2369,7 +2379,7 @@
           );
         } else {
           addStepper(
-            "Durata mutare coloane (s)",
+            "Durata mutare coloane (s) (0 pt dezactivare)",
             getRocadaDurataS,
             scrieRocadaDurataS,
             ROCADA_DURATA_S_MIN,
