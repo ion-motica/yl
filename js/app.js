@@ -1164,9 +1164,11 @@
     if (!mount) return;
     mount.replaceChildren();
 
+    // Buton HTML clasic, fara nicio clasa CSS proprie (cerere expresa user,
+    // 03.09.2026: stilul nativ al browserului, nu unul custom) — vezi si
+    // stergerea regulii .cp-viz3-link din style.css.
     const butonVizualizare3 = document.createElement("button");
     butonVizualizare3.type = "button";
-    butonVizualizare3.className = "cp-viz3-link";
     butonVizualizare3.textContent = "↗ Vizualizare 3";
     butonVizualizare3.addEventListener("click", () => deschideVizualizare3Claude());
     mount.appendChild(butonVizualizare3);

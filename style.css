@@ -1780,30 +1780,6 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Buton (nu link <a>, cum era inainte), primul element din sectiunea
-   "General" (cerere user, 02.09.2026) — pagina Vizualizare 3 e separata,
-   nu vine din CpRegistry. `border:none`/`width:100%`/`text-align:left`
-   reseteaza stilul implicit de <button> (acelasi tipar ca .cp-toc-item mai
-   sus, alt buton resetat din acelasi CP shell). */
-.cp-viz3-link {
-  display: block;
-  width: 100%;
-  padding: 0.55rem 0.75rem;
-  border: none;
-  border-bottom: 1px solid #2a3548;
-  background: rgba(61, 156, 245, 0.1);
-  color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.cp-viz3-link:hover {
-  background: rgba(61, 156, 245, 0.2);
-}
-
 .cp-section {
   padding: 0.75rem 1rem 1rem;
   scroll-margin-top: 0.35rem;
