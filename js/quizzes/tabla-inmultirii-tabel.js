@@ -406,23 +406,166 @@
     return rotunjit;
   }
 
-  // Dispatch pe mod -> getter/setter de durata (secunde) — folosit STRICT de
-  // getSharedConfig/applySharedConfig (link de partajare, vezi mai jos).
-  // "faraMutari" lipsa intentionat: nu are durata (0 fix, tratat separat).
-  const DURATA_MOD_GETTERS_S = {
-    rocada: getRocadaDurataS,
-    alternareF2: getAlternareF2DurataS,
-    toateEqForms: getToateEqFormsDurataS,
-    toateEqFormsFaraNrTabla: getToateEqFormsFaraNrTablaDurataS,
-    toateEqFormsOriceRol: getToateEqFormsOriceRolDurataS,
-  };
-  const DURATA_MOD_SETTERS_S = {
-    rocada: scrieRocadaDurataS,
-    alternareF2: scrieAlternareF2DurataS,
-    toateEqForms: scrieToateEqFormsDurataS,
-    toateEqFormsFaraNrTabla: scrieToateEqFormsFaraNrTablaDurataS,
-    toateEqFormsOriceRol: scrieToateEqFormsOriceRolDurataS,
-  };
+  // Tabelul declarativ de optiuni CP (documente de referinta/
+  // standard-optiuni-cp.md) — sursa unica pt. panoul CP (DOM, prin
+  // MotorOptiuniControlPanel.construiesteDOM) SI pt. linkul de partajare
+  // (getSharedConfig/getSharedLink/applySharedConfig, prin citesteConfig/
+  // aplicaConfig). Inainte, cele doua erau scrise separat, manual, camp cu
+  // camp — cerere user, 03.09.2026: "standardizam optiunile din CP ca sa
+  // poata fi citite automat".
+  //
+  // `rerandeaza`: doar campul "mutareColoane" il foloseste (stepperele de
+  // durata de mai jos apar/dispar dupa modul ales, prin activCand) — trimis
+  // de apelant (appendTablaInmultiriiTabelControlPanel), null cand campurile
+  // se construiesc STRICT pt. citire/scriere de config (getSharedConfig/
+  // applySharedConfig), unde nu exista niciun DOM de rerandat.
+  function campurileCP(quizPublicApi, opts = {}, rerandeaza = null) {
+    return [
+      global.MotorOptiuniControlPanel.campNivelStandard(quizPublicApi, LEVEL_IMPLICIT),
+      {
+        cheie: "adunareActiva",
+        tip: "bifa",
+        eticheta: "Comută pe tabla adunării",
+        get: getAdunareActiva,
+        set: scrieAdunareActiva,
+        // Restarteaza automat nivelul curent (vezi comentariul de la
+        // LC_ADUNARE_ACTIVA mai sus) — singura cale sa apara instant noua
+        // operatie pe toate cele 10 randuri.
+        dupaSchimbare: () => opts.onChange?.(),
+      },
+      {
+        cheie: "ascundeTitluriColoane",
+        tip: "bifa",
+        eticheta: "Ascunde titluri coloane",
+        get: getAscundeTitluriColoane,
+        set: scrieAscundeTitluriColoane,
+      },
+      {
+        cheie: "arataGrila",
+        tip: "bifa",
+        eticheta: "Arata grila tabel",
+        get: getArataGrila,
+        set: scrieArataGrila,
+      },
+      {
+        cheie: "paddingLateralPx",
+        tip: "numar",
+        eticheta: "Padding cell lateral",
+        get: getPaddingLateralPx,
+        set: scriePaddingLateralPx,
+        min: PADDING_MIN,
+        max: PADDING_MAX,
+        pas: PADDING_PAS,
+      },
+      {
+        cheie: "paddingVerticalPx",
+        tip: "numar",
+        eticheta: "Padding cell vertical",
+        get: getPaddingVerticalPx,
+        set: scriePaddingVerticalPx,
+        min: PADDING_MIN,
+        max: PADDING_MAX,
+        pas: PADDING_PAS,
+      },
+      {
+        cheie: "marimeFontPx",
+        tip: "numar",
+        eticheta: "Marime font (px)",
+        get: getMarimeFontPx,
+        set: scrieMarimeFontPx,
+        min: MARIME_FONT_PX_MIN,
+        max: MARIME_FONT_PX_MAX,
+        pas: MARIME_FONT_PX_PAS,
+      },
+      {
+        cheie: "marimeFontNumararePct",
+        tip: "numar",
+        eticheta: "Scris mic %",
+        get: getMarimeFontNumararePct,
+        set: scrieMarimeFontNumararePct,
+        min: MARIME_FONT_NUMARARE_MIN,
+        max: MARIME_FONT_NUMARARE_MAX,
+        pas: MARIME_FONT_NUMARARE_PAS,
+      },
+      {
+        cheie: "mutareColoane",
+        tip: "enum",
+        eticheta: "Mutare coloane:",
+        optiuni: [
+          { valoare: "faraMutari", text: "Fara mutari de coloane" },
+          { valoare: "rocada", text: "Rocada comutativitate (s)" },
+          { valoare: "alternareF2", text: "Alternare a=b×c cu b×c=a (s)" },
+          { valoare: "toateEqForms", text: "Toate eq forms cu ? la nr. mare (s)" },
+          { valoare: "toateEqFormsFaraNrTabla", text: "Toate eq forms fără numărul subtablei ca ? (s)" },
+          { valoare: "toateEqFormsOriceRol", text: "Toate eq forms, orice rol ca ? (s)" },
+        ],
+        get: getMutareColoaneMod,
+        set: scrieMutareColoaneMod,
+        implicit: MUTARE_COLOANE_MOD_IMPLICIT,
+        dupaSchimbare: () => rerandeaza?.(),
+      },
+      {
+        cheie: "rocadaDurataS",
+        tip: "numar",
+        eticheta: "Durata mutare coloane (s) (0 pt dezactivare)",
+        get: getRocadaDurataS,
+        set: scrieRocadaDurataS,
+        min: ROCADA_DURATA_S_MIN,
+        max: ROCADA_DURATA_S_MAX,
+        pas: ROCADA_DURATA_S_PAS,
+        zecimale: 1,
+        activCand: (v) => v.mutareColoane === "rocada",
+      },
+      {
+        cheie: "alternareF2DurataS",
+        tip: "numar",
+        eticheta: "Durata mutare coloane (s) (0 pt dezactivare)",
+        get: getAlternareF2DurataS,
+        set: scrieAlternareF2DurataS,
+        min: ALTERNARE_F2_DURATA_S_MIN,
+        max: ALTERNARE_F2_DURATA_S_MAX,
+        pas: ALTERNARE_F2_DURATA_S_PAS,
+        zecimale: 1,
+        activCand: (v) => v.mutareColoane === "alternareF2",
+      },
+      {
+        cheie: "toateEqFormsDurataS",
+        tip: "numar",
+        eticheta: "Durata mutare coloane (s) (0 pt dezactivare)",
+        get: getToateEqFormsDurataS,
+        set: scrieToateEqFormsDurataS,
+        min: TOATE_EQ_FORMS_DURATA_S_MIN,
+        max: TOATE_EQ_FORMS_DURATA_S_MAX,
+        pas: TOATE_EQ_FORMS_DURATA_S_PAS,
+        zecimale: 1,
+        activCand: (v) => v.mutareColoane === "toateEqForms",
+      },
+      {
+        cheie: "toateEqFormsFaraNrTablaDurataS",
+        tip: "numar",
+        eticheta: "Durata mutare coloane (s) (0 pt dezactivare)",
+        get: getToateEqFormsFaraNrTablaDurataS,
+        set: scrieToateEqFormsFaraNrTablaDurataS,
+        min: TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MIN,
+        max: TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MAX,
+        pas: TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_PAS,
+        zecimale: 1,
+        activCand: (v) => v.mutareColoane === "toateEqFormsFaraNrTabla",
+      },
+      {
+        cheie: "toateEqFormsOriceRolDurataS",
+        tip: "numar",
+        eticheta: "Durata mutare coloane (s) (0 pt dezactivare)",
+        get: getToateEqFormsOriceRolDurataS,
+        set: scrieToateEqFormsOriceRolDurataS,
+        min: TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MIN,
+        max: TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MAX,
+        pas: TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_PAS,
+        zecimale: 1,
+        activCand: (v) => v.mutareColoane === "toateEqFormsOriceRol",
+      },
+    ];
+  }
 
   // Encodare base64url (RFC 4648, fara padding) pt. linkul de partajare —
   // acelasi cod ca in equations-e3-e6.js (getSharedLink). Nu e o masura de
@@ -2253,24 +2396,15 @@
 
       // Link de partajare (cerere user, 03.09.2026: buton in CP - General,
       // "Genereaza link la quizul curent cu parametrii curenti si copy in
-      // clipboard"). Tiparul e identic cu equations-e3-e6.js
-      // (getSharedConfig/getSharedLink/applySharedConfig), consumat deja de
-      // js/startup-quiz.js + js/app.js (applyRequestedQuizConfig, apelat la
-      // fiecare switchQuiz — INAINTE de engine.startRound). Site-ul e static
-      // (GitHub Pages, fara server), deci linkul nu poate "ataca" nimic azi —
-      // dar validarea stricta de mai jos (whitelist + clamp pe FIECARE camp,
-      // niciodata asignare bruta) e ceruta explicit ca disciplina anticipata
-      // pt. ziua cand va exista un server care sa citeasca acesti parametri.
+      // clipboard"), acum generat AUTOMAT din campurileCP() (documente de
+      // referinta/standard-optiuni-cp.md) — nu mai exista validare scrisa
+      // manual aici, camp cu camp: whitelist+clamp vin din motor, pe baza
+      // metadatei declarate in campurileCP (min/max, optiuni valide etc.).
+      // Site-ul e static (GitHub Pages), deci linkul nu poate "ataca" nimic
+      // azi — dar disciplina de validare e ceruta explicit, anticipat, pt.
+      // ziua cand va exista un server care sa citeasca acesti parametri.
       getSharedConfig() {
-        const mod = getMutareColoaneMod();
-        const getDurataS = DURATA_MOD_GETTERS_S[mod];
-        return {
-          v: 1,
-          nivel: level,
-          mutareColoane: mod,
-          mutareColoaneDurataS: mod === "faraMutari" ? 0 : getDurataS ? getDurataS() : 0,
-          adunareActiva: getAdunareActiva(),
-        };
+        return { v: 1, ...global.MotorOptiuniControlPanel.citesteConfig(campurileCP(this)) };
       },
 
       getSharedLink(baseHref) {
@@ -2285,28 +2419,9 @@
         return url.href;
       },
 
-      // Fiecare camp e validat/clampat INDIVIDUAL, niciodata asignat brut —
-      // shared poate veni dintr-un URL, deci e input netrusted prin definitie
-      // (vezi comentariul de mai sus). Un camp lipsa sau invalid cade pe
-      // valoarea implicita sigura, nu arunca eroare si nu strica restul.
       applySharedConfig(shared = {}) {
-        if (!shared || typeof shared !== "object" || Array.isArray(shared)) return false;
-
-        const nivelCerut = Number(shared.nivel);
-        level = Number.isFinite(nivelCerut)
-          ? Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, Math.round(nivelCerut)))
-          : LEVEL_IMPLICIT;
-
-        // scrieMutareColoaneMod valideaza deja intern (mod necunoscut ->
-        // MUTARE_COLOANE_MOD_IMPLICIT) — vezi definitia mai sus.
-        const mod = scrieMutareColoaneMod(shared.mutareColoane);
-
-        const durataCeruta = Number(shared.mutareColoaneDurataS);
-        const scrieDurataS = DURATA_MOD_SETTERS_S[mod];
-        if (scrieDurataS && Number.isFinite(durataCeruta)) scrieDurataS(durataCeruta);
-
-        scrieAdunareActiva(Boolean(shared.adunareActiva));
-
+        const ok = global.MotorOptiuniControlPanel.aplicaConfig(campurileCP(this), shared);
+        if (!ok) return false;
         gameCompleted = false;
         this.resetLevelState();
         return true;
@@ -2350,175 +2465,15 @@
       },
 
       // CP - Tabla inmultirii - Tabel (cerere user, 01.09.2026, extins
-      // 02.09.2026): bifa "Ascunde titluri coloane" (implicit bifata) +
-      // steppere pt. padding, marime font principal (px, manual STRICT) si
-      // "Scris mic %" (auto-calculat o data pe nivel, vezi
-      // planificaRedimensionareAutomata — userul poate regla manual intre
-      // nivele), plus dropdown-ul "Mutare coloane:" (rocada / alternare F2,
-      // exclusiv) cu stepperul de durata al modului curent selectat.
-      // Tiparul de DOM (label+checkbox, div.pre-eq-stepper-field) copiat din
-      // `appendRigleTabla110ControlPanel` (js/quizzes/rigle-tabla-1-10.js),
-      // ca sa arate la fel ca restul panourilor CP.
+      // 02.09.2026, migrat la motorul comun 03.09.2026 — vezi
+      // documente de referinta/standard-optiuni-cp.md). Panoul se deseneaza
+      // din campurileCP() de mai sus; singura logica specifica ramasa aici e
+      // functia de rerandare, transmisa STRICT campului "mutareColoane"
+      // (stepperele de durata trebuie sa corespunda modului nou ales).
       appendTablaInmultiriiTabelControlPanel(mount, opts) {
         if (!mount) return;
-        mount.replaceChildren();
-
-        const addBifa = (text, getValoare, scrie) => {
-          const rand = document.createElement("label");
-          rand.className = "control-panel-lift-row";
-          const bifa = document.createElement("input");
-          bifa.type = "checkbox";
-          bifa.checked = getValoare();
-          bifa.addEventListener("change", () => scrie(bifa.checked));
-          const span = document.createElement("span");
-          span.textContent = text;
-          rand.append(bifa, span);
-          mount.appendChild(rand);
-        };
-
-        const addStepper = (text, getValoare, scrie, min, max, pas) => {
-          const field = document.createElement("div");
-          field.className = "control-panel-lift-field pre-eq-stepper-field";
-          const label = document.createElement("label");
-          label.textContent = text;
-          const controls = document.createElement("div");
-          controls.className = "pre-eq-stepper";
-          const minus = document.createElement("button");
-          minus.type = "button";
-          minus.textContent = "-";
-          const input = document.createElement("input");
-          input.type = "number";
-          input.min = String(min);
-          input.max = String(max);
-          input.step = String(pas);
-          input.value = String(getValoare());
-          const plus = document.createElement("button");
-          plus.type = "button";
-          plus.textContent = "+";
-          const aplica = (valoare) => { input.value = String(scrie(Number(valoare))); };
-          minus.addEventListener("click", () => aplica(Number(input.value) - pas));
-          plus.addEventListener("click", () => aplica(Number(input.value) + pas));
-          input.addEventListener("change", () => aplica(input.value));
-          controls.append(minus, input, plus);
-          field.append(label, controls);
-          mount.appendChild(field);
-        };
-
-        // Restarteaza automat nivelul curent (opts.onChange, vezi
-        // comentariul de la LC_ADUNARE_ACTIVA) — singura cale sa apara
-        // instant noua operatie pe toate cele 10 randuri.
-        addBifa("Comută pe tabla adunării", getAdunareActiva, (activa) => {
-          scrieAdunareActiva(activa);
-          opts?.onChange?.();
-        });
-        addBifa("Ascunde titluri coloane", getAscundeTitluriColoane, scrieAscundeTitluriColoane);
-        addBifa("Arata grila tabel", getArataGrila, scrieArataGrila);
-        addStepper("Padding cell lateral", getPaddingLateralPx, scriePaddingLateralPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
-        addStepper("Padding cell vertical", getPaddingVerticalPx, scriePaddingVerticalPx, PADDING_MIN, PADDING_MAX, PADDING_PAS);
-        addStepper("Marime font (px)", getMarimeFontPx, scrieMarimeFontPx, MARIME_FONT_PX_MIN, MARIME_FONT_PX_MAX, MARIME_FONT_PX_PAS);
-        addStepper(
-          "Scris mic %",
-          getMarimeFontNumararePct,
-          scrieMarimeFontNumararePct,
-          MARIME_FONT_NUMARARE_MIN,
-          MARIME_FONT_NUMARARE_MAX,
-          MARIME_FONT_NUMARARE_PAS
-        );
-        // Dropdown compact, pe acelasi rand cu titlul lui — tipar reutilizat
-        // din appendSelectField (js/quizzes/addition-table-singapore-missing.js),
-        // ca sa arate la fel ca restul campurilor "select" din CP-urile
-        // proiectului. Doar UN mod de mutare a coloanelor activ deodata
-        // (cerere user, 02.09.2026: "e mai compact decat radio buttons") —
-        // vezi ruleazaMutareaColoanelorDacaActiva.
-        const appendSelectField = ({ eticheta, optiuni, get, set, onChange }) => {
-          const field = document.createElement("div");
-          field.className = "control-panel-lift-field control-panel-lift-field-inline";
-          const label = document.createElement("label");
-          label.textContent = eticheta;
-          const select = document.createElement("select");
-          optiuni.forEach(({ value, text }) => {
-            const optiune = document.createElement("option");
-            optiune.value = value;
-            optiune.textContent = text;
-            select.appendChild(optiune);
-          });
-          select.value = get();
-          select.addEventListener("change", () => {
-            set(select.value);
-            onChange?.();
-          });
-          field.append(label, select);
-          mount.appendChild(field);
-          return select;
-        };
-
-        appendSelectField({
-          eticheta: "Mutare coloane:",
-          optiuni: [
-            { value: "faraMutari", text: "Fara mutari de coloane" },
-            { value: "rocada", text: "Rocada comutativitate (s)" },
-            { value: "alternareF2", text: "Alternare a=b×c cu b×c=a (s)" },
-            { value: "toateEqForms", text: "Toate eq forms cu ? la nr. mare (s)" },
-            { value: "toateEqFormsFaraNrTabla", text: "Toate eq forms fără numărul subtablei ca ? (s)" },
-            { value: "toateEqFormsOriceRol", text: "Toate eq forms, orice rol ca ? (s)" },
-          ],
-          get: getMutareColoaneMod,
-          set: scrieMutareColoaneMod,
-          // Rerandeaza tot panoul — stepperul de durata afisat mai jos
-          // trebuie sa corespunda modului nou ales.
-          onChange: () => this.appendTablaInmultiriiTabelControlPanel(mount, opts),
-        });
-
-        // "faraMutari" nu are nimic de animat — fara stepper de durata
-        // (ar fi un control mort, fara efect vizibil).
-        if (getMutareColoaneMod() === "faraMutari") {
-          // niciun stepper
-        } else if (getMutareColoaneMod() === "alternareF2") {
-          addStepper(
-            "Durata mutare coloane (s) (0 pt dezactivare)",
-            getAlternareF2DurataS,
-            scrieAlternareF2DurataS,
-            ALTERNARE_F2_DURATA_S_MIN,
-            ALTERNARE_F2_DURATA_S_MAX,
-            ALTERNARE_F2_DURATA_S_PAS
-          );
-        } else if (getMutareColoaneMod() === "toateEqForms") {
-          addStepper(
-            "Durata mutare coloane (s) (0 pt dezactivare)",
-            getToateEqFormsDurataS,
-            scrieToateEqFormsDurataS,
-            TOATE_EQ_FORMS_DURATA_S_MIN,
-            TOATE_EQ_FORMS_DURATA_S_MAX,
-            TOATE_EQ_FORMS_DURATA_S_PAS
-          );
-        } else if (getMutareColoaneMod() === "toateEqFormsFaraNrTabla") {
-          addStepper(
-            "Durata mutare coloane (s) (0 pt dezactivare)",
-            getToateEqFormsFaraNrTablaDurataS,
-            scrieToateEqFormsFaraNrTablaDurataS,
-            TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MIN,
-            TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_MAX,
-            TOATE_EQ_FORMS_FARA_NR_TABLA_DURATA_S_PAS
-          );
-        } else if (getMutareColoaneMod() === "toateEqFormsOriceRol") {
-          addStepper(
-            "Durata mutare coloane (s) (0 pt dezactivare)",
-            getToateEqFormsOriceRolDurataS,
-            scrieToateEqFormsOriceRolDurataS,
-            TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MIN,
-            TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_MAX,
-            TOATE_EQ_FORMS_ORICE_ROL_DURATA_S_PAS
-          );
-        } else {
-          addStepper(
-            "Durata mutare coloane (s) (0 pt dezactivare)",
-            getRocadaDurataS,
-            scrieRocadaDurataS,
-            ROCADA_DURATA_S_MIN,
-            ROCADA_DURATA_S_MAX,
-            ROCADA_DURATA_S_PAS
-          );
-        }
+        const rerandeaza = () => this.appendTablaInmultiriiTabelControlPanel(mount, opts);
+        global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileCP(this, opts, rerandeaza));
       },
     };
   }

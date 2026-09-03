@@ -75,6 +75,7 @@ deja l-a scris.
 | Pasul următor după un răspuns corect (`pasUrmator`: pauză + runda următoare) | `js/falling-engine.js`, `tests/falling-engine-pas-urmator.test.js` |
 | Butoane „default" (md / make default) | `documente de referinta/standard-butoane-default-md.md` |
 | Titluri secțiuni CP (panou nou/existent) | `documente de referinta/standard-titluri-cp.md` |
+| Optiuni CP declarative (panou CP nou/migrat, link de partajare) | `documente de referinta/standard-optiuni-cp.md`, `js/motor-optiuni-control-panel.js` |
 | Organizare cod / cuplare (design nou, restructurare) | `documente de referinta/razgandire-ieftina.md` |
 | `numaraTICs()` (scris/împrumut) | `js/numara-tics.js`, `tests/numara-tics.test.js` |
 | Deschidere Codex browser local | `Codex docs/Deschidere Codex browser - referinta pt Codex.md` |

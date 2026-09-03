@@ -30,6 +30,7 @@ function loadQuiz() {
   loadScript("js/placeholder-raspuns.js");
   loadScript("js/schimbare-de-nivel.js");
   loadScript("js/layout-config.js");
+  loadScript("js/motor-optiuni-control-panel.js");
   loadScript("js/fact-catalog.js");
   loadScript("js/fact-stats.js");
   loadScript("js/fact-store.js");
@@ -84,8 +85,15 @@ beforeEach(() => {
   delete globalThis.SubquizDefinition;
   delete globalThis.SubquizOrchestrator;
   delete globalThis.LayoutConfig;
+  delete globalThis.MotorOptiuniControlPanel;
   delete globalThis.location;
   globalThis.localStorage = creazaStorageFunctional();
+  // Cateva scrie*() ating direct DOM-ul deja randat (document.getElementById,
+  // vezi comentariul din tabla-inmultirii-tabel.js) — in Node nu exista deloc
+  // `document`. In browser real elementele exista mereu la runtime; aici
+  // stub minimal, `null` peste tot, e suficient (codul deja verifica `if
+  // (rand) ...` inainte sa foloseasca rezultatul).
+  globalThis.document = { getElementById: () => null };
 });
 
 test("getSharedConfig reflecta starea implicita (nivel 2, rocada, adunare inactiva)", () => {
@@ -96,7 +104,7 @@ test("getSharedConfig reflecta starea implicita (nivel 2, rocada, adunare inacti
   assert.equal(cfg.v, 1);
   assert.equal(cfg.nivel, 2);
   assert.equal(cfg.mutareColoane, "rocada");
-  assert.equal(typeof cfg.mutareColoaneDurataS, "number");
+  assert.equal(typeof cfg.rocadaDurataS, "number");
   assert.equal(cfg.adunareActiva, false);
 });
 
@@ -123,7 +131,7 @@ test("applySharedConfig cu date valide seteaza nivel, mod, durata si adunareActi
     v: 1,
     nivel: 7,
     mutareColoane: "alternareF2",
-    mutareColoaneDurataS: 2.3,
+    alternareF2DurataS: 2.3,
     adunareActiva: true,
   });
 
@@ -131,7 +139,7 @@ test("applySharedConfig cu date valide seteaza nivel, mod, durata si adunareActi
   const cfg = quiz.getSharedConfig();
   assert.equal(cfg.nivel, 7);
   assert.equal(cfg.mutareColoane, "alternareF2");
-  assert.equal(cfg.mutareColoaneDurataS, 2.3);
+  assert.equal(cfg.alternareF2DurataS, 2.3);
   assert.equal(cfg.adunareActiva, true);
   assert.equal(quiz.getLevel(), 7);
 });
@@ -191,18 +199,18 @@ test("applySharedConfig respinge un mod 'mutareColoane' necunoscut/malitios, cad
 test("applySharedConfig clampeaza durata absurda (negativa sau uriasa) in intervalul valid [0,5]", () => {
   const quiz = createQuiz();
 
-  quiz.applySharedConfig({ nivel: 3, mutareColoane: "toateEqFormsOriceRol", mutareColoaneDurataS: 99999 });
-  assert.ok(quiz.getSharedConfig().mutareColoaneDurataS <= 5);
+  quiz.applySharedConfig({ nivel: 3, mutareColoane: "toateEqFormsOriceRol", toateEqFormsOriceRolDurataS: 99999 });
+  assert.ok(quiz.getSharedConfig().toateEqFormsOriceRolDurataS <= 5);
 
-  quiz.applySharedConfig({ nivel: 3, mutareColoane: "toateEqFormsOriceRol", mutareColoaneDurataS: -80 });
-  assert.ok(quiz.getSharedConfig().mutareColoaneDurataS >= 0);
+  quiz.applySharedConfig({ nivel: 3, mutareColoane: "toateEqFormsOriceRol", toateEqFormsOriceRolDurataS: -80 });
+  assert.ok(quiz.getSharedConfig().toateEqFormsOriceRolDurataS >= 0);
 });
 
 test("applySharedConfig ignora o durata non-numerica, fara sa arunce si fara sa strice modul", () => {
   const quiz = createQuiz();
 
   assert.doesNotThrow(() => {
-    quiz.applySharedConfig({ nivel: 4, mutareColoane: "alternareF2", mutareColoaneDurataS: "boom" });
+    quiz.applySharedConfig({ nivel: 4, mutareColoane: "alternareF2", alternareF2DurataS: "boom" });
   });
   assert.equal(quiz.getSharedConfig().mutareColoane, "alternareF2");
 });
@@ -223,7 +231,7 @@ test("round-trip: getSharedConfig -> applySharedConfig pe alt quiz reproduce exa
   quizSursa.applySharedConfig({
     nivel: 5,
     mutareColoane: "toateEqFormsFaraNrTabla",
-    mutareColoaneDurataS: 1.2,
+    toateEqFormsFaraNrTablaDurataS: 1.2,
     adunareActiva: true,
   });
   const cfgSursa = quizSursa.getSharedConfig();
