@@ -263,6 +263,14 @@
         beginRound: () => ({}),
         onAnswer() {},
         onTimeout() {},
+
+        // Structura CP declarativă, raportată o singură dată către motorul
+        // central (cerere user, 04.09.2026) — aceeași campurileCP() ca
+        // panoul CP propriu. Fără QUIZ_ID in acest fișier (nu exista deja o
+        // constantă) — literalul e identic cu id-ul din register() de mai jos.
+        get controlPanel() {
+          return { sectiuni: [{ id: "rigle-cl1", campuri: campurileCP(() => {}) }] };
+        },
       };
     },
   });

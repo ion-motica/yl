@@ -1057,6 +1057,15 @@
         beginRound: () => ({}),
         onAnswer() {},
         onTimeout() {},
+
+        // Structura CP declarativă, raportată o singură dată către motorul
+        // central (cerere user, 04.09.2026) — aceeași campurileCP() ca
+        // panoul CP propriu. Nu include secțiunea "Culori" (marcată
+        // CP-DECLARATIV-EXCEPTIE mai sus) — aia nu e {tip,get,set}, deci nu
+        // participă la share-link, exact ca la panoul CP normal.
+        get controlPanel() {
+          return { sectiuni: [{ id: "rigle-tabla-1-10", campuri: campurileCP(() => {}) }] };
+        },
       };
     },
   });

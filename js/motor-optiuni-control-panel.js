@@ -385,10 +385,59 @@
     }
   }
 
+  // Registru central CP (cerere user, 04.09.2026): fiecare quiz raportează
+  // O SINGURĂ DATĂ, prin `quiz.controlPanel.sectiuni`, structura lui
+  // declarativă — motorul o păstrează aici, indexată după quizId, ca orice
+  // feature central (share-link azi, altele posibil mâine) să citească de
+  // aici, fără să mai ceară nimic direct quizului (fără getSharedLink()/
+  // getCampuriCP() per quiz — vezi documente de referinta/razgandire-ieftina.md,
+  // "date în loc de apeluri"). Instanța de quiz se recreează la fiecare
+  // activare (QuizRegistry.createActive()), deci reînregistrarea trebuie să
+  // se întâmple la fiecare activare — set() suprascrie, intenționat, orice
+  // intrare anterioară pentru același quizId.
+  const registruControlPanel = new Map();
+
+  function inregistreazaControlPanel(quizId, controlPanel) {
+    if (!quizId) return;
+    registruControlPanel.set(quizId, Array.isArray(controlPanel?.sectiuni) ? controlPanel.sectiuni : []);
+  }
+
+  function obtineSectiuniCP(quizId) {
+    return registruControlPanel.get(quizId) ?? [];
+  }
+
+  // Aplatizează secțiunile unui quiz intr-un singur array de câmpuri, pt.
+  // citesteConfig/aplicaConfig (care nu știu de concептul de „secțiune").
+  // O cheie identică in doua secțiuni diferite ale ACELUIAȘI quiz e o
+  // greșeală de configurare, nu o stare validă — nu cădem tăcut pe
+  // "ultimul câștigă" (razgandire-ieftina.md, punctul 9, fail fast).
+  function toateCampurileCP(quizId) {
+    const rezultat = [];
+    const sectiuneDupaCheie = new Map();
+    for (const sectiune of obtineSectiuniCP(quizId)) {
+      for (const camp of sectiune.campuri ?? []) {
+        const sectiuneAnterioara = sectiuneDupaCheie.get(camp.cheie);
+        if (sectiuneAnterioara && sectiuneAnterioara !== sectiune.id) {
+          throw new Error(
+            `MotorOptiuniControlPanel: cheia "${camp.cheie}" apare in doua sectiuni CP diferite ` +
+              `("${sectiuneAnterioara}" si "${sectiune.id}") ale quizului "${quizId}" — ` +
+              `redenumeste una din ele, nu le lasa sa coincida.`
+          );
+        }
+        sectiuneDupaCheie.set(camp.cheie, sectiune.id);
+        rezultat.push(camp);
+      }
+    }
+    return rezultat;
+  }
+
   global.MotorOptiuniControlPanel = {
     campNivelStandard,
     citesteConfig,
     aplicaConfig,
     construiesteDOM,
+    inregistreazaControlPanel,
+    obtineSectiuniCP,
+    toateCampurileCP,
   };
 })(window);

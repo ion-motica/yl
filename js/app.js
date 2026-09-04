@@ -811,6 +811,7 @@
     const meta = QuizRegistry.get(id);
     applyQuizTitleDisplay();
     quiz = QuizRegistry.createActive();
+    MotorOptiuniControlPanel.inregistreazaControlPanel(id, quiz.controlPanel);
     quiz.setOnFluentaReady?.(() => restartActiveRound());
     resetResponseTimesSession();
     applyRequestedQuizConfig();
@@ -998,12 +999,26 @@
     });
   }
 
+  // Aplică generic configul cerut din URL (?cfg=...) pe orice quiz care are
+  // structură CP înregistrată central — nu mai cheamă nimic direct pe quiz
+  // (fara quiz.applySharedConfig()). Trebuie apelată DUPA
+  // MotorOptiuniControlPanel.inregistreazaControlPanel() din acest
+  // ciclu de activare (vezi cele doua call site-uri ale createActive() mai
+  // sus/mai jos), altfel registrul ar fi inca gol/vechi pt. quizul nou.
+  //
+  // Configul se aplică înainte de pornirea noii runde; beginRound/startRound
+  // (apelate necondiționat, imediat după, la boot și în switchQuiz) finalizează
+  // resincronizarea stării quizului — verificat 04.09.2026, nu presupus:
+  // niciun restart suplimentar aici (decizie user, vezi call-chain-ul din
+  // aceeași discuție).
   function applyRequestedQuizConfig() {
     const requestedQuizId = window.StartupQuiz?.getRequestedQuizId?.();
     if (requestedQuizId && requestedQuizId !== QuizRegistry.getActiveId()) return false;
     const cfg = window.StartupQuiz?.getRequestedQuizConfig?.();
-    if (!cfg || typeof quiz?.applySharedConfig !== "function") return false;
-    return quiz.applySharedConfig(cfg) === true;
+    if (!cfg) return false;
+    const campuri = MotorOptiuniControlPanel.toateCampurileCP(QuizRegistry.getActiveId());
+    if (!campuri.length) return false;
+    return MotorOptiuniControlPanel.aplicaConfig(campuri, cfg);
   }
 
   function resolveStartupQuizId() {
@@ -1013,6 +1028,7 @@
   const startupQuizId = resolveStartupQuizId();
   if (startupQuizId) QuizRegistry.setActive(startupQuizId);
   quiz = QuizRegistry.createActive();
+  MotorOptiuniControlPanel.inregistreazaControlPanel(QuizRegistry.getActiveId(), quiz.controlPanel);
   quiz.setOnFluentaReady?.(() => restartActiveRound());
   applyRequestedQuizConfig();
 
@@ -1154,6 +1170,38 @@
   }
   window.deschideVizualizare3Claude = deschideVizualizare3Claude;
 
+  // Encodare base64url (RFC 4648, fara padding) pt. linkul de partajare —
+  // mutata aici 04.09.2026 (era duplicata identic in tabla-inmultirii-tabel.js
+  // si equations-e3-e6.js, cate o copie per quiz migrat; acum butonul global
+  // e singurul apelant). Nu e o masura de securitate (e trivial reversibila)
+  // — doar face parametrul `cfg` sigur intr-un URL. Siguranta reala vine din
+  // MotorOptiuniControlPanel.aplicaConfig(), care valideaza/clampeaza fiecare
+  // camp separat, indiferent ce trimite linkul.
+  function base64UrlEncode(text) {
+    const toBase64 =
+      typeof window.btoa === "function"
+        ? window.btoa.bind(window)
+        : typeof Buffer !== "undefined"
+          ? (value) => Buffer.from(value, "binary").toString("base64")
+          : null;
+
+    if (!toBase64) return encodeURIComponent(text);
+
+    if (typeof window.TextEncoder === "function") {
+      const bytes = new window.TextEncoder().encode(text);
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return toBase64(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    return toBase64(unescape(encodeURIComponent(text)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  }
+
   (function buildGeneralPanel() {
     const mount = cpShell.getMountEl("general");
     if (!mount) return;
@@ -1169,18 +1217,27 @@
     mount.appendChild(butonVizualizare3);
 
     // Buton HTML clasic, fara clasa CSS (acelasi tipar ca butonVizualizare3
-    // mai sus) — cerere user, 03.09.2026: link la quizul activ CU parametrii
-    // curenti din CP, gata de copiat/trimis. Foloseste contractul
-    // getSharedLink(), implementat pana acum doar in tabla-inmultirii-tabel.js
-    // (mirror dupa equations-e3-e6.js) — pt. orice alt quiz care nu-l are
-    // inca, butonul nu apare (vezi if-ul din listener).
+    // mai sus) — cerere user, 03.09.2026, mutat pe mecanism central
+    // 04.09.2026: link la quizul activ CU parametrii curenti din CP, citit
+    // din structura CP inregistrata central (MotorOptiuniControlPanel),
+    // NU din vreo metoda a quizului. Functioneaza pt. orice quiz — cu CP
+    // (link cu ?cfg=) sau fara (link doar cu ?quiz=, fara valori fictive).
     const TEXT_BUTON_LINK = "Generează link la quizul curent cu parametrii curenți și copy in clipboard";
     const butonGenereazaLink = document.createElement("button");
     butonGenereazaLink.type = "button";
     butonGenereazaLink.textContent = TEXT_BUTON_LINK;
     butonGenereazaLink.addEventListener("click", async () => {
-      if (!quiz || typeof quiz.getSharedLink !== "function") return;
-      const link = quiz.getSharedLink();
+      const quizId = QuizRegistry.getActiveId();
+      const campuri = MotorOptiuniControlPanel.toateCampurileCP(quizId);
+      const url = new URL(window.location.href);
+      url.hash = "";
+      url.search = "";
+      url.searchParams.set("quiz", quizId);
+      if (campuri.length) {
+        const config = { v: 1, ...MotorOptiuniControlPanel.citesteConfig(campuri) };
+        url.searchParams.set("cfg", base64UrlEncode(JSON.stringify(config)));
+      }
+      const link = url.href;
       const arataConfirmare = () => {
         butonGenereazaLink.textContent = "Link copiat!";
         setTimeout(() => {

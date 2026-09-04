@@ -31,6 +31,35 @@ function decodeBase64Url(value) {
   return Buffer.from(padded.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
 }
 
+function encodeBase64Url(text) {
+  return Buffer.from(text, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Mecanismul central (nu quiz.getSharedConfig()/getSharedLink()/
+// applySharedConfig() — eliminate 04.09.2026): citesc structura declarativă
+// deja raportată de quiz prin `controlPanel`, exact ce ar face
+// app.js in productie, doar fara pasul de inregistrare intr-un Map extern.
+function campuriQuiz(quiz) {
+  return quiz.controlPanel.sectiuni.flatMap((sectiune) => sectiune.campuri);
+}
+
+function getSharedConfig(quiz) {
+  return { v: 1, ...globalThis.MotorOptiuniControlPanel.citesteConfig(campuriQuiz(quiz)) };
+}
+
+function applySharedConfig(quiz, shared) {
+  return globalThis.MotorOptiuniControlPanel.aplicaConfig(campuriQuiz(quiz), shared);
+}
+
+function getSharedLink(quiz, quizId, baseHref) {
+  const url = new URL(baseHref ?? "http://localhost/index.html");
+  url.hash = "";
+  url.search = "";
+  url.searchParams.set("quiz", quizId);
+  url.searchParams.set("cfg", encodeBase64Url(JSON.stringify(getSharedConfig(quiz))));
+  return url.href;
+}
+
 beforeEach(() => {
   delete globalThis.GameUtils;
   delete globalThis.ProgressDisplay;
@@ -221,7 +250,7 @@ test("exports and applies shared config best-effort", () => {
 
   const quiz = globalThis.QuizRegistry.get("equations-e3-e6").create();
   assert.equal(
-    quiz.applySharedConfig({
+    applySharedConfig(quiz, {
       v: 1,
       familyId: "E5_BAL",
       operators: ["*", "nope", "/"],
@@ -233,7 +262,7 @@ test("exports and applies shared config best-effort", () => {
     true
   );
 
-  assert.deepEqual(quiz.getSharedConfig(), {
+  assert.deepEqual(getSharedConfig(quiz), {
     v: 1,
     familyId: "E5_BAL",
     operators: ["*", "/"],
@@ -254,7 +283,7 @@ test("builds a shareable URL with quiz id and current config", () => {
     questionsPerRun: 12,
   });
 
-  const link = quiz.getSharedLink("https://example.github.io/yl/index.html?old=1#section");
+  const link = getSharedLink(quiz, "equations-e3-e6", "https://example.github.io/yl/index.html?old=1#section");
   const url = new URL(link);
   const encodedConfig = url.searchParams.get("cfg");
 
@@ -262,20 +291,20 @@ test("builds a shareable URL with quiz id and current config", () => {
   assert.equal(url.hash, "");
   assert.equal(url.searchParams.get("quiz"), "equations-e3-e6");
   assert.ok(encodedConfig);
-  assert.deepEqual(JSON.parse(decodeBase64Url(encodedConfig)), quiz.getSharedConfig());
+  assert.deepEqual(JSON.parse(decodeBase64Url(encodedConfig)), getSharedConfig(quiz));
 });
 
 test("shared config falls back to defaults when values no longer apply", () => {
   loadQuiz();
 
   const quiz = globalThis.QuizRegistry.get("equations-e3-e6").create();
-  quiz.applySharedConfig({
+  applySharedConfig(quiz, {
     familyId: "deleted-family",
     operators: ["deleted-op"],
     questionsPerRun: "not a number",
   });
 
-  assert.deepEqual(quiz.getSharedConfig(), {
+  assert.deepEqual(getSharedConfig(quiz), {
     v: 1,
     familyId: "E3",
     operators: ["+"],

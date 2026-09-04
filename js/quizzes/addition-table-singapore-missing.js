@@ -836,6 +836,13 @@
       },
 
       pickNextRound: () => incepe_serie_de_intrebari(),
+
+      // Structura CP declarativă, raportată o singură dată către motorul
+      // central (cerere user, 04.09.2026) — aceeași campurileCP() ca panoul
+      // CP propriu.
+      get controlPanel() {
+        return { sectiuni: [{ id: QUIZ_ID, campuri: campurileCP(() => {}, () => {}) }] };
+      },
     };
   }
 

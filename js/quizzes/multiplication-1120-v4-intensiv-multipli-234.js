@@ -1888,6 +1888,22 @@
         return stageId === "base";
       },
 
+      // Structura CP declarativă, raportată o singură dată către motorul
+      // central (cerere user, 04.09.2026) — doua secțiuni (SQ3 si SQ5), din
+      // ACEEASI campurileSq3CP()/campurileSq5CP() folosite de panourile CP
+      // proprii — nu lista paralela. hooks/rerandeaza goale aici: motorul
+      // central nu are DOM de rerandat, doar citeste/aplica valori (vezi
+      // comentariul de la campurileSq5CP mai sus — rerandeaza e strict pt.
+      // vizibilitatea campului "sq5Entry" in panoul deschis, nu pt. config).
+      get controlPanel() {
+        return {
+          sectiuni: [
+            { id: SQ3_ID, campuri: campurileSq3CP({}) },
+            { id: SQ5_ID, campuri: campurileSq5CP({}, () => {}) },
+          ],
+        };
+      },
+
       getInfo11_20() {
         const A = factorForLevel(level);
         const baseState = shared.baseState;

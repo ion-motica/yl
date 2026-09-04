@@ -567,36 +567,6 @@
     ];
   }
 
-  // Encodare base64url (RFC 4648, fara padding) pt. linkul de partajare —
-  // acelasi cod ca in equations-e3-e6.js (getSharedLink). Nu e o masura de
-  // securitate (e trivial reversibila) — doar face parametrul `cfg` sigur
-  // intr-un URL. Siguranta reala vine din applySharedConfig mai jos, care
-  // valideaza/clampeaza fiecare camp separat, indiferent ce trimite linkul.
-  function base64UrlEncode(text) {
-    const toBase64 =
-      typeof global.btoa === "function"
-        ? global.btoa.bind(global)
-        : typeof Buffer !== "undefined"
-          ? (value) => Buffer.from(value, "binary").toString("base64")
-          : null;
-
-    if (!toBase64) return encodeURIComponent(text);
-
-    if (typeof global.TextEncoder === "function") {
-      const bytes = new global.TextEncoder().encode(text);
-      let binary = "";
-      bytes.forEach((byte) => {
-        binary += String.fromCharCode(byte);
-      });
-      return toBase64(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    }
-
-    return toBase64(unescape(encodeURIComponent(text)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-  }
-
   // Scrierile de mai jos ating direct DOM-ul deja randat (prin id fix), NU
   // trec prin round-ul quizului — o schimbare de layout din CP nu trebuie sa
   // ceara `pickNextRound()` (ar reporni nivelul curent si ar pierde progresul
@@ -2394,37 +2364,15 @@
         rolIntrebareCurent = "produs";
       },
 
-      // Link de partajare (cerere user, 03.09.2026: buton in CP - General,
-      // "Genereaza link la quizul curent cu parametrii curenti si copy in
-      // clipboard"), acum generat AUTOMAT din campurileCP() (documente de
-      // referinta/standard-optiuni-cp.md) — nu mai exista validare scrisa
-      // manual aici, camp cu camp: whitelist+clamp vin din motor, pe baza
-      // metadatei declarate in campurileCP (min/max, optiuni valide etc.).
-      // Site-ul e static (GitHub Pages), deci linkul nu poate "ataca" nimic
-      // azi — dar disciplina de validare e ceruta explicit, anticipat, pt.
-      // ziua cand va exista un server care sa citeasca acesti parametri.
-      getSharedConfig() {
-        return { v: 1, ...global.MotorOptiuniControlPanel.citesteConfig(campurileCP(this)) };
-      },
-
-      getSharedLink(baseHref) {
-        const fallbackHref = "index.html";
-        const base = global.location?.href ?? "http://localhost/";
-        const currentHref = baseHref ?? global.location?.href ?? fallbackHref;
-        const url = new URL(currentHref, base);
-        url.hash = "";
-        url.search = "";
-        url.searchParams.set("quiz", QUIZ_ID);
-        url.searchParams.set("cfg", base64UrlEncode(JSON.stringify(this.getSharedConfig())));
-        return url.href;
-      },
-
-      applySharedConfig(shared = {}) {
-        const ok = global.MotorOptiuniControlPanel.aplicaConfig(campurileCP(this), shared);
-        if (!ok) return false;
-        gameCompleted = false;
-        this.resetLevelState();
-        return true;
+      // Structura CP declarativă, raportată o singură dată către motorul
+      // central (cerere user, 04.09.2026) — vezi
+      // MotorOptiuniControlPanel.inregistreazaControlPanel(), apelat din
+      // app.js imediat după QuizRegistry.createActive(). Feature-urile
+      // centrale (share-link etc.) citesc de acolo, nu mai cer nimic direct
+      // quizului — foloseste ACELASI campurileCP() ca panoul CP propriu-zis,
+      // nu o lista paralela.
+      get controlPanel() {
+        return { sectiuni: [{ id: QUIZ_ID, campuri: campurileCP(this) }] };
       },
 
       switchLevel(nextLevel) {
