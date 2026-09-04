@@ -222,8 +222,24 @@ cele 5 tipuri, plus validare pe input malitios/invalid per tip),
 
 Cerere user, 03.09.2026: "sa nu se mai poata face adaugari in cp decat prin
 acest motor cu date stocate in text" — implementat, `scripts/check-cp-optiuni-declarative.mjs`
-(`npm run check:cp-optiuni`), rulat automat inaintea oricarui commit alaturi
-de `check:docs`/`check:encoding`/`test`.
+(`npm run check:cp-optiuni`), rulat manual inaintea oricarui commit alaturi
+de `check:docs`/`check:encoding`/`test`, **si automat pe GitHub Actions**
+(`.github/workflows/checks.yml`, ruleaza `test` + toate cele 3 check-uri la
+fiecare push/PR, indiferent din ce sesiune/masina vine — sesiunile Claude
+Code clonează depozitul de la zero de fiecare data, deci un git hook local
+n-ar supravietui intre sesiuni; CI da acelasi rezultat, garantat, oriunde).
+
+**De ce un check care scaneaza tipare, nu o restructurare care "confisca"
+accesul la DOM** (intrebare user, 03.09.2026): `document` e o variabila
+GLOBALA in acest proiect (scripturi simple, fara module izolate) — orice
+functie, din orice fisier, poate scrie `document.createElement(...)`
+oricand, indiferent ce parametri primeste (`mount` sau altceva). Eliminarea
+parametrului `mount` din contract n-ar inchide gaura reala — ar elimina doar
+calea comoda, nu si `document.getElementById(...)` scris direct. Izolarea
+adevarata ar cere sandbox real (iframe/Worker per quiz) — disproportionat
+pt. aceasta aplicatie. Un check pe tipar (`.type=`, `createElement("select")`)
+prinde violarea INDIFERENT cum a ajuns codul la un element DOM — de-aia
+solutia aleasa e check + CI, nu restructurare de semnatura.
 
 **Domeniu verificat**: `js/quizzes/*.js` + `js/app.js` — unde traiesc toate
 panourile CP ale quizurilor si sectiunile CP din shell-ul aplicatiei.
