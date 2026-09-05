@@ -2203,9 +2203,9 @@
       if (celuleIntrebare) {
         mutaRama(ID_WRAPPER, ID_RAMA_INTREBARE, celuleIntrebare.stanga, celuleIntrebare.dreapta, 0).catch(() => {});
       }
-      mutaRama(ID_WRAPPER, ID_RAMA_NUMARARE, idCelula("numarare1", 1), idCelula(`numarare${level}`, factorCurent), 0)
+      mutaRama(ID_WRAPPER, ID_RAMA_NUMARARE, idCelula("numarare1", MIN_FACTOR), idCelula(`numarare${level}`, factorCurent), 0)
         .catch(() => {});
-      mutaRama(ID_WRAPPER, ID_RAMA_ADUNARI_REPETATE, idCelula("adunari-repetate", 1), idCelula("adunari-repetate", factorCurent), 0)
+      mutaRama(ID_WRAPPER, ID_RAMA_ADUNARI_REPETATE, idCelula("adunari-repetate", MIN_FACTOR), idCelula("adunari-repetate", factorCurent), 0)
         .catch(() => {});
     }
 
@@ -2240,23 +2240,25 @@
 
     // Rama "verticala" (numarare / adunari-repetate) — spre deosebire de rama
     // intrebarii (care GLISEAZA intre randuri, ramanand cam aceeasi marime),
-    // astea raman ANCORATE la randul 1 si doar se EXTIND/RESTRANG in jos pana
+    // astea raman ANCORATE la primul rand (MIN_FACTOR — NU literalul 1, vezi
+    // "Domeniu facts:" mai sus: la domeniul 11..20 primul rand e factor 11,
+    // nu 1, care nici nu exista in DOM) si doar se EXTIND/RESTRANG in jos pana
     // la randul factorului curent (cerere user, 02.09.2026) — coltul din
     // dreapta-jos al ramei numarare cade mereu exact pe celula cu produsul.
     // Generice: primesc NUMELE rolurilor de coloana stanga/dreapta (nu
     // id-uri de celula) — cele doua rame difera doar prin ce coloana(e)
     // acopera si ce stil au.
     //
-    // La NIVEL NOU: creeaza rama STRICT pe randul 1 (inaltime minima), apoi o
-    // extinde IMEDIAT pana la randul factorului ales — vizibil ca o "crestere"
-    // chiar de la prima intrebare (cerere user: "TOATE incep simultan imediat
-    // dupa afisarea intrebarii ... si dureaza toate la fel de mult: tt"), nu
-    // un salt instant la marimea finala.
+    // La NIVEL NOU: creeaza rama STRICT pe primul rand (MIN_FACTOR, inaltime
+    // minima), apoi o extinde IMEDIAT pana la randul factorului ales —
+    // vizibil ca o "crestere" chiar de la prima intrebare (cerere user:
+    // "TOATE incep simultan imediat dupa afisarea intrebarii ... si dureaza
+    // toate la fel de mult: tt"), nu un salt instant la marimea finala.
     function planificaRamaVerticalaLaNivelNou(ramaId, coloanaStanga, coloanaDreapta, stilRama) {
       const nivelDePlanificat = level;
       asteaptaTabelulPictat(nivelDePlanificat, () => {
-        const idStangaR1 = idCelula(coloanaStanga, 1);
-        const idDreaptaR1 = idCelula(coloanaDreapta, 1);
+        const idStangaR1 = idCelula(coloanaStanga, MIN_FACTOR);
+        const idDreaptaR1 = idCelula(coloanaDreapta, MIN_FACTOR);
         creeazaRama(ID_WRAPPER, ramaId, idStangaR1, idDreaptaR1, stilRama);
         mutaRama(ID_WRAPPER, ramaId, idStangaR1, idCelula(coloanaDreapta, factorCurent), duratMutareColoaneCurenta())
           .catch(() => {});
@@ -2265,13 +2267,13 @@
 
     // La schimbare de intrebare (acelasi nivel): doar extinde/restrange (un
     // singur mutaRama, fara sa recreeze) — capatul de sus ramane fix la
-    // randul 1, capatul de jos gliseaza la noul rand activ.
+    // primul rand (MIN_FACTOR), capatul de jos gliseaza la noul rand activ.
     function gliseazaRamaVerticalaLaFactorCurent(vechiFactor, ramaId, coloanaStanga, coloanaDreapta) {
       if (vechiFactor == null) return; // se ocupa planificaRamaVerticalaLaNivelNou
       mutaRama(
         ID_WRAPPER,
         ramaId,
-        idCelula(coloanaStanga, 1),
+        idCelula(coloanaStanga, MIN_FACTOR),
         idCelula(coloanaDreapta, factorCurent),
         duratMutareColoaneCurenta()
       ).catch(() => {});
