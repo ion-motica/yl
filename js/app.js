@@ -520,6 +520,12 @@
   function buildLevelPicker() {
     dom.levelPickerEl.replaceChildren();
     const maxLevel = typeof quiz?.getMaxLevel === "function" ? quiz.getMaxLevel() : 1;
+    // getMinLevel() — implicit 1 pt. quizurile care nu-l definesc (nu schimba
+    // nimic fata de comportamentul de dinainte: toate porneau de la 1). Doar
+    // tabla-inmultirii-tabel.js poate azi intoarce altceva (11, la domeniul CP
+    // "Domeniu facts: 11..20 - 11..20") — vezi documente de referinta/
+    // standard-optiuni-cp.md.
+    const minLevel = typeof quiz?.getMinLevel === "function" ? quiz.getMinLevel() : 1;
     // customEngine sare peste picker DOAR dacă n-are niveluri reale (maxLevel<=1,
     // cazul rigle-cl1.js) — un customEngine cu maxLevel>1 (rigle-tabla-1-10.js) îl
     // primește ca orice alt quiz, vezi createLevelButton pt. garda pe partea de click.
@@ -531,7 +537,7 @@
     dom.levelPickerEl.style.gridTemplateRows = "";
     dom.levelPickerEl.style.gridTemplateColumns = "";
 
-    for (let lv = 1; lv <= maxLevel; lv++) {
+    for (let lv = minLevel; lv <= maxLevel; lv++) {
       dom.levelPickerEl.appendChild(createLevelButton(lv));
     }
     syncLevelPickerActive();

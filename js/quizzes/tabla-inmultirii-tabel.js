@@ -18,14 +18,66 @@
   "use strict";
 
   const QUIZ_ID = "tabla-inmultirii-tabel";
-  const MIN_LEVEL = 1;
-  const MAX_LEVEL = 10;
+
+  // "Domeniu facts:" (dropdown CP, cerere user, 05.09.2026) — alege ATAT
+  // intervalul nr-tabla/nivel CAT SI intervalul factor/rand. Inainte, astea
+  // 4 limite erau constante fixe (1-10); acum se deriva din domeniul activ
+  // (vezi aplicaDomeniuFacts mai jos, SINGURUL loc care le scrie). Nivelul
+  // ramane, ca inainte, limita inferioara REALA (selectabila manual din
+  // butoanele de nivel — vezi buildLevelPicker in app.js, care porneste azi
+  // bucla de butoane de la getMinLevel(), nu de la 1 fix).
+  const DOMENII_FACTS = [
+    { valoare: "tabla1-10_factor1-10", text: "1..10 - 1..10", minLevel: 1, maxLevel: 10, minFactor: 1, maxFactor: 10, levelImplicit: 2 },
+    { valoare: "tabla1-10_factor11-20", text: "1..10 - 11..20", minLevel: 1, maxLevel: 10, minFactor: 11, maxFactor: 20, levelImplicit: 2 },
+    { valoare: "tabla11-20_factor11-20", text: "11..20 - 11..20", minLevel: 11, maxLevel: 20, minFactor: 11, maxFactor: 20, levelImplicit: 12 },
+  ];
+  const DOMENIU_FACTS_IMPLICIT = DOMENII_FACTS[0].valoare;
+  const LC_DOMENIU_FACTS = "tablaInmultiriiTabel.domeniuFacts";
+
+  let MIN_LEVEL = DOMENII_FACTS[0].minLevel;
+  let MAX_LEVEL = DOMENII_FACTS[0].maxLevel;
   // Nivelul cu care porneste quizul la selectare (cerere user, 02.09.2026)
   // — separat de MIN_LEVEL, care ramane limita inferioara REALA (nivelul 1
-  // tot e selectabil manual din butoanele de nivel).
-  const LEVEL_IMPLICIT = 2;
-  const MIN_FACTOR = 1;
-  const MAX_FACTOR = 10;
+  // tot e selectabil manual din butoanele de nivel). Fiecare domeniu isi are
+  // propriul implicit (vezi DOMENII_FACTS) — se recalculeaza odata cu
+  // MIN/MAX_LEVEL, nu ramane legat de domeniul de pornire.
+  let LEVEL_IMPLICIT = DOMENII_FACTS[0].levelImplicit;
+  let MIN_FACTOR = DOMENII_FACTS[0].minFactor;
+  let MAX_FACTOR = DOMENII_FACTS[0].maxFactor;
+
+  // Gaseste domeniul dupa valoare, cu fallback pe primul (domeniul implicit)
+  // daca valoarea nu se potriveste cu nimic cunoscut — acelasi principiu de
+  // validare ca la orice camp "enum" din motorul CP (nu asignare bruta).
+  function domeniuFactsValid(valoare) {
+    return DOMENII_FACTS.find((d) => d.valoare === valoare) ?? DOMENII_FACTS[0];
+  }
+
+  function getDomeniuFacts() {
+    return domeniuFactsValid(global.LayoutConfig?.get(LC_DOMENIU_FACTS, DOMENIU_FACTS_IMPLICIT)).valoare;
+  }
+
+  // SINGURUL loc care scrie MIN_LEVEL/MAX_LEVEL/MIN_FACTOR/MAX_FACTOR/
+  // LEVEL_IMPLICIT — rulat la fiecare creare de instanta de quiz (vezi
+  // createTablaInmultiriiTabelQuiz) si din nou la fiecare schimbare de
+  // domeniu din CP (scrieDomeniuFacts). NU atinge `level` insusi — cel deja
+  // in desfasurare e clampat separat de apelant (campul CP "domeniuFacts" de
+  // mai jos cheama switchLevel dupa asta, ca sa reincadreze nivelul curent
+  // in noul interval).
+  function aplicaDomeniuFacts(valoare) {
+    const domeniu = domeniuFactsValid(valoare);
+    MIN_LEVEL = domeniu.minLevel;
+    MAX_LEVEL = domeniu.maxLevel;
+    MIN_FACTOR = domeniu.minFactor;
+    MAX_FACTOR = domeniu.maxFactor;
+    LEVEL_IMPLICIT = domeniu.levelImplicit;
+    return domeniu;
+  }
+
+  function scrieDomeniuFacts(valoare) {
+    const domeniu = domeniuFactsValid(valoare);
+    global.LayoutConfig?.set(LC_DOMENIU_FACTS, domeniu.valoare);
+    aplicaDomeniuFacts(domeniu.valoare);
+  }
 
   // "din primele 5 neraspunse" (user, 01.09.2026).
   const CANDIDATI_PREFERATI = 5;
@@ -421,6 +473,25 @@
   // applySharedConfig), unde nu exista niciun DOM de rerandat.
   function campurileCP(quizPublicApi, opts = {}, rerandeaza = null) {
     return [
+      {
+        cheie: "domeniuFacts",
+        tip: "enum",
+        eticheta: "Domeniu facts:",
+        optiuni: DOMENII_FACTS.map(({ valoare, text }) => ({ valoare, text })),
+        get: getDomeniuFacts,
+        set: (valoare) => {
+          scrieDomeniuFacts(valoare);
+          // Reincadreaza nivelul curent in noul interval (acelasi clamp ca
+          // la clickul pe un buton de nivel) — vezi comentariul din
+          // aplicaDomeniuFacts. NU face restart de runda aici (ar rula de N
+          // ori intr-un applySharedConfig cu mai multe campuri, vezi capcana
+          // documentata la equations-e3-e6.js in standard-optiuni-cp.md) —
+          // restart-ul ramane STRICT in dupaSchimbare, ca la adunareActiva.
+          quizPublicApi.switchLevel(quizPublicApi.getLevel());
+        },
+        implicit: DOMENIU_FACTS_IMPLICIT,
+        dupaSchimbare: () => opts.onChange?.(),
+      },
       global.MotorOptiuniControlPanel.campNivelStandard(quizPublicApi, LEVEL_IMPLICIT),
       {
         cheie: "adunareActiva",
@@ -1508,6 +1579,11 @@
     const { shuffle } = global.GameUtils;
     const { FactCatalog, FactStore } = global;
 
+    // Sincronizeaza MIN/MAX_LEVEL/FACTOR cu domeniul persistat INAINTE de a
+    // citi LEVEL_IMPLICIT mai jos — altfel o instanta noua (schimbare de
+    // quiz, reload) ar porni cu limitele domeniului implicit chiar daca
+    // userul lasase quizul pe alt domeniu la vizita anterioara.
+    aplicaDomeniuFacts(getDomeniuFacts());
     let level = LEVEL_IMPLICIT;
     let gameCompleted = false;
 
@@ -1812,7 +1888,7 @@
     function candidatiDistractorNrTabla() {
       const candidati = [];
       for (let delta = 1; candidati.length < 8; delta++) {
-        if (level - delta >= 1) candidati.push(level - delta);
+        if (level - delta >= MIN_LEVEL) candidati.push(level - delta);
         candidati.push(level + delta);
       }
       return candidati;
