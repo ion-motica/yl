@@ -1728,7 +1728,18 @@
         case "produs": return String(rezultatPentru(f));
         // "scrie 2+ pe fiecare rand pe acare acum e doar 2" (user, 01.09.2026)
         // — inlocuieste randul-schela cu "+" separat.
-        case "adunari-repetate": return `${level}+`;
+        //
+        // Primul rand al domeniului arata produsul COMPLET, nu doar level+
+        // (cerere user, 05.09.2026): la domeniile cu MIN_FACTOR>1 (ex.
+        // "1..10 - 11..20"/"11..20 - 11..20"), primul rand ilustreaza DE LA
+        // CE NUMAR incep adunarile repetate — la tabla lui 3, domeniu cu
+        // factor 11..20, primul rand (11x3=33) arata "33+", nu doar "3+".
+        // Formula pe MIN_FACTOR (nu o valoare per-domeniu hardcodata), ca sa
+        // functioneze neschimbata si la domenii viitoare adaugate in
+        // DOMENII_FACTS. Mereu inmultire (f * level, NU rezultatPentru) —
+        // coloana asta nu urmeaza "Comută pe tabla adunării", la fel ca
+        // pana acum (vezi comentariul de la LC_ADUNARE_ACTIVA mai sus).
+        case "adunari-repetate": return f === MIN_FACTOR ? `${f * level}+` : `${level}+`;
         // Spatiu (nu string gol) — cerere user, 02.09.2026: coloanele-tampon
         // dintre grupurile de coloane trebuie sa aiba continut vizibil (la
         // fontul mic, ti-cell-mic), nu doar sa fie goale.
