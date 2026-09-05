@@ -271,3 +271,76 @@ test("round-trip: getSharedConfig -> applySharedConfig pe alt quiz reproduce exa
 
   assert.deepEqual(getSharedConfig(quizTinta), cfgSursa);
 });
+
+// "Domeniu facts:" (dropdown CP, cerere user, 05.09.2026) — alege ATAT
+// intervalul nr-tabla/nivel CAT SI intervalul factor/rand (vezi DOMENII_FACTS
+// in tabla-inmultirii-tabel.js). Aceeasi disciplina de validare ca la
+// "mutareColoane" mai sus: camp enum, whitelist, fallback pe implicit.
+test("getSharedConfig include domeniuFacts cu domeniul implicit (1..10 - 1..10)", () => {
+  const quiz = createQuiz();
+
+  const cfg = getSharedConfig(quiz);
+
+  assert.equal(cfg.domeniuFacts, "tabla1-10_factor1-10");
+  assert.equal(quiz.getMinLevel(), 1);
+  assert.equal(quiz.getMaxLevel(), 10);
+});
+
+test("applySharedConfig cu domeniuFacts valid schimba MIN/MAX_LEVEL si reclampeaza nivelul curent ramas in afara noului domeniu", () => {
+  const quiz = createQuiz();
+  quiz.switchLevel(3); // valid azi (domeniul implicit, 1-10)
+
+  const ok = applySharedConfig(quiz, { domeniuFacts: "tabla11-20_factor11-20" });
+
+  assert.equal(ok, true);
+  assert.equal(quiz.getMinLevel(), 11);
+  assert.equal(quiz.getMaxLevel(), 20);
+  // 3 nu mai e valid in noul domeniu (11-20) — reclampat la MIN_LEVEL, la fel
+  // ca la un buton de nivel/switchLevel cu o valoare sub interval.
+  assert.equal(quiz.getLevel(), 11);
+});
+
+test("applySharedConfig respinge un domeniuFacts necunoscut/malitios, cade pe domeniul implicit", () => {
+  const quiz = createQuiz();
+
+  for (const domeniuInvalid of ["<script>alert(1)</script>", "domeniuNecunoscut", "__proto__", 123, null]) {
+    const ok = applySharedConfig(quiz, { domeniuFacts: domeniuInvalid });
+    assert.equal(ok, true);
+    assert.equal(getSharedConfig(quiz).domeniuFacts, "tabla1-10_factor1-10");
+  }
+});
+
+test("round-trip cu domeniul schimbat efectiv reproduce acelasi domeniu si acelasi MIN/MAX_LEVEL pe alt quiz", () => {
+  const quizSursa = createQuiz();
+  applySharedConfig(quizSursa, { domeniuFacts: "tabla1-10_factor11-20" });
+  const cfgSursa = getSharedConfig(quizSursa);
+
+  const quizTinta = createQuiz();
+  applySharedConfig(quizTinta, cfgSursa);
+
+  assert.deepEqual(getSharedConfig(quizTinta), cfgSursa);
+  assert.equal(quizTinta.getMinLevel(), quizSursa.getMinLevel());
+  assert.equal(quizTinta.getMaxLevel(), quizSursa.getMaxLevel());
+});
+
+// Breșă cunoscuta, acceptata deliberat (gasita la scriere, nu ascunsa):
+// campNivelStandard() (motor-optiuni-control-panel.js) capteaza min/max o
+// SINGURA data, la construirea array-ului de campuri — nu le reciteste live
+// in timpul aplicaConfig(). Un link care schimba DEODATA domeniuFacts SI
+// nivel intr-un singur apply nu poate obtine exact nivelul cerut daca acesta
+// depaseste domeniul VECHI (dinainte de switch) — cade pe marginea domeniului
+// vechi, apoi e reclampat de switchLevel() in domeniul nou. Testul de mai jos
+// blocheaza exact acest comportament curent (sigur, dar nu "exact"), ca sa nu
+// devina silentios si mai gresit la o schimbare viitoare a motorului CP.
+test("applySharedConfig cu domeniuFacts + nivel in ACELASI apply: nivelul cade pe marginea domeniului VECHI, nu pe cel cerut (limitare cunoscuta)", () => {
+  const quiz = createQuiz(); // domeniul implicit: 1-10
+
+  applySharedConfig(quiz, { domeniuFacts: "tabla11-20_factor11-20", nivel: 15 });
+
+  // Cerinta ar fi nivel 15 (valid in noul domeniu 11-20), dar camp-ul "nivel"
+  // a clampat deja 15 dupa min/max VECHI (1-10, capturate inainte de switch)
+  // inainte ca switchLevel sa mai apuce sa-l reclampeze in noul domeniu.
+  assert.equal(quiz.getMinLevel(), 11);
+  assert.equal(quiz.getMaxLevel(), 20);
+  assert.equal(quiz.getLevel(), 11);
+});

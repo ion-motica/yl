@@ -110,6 +110,38 @@ Migrate (03.09.2026), toate verificate cu `npm test` + Playwright end-to-end
   `appendTablaInmultiriiTabelControlPanel` de la ~65 de linii de cod DOM
   repetitiv la 4; `getSharedConfig`/`applySharedConfig` de la validare scrisa
   manual la 3-6 linii fiecare, fara nicio validare de mana.
+
+  **Adaugat (05.09.2026)**: camp nou `domeniuFacts` (enum, dropdown CP
+  "Domeniu facts:") — cere ceva ce niciun alt camp migrat pana acum n-a cerut:
+  MIN_LEVEL/MAX_LEVEL/MIN_FACTOR/MAX_FACTOR nu mai sunt constante fixe pe
+  quiz, ci se schimba la runtime dupa domeniul ales (3 domenii: nr-tabla 1-10
+  cu factor 1-10, nr-tabla 1-10 cu factor 11-20, nr-tabla 11-20 cu factor
+  11-20). Doua consecinte care nu erau evidente inainte de implementare:
+
+  1. Bara de butoane de nivel (`buildLevelPicker` in `js/app.js`) presupunea
+     tacit ca nivelul minim e mereu `1` (`for (let lv = 1; lv <= maxLevel...)`,
+     ignora complet `getMinLevel()`). A trebuit corectata sa porneasca de la
+     `quiz.getMinLevel() ?? 1` — schimbare in codul COMUN tuturor quizurilor,
+     dar sigura: la orice quiz cu `getMinLevel()===1` (toate, azi, in afara
+     acestui domeniu), bucla ramane identica.
+  2. **Capcana reala gasita aici**: `campNivelStandard()` (mai sus in acest
+     fisier) capteaza `min`/`max` o SINGURA data, cand se construieste
+     array-ul de campuri — NU le reciteste live in timpul `aplicaConfig()`.
+     Un link de partajare care schimba DEODATA `domeniuFacts` SI `nivel` intr-
+     un singur apply nu poate obtine exact nivelul cerut daca depaseste
+     domeniul VECHI (dinainte de switch): camp-ul "nivel" il clampeaza dupa
+     limitele vechi INAINTE ca noul domeniu sa fi apucat sa se aplice pe
+     bune — cade pe marginea domeniului vechi, apoi e reclampat de
+     `switchLevel()` in domeniul nou (rezultat SIGUR, dar nu neaparat
+     "exact"). Acceptat deliberat ca limitare cunoscuta (nu rezolvat, ar cere
+     sa faci `min`/`max` evaluabile live in motor — schimbare de contract
+     pt. toate campurile "numar", nu doar pt. acesta), blocat printr-un test
+     dedicat in `tests/tabla-inmultirii-tabel-share-link.test.js`, ca o
+     schimbare viitoare a motorului sa nu-l strice silentios mai departe.
+     Schimbarea domeniului DIN CP (nu dintr-un share-link cu ambele campuri
+     deodata) nu are aceasta problema — camp-ul isi cheama propriul
+     `switchLevel(getLevel())` dupa `scrieDomeniuFacts()`, deci reclampeaza
+     live, corect, verificat si cu Playwright.
 - **`js/app.js` (sectiunea General)** — categorie separata, nu per-quiz
   (omisa din analiza initiala a "quizurilor cu panou CP"). Doar bifa
   "Afiseaza Timpi raspuns" migrata; butoanele de actiune (Vizualizare3,
