@@ -1388,33 +1388,33 @@
     }
 
     subquizStartControlEl.hidden = false;
-    subquizStartControlEl.replaceChildren();
 
-    const label = document.createElement("span");
-    label.textContent = "Testeaza doar subquizul:";
-    subquizStartControlEl.appendChild(label);
-
-    const active = quiz.getSubquizStartOption?.();
-    options.forEach((opt) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "control-panel-asnw-reset";
-      btn.textContent = opt.label;
-      btn.disabled = opt.disabled === true;
-      btn.classList.toggle("active", opt.id === active);
-      btn.addEventListener("click", () => {
-        if (opt.disabled) return;
-        const changed = quiz.setSubquizStartOption(opt.id);
-        if (!changed) return;
-        dom.playPauseBtn.disabled = false;
-        engine?.cancelRisingAnimation?.();
-        lastGreenCells = null;
-        lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
-        engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
-        renderProgress();
-      });
-      subquizStartControlEl.appendChild(btn);
-    });
+    // Randat prin motor (construiesteDOM), dar NEinregistrat in registrul
+    // central (quiz.controlPanel) — cerere expresa user, 06.09.2026: ramane
+    // in motor, dar fiindca e un shortcut de TESTARE (ce subquiz sari sa
+    // testezi), nu o setare reala a quizului, nu trebuie sa ajunga niciodata
+    // in linkul de partajare. Acelasi tipar ca panourile "general"/"debug"
+    // (mai jos in acest fisier): apel direct la construiesteDOM cu un tabel
+    // local de campuri, fara MotorOptiuniControlPanel.inregistreazaControlPanel().
+    window.MotorOptiuniControlPanel.construiesteDOM(subquizStartControlEl, [
+      {
+        cheie: "subquizStart",
+        tip: "enum",
+        stilAfisare: "radio",
+        eticheta: "Testeaza doar subquizul:",
+        optiuni: options.map((opt) => ({ valoare: opt.id, text: opt.label })),
+        get: () => quiz.getSubquizStartOption?.(),
+        set: (stageId) => setOption.call(quiz, stageId),
+        dupaSchimbare: () => {
+          dom.playPauseBtn.disabled = false;
+          engine?.cancelRisingAnimation?.();
+          lastGreenCells = null;
+          lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
+          engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+          renderProgress();
+        },
+      },
+    ]);
   }
 
   applyDebugInfoBorders();
