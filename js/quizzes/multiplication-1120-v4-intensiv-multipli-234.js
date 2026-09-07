@@ -1866,6 +1866,7 @@
           sectiuni: [
             { id: SQ3_ID, campuri: campurileSq3CP({}) },
             { id: SQ5_ID, campuri: campurileSq5CP({}, () => {}) },
+            { id: "subquizStart", campuri: [window.MotorOptiuniControlPanel.campSubquizStart(this)] },
           ],
         };
       },

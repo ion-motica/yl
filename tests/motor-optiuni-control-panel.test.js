@@ -250,6 +250,83 @@ test("campNivelStandard leaga cheie/get/set/min/max la API-ul quizului si e excl
   assert.equal(nivelIntern, 10);
 });
 
+test("campSubquizStart adauga '----' ca prima optiune si o leaga de prima optiune reala a quizului", () => {
+  const motor = loadMotor();
+  let selectat = "normal";
+  const quizFals = {
+    getSubquizStartOptions: () => [
+      { id: "normal", label: "Normal" },
+      { id: "sq3", label: "SQ3" },
+    ],
+    getSubquizStartOption: () => selectat,
+    setSubquizStartOption: (id) => {
+      selectat = id;
+      return true;
+    },
+  };
+
+  const camp = motor.campSubquizStart(quizFals);
+
+  assert.equal(camp.cheie, "subquizStart");
+  assert.equal(camp.tip, "enum");
+  assert.deepEqual(
+    camp.optiuni.map((o) => o.valoare),
+    ["----", "sq3"],
+    "'normal' nu se mai afiseaza separat — '----' il reprezinta deja"
+  );
+  assert.equal(camp.get(), "----", "prima optiune reala (normal) trebuie afisata ca '----'");
+
+  camp.set("sq3");
+  assert.equal(selectat, "sq3");
+  assert.equal(camp.get(), "sq3");
+
+  camp.set("----");
+  assert.equal(selectat, "normal", "'----' trebuie sa aplice prima optiune reala, nu un string literal");
+  assert.equal(camp.get(), "----");
+});
+
+test("campSubquizStart functioneaza generic si la un quiz cu o singura optiune reala (fara 'normal')", () => {
+  const motor = loadMotor();
+  const quizFals = {
+    getSubquizStartOptions: () => [{ id: "base", label: "1 baza" }],
+    getSubquizStartOption: () => "base",
+    setSubquizStartOption: (id) => id === "base",
+  };
+
+  const camp = motor.campSubquizStart(quizFals);
+
+  assert.deepEqual(
+    camp.optiuni.map((o) => o.valoare),
+    ["----"],
+    "singura optiune reala (base) e chiar valoarea neutra — nu se afiseaza separat"
+  );
+  assert.equal(camp.get(), "----", "singura optiune reala e implicit neutra, deci '----'");
+});
+
+test("campSubquizStart: round-trip prin citesteConfig/aplicaConfig pastreaza o selectie reala explicita", () => {
+  const motor = loadMotor();
+  let selectat = "sq3";
+  const quizFals = {
+    getSubquizStartOptions: () => [
+      { id: "normal", label: "Normal" },
+      { id: "sq3", label: "SQ3" },
+    ],
+    getSubquizStartOption: () => selectat,
+    setSubquizStartOption: (id) => {
+      selectat = id;
+      return true;
+    },
+  };
+
+  const camp = motor.campSubquizStart(quizFals);
+  const config = motor.citesteConfig([camp]);
+  assert.equal(config.subquizStart, "sq3");
+
+  selectat = "normal";
+  motor.aplicaConfig([camp], config);
+  assert.equal(selectat, "sq3", "aplicaConfig trebuie sa restaureze exact subquizul din link");
+});
+
 test("round-trip: citesteConfig -> aplicaConfig pe un al doilea set de campuri reproduce exact aceleasi valori", () => {
   const motor = loadMotor();
   const sursa = [campBifa(true), campEnum("alternareF2"), campNumar(3.2), campSet(["produs"]), campCuloare("#abcdef")];

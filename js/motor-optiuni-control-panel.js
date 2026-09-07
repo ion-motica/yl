@@ -90,6 +90,48 @@
     return camp;
   }
 
+  // Camp generic pt. orice quiz cu selector "Testeaza doar subquizul"
+  // (cerere user, 07.09.2026: devine camp CP normal, in registrul central,
+  // in loc sa ramana in afara lui). quizApi.getSubquizStartOptions()/
+  // getSubquizStartOption()/setSubquizStartOption() raman singura sursa —
+  // acest camp doar le impacheteaza declarativ, o singura data, pt. oricare
+  // din cele 4 quizuri care le au azi (nu builder separat per quiz).
+  // "----" e o valoare SINTETICA, adaugata aici, niciodata intoarsa de
+  // quizApi insusi — inseamna "prima optiune din lista reala" (decizie
+  // user: la toate cele 4 quizuri, prima optiune e cea care nu forteaza
+  // nimic — "normal" la v2/v2-modular, singura optiune "base" la celelalte
+  // doua) — deci selectarea ei repune quizul pe acel comportament, fara sa
+  // introduca un al doilea concept de "gol" in quizApi.
+  const NECUNOSCUT_SUBQUIZ = "----";
+
+  function campSubquizStart(quizApi, dupaSchimbare) {
+    const optiuniReale = quizApi.getSubquizStartOptions?.() ?? [];
+    const valoareNeutra = optiuniReale[0]?.id;
+    return {
+      cheie: "subquizStart",
+      tip: "enum",
+      stilAfisare: "radio",
+      eticheta: "Testează doar subquizul: Dropdownlist",
+      // Optiunea reala care e deja valoareNeutra NU se mai afiseaza separat —
+      // "----" o reprezinta deja (cerere user, 07.09.2026); ramane totusi
+      // sursa unica de adevar: doar filtram lista existenta, nu o duplicam.
+      optiuni: [
+        { valoare: NECUNOSCUT_SUBQUIZ, text: NECUNOSCUT_SUBQUIZ },
+        ...optiuniReale
+          .filter((optiune) => optiune.id !== valoareNeutra)
+          .map((optiune) => ({ valoare: optiune.id, text: optiune.label })),
+      ],
+      get: () => {
+        const curent = quizApi.getSubquizStartOption?.();
+        return curent === valoareNeutra ? NECUNOSCUT_SUBQUIZ : curent;
+      },
+      set: (valoare) =>
+        quizApi.setSubquizStartOption(valoare === NECUNOSCUT_SUBQUIZ ? valoareNeutra : valoare),
+      implicit: NECUNOSCUT_SUBQUIZ,
+      dupaSchimbare,
+    };
+  }
+
   function citesteConfig(campuri) {
     const rezultat = {};
     for (const camp of campuri) {
@@ -433,6 +475,7 @@
 
   global.MotorOptiuniControlPanel = {
     campNivelStandard,
+    campSubquizStart,
     citesteConfig,
     aplicaConfig,
     construiesteDOM,

@@ -64,14 +64,14 @@ describe("multiplication-1120-v2 subquiz stages", () => {
     delete globalThis.Mul1120V2Quiz;
   });
 
-  it("starts directly in subquiz 6 non-anchor products mode by temporary default", () => {
+  it("starts in normal anchor test mode by default (aliniat cu multiplication-1120-v2-modular.js, 07.09.2026)", () => {
     const quiz = setupQuiz();
     const state = quiz.beginRound();
 
-    assert.equal(quiz.getSubquizStartOption(), "nonAnchorProducts");
-    assert.equal(quiz.getSubquizStage(), "nonAnchorProducts");
-    assert.equal(state.prompt, "6*11=?");
-    assert.deepEqual(state.options, ["66", "56", "76"]);
+    assert.equal(quiz.getSubquizStartOption(), "normal");
+    assert.equal(quiz.getSubquizStage(), "normal");
+    assert.equal(state.prompt, "?*3=33");
+    assert.deepEqual(state.options, ["11", "1", "21"]);
     assert.equal(state.correctIndex, 0);
   });
 
@@ -466,6 +466,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 6 advances after all non-anchors are correct consecutively", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("nonAnchorProducts");
     let state = quiz.beginRound();
 
     for (let i = 0; i < 12; i += 1) {
@@ -483,6 +484,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
   // ramane pe loc, fara limita — testul de mai jos verifica exact asta.
   it("CORECTAT: raspunsul gresit repetat la subquiz 6 nu avanseaza niciodata (Categoria 6)", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("nonAnchorProducts");
     const state = quiz.beginRound();
     const idx = wrongIndex(state);
 
@@ -497,6 +499,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 6 enters intensive mode after two distinct wrong non-anchors are corrected", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("nonAnchorProducts");
     let state = quiz.beginRound();
 
     assert.equal(state.prompt, "6*11=?");
@@ -515,6 +518,7 @@ describe("multiplication-1120-v2 subquiz stages", () => {
 
   it("subquiz 6 intensive mode returns to normal subquiz 6 flow after ten questions", () => {
     const quiz = setupQuiz();
+    quiz.setSubquizStartOption("nonAnchorProducts");
     let state = quiz.beginRound();
 
     state = quiz.onAnswer(wrongIndex(state), { responseMs: 900 });

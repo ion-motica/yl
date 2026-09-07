@@ -325,6 +325,55 @@ panouri CP existente in proiect, inclusiv cazurile mai neobisnuite (doua
 tipuri de hook, doua panouri separate in acelasi fisier, valori enum
 booleene/numerice, sliders cu text formatat custom).
 
+## Ce rămâne de făcut
+
+**Generalizează selectorul de subquiz prin CP engine** (consemnat 07.09.2026,
+neimplementat — decizie separată a userului dacă/când se face)
+
+Azi (07.09.2026), selectorul „Testează doar subquizul" a devenit câmp CP
+normal (`MotorOptiuniControlPanel.campSubquizStart`, vezi `campNivelStandard`
+mai sus pt. tiparul identic) — dar **doar** pt. cele 4 quizuri care îl aveau
+deja, conectate manual, unul câte unul: `multiplication-1120-v2.js`,
+`multiplication-1120-v2-modular.js`, `multiplication-1120-v3-train-eff-eq-forms.js`
+(fabrica din spatele quizului activ `-jurnal.js`), `multiplication-1120-v4-intensiv-multipli-234.js`.
+Fiecare din cele 4 a primit propriul `get controlPanel()`, care doar apelează
+`campSubquizStart(this)` — nu duplicare de logică, dar tot cod repetat de 4 ori.
+
+Rămâne, ca pas separat, viitor:
+
+```text
+orice quiz cu subquizuri
+        ↓
+motorul/SubquizOrchestrator stie lista reala
+        ↓
+CP engine genereaza automat selectorul generic
+        ↓
+selectorul e camp CP normal
+        ↓
+share-link il serializeaza automat
+```
+
+Cerințe consemnate pt. acea generalizare (nu re-confirmate acum):
+- orice quiz cu doar `base` + alte subquizuri primește automat același
+  mecanism, fără cei 4×3 linii de `get controlPanel()` repetate azi;
+- quizurile simple, cu doar `base`, nu ar trebui să primească UI inutil dacă
+  n-au ce alege — azi `campSubquizStart` tot arată un selector cu 2 opțiuni
+  (`----` + `base`) chiar și pt. `multiplication-1120-v4-intensiv-multipli-234.js`/
+  `-jurnal.js`, acceptat deliberat acum ca să nu se special-cazeze;
+- lista nu se duplică manual — `SubquizDefinition`/`SubquizOrchestrator` rămân
+  sursa structurii reale de subquizuri, nu `getSubquizStartOptions()` scris de
+  mână per quiz (cum e azi);
+- CP engine consumă acea structură direct;
+- share-link consumă CP-ul declarativ rezultat, ca azi — fără schimbare de
+  format;
+- zero implementare specială per quiz.
+
+Nu s-a atins `SubquizOrchestrator`/`SubquizDefinition` la conectarea celor 4
+cazuri de azi — doar `js/motor-optiuni-control-panel.js` (funcția nouă
+`campSubquizStart`), `js/app.js` (`renderSubquizStartControl` acum apelează
+aceeași funcție, nu-și mai construiește propriul camp), și cele 4 fișiere de
+quiz de mai sus.
+
 ## Verificare (cum confirmi ca merge)
 
 Dupa migrarea unui quiz: (a) `npm test` — motorul si contractul de share-link al

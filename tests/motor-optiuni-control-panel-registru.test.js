@@ -58,6 +58,85 @@ function loadMotorSiQuizV4() {
   });
 }
 
+// La fel ca loadMotorSiQuizV4 — quizuri REALE, nu dubluri sintetice — pt.
+// cazurile "Testeaza doar subquizul" conectate la registrul central (cerere
+// user, 07.09.2026). v2/v2-modular nu au nevoie de fact-window-sequencer.js;
+// v3-jurnal e wrapper-ul activ peste fabrica din fisierul mare (vezi
+// tests/jurnal-intrebari.test.js pt. acelasi tipar de incarcare).
+function loadMotorSiQuizV2() {
+  globalThis.window = globalThis;
+  globalThis.alert = () => {};
+  globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  [
+    "js/utils.js",
+    "js/placeholder-raspuns.js",
+    "js/schimbare-de-nivel.js",
+    "js/progress-display.js",
+    "js/quiz-registry.js",
+    "js/motor-optiuni-control-panel.js",
+    "js/fact-catalog.js",
+    "js/eff/qf-generator.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
+    "js/motor-3-butoane.js",
+    "js/quizzes/multiplication-1120-v2.js",
+  ].forEach(loadScript);
+  globalThis.GameUtils.shuffle = (items) => [...items];
+  const meta = globalThis.QuizRegistry.get("multiplication-1120-v2");
+  return meta.create(meta);
+}
+
+function loadMotorSiQuizV2Modular() {
+  globalThis.window = globalThis;
+  globalThis.alert = () => {};
+  globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  [
+    "js/utils.js",
+    "js/placeholder-raspuns.js",
+    "js/schimbare-de-nivel.js",
+    "js/progress-display.js",
+    "js/quiz-registry.js",
+    "js/motor-optiuni-control-panel.js",
+    "js/fact-catalog.js",
+    "js/eff/qf-generator.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
+    "js/motor-3-butoane.js",
+    "js/quizzes/multiplication-1120-v2-modular.js",
+  ].forEach(loadScript);
+  globalThis.GameUtils.shuffle = (items) => [...items];
+  const meta = globalThis.QuizRegistry.get("multiplication-1120-v2-modular");
+  return meta.create(meta);
+}
+
+function loadMotorSiQuizV3Jurnal() {
+  globalThis.window = globalThis;
+  globalThis.alert = () => {};
+  globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  [
+    "js/utils.js",
+    "js/placeholder-raspuns.js",
+    "js/schimbare-de-nivel.js",
+    "js/progress-display.js",
+    "js/quiz-registry.js",
+    "js/motor-optiuni-control-panel.js",
+    "js/fact-catalog.js",
+    "js/fact-window-sequencer.js",
+    "js/eff/qf-generator.js",
+    "js/subquiz/item-generator.js",
+    "js/subquiz/subquiz-definition.js",
+    "js/subquiz/subquiz-orchestrator.js",
+    "js/motor-3-butoane.js",
+    "js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js",
+    "js/quizzes/multiplication-1120-v3-train-eff-eq-forms-jurnal.js",
+  ].forEach(loadScript);
+  globalThis.GameUtils.shuffle = (items) => [...items];
+  const meta = globalThis.QuizRegistry.get("multiplication-1120-v3-train-eff-eq-forms-jurnal");
+  return meta.create({ ...meta, random: () => 0 });
+}
+
 beforeEach(() => {
   delete globalThis.MotorOptiuniControlPanel;
   delete globalThis.QuizRegistry;
@@ -69,6 +148,9 @@ beforeEach(() => {
   delete globalThis.SubquizOrchestrator;
   delete globalThis.Motor3Butoane;
   delete globalThis.Mul1120V4IntensivMultipli234Quiz;
+  delete globalThis.Mul1120V2Quiz;
+  delete globalThis.Mul1120V2ModularQuiz;
+  delete globalThis.Mul1120V3TrainEffEqFormsQuiz;
   delete globalThis.location;
 });
 
@@ -126,6 +208,75 @@ test("B (date reale) — multiplication-1120-v4: sectiunile SQ3 si SQ5 coexista,
 
   assert.ok(chei.includes("sq3ShowStack"), "lipseste un camp din sectiunea SQ3");
   assert.ok(chei.includes("sq5Mode"), "lipseste un camp din sectiunea SQ5");
+});
+
+// "Testeaza doar subquizul" conectat la registrul central (cerere user,
+// 07.09.2026) — pt. cele 4 quizuri care il au deja. Verifica exact contractul
+// cerut: apare in controlPanel, citesteConfig il include, aplicaConfig il
+// restaureaza — pe obiecte de quiz REALE, nu simulate.
+test("multiplication-1120-v4: sectiunea subquizStart e a treia, langa SQ3/SQ5, fara sa le stearga", () => {
+  const quiz = loadMotorSiQuizV4();
+  const motor = globalThis.MotorOptiuniControlPanel;
+
+  motor.inregistreazaControlPanel("multiplication-1120-v4-intensiv-multipli-234", quiz.controlPanel);
+  const campuri = motor.toateCampurileCP("multiplication-1120-v4-intensiv-multipli-234");
+  const chei = campuri.map((c) => c.cheie);
+
+  assert.ok(chei.includes("sq3ShowStack"));
+  assert.ok(chei.includes("sq5Mode"));
+  assert.ok(chei.includes("subquizStart"));
+});
+
+test("multiplication-1120-v2: fara nicio selectie explicita, share-link-ul salveaza '----' (prima optiune reala)", () => {
+  const quiz = loadMotorSiQuizV2();
+  const motor = globalThis.MotorOptiuniControlPanel;
+
+  motor.inregistreazaControlPanel("multiplication-1120-v2", quiz.controlPanel);
+  const campuri = motor.toateCampurileCP("multiplication-1120-v2");
+
+  assert.deepEqual(motor.citesteConfig(campuri), { subquizStart: "----" });
+});
+
+test("multiplication-1120-v2: o selectie reala (nonAnchorProducts) e salvata si restaurata exact prin share-link", () => {
+  const quiz = loadMotorSiQuizV2();
+  const motor = globalThis.MotorOptiuniControlPanel;
+  motor.inregistreazaControlPanel("multiplication-1120-v2", quiz.controlPanel);
+  const campuri = motor.toateCampurileCP("multiplication-1120-v2");
+
+  quiz.setSubquizStartOption("nonAnchorProducts");
+  const config = motor.citesteConfig(campuri);
+  assert.equal(config.subquizStart, "nonAnchorProducts");
+
+  quiz.setSubquizStartOption("normal"); // simuleaza deschiderea linkului pe alt state
+  motor.aplicaConfig(campuri, config);
+  assert.equal(quiz.getSubquizStartOption(), "nonAnchorProducts", "aplicaConfig trebuie sa restaureze exact selectia din link");
+});
+
+test("multiplication-1120-v2-modular: acelasi contract (----  implicit, selectie reala salvata/restaurata)", () => {
+  const quiz = loadMotorSiQuizV2Modular();
+  const motor = globalThis.MotorOptiuniControlPanel;
+  motor.inregistreazaControlPanel("multiplication-1120-v2-modular", quiz.controlPanel);
+  const campuri = motor.toateCampurileCP("multiplication-1120-v2-modular");
+
+  assert.deepEqual(motor.citesteConfig(campuri), { subquizStart: "----" });
+
+  quiz.setSubquizStartOption("domainProducts");
+  const config = motor.citesteConfig(campuri);
+  assert.equal(config.subquizStart, "domainProducts");
+
+  quiz.setSubquizStartOption("normal");
+  motor.aplicaConfig(campuri, config);
+  assert.equal(quiz.getSubquizStartOption(), "domainProducts");
+});
+
+test("multiplication-1120-v3-train-eff-eq-forms-jurnal (quiz activ, prin fabrica): subquizStart intra in controlPanel", () => {
+  const quiz = loadMotorSiQuizV3Jurnal();
+  const motor = globalThis.MotorOptiuniControlPanel;
+  motor.inregistreazaControlPanel("multiplication-1120-v3-train-eff-eq-forms-jurnal", quiz.controlPanel);
+  const campuri = motor.toateCampurileCP("multiplication-1120-v3-train-eff-eq-forms-jurnal");
+
+  // Are o singura optiune reala ("base") — "----" ii e implicit echivalenta.
+  assert.deepEqual(motor.citesteConfig(campuri), { subquizStart: "----" });
 });
 
 test("C — restore: registrul pastreaza descriptori vii, nu o poza a valorilor de la inregistrare", () => {

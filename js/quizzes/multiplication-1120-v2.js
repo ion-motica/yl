@@ -14,7 +14,12 @@
   const SUBQUIZ_ANCHORS = [1, 2, 3, 4, 5, 10, 15, 20];
   const NONANCHORS = [6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19];
   const START_STAGE_KEY = "yl:mul1120v2:startStage";
-  const DEFAULT_START_STAGE = "nonAnchorProducts";
+  // Aliniat la "normal" (04.09.2026 avea "nonAnchorProducts" — decizie user,
+  // 07.09.2026: "----" din CP trebuie sa insemne generic "prima optiune
+  // reala", care e "normal" aici; un quiz nou pornea altfel decat arata
+  // acum selectorul CP, inconsistenta acceptata explicit ca sa uniformizeze
+  // cu multiplication-1120-v2-modular.js, care avea deja "normal").
+  const DEFAULT_START_STAGE = "normal";
   const STAGES = {
     normal: { id: "normal", order: null, title: "Normal" },
     anchors: { id: "anchors", order: 1, title: "anchors" },
@@ -1434,6 +1439,14 @@
         writeStartStage(stageId);
         resetLevelState();
         return true;
+      },
+
+      get controlPanel() {
+        return {
+          sectiuni: [
+            { id: "subquizStart", campuri: [window.MotorOptiuniControlPanel.campSubquizStart(this)] },
+          ],
+        };
       },
 
       onAnswer,

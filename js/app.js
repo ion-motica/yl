@@ -1429,23 +1429,14 @@
     // (mai jos in acest fisier): apel direct la construiesteDOM cu un tabel
     // local de campuri, fara MotorOptiuniControlPanel.inregistreazaControlPanel().
     window.MotorOptiuniControlPanel.construiesteDOM(subquizStartControlEl, [
-      {
-        cheie: "subquizStart",
-        tip: "enum",
-        stilAfisare: "radio",
-        eticheta: "Testeaza doar subquizul:",
-        optiuni: options.map((opt) => ({ valoare: opt.id, text: opt.label })),
-        get: () => quiz.getSubquizStartOption?.(),
-        set: (stageId) => setOption.call(quiz, stageId),
-        dupaSchimbare: () => {
-          dom.playPauseBtn.disabled = false;
-          engine?.cancelRisingAnimation?.();
-          lastGreenCells = null;
-          lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
-          engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
-          renderProgress();
-        },
-      },
+      window.MotorOptiuniControlPanel.campSubquizStart(quiz, () => {
+        dom.playPauseBtn.disabled = false;
+        engine?.cancelRisingAnimation?.();
+        lastGreenCells = null;
+        lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
+        engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
+        renderProgress();
+      }),
     ]);
   }
 

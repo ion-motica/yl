@@ -1643,6 +1643,14 @@
         return true;
       },
 
+      get controlPanel() {
+        return {
+          sectiuni: [
+            { id: "subquizStart", campuri: [window.MotorOptiuniControlPanel.campSubquizStart(this)] },
+          ],
+        };
+      },
+
       getInfo11_20() {
         const A = factorForLevel(level);
         const anchorState = shared.anchorState;
