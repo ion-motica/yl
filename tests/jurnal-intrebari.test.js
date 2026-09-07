@@ -327,18 +327,13 @@ describe("JurnalIntrebari", () => {
     assert.equal(entries.length, 0);
   });
 
-  it("adauga in CP butonul Afisare log si deschide vizualizarea intr-un tab nou", () => {
+  it("NU mai adauga in CP butonul Afisare log (mutat in panoul General, cerere user 07.09.2026)", () => {
     const entries = [];
     const quiz = setupQuiz(entries);
     const mount = new FakeElement();
-    let opened = null;
     globalThis.document = {
       createElement: (tagName) => new FakeElement(tagName),
       createTextNode: (text) => ({ textContent: text, children: [] }),
-    };
-    globalThis.location = { href: "http://127.0.0.1:5173/index.html?quiz=test" };
-    globalThis.open = (url, target) => {
-      opened = { url, target };
     };
 
     quiz.appendSq2ControlPanel(mount);
@@ -346,25 +341,16 @@ describe("JurnalIntrebari", () => {
       mount,
       (element) => element.tagName === "BUTTON" && element.textContent === "Afisare log"
     );
-    assert.ok(button);
-    button.click();
-    assert.deepEqual(opened, {
-      url: "http://127.0.0.1:5173/jurnal-intrebari.html",
-      target: "_blank",
-    });
+    assert.equal(button, null);
   });
 
-  it("adauga separat butonul Tabulator si apeleaza API-ul public al vizualizarii", () => {
+  it("NU mai adauga in CP butonul Tabulator (mutat in panoul General, cerere user 07.09.2026)", () => {
     const entries = [];
     const quiz = setupQuiz(entries);
     const mount = new FakeElement();
-    let apeluri = 0;
     globalThis.document = {
       createElement: (tagName) => new FakeElement(tagName),
       createTextNode: (text) => ({ textContent: text, children: [] }),
-    };
-    globalThis.deschideVizualizareLogs = () => {
-      apeluri += 1;
     };
 
     quiz.appendSq2ControlPanel(mount);
@@ -373,23 +359,16 @@ describe("JurnalIntrebari", () => {
       (element) =>
         element.tagName === "BUTTON" && element.textContent === "View logs in Tabulator"
     );
-
-    assert.ok(button);
-    button.click();
-    assert.equal(apeluri, 1);
+    assert.equal(button, null);
   });
 
-  it("adauga butonul Tabulator Transposed si apeleaza API-ul lui public", () => {
+  it("NU mai adauga in CP butonul Tabulator Transposed (mutat in panoul General, cerere user 07.09.2026)", () => {
     const entries = [];
     const quiz = setupQuiz(entries);
     const mount = new FakeElement();
-    let apeluri = 0;
     globalThis.document = {
       createElement: (tagName) => new FakeElement(tagName),
       createTextNode: (text) => ({ textContent: text, children: [] }),
-    };
-    globalThis.deschideVizualizareLogsTranspuse = () => {
-      apeluri += 1;
     };
 
     quiz.appendSq2ControlPanel(mount);
@@ -399,10 +378,7 @@ describe("JurnalIntrebari", () => {
         element.tagName === "BUTTON" &&
         element.textContent === "View logs in Tabulator - Transposed"
     );
-
-    assert.ok(button);
-    button.click();
-    assert.equal(apeluri, 1);
+    assert.equal(button, null);
   });
 
   it("raporteaza explicit numele si id-ul subquizurilor intensive", () => {

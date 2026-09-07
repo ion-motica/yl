@@ -1222,6 +1222,38 @@
     butonVizualizare3.addEventListener("click", () => deschideVizualizare3Claude());
     mount.appendChild(butonVizualizare3);
 
+    // Mutate aici din CP-urile quiz-specific (appendJurnalButtons, duplicat in
+    // multiplication-1120-v3-train-eff-eq-forms.js si multiplication-1120-v4-
+    // intensiv-multipli-234.js) — cerere user, 07.09.2026: shortcut-uri
+    // globale de navigare spre pagini de log deja independente, nu optiuni de
+    // configurare cu get/set, deci NU prin MotorOptiuniControlPanel.
+    const butonAfisareLog = document.createElement("button");
+    butonAfisareLog.type = "button";
+    butonAfisareLog.textContent = "Afisare log";
+    butonAfisareLog.addEventListener("click", () => {
+      const url = window.location
+        ? new URL("jurnal-intrebari.html", window.location.href).href
+        : "jurnal-intrebari.html";
+      window.open?.(url, "_blank");
+    });
+    mount.appendChild(butonAfisareLog);
+
+    const butonTabulator = document.createElement("button");
+    butonTabulator.type = "button";
+    butonTabulator.textContent = "View logs in Tabulator";
+    butonTabulator.addEventListener("click", () => {
+      window.deschideVizualizareLogs?.();
+    });
+    mount.appendChild(butonTabulator);
+
+    const butonTabulatorTranspus = document.createElement("button");
+    butonTabulatorTranspus.type = "button";
+    butonTabulatorTranspus.textContent = "View logs in Tabulator - Transposed";
+    butonTabulatorTranspus.addEventListener("click", () => {
+      window.deschideVizualizareLogsTranspuse?.();
+    });
+    mount.appendChild(butonTabulatorTranspus);
+
     // Buton HTML clasic, fara clasa CSS (acelasi tipar ca butonVizualizare3
     // mai sus) — cerere user, 03.09.2026, mutat pe mecanism central
     // 04.09.2026: link la quizul activ CU parametrii curenti din CP, citit

@@ -254,38 +254,6 @@
       };
     }
 
-    function appendJurnalButtons(mount) {
-      if (!jurnalIntrebariActiv) return;
-      const row = document.createElement("div");
-      row.className = "control-panel-lift-field";
-      const buttonAfisareExistenta = document.createElement("button");
-      buttonAfisareExistenta.type = "button";
-      buttonAfisareExistenta.textContent = "Afisare log";
-      buttonAfisareExistenta.addEventListener("click", () => {
-        const url = global.location
-          ? new URL("jurnal-intrebari.html", global.location.href).href
-          : "jurnal-intrebari.html";
-        global.open?.(url, "_blank");
-      });
-
-      const buttonTabulator = document.createElement("button");
-      buttonTabulator.type = "button";
-      buttonTabulator.textContent = "View logs in Tabulator";
-      buttonTabulator.addEventListener("click", () => {
-        global.deschideVizualizareLogs?.();
-      });
-
-      const buttonTabulatorTranspus = document.createElement("button");
-      buttonTabulatorTranspus.type = "button";
-      buttonTabulatorTranspus.textContent = "View logs in Tabulator - Transposed";
-      buttonTabulatorTranspus.addEventListener("click", () => {
-        global.deschideVizualizareLogsTranspuse?.();
-      });
-
-      row.append(buttonAfisareExistenta, buttonTabulator, buttonTabulatorTranspus);
-      mount.appendChild(row);
-    }
-
     function makeFact(b) {
       return Catalog.createFact({
         operation: "mul",
@@ -1114,7 +1082,6 @@
 
       appendSq2ControlPanel(mount, hooks = {}) {
         if (!mount) return;
-        appendJurnalButtons(mount);
         const campuriMount = document.createElement("div");
         mount.appendChild(campuriMount);
         global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(hooks));
