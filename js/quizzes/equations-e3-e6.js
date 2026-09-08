@@ -974,7 +974,14 @@
       // propriu, dedicat, din panoul acestui quiz a fost eliminat (decizie
       // user, 04.09.2026: devenise duplicat fata de butonul global).
       get controlPanel() {
-        return { sectiuni: [{ id: QUIZ_ID, campuri: campurileCP() }] };
+        return {
+          sectiuni: [{
+            id: QUIZ_ID,
+            creeazaCampuri(context = {}) {
+              return campurileCP(context.notifyChange);
+            },
+          }],
+        };
       },
       setTonomatConfig(patch = {}) {
         quizConfig = normalizeConfig({ ...quizConfig, ...patch });
@@ -1013,7 +1020,7 @@
 
         const campuriMount = document.createElement("div");
         mount.appendChild(campuriMount);
-        global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(notifyChange));
+        global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, QUIZ_ID, campuriMount, { notifyChange });
 
         const note = document.createElement("p");
         note.className = "tonomat-note";

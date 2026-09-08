@@ -174,7 +174,7 @@ test("A — quiz cu o singura sectiune: inregistrat + citit produce configuratia
   const camp = campSintetic("A", 5);
 
   motor.inregistreazaControlPanel("quiz-o-sectiune", {
-    sectiuni: [{ id: "principal", campuri: [camp] }],
+    sectiuni: [{ id: "principal", creeazaCampuri: () => [camp] }],
   });
 
   const campuri = motor.toateCampurileCP("quiz-o-sectiune");
@@ -188,8 +188,8 @@ test("B — quiz cu doua sectiuni (sintetic): AMBELE intra in configuratie, nici
 
   motor.inregistreazaControlPanel("quiz-doua-sectiuni", {
     sectiuni: [
-      { id: "sectiuneA", campuri: [campA] },
-      { id: "sectiuneB", campuri: [campB] },
+      { id: "sectiuneA", creeazaCampuri: () => [campA] },
+      { id: "sectiuneB", creeazaCampuri: () => [campB] },
     ],
   });
 
@@ -310,7 +310,7 @@ test("C — restore: registrul pastreaza descriptori vii, nu o poza a valorilor 
   const motor = loadMotor();
   const camp = campSintetic("C", 3);
 
-  motor.inregistreazaControlPanel("quiz-restore", { sectiuni: [{ id: "principal", campuri: [camp] }] });
+  motor.inregistreazaControlPanel("quiz-restore", { sectiuni: [{ id: "principal", creeazaCampuri: () => [camp] }] });
 
   const campuri = motor.toateCampurileCP("quiz-restore");
   const configPartajat = motor.citesteConfig(campuri);
@@ -336,7 +336,7 @@ test("D — quiz fara CP (cazul addition-table.js): nu se strica, produce lista 
 test("E — formatul URL ramane compatibil: v:1, ?quiz=, ?cfg= base64url, decodabil la exact configul", () => {
   const motor = loadMotor();
   const camp = campSintetic("E", 7);
-  motor.inregistreazaControlPanel("quiz-compat", { sectiuni: [{ id: "principal", campuri: [camp] }] });
+  motor.inregistreazaControlPanel("quiz-compat", { sectiuni: [{ id: "principal", creeazaCampuri: () => [camp] }] });
 
   const campuri = motor.toateCampurileCP("quiz-compat");
   const config = { v: 1, ...motor.citesteConfig(campuri) };
@@ -365,7 +365,7 @@ test("F — mentenabilitate: un camp NOU, niciodata vazut de codul central, e in
   const campNouNeasteptat = campSintetic("NiciodataVazutInainte12345", 42);
 
   motor.inregistreazaControlPanel("quiz-mentenabilitate", {
-    sectiuni: [{ id: "principal", campuri: [campNouNeasteptat] }],
+    sectiuni: [{ id: "principal", creeazaCampuri: () => [campNouNeasteptat] }],
   });
 
   const config = motor.citesteConfig(motor.toateCampurileCP("quiz-mentenabilitate"));
@@ -379,8 +379,8 @@ test("coliziune de cheie intre doua sectiuni ale ACELUIASI quiz arunca explicit,
 
   motor.inregistreazaControlPanel("quiz-coliziune", {
     sectiuni: [
-      { id: "sectiuneVeche", campuri: [campVechi] },
-      { id: "sectiuneNoua", campuri: [campNou] },
+      { id: "sectiuneVeche", creeazaCampuri: () => [campVechi] },
+      { id: "sectiuneNoua", creeazaCampuri: () => [campNou] },
     ],
   });
 
@@ -392,8 +392,8 @@ test("re-inregistrarea aceluiasi quizId suprascrie complet intrarea veche, nu o 
   const campVechi = campSintetic("Vechi", 1);
   const campNou = campSintetic("Nou", 2);
 
-  motor.inregistreazaControlPanel("quiz-reactivat", { sectiuni: [{ id: "principal", campuri: [campVechi] }] });
-  motor.inregistreazaControlPanel("quiz-reactivat", { sectiuni: [{ id: "principal", campuri: [campNou] }] });
+  motor.inregistreazaControlPanel("quiz-reactivat", { sectiuni: [{ id: "principal", creeazaCampuri: () => [campVechi] }] });
+  motor.inregistreazaControlPanel("quiz-reactivat", { sectiuni: [{ id: "principal", creeazaCampuri: () => [campNou] }] });
 
   const campuri = motor.toateCampurileCP("quiz-reactivat");
   assert.deepEqual(motor.citesteConfig(campuri), { sinteticNou: 2 });

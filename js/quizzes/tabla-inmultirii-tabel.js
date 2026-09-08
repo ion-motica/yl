@@ -2461,7 +2461,15 @@
       // quizului — foloseste ACELASI campurileCP() ca panoul CP propriu-zis,
       // nu o lista paralela.
       get controlPanel() {
-        return { sectiuni: [{ id: QUIZ_ID, campuri: campurileCP(this) }] };
+        const quizApi = this; // inchis o singura data — NU trece prin context (e nevoie reala in set(), nu doar hook viu)
+        return {
+          sectiuni: [{
+            id: QUIZ_ID,
+            creeazaCampuri(context = {}) {
+              return campurileCP(quizApi, context.opts ?? {}, context.rerandeaza ?? null);
+            },
+          }],
+        };
       },
 
       switchLevel(nextLevel) {
@@ -2510,7 +2518,7 @@
       appendTablaInmultiriiTabelControlPanel(mount, opts) {
         if (!mount) return;
         const rerandeaza = () => this.appendTablaInmultiriiTabelControlPanel(mount, opts);
-        global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileCP(this, opts, rerandeaza));
+        global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, QUIZ_ID, mount, { opts, rerandeaza });
       },
     };
   }

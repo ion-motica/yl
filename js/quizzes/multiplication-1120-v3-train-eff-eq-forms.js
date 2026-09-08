@@ -999,10 +999,21 @@
       },
 
       get controlPanel() {
+        const quizApi = this;
         return {
           sectiuni: [
-            { id: "sq2EffVbs", campuri: campurileCP({}) },
-            { id: "subquizStart", campuri: [window.MotorOptiuniControlPanel.campSubquizStart(this)] },
+            {
+              id: "sq2EffVbs",
+              creeazaCampuri(context = {}) {
+                return campurileCP(context.hooks ?? {});
+              },
+            },
+            {
+              id: "subquizStart",
+              creeazaCampuri(context = {}) {
+                return [window.MotorOptiuniControlPanel.campSubquizStart(quizApi, context.dupaSchimbare)];
+              },
+            },
           ],
         };
       },
@@ -1093,7 +1104,7 @@
         if (!mount) return;
         const campuriMount = document.createElement("div");
         mount.appendChild(campuriMount);
-        global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(hooks));
+        global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, "sq2EffVbs", campuriMount, { hooks });
       },
 
       // Bug reparat (vezi documente de referinta/RAPORT-motor-comun-raspuns.md,

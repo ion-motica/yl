@@ -40,7 +40,9 @@ function encodeBase64Url(text) {
 // deja raportată de quiz prin `controlPanel`, exact ce ar face
 // app.js in productie, doar fara pasul de inregistrare intr-un Map extern.
 function campuriQuiz(quiz) {
-  return quiz.controlPanel.sectiuni.flatMap((sectiune) => sectiune.campuri);
+  return quiz.controlPanel.sectiuni.flatMap((sectiune) =>
+    globalThis.MotorOptiuniControlPanel.obtineCampuriSectiune(sectiune, {})
+  );
 }
 
 function getSharedConfig(quiz) {

@@ -768,7 +768,7 @@
         };
 
         const rerandeaza = () => this.appendIlustrareMereControlPanel(mount);
-        global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileCP(reaplicaIlustratieLive, rerandeaza));
+        global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, QUIZ_ID, mount, { reaplicaIlustratieLive, rerandeaza });
       },
 
 
@@ -841,7 +841,14 @@
       // central (cerere user, 04.09.2026) — aceeași campurileCP() ca panoul
       // CP propriu.
       get controlPanel() {
-        return { sectiuni: [{ id: QUIZ_ID, campuri: campurileCP(() => {}, () => {}) }] };
+        return {
+          sectiuni: [{
+            id: QUIZ_ID,
+            creeazaCampuri(context = {}) {
+              return campurileCP(context.reaplicaIlustratieLive ?? (() => {}), context.rerandeaza ?? (() => {}));
+            },
+          }],
+        };
       },
     };
   }

@@ -853,7 +853,7 @@
           const rerandeaza = () => this.appendRigleTabla110ControlPanel(mount);
           const campuriMount = document.createElement("div");
           mount.appendChild(campuriMount);
-          global.MotorOptiuniControlPanel.construiesteDOM(campuriMount, campurileCP(rerandeaza));
+          global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, "rigle-tabla-1-10", campuriMount, { rerandeaza });
 
           // CP-DECLARATIV-EXCEPTIE:START — sectiunea Culori (mai jos) e o
           // biblioteca personala (paleta max. 10 culori + scheme salvate cu
@@ -1064,7 +1064,14 @@
         // CP-DECLARATIV-EXCEPTIE mai sus) — aia nu e {tip,get,set}, deci nu
         // participă la share-link, exact ca la panoul CP normal.
         get controlPanel() {
-          return { sectiuni: [{ id: "rigle-tabla-1-10", campuri: campurileCP(() => {}) }] };
+          return {
+            sectiuni: [{
+              id: "rigle-tabla-1-10",
+              creeazaCampuri(context = {}) {
+                return campurileCP(context.rerandeaza ?? (() => {}));
+              },
+            }],
+          };
         },
       };
     },

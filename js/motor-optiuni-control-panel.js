@@ -448,6 +448,37 @@
     return registruControlPanel.get(quizId) ?? [];
   }
 
+  // Singurul loc care transforma definitia canonica a unei sectiuni
+  // (controlPanel.sectiuni[i]) in array-ul efectiv de campuri (cerere user,
+  // 08.09.2026: "controlPanel e definitia, nu o copie" — inainte, sectiunea
+  // avea deja campurile calculate ca array static la inregistrare; acum
+  // fiecare sectiune declara creeazaCampuri(context), iar randeazaSectiune()
+  // SI toateCampurileCP() trec amandoua prin aceasta functie, niciodata
+  // separat — o singura cale de materializare, nu doua care pot aluneca.
+  // Fail-fast, nu fallback tacut: o sectiune fara creeazaCampuri() e o
+  // greseala de contract (forma veche, {campuri: [...]}), nu o stare valida.
+  function obtineCampuriSectiune(sectiune, context = {}) {
+    if (typeof sectiune?.creeazaCampuri !== "function") {
+      throw new Error(
+        `MotorOptiuniControlPanel: sectiunea "${sectiune?.id}" nu declara creeazaCampuri(context) — ` +
+          `controlPanel trebuie sa raporteze campurile DOAR asa, nu ca array static "campuri".`
+      );
+    }
+    return sectiune.creeazaCampuri(context) ?? [];
+  }
+
+  // Randeaza o singura sectiune din controlPanel-ul unui quiz — SINGURA cale
+  // prin care UI-ul quiz-specific ajunge la construiesteDOM (cerere user,
+  // 08.09.2026): appendXControlPanel nu mai apeleaza builder-ul CP direct,
+  // cere motorul sa gaseasca sectiunea in controlPanel si sa o randeze.
+  // Daca sectiunea nu exista in controlPanel, nu exista nimic de randat —
+  // exact inversul situatiei vechi (SQ2: randat, dar absent din controlPanel).
+  function randeazaSectiune(controlPanel, sectiuneId, mount, context = {}) {
+    const sectiune = (controlPanel?.sectiuni ?? []).find((s) => s.id === sectiuneId);
+    if (!sectiune) return;
+    construiesteDOM(mount, obtineCampuriSectiune(sectiune, context));
+  }
+
   // Aplatizează secțiunile unui quiz intr-un singur array de câmpuri, pt.
   // citesteConfig/aplicaConfig (care nu știu de concептul de „secțiune").
   // O cheie identică in doua secțiuni diferite ale ACELUIAȘI quiz e o
@@ -457,7 +488,7 @@
     const rezultat = [];
     const sectiuneDupaCheie = new Map();
     for (const sectiune of obtineSectiuniCP(quizId)) {
-      for (const camp of sectiune.campuri ?? []) {
+      for (const camp of obtineCampuriSectiune(sectiune, {})) {
         const sectiuneAnterioara = sectiuneDupaCheie.get(camp.cheie);
         if (sectiuneAnterioara && sectiuneAnterioara !== sectiune.id) {
           throw new Error(
@@ -481,6 +512,8 @@
     construiesteDOM,
     inregistreazaControlPanel,
     obtineSectiuniCP,
+    obtineCampuriSectiune,
+    randeazaSectiune,
     toateCampurileCP,
   };
 })(window);

@@ -58,7 +58,9 @@ function encodeBase64Url(text) {
 // Mecanismul central: citesc structura declarativă deja raportată de quiz
 // prin `controlPanel`, exact ce ar face app.js in productie.
 function campuriQuiz(quiz) {
-  return quiz.controlPanel.sectiuni.flatMap((sectiune) => sectiune.campuri);
+  return quiz.controlPanel.sectiuni.flatMap((sectiune) =>
+    globalThis.MotorOptiuniControlPanel.obtineCampuriSectiune(sectiune, {})
+  );
 }
 
 function getSharedConfig(quiz) {

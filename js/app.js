@@ -1421,23 +1421,25 @@
 
     subquizStartControlEl.hidden = false;
 
-    // Randat prin motor (construiesteDOM), dar NEinregistrat in registrul
-    // central (quiz.controlPanel) — cerere expresa user, 06.09.2026: ramane
-    // in motor, dar fiindca e un shortcut de TESTARE (ce subquiz sari sa
-    // testezi), nu o setare reala a quizului, nu trebuie sa ajunga niciodata
-    // in linkul de partajare. Acelasi tipar ca panourile "general"/"debug"
-    // (mai jos in acest fisier): apel direct la construiesteDOM cu un tabel
-    // local de campuri, fara MotorOptiuniControlPanel.inregistreazaControlPanel().
-    window.MotorOptiuniControlPanel.construiesteDOM(subquizStartControlEl, [
-      window.MotorOptiuniControlPanel.campSubquizStart(quiz, () => {
+    // Randat prin motor (randeazaSectiune), citind campul din sectiunea
+    // "subquizStart" a lui quiz.controlPanel — acelasi traseu canonic ca
+    // orice alta sectiune CP (nu mai exista un apel separat la
+    // campSubquizStart() aici). Cele 4 quizuri care au acest control
+    // (v2, v2-modular, v3-factory, v4-intensiv) raporteaza sectiunea
+    // "subquizStart" si in controlPanel inca din 07.09.2026 — deci campul
+    // ajunge deja in linkul de partajare prin acea decizie separata, nu ca
+    // urmare a acestui refactor (contrazice comentariul vechi de aici,
+    // scris 06.09.2026, inainte de acea conectare).
+    window.MotorOptiuniControlPanel.randeazaSectiune(quiz.controlPanel, "subquizStart", subquizStartControlEl, {
+      dupaSchimbare: () => {
         dom.playPauseBtn.disabled = false;
         engine?.cancelRisingAnimation?.();
         lastGreenCells = null;
         lastRenderedLevel = typeof quiz.getLevel === "function" ? quiz.getLevel() : null;
         engine?.startRound(quiz.beginRound(quiz.pickNextRound()));
         renderProgress();
-      }),
-    ]);
+      },
+    });
   }
 
   applyDebugInfoBorders();

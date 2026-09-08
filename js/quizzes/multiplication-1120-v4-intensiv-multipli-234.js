@@ -1640,15 +1640,16 @@
 
     function appendSq3ControlPanel(mount, hooks = {}) {
       if (!mount) return;
-      global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileSq3CP(hooks));
+      global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, SQ3_ID, mount, { hooks });
     }
 
     // ---- CP SQ5 (Fluent party) -----------------------------------------------
 
     function appendSq5ControlPanel(mount, hooks = {}) {
       if (!mount) return;
-      const rerandeaza = () => appendSq5ControlPanel(mount, hooks);
-      global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileSq5CP(hooks, rerandeaza));
+      const quizApi = this;
+      const rerandeaza = () => appendSq5ControlPanel.call(quizApi, mount, hooks);
+      global.MotorOptiuniControlPanel.randeazaSectiune(quizApi.controlPanel, SQ5_ID, mount, { hooks, rerandeaza });
     }
 
 
@@ -1862,11 +1863,27 @@
       // comentariul de la campurileSq5CP mai sus — rerandeaza e strict pt.
       // vizibilitatea campului "sq5Entry" in panoul deschis, nu pt. config).
       get controlPanel() {
+        const quizApi = this;
         return {
           sectiuni: [
-            { id: SQ3_ID, campuri: campurileSq3CP({}) },
-            { id: SQ5_ID, campuri: campurileSq5CP({}, () => {}) },
-            { id: "subquizStart", campuri: [window.MotorOptiuniControlPanel.campSubquizStart(this)] },
+            {
+              id: SQ3_ID,
+              creeazaCampuri(context = {}) {
+                return campurileSq3CP(context.hooks ?? {});
+              },
+            },
+            {
+              id: SQ5_ID,
+              creeazaCampuri(context = {}) {
+                return campurileSq5CP(context.hooks ?? {}, context.rerandeaza ?? (() => {}));
+              },
+            },
+            {
+              id: "subquizStart",
+              creeazaCampuri(context = {}) {
+                return [window.MotorOptiuniControlPanel.campSubquizStart(quizApi, context.dupaSchimbare)];
+              },
+            },
           ],
         };
       },

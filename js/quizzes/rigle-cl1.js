@@ -249,7 +249,7 @@
         appendRigleControlPanel(mount) {
           if (!mount) return;
           const rerandeaza = () => this.appendRigleControlPanel(mount);
-          global.MotorOptiuniControlPanel.construiesteDOM(mount, campurileCP(rerandeaza));
+          global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, "rigle-cl1", mount, { rerandeaza });
         },
 
         // Stub-uri minime pentru orice apel neguardat din HUD.
@@ -269,7 +269,14 @@
         // panoul CP propriu. Fără QUIZ_ID in acest fișier (nu exista deja o
         // constantă) — literalul e identic cu id-ul din register() de mai jos.
         get controlPanel() {
-          return { sectiuni: [{ id: "rigle-cl1", campuri: campurileCP(() => {}) }] };
+          return {
+            sectiuni: [{
+              id: "rigle-cl1",
+              creeazaCampuri(context = {}) {
+                return campurileCP(context.rerandeaza ?? (() => {}));
+              },
+            }],
+          };
         },
       };
     },

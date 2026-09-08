@@ -14,6 +14,19 @@ import path from "node:path";
 // azi nemigrate — nu sunt încă în domeniul acestui check (vezi
 // documente de referinta/standard-optiuni-cp.md, secțiunea „Ce rămâne de
 // făcut" — extindere posibilă, discutată explicit cu userul, nu presupusă).
+//
+// A doua regulă, adăugată 08.09.2026, domeniu STRICT js/quizzes/*.js (NU și
+// js/app.js): după refactorul canonic creeazaCampuri(context) — controlPanel
+// e SINGURA definiție a câmpurilor unei secțiuni CP, iar
+// MotorOptiuniControlPanel.obtineCampuriSectiune() e SINGURUL loc care o
+// materializează — niciun CP quiz-specific nu mai are voie să cheme
+// MotorOptiuniControlPanel.construiesteDOM(...) direct. Randarea trebuie să
+// treacă prin randeazaSectiune(quiz.controlPanel, sectiuneId, mount, context),
+// care e traseul ce garantează structural "Motor=DA implică controlPanel=DA"
+// (obtineCampuriSectiune aruncă dacă secțiunea nu declară creeazaCampuri).
+// js/app.js e exclus din ACEASTĂ a doua regulă: panourile lui "general"/
+// "debug" nu sunt CP quiz-specific, nu au un quiz.controlPanel de citit, și
+// apelul direct la construiesteDOM rămâne acolo tiparul legitim.
 
 const rootDir = process.cwd();
 
@@ -40,6 +53,16 @@ const PATTERNS = [
   {
     nume: "atribuire .type checkbox/radio/number/range/color",
     regex: /\.type\s*=\s*["'](checkbox|radio|number|range|color)["']/,
+  },
+];
+
+// Doar pt. js/quizzes/*.js — vezi comentariul de sus. js/app.js NU primește
+// acest pattern: panourile "general"/"debug" nu sunt CP quiz-specific și
+// apelul direct la construiesteDOM rămâne legitim acolo.
+const PATTERNS_DOAR_QUIZURI = [
+  {
+    nume: "MotorOptiuniControlPanel.construiesteDOM(...) apelat direct (trebuie randeazaSectiune)",
+    regex: /MotorOptiuniControlPanel\.construiesteDOM\(/,
   },
 ];
 
@@ -102,15 +125,16 @@ function goleșteFuncțiiExceptate(linii, fisierRelativ) {
   }
 }
 
-function verificăFișier(fullPath, fisierRelativ, erori) {
+function verificăFișier(fullPath, fisierRelativ, erori, patternsSuplimentare = []) {
   const text = readFileSync(fullPath, "utf8");
   const linii = text.split(/\r?\n/);
 
   goleșteÎntreMarcaje(linii, fisierRelativ);
   goleșteFuncțiiExceptate(linii, fisierRelativ);
 
+  const toatePatternurile = [...PATTERNS, ...patternsSuplimentare];
   linii.forEach((linie, index) => {
-    for (const pattern of PATTERNS) {
+    for (const pattern of toatePatternurile) {
       if (pattern.regex.test(linie)) {
         erori.push(
           `${fisierRelativ}:${index + 1} — cod imperativ CP (${pattern.nume}): ${linie.trim().slice(0, 160)}`
@@ -127,7 +151,7 @@ try {
   if (existsSync(quizDir)) {
     for (const nume of readdirSync(quizDir)) {
       if (!nume.endsWith(".js")) continue;
-      verificăFișier(path.join(quizDir, nume), `js/quizzes/${nume}`, erori);
+      verificăFișier(path.join(quizDir, nume), `js/quizzes/${nume}`, erori, PATTERNS_DOAR_QUIZURI);
     }
   }
 

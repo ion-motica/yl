@@ -1442,9 +1442,15 @@
       },
 
       get controlPanel() {
+        const quizApi = this;
         return {
           sectiuni: [
-            { id: "subquizStart", campuri: [window.MotorOptiuniControlPanel.campSubquizStart(this)] },
+            {
+              id: "subquizStart",
+              creeazaCampuri(context = {}) {
+                return [window.MotorOptiuniControlPanel.campSubquizStart(quizApi, context.dupaSchimbare)];
+              },
+            },
           ],
         };
       },
