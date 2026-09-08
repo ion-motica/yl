@@ -102,6 +102,14 @@
   // facte nesatisfacute, fara sa coste vizibil (sub 1ms/bloc).
   const SQ5_TRIPLET_ATTEMPTS = 10;
 
+  // --- "Testeaza doar subquizul" (cerere user, 09.09.2026) — sursa canonica
+  // e insasi lista de SubquizDefinition din createOrchestrator() mai jos:
+  // orice definitie cu userSelectable:true (SQ3/SQ2 VBS/SQ2 SBS/SQ5, in
+  // ordinea in care apar acolo) e o varianta selectabila. "base" ramane
+  // valoarea neutra ("----" in CP) — nu forteaza nimic, progresia normala.
+  const SUBQUIZ_START_KEY = "yl:mul1120v4:subquizStart";
+  const SUBQUIZ_START_IDS = ["base", SQ3_ID, SQ2_VBS_ID, SQ2_SBS_ID, SQ5_ID];
+
   const QF_PROFILE = {
     f1_initial: true,
     f1_comutat: true,
@@ -255,6 +263,8 @@
     let level = MIN_LEVEL;
     let completed = false;
     let orchestrator = null;
+    let fortat = null; // vezi js/subquiz/subquiz-forced-selection.js
+    let subquizFortatId = readChoiceSetting(SUBQUIZ_START_KEY, SUBQUIZ_START_IDS, "base");
     let sq3Count = 0;
 
     // Sursa de fluenta (snapshot din jurnal). Cusatura de test: config.fluentaSursa
@@ -931,6 +941,19 @@
         },
         onResume({ runtime }) {
           if (runtime?.getState) shared.baseState = runtime.getState();
+
+          // Un subquiz FORTAT (cerere user, 09.09.2026 — "Testeaza doar
+          // subquizul") reintra direct in el, inainte de orice alta decizie
+          // — inclusiv inaintea verificarii de acoperire completa: cat timp
+          // ramane fortat, base nu avanseaza nivelul si nu arata nicio
+          // intrebare proprie. Cand fortatul nu are ce rula (sq5 fara
+          // fluenta), getForcedId (in createOrchestrator) intoarce deja null
+          // — comandaFortata cade singura pe "nimic fortat", fara nicio
+          // verificare speciala aici (mesajul pt. developer nu se repeta la
+          // fiecare revenire naturala in base — vezi beginRoute).
+          const comandaFortata = fortat.laRevenireaInBase();
+          if (comandaFortata) return comandaFortata;
+
           const state = shared.baseState;
 
           if (state && state.covered.size >= TOTAL_FACTS_PER_LEVEL) {
@@ -973,7 +996,8 @@
     function sq3Definition() {
       return global.SubquizDefinition.define({
         id: SQ3_ID,
-        title: "Intensiv grup de factori",
+        title: "SQ3 grup de factori",
+        userSelectable: true,
         hintMessage: HINT,
         esteCorect: esteCorectV4,
         mesaje: mesajeStandard,
@@ -1205,7 +1229,8 @@
     function sq2Definition() {
       return global.SubquizDefinition.define({
         id: SQ2_VBS_ID,
-        title: "Intensiv cu eff VBS",
+        title: "SQ2 eff VBS",
+        userSelectable: true,
         hintMessage: HINT,
         esteCorect: esteCorectV4,
         mesaje: mesajeStandard,
@@ -1246,7 +1271,8 @@
     function sq2SbsDefinition() {
       return global.SubquizDefinition.define({
         id: SQ2_SBS_ID,
-        title: "Intensiv SBS",
+        title: "SQ2 SBS",
+        userSelectable: true,
         hintMessage: HINT,
         esteCorect: esteCorectV4,
         mesaje: mesajeStandard,
@@ -1497,7 +1523,8 @@
     function sq5Definition() {
       return global.SubquizDefinition.define({
         id: SQ5_ID,
-        title: "Fluent party",
+        title: "SQ5 Fluent party",
+        userSelectable: true,
         hintMessage: HINT,
         esteCorect: esteCorectV4,
         mesaje: mesajeStandard,
@@ -1689,6 +1716,74 @@
 
     // ---- orchestrare + nivele --------------------------------------------
 
+    // Payload-ul cu care porneste fiecare subquiz cand e FORTAT manual din CP
+    // (nu din declansatorul lui natural) — vezi setSubquizStartOption() mai
+    // jos. Refoloseste exact ce foloseste si declansarea naturala (alegeFG(),
+    // exitPolicyForB(), getLevelFactBs()) — nu inventeaza o alta sursa de
+    // facts SI NU SCHIMBA REGULA INTERNA a subquizului: forced selection
+    // alege DOAR ce subquiz ruleaza, niciodata cum isi alege el continutul
+    // (cerere user, 09.09.2026). sq5 nu primeste `facts` deloc aici — ramane
+    // pe fallback-ul lui propriu din initialState(), la fel ca la orice
+    // declansare naturala (facteFluenteDomeniu — vezi comentariul de acolo:
+    // "Fluent party" e explicit despre fluenta DEJA castigata, filtrarea nu
+    // e un detaliu de implementare, e insasi identitatea subquizului). Cazul
+    // "zero facte fluente" e tratat SEPARAT, la nivel de ruta — vezi
+    // areFactsEligibileSq5()/rundaSq5FaraFacteEligibile() mai jos — nu aici.
+    function payloadPentruSubquizFortat(id) {
+      if (id === SQ3_ID) {
+        const A = factorForLevel(level);
+        const covered = shared.baseState?.covered ?? new Set();
+        const picked = alegeFG() ?? { fg: FG_LIST[0] };
+        const exitPolicyByB = {};
+        picked.fg.forEach((b) => {
+          exitPolicyByB[b] = exitPolicyForB(A, b, covered);
+        });
+        return { bs: picked.fg, reason: "manual", exitPolicyByB };
+      }
+      if (id === SQ2_VBS_ID) {
+        return { facts: getLevelFactBs().slice(0, 4), reason: "manual" };
+      }
+      if (id === SQ2_SBS_ID) {
+        return { facts: getLevelFactBs().slice(0, SQ2_SBS_FACT_COUNT), reason: "manual" };
+      }
+      return {};
+    }
+
+    // sq5 ("Fluent party") e singurul dintre cele 4 unde "zero eligibil" e un
+    // caz real: regula lui interna cere facte deja fluente (vezi comentariul
+    // de mai sus), iar SQ3/SQ2 VBS/SQ2 SBS nu au un caz analog in practica
+    // (domeniul lor nu depinde de fluenta).
+    //
+    // A DOUA corectie (09.09.2026): prima varianta arata, in acest caz, o
+    // "runda explicativa" (options goale) PRIN orchestrator — respinsa de
+    // user: nu e o intrebare, deci n-avea ce cauta in fluxul de raspuns.
+    // Motor3Butoane + SubquizOrchestrator cer STRICT o semnatura de raspuns
+    // real la orice click (valideazaConstructiaPrinSubquizOrchestrator, in
+    // falling-engine.js) — o runda falsa tot trebuia sa "cada" pe un raspuns
+    // real dedesubt daca userul apasa un buton, ceea ce producea si o eroare
+    // in jurnal (raspuns "" respins de validarea lui). Solutia finala nu mai
+    // construieste nicio runda: "Testeaza doar subquizul" e instrument de
+    // developer, iar mesajul e STRICT pt. developer — alert() (acelasi tipar
+    // deja folosit in acest fisier, vezi advanceLevel mai sus), nu o
+    // intrebare. sq5 pur si simplu nu porneste: getForcedId (in
+    // createOrchestrator, mai jos) intoarce null pt. acest caz — exact ca
+    // pt. "----" — deci SubquizForcedSelection cade SINGUR, fara nicio
+    // ramura noua in el si fara nicio verificare separata in onResume, pe
+    // comportamentul lui deja existent de "nimic fortat" (base ruleaza
+    // normal, ca subquiz real, nu ca substitut fals al lui sq5).
+    function areFactsEligibileSq5() {
+      return facteFluenteDomeniu([factorForLevel(level)]).length > 0;
+    }
+
+    // Mesaj EXACT cerut de user (10.09.2026, a treia corectie a acestui
+    // mesaj): mentioneaza explicit ca setul dummy din Vizualizare 3 NU poate
+    // fi folosit aici (e doar de afisare, nu scrie in IndexedDB — vezi
+    // Vizualizare 3 - Claude/vizualizare3-bootstrap.js) — evita sa induca in
+    // eroare developerul sa creada ca "dummy" ar rezolva situatia.
+    const MESAJ_SQ5_FARA_FLUENTA =
+      "Nu există facts fluente. Recomandare: poți importa date prin Vizualizare 3. " +
+      "Mențiune: setul dummy nu poate fi folosit, pentru că încarcă date doar pentru vizualizare.";
+
     // "base" e singurul subquiz din lista ordonata a orchestratorului — sq5 nu
     // mai apare NICIODATA acolo, indiferent de sq5Entry. Toate cele 3 intrari
     // ("random"/"levelEnd"/"levelStart") intra exclusiv prin push/pop, pornite
@@ -1696,7 +1791,9 @@
     // vezi maybeEnterSq5Random / maybeEnterSq5LevelEndFinale / maybeEnterSq5LevelStart.
     // UN SINGUR TRASEU (cerere user, 08.09.2026): orice subquiz non-base revine
     // in base prin acelasi mecanism generic pop, niciodata printr-o pozitie de
-    // ruta statica separata.
+    // ruta statica separata. Acelasi mecanism e reutilizat, neschimbat, si
+    // pentru "Testeaza doar subquizul" (cerere user, 09.09.2026) — vezi
+    // `fortat` mai jos, din js/subquiz/subquiz-forced-selection.js.
     function createOrchestrator() {
       orchestrator = global.SubquizOrchestrator.create({
         definitions: [baseDefinition(), sq3Definition(), sq2Definition(), sq2SbsDefinition(), sq5Definition()],
@@ -1707,6 +1804,20 @@
           getLevel: () => level,
           hintMessage: HINT,
         },
+      });
+      fortat = global.SubquizForcedSelection.creeaza({
+        orchestrator,
+        // sq5 fortat FARA facte eligibile se trateaza aici ca "nimic fortat"
+        // (null) — nu ca un caz special: SubquizForcedSelection cade singur
+        // pe orchestrator.startFirst()/resume normal, exact ca la "----".
+        // Mesajul pt. developer (alert) e responsabilitatea lui beginRoute(),
+        // nu a acestui callback — vezi comentariul de la areFactsEligibileSq5.
+        getForcedId: () => {
+          if (subquizFortatId === "base") return null;
+          if (subquizFortatId === SQ5_ID && !areFactsEligibileSq5()) return null;
+          return subquizFortatId;
+        },
+        payloadFor: payloadPentruSubquizFortat,
       });
     }
 
@@ -1743,8 +1854,23 @@
     // exact acelasi mecanism folosit deja la orice alta revenire in base
     // (dupa sq2/sq3/sq5-random/sq5-levelEnd). Vezi activate() in
     // js/subquiz/subquiz-orchestrator.js.
+    //
+    // Un subquiz FORTAT din CP are prioritate fata de declansatorul natural
+    // al lui "levelStart" — userul a cerut explicit "doar X", nu progresia
+    // normala a nivelului.
     function beginRoute() {
       createOrchestrator();
+      // Mesajul pt. developer se arata O SINGURA DATA per (re)pornire de ruta
+      // (aici, nu si in onResume — altfel ar aparea la fiecare revenire
+      // naturala in base cat timp sq5 ramane selectat, chiar daca userul nu
+      // a mai atins CP-ul). getForcedId (in createOrchestrator) intoarce deja
+      // null pt. acest caz, deci fortat.startFirst() de mai jos cade singur
+      // pe orchestrator.startFirst() — fara nicio ramura noua aici.
+      if (subquizFortatId === SQ5_ID && !areFactsEligibileSq5()) {
+        global.alert?.(MESAJ_SQ5_FARA_FLUENTA);
+      }
+      if (subquizFortatId !== "base") return fortat.startFirst();
+
       const sq5Command = maybeEnterSq5LevelStart();
       if (!sq5Command) return orchestrator.startFirst();
 
@@ -1810,6 +1936,12 @@
         if (currentId === SQ3_ID) {
           return `Nivel ${level} - Subquiz 3 - grup de factori`;
         }
+        if (currentId === SQ2_VBS_ID) {
+          return `Nivel ${level} - Subquiz 2 - eff VBS`;
+        }
+        if (currentId === SQ2_SBS_ID) {
+          return `Nivel ${level} - Subquiz 2 - SBS`;
+        }
         if (currentId === SQ5_ID) {
           return `Nivel ${level} - Subquiz 5 - Fluent party`;
         }
@@ -1842,12 +1974,27 @@
       },
 
       getSubquizStage: () => orchestrator?.getCurrentId?.() ?? "base",
-      getSubquizStartOption: () => "base",
+      getSubquizStartOption: () => subquizFortatId,
+      // Sursa canonica: insasi lista de SubquizDefinition inregistrata in
+      // createOrchestrator() — orice definitie cu userSelectable:true apare
+      // aici, in ordinea in care apare acolo. Nicio lista separata de tinut
+      // sincron manual (cerere user, 09.09.2026).
       getSubquizStartOptions() {
-        return [{ id: "base", label: "1 baza" }];
+        if (!orchestrator) createOrchestrator();
+        return [
+          { id: "base", label: "1 baza" },
+          ...orchestrator
+            .listDefinitions()
+            .filter((def) => def.userSelectable)
+            .map((def) => ({ id: def.id, label: def.title })),
+        ];
       },
-      setSubquizStartOption(stageId) {
-        return stageId === "base";
+      setSubquizStartOption(id) {
+        if (!SUBQUIZ_START_IDS.includes(id)) return false;
+        subquizFortatId = id;
+        writeSetting(SUBQUIZ_START_KEY, subquizFortatId);
+        resetLevelState();
+        return true;
       },
 
       // Structura CP declarativă, raportată o singură dată către motorul

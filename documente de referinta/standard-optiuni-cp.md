@@ -325,54 +325,105 @@ panouri CP existente in proiect, inclusiv cazurile mai neobisnuite (doua
 tipuri de hook, doua panouri separate in acelasi fisier, valori enum
 booleene/numerice, sliders cu text formatat custom).
 
-## Ce rămâne de făcut
+## Selectorul generic „Testează doar subquizul" (implementat 09.09.2026)
 
-**Generalizează selectorul de subquiz prin CP engine** (consemnat 07.09.2026,
-neimplementat — decizie separată a userului dacă/când se face)
+Generalizarea schițată mai jos (consemnată 07.09.2026 ca „rămâne de făcut")
+a fost implementată — cu ajustări față de planul inițial, decise explicit
+de user pe parcurs (nu tot ce era schițat atunci s-a mai confirmat identic):
 
-Azi (07.09.2026), selectorul „Testează doar subquizul" a devenit câmp CP
-normal (`MotorOptiuniControlPanel.campSubquizStart`, vezi `campNivelStandard`
-mai sus pt. tiparul identic) — dar **doar** pt. cele 4 quizuri care îl aveau
-deja, conectate manual, unul câte unul: `multiplication-1120-v2.js`,
-`multiplication-1120-v2-modular.js`, `multiplication-1120-v3-train-eff-eq-forms.js`
-(fabrica din spatele quizului activ `-jurnal.js`), `multiplication-1120-v4-intensiv-multipli-234.js`.
-Fiecare din cele 4 a primit propriul `get controlPanel()`, care doar apelează
-`campSubquizStart(this)` — nu duplicare de logică, dar tot cod repetat de 4 ori.
+- **v2 / v2-modular** — nu folosesc `SubquizOrchestrator` (variantele sunt
+  stages/rute interne); au rămas așa, cerere explicită a userului („NU
+  transforma stages în SubquizDefinition"). Sursa canonică e chiar
+  `START_OPTIONS` (obiectul deja existent, folosit și la persistare/
+  validare) — i s-a adăugat câte un câmp `label` per intrare, iar
+  `getSubquizStartOptions()` acum face `Object.values(START_OPTIONS).map(...)`
+  în loc de o listă separată, scrisă de mână.
+- **v3-train-eff-eq-forms(-jurnal) / v4-intensiv** — folosesc
+  `SubquizOrchestrator`; sursa canonică e chiar lista de `SubquizDefinition`
+  din `createOrchestrator()`. Orice definiție cu `userSelectable: true`
+  (metadată nouă, lângă `title` — care acum e chiar eticheta din dropdown)
+  devine automat o opțiune, în ordinea în care apare acolo — zero listă
+  separată de ținut sincron manual.
+- **Selecția e acum exclusivă cu adevărat**, nu doar cosmetică: un modul nou,
+  `js/subquiz/subquiz-forced-selection.js` (`SubquizForcedSelection`,
+  folosit de v3 și v4), reintră automat în varianta forțată de fiecare dată
+  când `base` ar prelua controlul — refolosește STRICT mecanismul
+  `push -> pop -> base` deja stabilit (inclusiv `orchestrator.activate()`,
+  ca `base` să fie punctul de întoarcere fără să genereze o întrebare
+  aruncată).
+- Payload-ul cu care pornește fiecare variantă forțată e calculat per quiz
+  (`payloadPentruSubquizFortat(id)`, în fiecare fișier de quiz) — reutilizează
+  STRICT logica declanșatorului natural (aceleași funcții de alegere a
+  factelor). Principiu explicit (cerere user, 09.09.2026, corecție față de o
+  primă versiune greșită): **forțarea alege CE subquiz rulează, nu schimbă
+  CUM își alege el conținutul.** De-aia `payloadPentruSubquizFortat` NU are
+  nicio ramură specială pt. `sq5` (v4) — cade pe `{}`, iar `sq5` își aplică
+  propriul fallback normal (`facteFluenteDomeniu`), neatins.
 
-Rămâne, ca pas separat, viitor:
+  Acel fallback e gol pe un cont nou fără fluență salvată (găsit la
+  verificarea live cu browser real, nu la testele node, care foloseau
+  fixture-uri cu fluență explicită). Două variante încercate, ambele
+  respinse explicit de user, înainte de forma finală:
 
-```text
-orice quiz cu subquizuri
-        ↓
-motorul/SubquizOrchestrator stie lista reala
-        ↓
-CP engine genereaza automat selectorul generic
-        ↓
-selectorul e camp CP normal
-        ↓
-share-link il serializeaza automat
-```
+  1. Dacă nu există facte fluente, dă-i lui sq5 toate cele 20 de facte ale
+     nivelului — respinsă: exact genul de "schimbare a regulilor interne ca
+     să pară că merge" interzisă de principiul de mai sus.
+  2. O „rundă explicativă" (`options` goale, decorată de orchestrator, cu
+     `metadata.subquiz: null`) în loc să pornească sq5 — respinsă și ea:
+     nu e o întrebare, deci n-avea ce căuta în fluxul de răspuns.
+     `js/falling-engine.js` cere STRICT (`valideazaConstructiaPrinSubquizOrchestrator`)
+     ca orice răspuns la un click să vină dintr-un subquiz real, pornit —
+     runda falsă tot trebuia să "cadă" pe un răspuns real dedesubt dacă
+     userul apăsa un buton (butoanele ei rămâneau clickabile — niciun
+     mecanism generic de „rundă needitabilă" nu există azi în motor), ceea
+     ce producea și o eroare în jurnal (`js/jurnal-intrebari.js` respingea
+     logarea, text de răspuns `""`).
 
-Cerințe consemnate pt. acea generalizare (nu re-confirmate acum):
-- orice quiz cu doar `base` + alte subquizuri primește automat același
-  mecanism, fără cei 4×3 linii de `get controlPanel()` repetate azi;
-- quizurile simple, cu doar `base`, nu ar trebui să primească UI inutil dacă
-  n-au ce alege — azi `campSubquizStart` tot arată un selector cu 2 opțiuni
-  (`----` + `base`) chiar și pt. `multiplication-1120-v4-intensiv-multipli-234.js`/
-  `-jurnal.js`, acceptat deliberat acum ca să nu se special-cazeze;
-- lista nu se duplică manual — `SubquizDefinition`/`SubquizOrchestrator` rămân
-  sursa structurii reale de subquizuri, nu `getSubquizStartOptions()` scris de
-  mână per quiz (cum e azi);
-- CP engine consumă acea structură direct;
-- share-link consumă CP-ul declarativ rezultat, ca azi — fără schimbare de
-  format;
-- zero implementare specială per quiz.
+  **Soluția finală** (09.09.2026, a doua corecție): nicio rundă nouă.
+  „Testează doar subquizul" e instrument de developer — mesajul e STRICT
+  pt. developer, printr-un `alert()` nativ (tipar deja folosit în acest
+  fișier, ex. `advanceLevel()` — nu o noutate), niciodată printr-o
+  pseudo-întrebare. `getForcedId` (callback-ul pasat la
+  `SubquizForcedSelection.creeaza`, definit per quiz) întoarce `null` pt.
+  cazul „sq5 fortat + zero facte eligibile" — exact ca pt. `"base"` — deci
+  `SubquizForcedSelection` cade SINGUR, fără nicio ramură nouă în el, pe
+  comportamentul lui deja existent de „nimic forțat": sq5 nu pornește,
+  `base` rulează normal, ca subquiz REAL (nu un substitut fals afișat sub
+  eticheta sq5). `beginRoute()` arată alerta o singură dată, înainte de
+  acel fallback; `onResume()` nu mai are nicio verificare specială (revenit
+  la forma dinaintea acestei corecții) — alerta nu se repetă la fiecare
+  revenire naturală în base cât timp sq5 rămâne selectat.
 
-Nu s-a atins `SubquizOrchestrator`/`SubquizDefinition` la conectarea celor 4
-cazuri de azi — doar `js/motor-optiuni-control-panel.js` (funcția nouă
-`campSubquizStart`), `js/app.js` (`renderSubquizStartControl` acum apelează
-aceeași funcție, nu-și mai construiește propriul camp), și cele 4 fișiere de
-quiz de mai sus.
+  Efectul secundar cu jurnalul (varianta 2, de mai sus) a dispărut de la
+  sine, fără să se atingă `jurnal-intrebari.js` sau validarea lui: nu mai
+  trimitem prin motor nimic care nu e o întrebare reală — problema nu mai
+  are ce cauza. Verificat live: eroarea nu mai apare.
+
+  **Mesajul, verbatim (versiunea finală, cerere user, a treia corecție)**:
+  „Nu există facts fluente. Recomandare: poți importa date prin Vizualizare 3.
+  Mențiune: setul dummy nu poate fi folosit, pentru că încarcă date doar
+  pentru vizualizare." Fundal (verificat factual în
+  `Vizualizare 3 - Claude/vizualizare3-bootstrap.js`): butoanele „Merge"/
+  „Replace datele din IndexedDB cu JSON din Downloads" chiar scriu în
+  `youlearn_jurnal_intrebari` (aceeași bază pe care o citește
+  `js/snapshot-fluenta.js`, sursa reală de fluență a sq5) — dar sursa „dummy
+  log pe 8 săptămâni" (`FixtureLoguriDummyVizualizare3.construiesteFixture()`)
+  e azi doar pt. afișare în pagină, nu scrie niciodată în IndexedDB. Decizia
+  userului, după ce a fost informat de acest gol: NU se adaugă o punte nouă
+  (niciun buton de export) — mesajul menționează explicit limitarea, ca
+  developerul să nu creadă greșit că „dummy" ar rezolva situația.
+
+Punctele din planul original **neatinse** (decizii explicite, nu omisiuni):
+`get controlPanel()` rămâne repetat per quiz (fiecare își declară propria
+secțiune `subquizStart`, care apelează `campSubquizStart(this)` — ăsta E
+traseul canonic, nu o duplicare de eliminat); quizurile cu doar `base` tot
+arată un selector cu o singură opțiune reală (`----`) — neschimbat.
+
+Test de contract: `tests/subquiz-selector-canonic.test.js` — verifică per
+quiz (runtime, pe obiecte reale) că lista expusă corespunde definițiilor
+reale, că fiecare opțiune selectată rulează exclusiv (inclusiv după ce își
+termină singură un ciclu intern), că „----" revine la normal, și că
+share-link-ul restaurează atât selecția vizuală cât și comportamentul.
 
 ## Verificare (cum confirmi ca merge)
 

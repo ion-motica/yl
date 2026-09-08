@@ -29,6 +29,12 @@
   ];
   const FAST_MS = 1500;
 
+  // Sursa canonica a variantelor user-facing (cerere user, 09.09.2026): `id`
+  // e valoarea din dropdown, `route` spre ce succesiune de stage-uri
+  // forteaza, `label` e ce se afiseaza — nicio lista separata de tinut
+  // sincron manual. Cele 2 subquiz-uri interne push/pop ("...Intensive")
+  // NU apar aici — nu sunt variante user-facing deliberate, sunt declansate
+  // automat din interiorul rutei normale.
   const START_OPTIONS = {
     normal: {
       id: "normal",
@@ -40,17 +46,35 @@
         "nonAnchorProducts",
         "domainProducts",
       ],
+      label: "Normal",
     },
-    anchorsOnly: { id: "anchorsOnly", route: ["anchors"] },
-    intensivOnly: { id: "intensivOnly", route: ["intensiv"] },
-    anchorSumValuesOnly: { id: "anchorSumValuesOnly", route: ["anchorSumValues"] },
-    rapidAnchorAdditions: { id: "rapidAnchorAdditions", route: ["rapidAnchorAdditions"] },
+    anchorsOnly: { id: "anchorsOnly", route: ["anchors"], label: "1 anchors" },
+    intensivOnly: { id: "intensivOnly", route: ["intensiv"], label: "2 intensiv" },
+    anchorSumValuesOnly: {
+      id: "anchorSumValuesOnly",
+      route: ["anchorSumValues"],
+      label: "3 valori ancore suma",
+    },
+    rapidAnchorAdditions: {
+      id: "rapidAnchorAdditions",
+      route: ["rapidAnchorAdditions"],
+      label: "4 adunari rapide cu ancore",
+    },
     effectiveAnchorAddition: {
       id: "effectiveAnchorAddition",
       route: ["effectiveAnchorAddition"],
+      label: "5 adunare efectiva ancore",
     },
-    nonAnchorProducts: { id: "nonAnchorProducts", route: ["nonAnchorProducts"] },
-    domainProducts: { id: "domainProducts", route: ["domainProducts"] },
+    nonAnchorProducts: {
+      id: "nonAnchorProducts",
+      route: ["nonAnchorProducts"],
+      label: "6 inmultiri non-anchors",
+    },
+    domainProducts: {
+      id: "domainProducts",
+      route: ["domainProducts"],
+      label: "7 domenii non-anchors EFF",
+    },
   };
 
   const QF_PROFILE = {
@@ -1623,17 +1647,10 @@
 
       getSubquizStage: activeSubquizId,
       getSubquizStartOption: () => startStageSelection,
+      // Deriva direct din START_OPTIONS (sursa canonica, mai sus) — nicio
+      // lista separata de tinut sincron manual (cerere user, 09.09.2026).
       getSubquizStartOptions() {
-        return [
-          { id: "normal", label: "Normal" },
-          { id: "anchorsOnly", label: "1 anchors" },
-          { id: "intensivOnly", label: "2 intensiv" },
-          { id: "anchorSumValuesOnly", label: "3 valori ancore suma" },
-          { id: "rapidAnchorAdditions", label: "4 adunari rapide cu ancore" },
-          { id: "effectiveAnchorAddition", label: "5 adunare efectiva ancore" },
-          { id: "nonAnchorProducts", label: "6 inmultiri non-anchors" },
-          { id: "domainProducts", label: "7 domenii non-anchors EFF" },
-        ];
+        return Object.values(START_OPTIONS).map(({ id, label }) => ({ id, label }));
       },
       setSubquizStartOption(stageId) {
         if (!START_OPTIONS[stageId]) return false;

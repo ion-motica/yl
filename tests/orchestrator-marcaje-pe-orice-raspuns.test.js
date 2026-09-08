@@ -57,6 +57,7 @@ const SCRIPTURI_COMUNE = [
   "js/subquiz/item-generator.js",
   "js/subquiz/subquiz-definition.js",
   "js/subquiz/subquiz-orchestrator.js",
+  "js/subquiz/subquiz-forced-selection.js",
   "js/motor-3-butoane.js",
 ];
 

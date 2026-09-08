@@ -26,6 +26,13 @@
   const SQ2_VBS_ID = "sq2EffVbs";
   const SQ2_SBS_ID = "sq2EffSbs";
 
+  // "Testeaza doar subquizul" (cerere user, 09.09.2026) — sursa canonica e
+  // insasi lista de SubquizDefinition din createOrchestrator() mai jos:
+  // orice definitie cu userSelectable:true e o varianta selectabila. "base"
+  // ramane valoarea neutra ("----" in CP).
+  const SUBQUIZ_START_KEY = "yl:mul1120v3:subquizStart";
+  const SUBQUIZ_START_IDS = ["base", SQ2_VBS_ID, SQ2_SBS_ID];
+
   const QF_PROFILE = {
     f1_initial: true,
     f1_comutat: true,
@@ -141,6 +148,8 @@
     let level = MIN_LEVEL;
     let completed = false;
     let orchestrator = null;
+    let fortat = null; // vezi js/subquiz/subquiz-forced-selection.js
+    let subquizFortatId = readChoiceSetting(SUBQUIZ_START_KEY, SUBQUIZ_START_IDS, "base");
     let sq2FactCount = readNumberSetting(SQ2_FACT_COUNT_KEY, [1, 2, 3, 4], 2);
     let sq2ExitCount = readNumberSetting(SQ2_EXIT_COUNT_KEY, [3, 4, 5], 3);
     let sq2ExitMode = readExitMode();
@@ -755,6 +764,12 @@
         },
         onResume({ runtime }) {
           if (runtime?.getState) shared.baseState = runtime.getState();
+
+          // Un subquiz FORTAT (cerere user, 09.09.2026 — "Testeaza doar
+          // subquizul") reintra direct in el, inainte de orice alta decizie.
+          const comandaFortata = fortat.laRevenireaInBase();
+          if (comandaFortata) return comandaFortata;
+
           runtime.nextItem({ reason: "resumeFromSq2" });
           return {
             action: "continue",
@@ -781,7 +796,8 @@
     function sq2Definition() {
       return global.SubquizDefinition.define({
         id: SQ2_VBS_ID,
-        title: "Intensiv cu eff VBS",
+        title: "SQ2 eff VBS",
+        userSelectable: true,
         hintMessage: HINT,
         esteCorect: esteCorectV3,
         mesaje: mesajeV3,
@@ -824,7 +840,8 @@
     function sq2SbsDefinition() {
       return global.SubquizDefinition.define({
         id: SQ2_SBS_ID,
-        title: "Intensiv SBS",
+        title: "SQ2 SBS",
+        userSelectable: true,
         hintMessage: HINT,
         esteCorect: esteCorectV3,
         mesaje: mesajeV3,
@@ -884,6 +901,16 @@
       });
     }
 
+    // Payload-ul cu care porneste un subquiz cand e FORTAT manual din CP
+    // (nu din declansatorul lui natural, maybeEnterSq2FromBase) — cerere
+    // user, 09.09.2026. Refoloseste exact selectorul de facts folosit si de
+    // declansarea naturala (selectFactsForSq2/intensiveTargetFactCount), nu
+    // inventeaza o alta sursa.
+    function payloadPentruSubquizFortat(id) {
+      const facts = selectFactsForSq2([], { targetCount: intensiveTargetFactCount(id) });
+      return { facts, reason: "manual" };
+    }
+
     function createOrchestrator() {
       orchestrator = global.SubquizOrchestrator.create({
         definitions: [baseDefinition(), sq2Definition(), sq2SbsDefinition()],
@@ -894,6 +921,11 @@
           getLevel: () => level,
           hintMessage: HINT,
         },
+      });
+      fortat = global.SubquizForcedSelection.creeaza({
+        orchestrator,
+        getForcedId: () => (subquizFortatId === "base" ? null : subquizFortatId),
+        payloadFor: payloadPentruSubquizFortat,
       });
     }
 
@@ -907,6 +939,7 @@
 
     function beginRoute() {
       if (!orchestrator) createOrchestrator();
+      if (subquizFortatId !== "base") return fortat.startFirst();
       return orchestrator.startFirst();
     }
 
@@ -990,12 +1023,27 @@
       },
 
       getSubquizStage: () => orchestrator?.getCurrentId?.() ?? "base",
-      getSubquizStartOption: () => "base",
+      getSubquizStartOption: () => subquizFortatId,
+      // Sursa canonica: insasi lista de SubquizDefinition inregistrata in
+      // createOrchestrator() — orice definitie cu userSelectable:true apare
+      // aici. Nicio lista separata de tinut sincron manual (cerere user,
+      // 09.09.2026).
       getSubquizStartOptions() {
-        return [{ id: "base", label: "1 baza" }];
+        if (!orchestrator) createOrchestrator();
+        return [
+          { id: "base", label: "1 baza" },
+          ...orchestrator
+            .listDefinitions()
+            .filter((def) => def.userSelectable)
+            .map((def) => ({ id: def.id, label: def.title })),
+        ];
       },
-      setSubquizStartOption(stageId) {
-        return stageId === "base";
+      setSubquizStartOption(id) {
+        if (!SUBQUIZ_START_IDS.includes(id)) return false;
+        subquizFortatId = id;
+        writeSetting(SUBQUIZ_START_KEY, subquizFortatId);
+        resetLevelState();
+        return true;
       },
 
       get controlPanel() {

@@ -29,14 +29,33 @@
     effectiveAnchorAddition: { id: "effectiveAnchorAddition", order: 5, title: "adunare efectiva ancore" },
     nonAnchorProducts: { id: "nonAnchorProducts", order: 6, title: "inmultiri non-anchors" },
   };
+  // Sursa canonica a variantelor user-facing (cerere user, 09.09.2026): `id`
+  // e valoarea din dropdown, `stage` spre ce stage intern forteaza, `label`
+  // e ce se afiseaza — nicio lista separata de tinut sincron manual.
   const START_OPTIONS = {
-    normal: { id: "normal", stage: "normal" },
-    anchorsOnly: { id: "anchorsOnly", stage: "normal" },
-    intensivOnly: { id: "intensivOnly", stage: "intensiv" },
-    anchorSumValuesOnly: { id: "anchorSumValuesOnly", stage: "anchorSumValues" },
-    rapidAnchorAdditions: { id: "rapidAnchorAdditions", stage: "rapidAnchorAdditions" },
-    effectiveAnchorAddition: { id: "effectiveAnchorAddition", stage: "effectiveAnchorAddition" },
-    nonAnchorProducts: { id: "nonAnchorProducts", stage: "nonAnchorProducts" },
+    normal: { id: "normal", stage: "normal", label: "Normal" },
+    anchorsOnly: { id: "anchorsOnly", stage: "normal", label: "1 anchors" },
+    intensivOnly: { id: "intensivOnly", stage: "intensiv", label: "2 intensiv" },
+    anchorSumValuesOnly: {
+      id: "anchorSumValuesOnly",
+      stage: "anchorSumValues",
+      label: `${STAGES.anchorSumValues.order} ${STAGES.anchorSumValues.title}`,
+    },
+    rapidAnchorAdditions: {
+      id: "rapidAnchorAdditions",
+      stage: "rapidAnchorAdditions",
+      label: `${STAGES.rapidAnchorAdditions.order} ${STAGES.rapidAnchorAdditions.title}`,
+    },
+    effectiveAnchorAddition: {
+      id: "effectiveAnchorAddition",
+      stage: "effectiveAnchorAddition",
+      label: `${STAGES.effectiveAnchorAddition.order} ${STAGES.effectiveAnchorAddition.title}`,
+    },
+    nonAnchorProducts: {
+      id: "nonAnchorProducts",
+      stage: "nonAnchorProducts",
+      label: `${STAGES.nonAnchorProducts.order} ${STAGES.nonAnchorProducts.title}`,
+    },
   };
   const HINT = "Alege răspunsul corect.";
 
@@ -1409,28 +1428,10 @@
 
       getSubquizStartOption: () => startStageSelection,
 
+      // Deriva direct din START_OPTIONS (sursa canonica, mai sus) — nicio
+      // lista separata de tinut sincron manual (cerere user, 09.09.2026).
       getSubquizStartOptions() {
-        return [
-          { id: "normal", label: "Normal" },
-          { id: "anchorsOnly", label: "1 anchors" },
-          { id: "intensivOnly", label: "2 intensiv" },
-          {
-            id: "anchorSumValuesOnly",
-            label: `${STAGES.anchorSumValues.order} ${STAGES.anchorSumValues.title}`,
-          },
-          {
-            id: "rapidAnchorAdditions",
-            label: `${STAGES.rapidAnchorAdditions.order} ${STAGES.rapidAnchorAdditions.title}`,
-          },
-          {
-            id: "effectiveAnchorAddition",
-            label: `${STAGES.effectiveAnchorAddition.order} ${STAGES.effectiveAnchorAddition.title}`,
-          },
-          {
-            id: "nonAnchorProducts",
-            label: `${STAGES.nonAnchorProducts.order} ${STAGES.nonAnchorProducts.title}`,
-          },
-        ];
+        return Object.values(START_OPTIONS).map(({ id, label }) => ({ id, label }));
       },
 
       setSubquizStartOption(stageId) {

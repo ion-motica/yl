@@ -40,6 +40,7 @@ function setupQuiz({ shuffle = (items) => [...items], random = () => 0 } = {}) {
     "js/subquiz/item-generator.js",
     "js/subquiz/subquiz-definition.js",
     "js/subquiz/subquiz-orchestrator.js",
+    "js/subquiz/subquiz-forced-selection.js",
     "js/motor-3-butoane.js",
     "js/quizzes/multiplication-1120-v3-train-eff-eq-forms.js",
   ].forEach(loadScript);

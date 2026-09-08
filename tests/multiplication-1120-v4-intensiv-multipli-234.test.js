@@ -60,6 +60,7 @@ function setupQuiz({
     "js/subquiz/item-generator.js",
     "js/subquiz/subquiz-definition.js",
     "js/subquiz/subquiz-orchestrator.js",
+    "js/subquiz/subquiz-forced-selection.js",
     "js/motor-3-butoane.js",
     "js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js",
   ].forEach(loadScript);
@@ -648,6 +649,7 @@ describe("subquiz 5: Fluent party", () => {
       "js/subquiz/item-generator.js",
       "js/subquiz/subquiz-definition.js",
       "js/subquiz/subquiz-orchestrator.js",
+    "js/subquiz/subquiz-forced-selection.js",
     ].forEach(loadScript);
     globalThis.GameUtils.shuffle = (items) => [...items];
 
