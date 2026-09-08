@@ -1038,82 +1038,83 @@
   quiz.setOnFluentaReady?.(() => restartActiveRound());
   applyRequestedQuizConfig();
 
-  // Titlul "Subquiz" e comun mai multor quizuri (getSubquizStartOptions apare in
-  // 4 fisiere din js/quizzes/) — nu exista UN titlu exact de quiz de fixat static,
-  // deci se recalculeaza din quizul activ de fiecare data cand e citit (vezi
-  // resolveTitle() din cp-shell.js, apelat si la fiecare switchQuiz -> refreshEnabledStates).
-  function subquizPanelTitle() {
-    const activeMeta = QuizRegistry.get(QuizRegistry.getActiveId());
-    return `CP - ${activeMeta?.title || "Subquiz"} — Subquiz`;
-  }
-
   let aamCpEnabled = false;
   CpRegistry.register({
     id: "general",
     title: "CP - General",
     isEnabled: () => true,
   });
+  // Cerere user, 10.09.2026: "Testeaza doar subquizul" nu mai are titlu
+  // propriu — apare direct dupa titlul quizului (sectiunea "de quiz" a
+  // acestuia), nu ca panou separat cu heading. Titlu gol -> cp-shell.js
+  // ascunde heading-ul (vezi acolo).
   CpRegistry.register({
     id: "subquiz",
-    title: subquizPanelTitle,
+    title: "",
     isEnabled: () => typeof quiz?.getSubquizStartOptions === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "equationTonomat",
-    title: "CP - Ecuatii cu 3 4 5 6 numere",
+    title: "Quiz: Ecuatii cu 3 4 5 6 numere",
     isEnabled: () => typeof quiz?.appendTonomatControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "rigle",
-    title: "CP - Adunari cu coloane verticale",
+    title: "Quiz: Adunari cu coloane verticale",
     isEnabled: () => typeof quiz?.appendRigleControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "rigleTabla110",
-    title: "CP - Adunari cu coloane - Tabla adunarii 1-10",
+    title: "Quiz: Adunari cu coloane - Tabla adunarii 1-10",
     isEnabled: () => typeof quiz?.appendRigleTabla110ControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "ilustrareMereViteza",
-    title: "CP - Tabla adunarii Singapore 6=?+3",
+    title: "Quiz: Tabla adunarii Singapore 6=?+3",
     isEnabled: () => typeof quiz?.appendIlustrareMereControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "tablaInmultiriiTabel",
-    title: "CP - Tabla inmultirii - Tabel",
+    title: "Quiz: Tabla inmultirii - Tabel",
     isEnabled: () => typeof quiz?.appendTablaInmultiriiTabelControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "preEquationNav",
-    title: "CP - Navigare pre-ecuatii EFF",
+    title: "Quiz: Navigare pre-ecuatii EFF",
     isEnabled: () =>
       typeof quiz?.appendPreEquationNavigationControlPanel === "function",
     quizSpecific: true,
   });
+  // sq2EffVbs/sq3FactorGroups/sq5FluentParty: sectiuni despre UN subquiz
+  // anume (nu despre quiz in general) — cerere user, 10.09.2026: titlu
+  // "Subquiz: <nume>" (fara sa mai repete titlul quizului), stil propriu
+  // (titluSubquiz: true -> cp-shell.js aplica clasa CSS dedicata).
   CpRegistry.register({
     id: "sq2EffVbs",
-    title: "CP - T*/ 11-20 - v3 - train w eff si eq forms - jurnal",
+    title: "Subquiz: SQ2 eff VBS",
     isEnabled: () => typeof quiz?.appendSq2ControlPanel === "function",
     quizSpecific: true,
+    titluSubquiz: true,
   });
   CpRegistry.register({
     id: "sq3FactorGroups",
-    title: "CP - T*/ 11-20 - v4 - bag toate in joc, intensiv multipli 2 3 4 — SQ3",
+    title: "Subquiz: SQ3 grup de factori",
     isEnabled: () => typeof quiz?.appendSq3ControlPanel === "function",
     quizSpecific: true,
+    titluSubquiz: true,
   });
   CpRegistry.register({
     id: "sq5FluentParty",
-    title:
-      "CP - T*/ 11-20 - v4 - bag toate in joc, intensiv multipli 2 3 4 — SQ5 Fluent party",
+    title: "Subquiz: SQ5 Fluent party",
     isEnabled: () => typeof quiz?.appendSq5ControlPanel === "function",
     quizSpecific: true,
+    titluSubquiz: true,
   });
   CpRegistry.register({
     id: "liftType",

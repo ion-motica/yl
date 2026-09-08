@@ -26,9 +26,14 @@
     if (!def?.id) return;
     panels.set(def.id, {
       id: def.id,
-      title: def.title || def.id,
+      // "!== undefined" (nu "||"): un titlu explicit gol ("", cerere user
+      // 10.09.2026 — panoul "subquiz" nu mai are heading propriu) trebuie
+      // pastrat ca atare, nu inlocuit tacit cu id-ul — "||" ar fi tratat ""
+      // la fel ca "titlu neprecizat deloc".
+      title: def.title !== undefined ? def.title : def.id,
       isEnabled: typeof def.isEnabled === "function" ? def.isEnabled : () => true,
       quizSpecific: def.quizSpecific === true,
+      titluSubquiz: def.titluSubquiz === true,
     });
   }
 

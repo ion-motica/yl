@@ -60,6 +60,18 @@
       return typeof def.title === "function" ? def.title() : def.title;
     }
 
+    // Titlu gol (ex. "subquiz", cerere user 10.09.2026) -> fara heading deloc,
+    // nu un heading galben gol. "titluSubquiz: true" -> stil propriu (fara
+    // fundal galben, marime ca la bifele CP, subliniat) — vezi
+    // .cp-section-heading--subquiz din style.css.
+    function applyHeadingTitle(heading, def) {
+      const titlu = resolveTitle(def);
+      heading.className = "cp-section-heading";
+      heading.classList.toggle("cp-section-heading--subquiz", Boolean(def.titluSubquiz));
+      heading.hidden = !titlu;
+      heading.textContent = titlu || "";
+    }
+
     // Randul din TOC ramane vizibil mereu (drag&drop functioneaza si dezactivat);
     // doar eticheta primeste sufixul "(alt quiz)" cat timp panoul nu se aplica
     // quizului activ.
@@ -84,9 +96,9 @@
       }
       // Titlul din corpul panoului (heading) se recalculeaza aici si nu doar in
       // build(): la schimbarea quizului activ, refreshEnabledStates() apeleaza
-      // asta pentru fiecare panou — singurul loc unde un titlu dinamic (Subquiz)
+      // asta pentru fiecare panou — singurul loc unde un titlu dinamic
       // ar redeveni corect, altfel ar ramane inghetat pe quizul anterior.
-      if (heading && def) heading.textContent = resolveTitle(def);
+      if (heading && def) applyHeadingTitle(heading, def);
     }
 
     function scrollToPanel(id, instant) {
@@ -220,8 +232,7 @@
         section.hidden = !enabled;
 
         const heading = document.createElement("h2");
-        heading.className = "cp-section-heading";
-        heading.textContent = resolveTitle(def);
+        applyHeadingTitle(heading, def);
         section.appendChild(heading);
 
         const body = document.createElement("div");
