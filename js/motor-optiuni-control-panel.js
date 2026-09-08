@@ -111,7 +111,7 @@
       cheie: "subquizStart",
       tip: "enum",
       stilAfisare: "radio",
-      eticheta: "Testează doar subquizul:",
+      eticheta: "Testează doar subquizul: Dropdownlist",
       // Optiunea reala care e deja valoareNeutra NU se mai afiseaza separat —
       // "----" o reprezinta deja (cerere user, 07.09.2026); ramane totusi
       // sursa unica de adevar: doar filtram lista existenta, nu o duplicam.

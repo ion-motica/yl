@@ -1800,19 +1800,6 @@ body {
   color: var(--title-banner-color);
 }
 
-/* Titlu de subquiz (cerere user, 10.09.2026): fara fundalul galben al
-   titlului de quiz, marime ca la etichetele bifelor CP (.control-panel-lift-row),
-   subliniat — nu mai repeta titlul quizului caruia ii apartine subquizul. */
-.cp-section-heading--subquiz {
-  background: none;
-  padding: 0 0.5rem;
-  font-size: 0.82rem;
-  letter-spacing: normal;
-  text-transform: none;
-  text-decoration: underline;
-  color: #cbd5e1;
-}
-
 .cp-section-body {
   min-width: 0;
 }
