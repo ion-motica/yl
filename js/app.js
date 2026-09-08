@@ -1038,13 +1038,21 @@
   quiz.setOnFluentaReady?.(() => restartActiveRound());
   applyRequestedQuizConfig();
 
-  // Titlul "Subquiz" e comun mai multor quizuri (getSubquizStartOptions apare in
-  // 4 fisiere din js/quizzes/) — nu exista UN titlu exact de quiz de fixat static,
-  // deci se recalculeaza din quizul activ de fiecare data cand e citit (vezi
-  // resolveTitle() din cp-shell.js, apelat si la fiecare switchQuiz -> refreshEnabledStates).
-  function subquizPanelTitle() {
+  // Headerul de quiz (cerere user, 10.09.2026): NIVEL 1, independent de orice
+  // sectiune interna — apare o singura data, galben, ori de cate ori quizul
+  // activ are ORICE panou quiz-specific (indiferent care si cate), inclusiv
+  // cazul in care singurul e "Testeaza doar subquizul". De-aia NU e
+  // "quizSpecific: true" el insusi (ar deveni tinta scroll-ului "sari la
+  // sectiunea principala" din cp-shell.js — scrollToActiveQuizSection —, in
+  // loc sa ramana un simplu header fara continut de derulat la el).
+  function quizHeaderTitle() {
     const activeMeta = QuizRegistry.get(QuizRegistry.getActiveId());
-    return `CP - ${activeMeta?.title || "Subquiz"} — Subquiz`;
+    return activeMeta?.title ? `Quiz: ${activeMeta.title}` : "";
+  }
+  function areCpQuizSpecific() {
+    return CpRegistry.list().some(
+      (def) => def.id !== "quizHeader" && def.quizSpecific && def.isEnabled()
+    );
   }
 
   let aamCpEnabled = false;
@@ -1054,66 +1062,83 @@
     isEnabled: () => true,
   });
   CpRegistry.register({
+    id: "quizHeader",
+    title: quizHeaderTitle,
+    isEnabled: areCpQuizSpecific,
+  });
+  // "Testeaza doar subquizul" (NIVEL 1, cerere user 10.09.2026): fara heading
+  // de sectiune propriu — apare direct sub headerul quizului ("quizHeader"
+  // de mai sus, nu acesta).
+  CpRegistry.register({
     id: "subquiz",
-    title: subquizPanelTitle,
+    title: "",
     isEnabled: () => typeof quiz?.getSubquizStartOptions === "function",
     quizSpecific: true,
   });
+  // Sectiuni "de continut general al quizului" (NIVEL 1, fara subquiz
+  // propriu) — la fel ca "subquiz", fara heading de sectiune propriu: headerul
+  // lor E "quizHeader", controalele apar direct dedesubt.
   CpRegistry.register({
     id: "equationTonomat",
-    title: "CP - Ecuatii cu 3 4 5 6 numere",
+    title: "",
     isEnabled: () => typeof quiz?.appendTonomatControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "rigle",
-    title: "CP - Adunari cu coloane verticale",
+    title: "",
     isEnabled: () => typeof quiz?.appendRigleControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "rigleTabla110",
-    title: "CP - Adunari cu coloane - Tabla adunarii 1-10",
+    title: "",
     isEnabled: () => typeof quiz?.appendRigleTabla110ControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "ilustrareMereViteza",
-    title: "CP - Tabla adunarii Singapore 6=?+3",
+    title: "",
     isEnabled: () => typeof quiz?.appendIlustrareMereControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "tablaInmultiriiTabel",
-    title: "CP - Tabla inmultirii - Tabel",
+    title: "",
     isEnabled: () => typeof quiz?.appendTablaInmultiriiTabelControlPanel === "function",
     quizSpecific: true,
   });
   CpRegistry.register({
     id: "preEquationNav",
-    title: "CP - Navigare pre-ecuatii EFF",
+    title: "",
     isEnabled: () =>
       typeof quiz?.appendPreEquationNavigationControlPanel === "function",
     quizSpecific: true,
   });
+  // sq2EffVbs/sq3FactorGroups/sq5FluentParty (NIVEL 2 — sectiuni despre UN
+  // subquiz anume, cerere user 10.09.2026): "Subquiz: <nume>" — nu mai repeta
+  // titlul quizului părinte — stil propriu (titluSubquiz: true -> cp-shell.js
+  // aplica clasa CSS dedicata, fara fundal galben).
   CpRegistry.register({
     id: "sq2EffVbs",
-    title: "CP - T*/ 11-20 - v3 - train w eff si eq forms - jurnal",
+    title: "Subquiz: SQ2 eff VBS",
     isEnabled: () => typeof quiz?.appendSq2ControlPanel === "function",
     quizSpecific: true,
+    titluSubquiz: true,
   });
   CpRegistry.register({
     id: "sq3FactorGroups",
-    title: "CP - T*/ 11-20 - v4 - bag toate in joc, intensiv multipli 2 3 4 — SQ3",
+    title: "Subquiz: SQ3 grup de factori",
     isEnabled: () => typeof quiz?.appendSq3ControlPanel === "function",
     quizSpecific: true,
+    titluSubquiz: true,
   });
   CpRegistry.register({
     id: "sq5FluentParty",
-    title:
-      "CP - T*/ 11-20 - v4 - bag toate in joc, intensiv multipli 2 3 4 — SQ5 Fluent party",
+    title: "Subquiz: SQ5 Fluent party",
     isEnabled: () => typeof quiz?.appendSq5ControlPanel === "function",
     quizSpecific: true,
+    titluSubquiz: true,
   });
   CpRegistry.register({
     id: "liftType",

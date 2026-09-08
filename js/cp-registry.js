@@ -5,6 +5,7 @@
   const LEGACY_DEFAULT_ORDER_V2 = ["debug", "lift", "aam"];
   const DEFAULT_ORDER = [
     "general",
+    "quizHeader",
     "subquiz",
     "sq2EffVbs",
     "sq3FactorGroups",
@@ -26,9 +27,14 @@
     if (!def?.id) return;
     panels.set(def.id, {
       id: def.id,
-      title: def.title || def.id,
+      // "!== undefined" (nu "||"): un titlu explicit gol ("", cerere user
+      // 10.09.2026 — sectiunile fara subquiz propriu n-au heading, headerul
+      // e "quizHeader") trebuie pastrat ca atare, nu inlocuit tacit cu id-ul
+      // — "||" ar fi tratat "" la fel ca "titlu neprecizat deloc".
+      title: def.title !== undefined ? def.title : def.id,
       isEnabled: typeof def.isEnabled === "function" ? def.isEnabled : () => true,
       quizSpecific: def.quizSpecific === true,
+      titluSubquiz: def.titluSubquiz === true,
     });
   }
 
