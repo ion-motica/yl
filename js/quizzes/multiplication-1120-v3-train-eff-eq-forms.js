@@ -1001,6 +1001,7 @@
       get controlPanel() {
         return {
           sectiuni: [
+            { id: "sq2EffVbs", campuri: campurileCP({}) },
             { id: "subquizStart", campuri: [window.MotorOptiuniControlPanel.campSubquizStart(this)] },
           ],
         };

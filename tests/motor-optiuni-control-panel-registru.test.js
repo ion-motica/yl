@@ -276,7 +276,34 @@ test("multiplication-1120-v3-train-eff-eq-forms-jurnal (quiz activ, prin fabrica
   const campuri = motor.toateCampurileCP("multiplication-1120-v3-train-eff-eq-forms-jurnal");
 
   // Are o singura optiune reala ("base") — "----" ii e implicit echivalenta.
-  assert.deepEqual(motor.citesteConfig(campuri), { subquizStart: "----" });
+  assert.equal(motor.citesteConfig(campuri).subquizStart, "----");
+});
+
+test("multiplication-1120-v3-train-eff-eq-forms-jurnal: sectiunea SQ2 (fix minim, 07.09.2026) coexista cu subquizStart, ambele in configuratie", () => {
+  const quiz = loadMotorSiQuizV3Jurnal();
+  const motor = globalThis.MotorOptiuniControlPanel;
+  motor.inregistreazaControlPanel("multiplication-1120-v3-train-eff-eq-forms-jurnal", quiz.controlPanel);
+  const campuri = motor.toateCampurileCP("multiplication-1120-v3-train-eff-eq-forms-jurnal");
+  const chei = campuri.map((c) => c.cheie);
+
+  assert.ok(chei.includes("intensiveMode"), "lipseste un camp din sectiunea SQ2");
+  assert.ok(chei.includes("subquizStart"), "subquizStart nu mai trebuie sa dispara odata cu adaugarea SQ2");
+});
+
+test("multiplication-1120-v3-train-eff-eq-forms-jurnal: o optiune SQ2 reala e salvata si restaurata exact prin share-link", () => {
+  const quiz = loadMotorSiQuizV3Jurnal();
+  const motor = globalThis.MotorOptiuniControlPanel;
+  motor.inregistreazaControlPanel("multiplication-1120-v3-train-eff-eq-forms-jurnal", quiz.controlPanel);
+  const campuri = motor.toateCampurileCP("multiplication-1120-v3-train-eff-eq-forms-jurnal");
+
+  const campIntensiveMode = campuri.find((c) => c.cheie === "intensiveMode");
+  campIntensiveMode.set("sbs");
+  const config = motor.citesteConfig(campuri);
+  assert.equal(config.intensiveMode, "sbs");
+
+  campIntensiveMode.set("vbs"); // simuleaza alt state, ca la deschiderea linkului
+  motor.aplicaConfig(campuri, config);
+  assert.equal(motor.citesteConfig(campuri).intensiveMode, "sbs", "aplicaConfig trebuie sa restaureze exact valoarea din link");
 });
 
 test("C — restore: registrul pastreaza descriptori vii, nu o poza a valorilor de la inregistrare", () => {
