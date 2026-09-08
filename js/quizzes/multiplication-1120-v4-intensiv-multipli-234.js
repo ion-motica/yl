@@ -72,7 +72,6 @@
   // pe 1-2 forme de ecuatie) catre toate cele 24 — vezi
   // documente de referinta/PLAN-v4-sq5-fluent-party.md.
   const SQ5_ID = "sq5FluentParty";
-  const SQ5_MODE_KEY = "yl:mul1120v4:sq5Mode";
   const SQ5_ENTRY_KEY = "yl:mul1120v4:sq5Entry";
   const SQ5_TURNS_KEY = "yl:mul1120v4:sq5TurnsPerFact";
   const SQ5_EQ_FORM_COUNT_KEY = "yl:mul1120v4:sq5EqFormCount";
@@ -82,7 +81,6 @@
   const SQ5_BLOC_LEN_KEY = "yl:mul1120v4:sq5BlocLen";
   const SQ5_ROL_CONST_PCT_KEY = "yl:mul1120v4:sq5RolConstPct";
 
-  const SQ5_MODES = ["A", "B"];
   const SQ5_ENTRIES = ["levelStart", "levelEnd", "random"];
   const SQ5_TURNS_MIN = 1;
   const SQ5_TURNS_MAX = 10;
@@ -327,7 +325,6 @@
     ensureSbsAnswerSource();
 
     // CP SQ5 — setari persistate simplu (fara butoane "md", ca la sq3).
-    let sq5Mode = readChoiceSetting(SQ5_MODE_KEY, SQ5_MODES, "A");
     let sq5Entry = readChoiceSetting(SQ5_ENTRY_KEY, SQ5_ENTRIES, "levelStart");
     let sq5TurnsPerFact = readNumberSetting(SQ5_TURNS_KEY, rangeChoices(SQ5_TURNS_MIN, SQ5_TURNS_MAX), SQ5_TURNS_DEFAULT);
     let sq5EqFormCount = readNumberSetting(
@@ -378,20 +375,9 @@
       ];
     }
 
-    // `rerandeaza`: STRICT pt. campul "sq5Mode" — schimbarea lui decide
-    // vizibilitatea campului "sq5Entry" (activCand), deci panoul local
-    // trebuie redesenat (nu doar hook-ul extern onRouteChange/onChange).
-    function campurileSq5CP(hooks, rerandeaza) {
+    function campurileSq5CP(hooks) {
       return [
-        { cheie: "sq5Mode", tip: "enum", stilAfisare: "radio", eticheta: "Ruleaza sq5 Fluent party:",
-          optiuni: [
-            { valoare: "A", text: "Level 0, inaintea tuturor nivelurilor, cu toate subtablele" },
-            { valoare: "B", text: "in interiorul fiecarui nivel" },
-          ],
-          get: () => sq5Mode,
-          set: (v) => { sq5Mode = v; writeSetting(SQ5_MODE_KEY, sq5Mode); },
-          dupaSchimbare: () => { rerandeaza(); (hooks.onRouteChange ?? hooks.onChange)?.(); } },
-        { cheie: "sq5Entry", tip: "enum", stilAfisare: "radio", eticheta: "Intrare in sq5 (doar mod B):",
+        { cheie: "sq5Entry", tip: "enum", stilAfisare: "radio", eticheta: "Intrare in sq5:",
           optiuni: [
             { valoare: "levelStart", text: "La inceputul nivelului" },
             { valoare: "random", text: "Random intre alte subquizuri" },
@@ -399,7 +385,6 @@
           ],
           get: () => sq5Entry,
           set: (v) => { sq5Entry = v; writeSetting(SQ5_ENTRY_KEY, sq5Entry); },
-          activCand: (valori) => valori.sq5Mode === "B",
           dupaSchimbare: () => (hooks.onRouteChange ?? hooks.onChange)?.() },
         { cheie: "sq5TurnsPerFact", tip: "numar", stilAfisare: "slider", eticheta: "Nr. de turns per fact:",
           min: SQ5_TURNS_MIN, max: SQ5_TURNS_MAX,
@@ -436,14 +421,7 @@
       ];
     }
 
-    // Level 0 (mod A) — traiesc IN AFARA lui `shared` si nu se ating de
-    // `resetLevelState()`, ca sa supravietuiasca schimbarii de nivel (R7 din
-    // plan): altfel fiecare click pe butoanele 1-10 ar reporni o runda de
-    // ~150 de intrebari.
-    let level0Done = false;
-    let inLevel0 = false;
-
-    // Declansatorul "random" al lui sq5 (mod B) — acelasi tipar ca sq3Count:
+    // Declansatorul "random" al lui sq5 — acelasi tipar ca sq3Count:
     // se reseteaza la fiecare nivel, in `resetLevelState()`.
     let sq5RandomFired = false;
     let sq5RandomTargetK = 1;
@@ -926,6 +904,8 @@
             state.covered.add(factB);
 
             if (state.covered.size >= TOTAL_FACTS_PER_LEVEL) {
+              const sq5Finale = maybeEnterSq5LevelEndFinale(state);
+              if (sq5Finale) return sq5Finale;
               return {
                 action: "exit",
                 reason: "levelCovered",
@@ -1326,10 +1306,6 @@
 
     // ---- Subquiz 5 (Fluent party): fluenta deja castigata -> toate 24 forme -
 
-    function toateSubtabelele() {
-      return Array.from({ length: MAX_LEVEL }, (_, index) => factorForLevel(index + 1));
-    }
-
     function esteFluent(a, b) {
       const sursa = getFluentaSursa();
       return (sursa.starePtFact ? sursa.starePtFact(a, b) : "netestat") === "fluent";
@@ -1527,8 +1503,7 @@
         mesaje: mesajeStandard,
         initialState({ payload }) {
           aplicaCrestereZilnicaEqForms();
-          const facts =
-            payload?.facts ?? facteFluenteDomeniu(inLevel0 ? toateSubtabelele() : [factorForLevel(level)]);
+          const facts = payload?.facts ?? facteFluenteDomeniu([factorForLevel(level)]);
           const state = {
             facts,
             repetitii_programate_dupa_fapt: {},
@@ -1538,7 +1513,6 @@
             blocLen: sq5BlocLen,
             sbsPct: sq5SbsPct,
             rolConstPct: sq5RolConstPct,
-            entryMode: payload?.entryMode ?? "list",
             currentBloc: null,
             blocQuestionsLeft: 0,
             currentPereche: null,
@@ -1587,18 +1561,21 @@
             state.formsUsedByKey[key].add(pereche.prompt);
 
             if (state.blocQuestionsLeft <= 0 && sq5TermIsComplete(state)) {
-              // Fara `view` propriu in codul vechi. Cand entryMode !== "push" (mod B,
-              // ruta statica — ex. sq5Entry="levelStart", ruta [SQ5_ID,"base"]), exit-ul
-              // e urmat de "base" in ACEEASI ruta — un `message` implicit ar supravietui
-              // pe prima lui intrebare. Pastram exact ce se vedea inainte (nimic), pt.
-              // ambele ramuri (pop isi sterge view-ul central oricum, deci suprascrierea
-              // e sigura si acolo).
-              const iesire = {
+              // UN SINGUR TRASEU (cerere user, 08.09.2026): sq5 nu mai intra
+              // niciodata pe pozitie de ruta statica (vezi createOrchestrator/
+              // beginRoute mai jos) — e mereu impins prin push, deci iesirea e
+              // mereu pop, generic, identic pt. random/levelEnd/levelStart. Pop
+              // preda controlul inapoi la base.onResume(), care decide singur
+              // ce urmeaza (continua nivelul sau, daca acoperirea e completa,
+              // termina nivelul) — sq5 insusi nu decide niciodata asta. Fara
+              // `view` propriu (pop isi sterge view-ul central oricum — vezi
+              // subquiz-definition.js, onAnswer).
+              return {
+                action: "pop",
                 reason: "sq5Complete",
                 payload: { sq5Completed: true },
                 view: { message: undefined },
               };
-              return state.entryMode === "push" ? { action: "pop", ...iesire } : { action: "exit", ...iesire };
             }
             // altfel: ramane in sq5 — Motor3Butoane cere generator-ul automat.
           },
@@ -1614,7 +1591,7 @@
     // k-a verificare eligibila (k ales uniform din {1,2,3} in resetLevelState,
     // ca pozitia sa fie random dar aparitia garantata).
     function maybeEnterSq5Random(state) {
-      if (sq5Mode !== "B" || sq5Entry !== "random" || sq5RandomFired) return null;
+      if (sq5Entry !== "random" || sq5RandomFired) return null;
       const A = factorForLevel(level);
       const facts = facteFluenteDomeniu([A]);
       if (!facts.length) return null;
@@ -1626,7 +1603,66 @@
       return {
         action: "push",
         targetId: SQ5_ID,
-        payload: { facts, entryMode: "push" },
+        payload: { facts },
+        view: {
+          outcome: "step-correct",
+          correct: true,
+          bounce: true,
+          message: "Subquiz 5: Fluent party",
+        },
+      };
+    }
+
+    // "levelEnd": sq5 intra ca ultimul pas al nivelului prin push/pop — exact
+    // tiparul lui maybeEnterSq5Random de mai sus, NU o pozitie de ruta statica
+    // (asa era inainte: activeSubquizIds ["base", SQ5_ID]). Motiv (cerere
+    // user, 08.09.2026 — "niciun subquiz non-base nu termina direct nivelul,
+    // doar base decide"): cu ruta statica, iesirea proprie a lui sq5 cadea
+    // direct pe routeComplete(), fara sa mai treaca prin base. Cu push/pop,
+    // sq5 revine in base (onResume(), care deja verifica "sunt acoperit
+    // complet? ies din nou" — vezi "levelCoveredAfterSq3" mai sus, acelasi
+    // camp acopera si acest caz), iar base e cel care declanseaza efectiv
+    // routeComplete(). Declansat DETERMINIST (nu random ca la maybeEnterSq5Random),
+    // o singura data, exact cand base tocmai a acoperit tot nivelul.
+    function maybeEnterSq5LevelEndFinale(state) {
+      if (sq5Entry !== "levelEnd") return null;
+      const A = factorForLevel(level);
+      const facts = facteFluenteDomeniu([A]);
+      if (!facts.length) return null;
+
+      return {
+        action: "push",
+        targetId: SQ5_ID,
+        payload: { facts },
+        view: {
+          outcome: "step-correct",
+          correct: true,
+          bounce: true,
+          flash: "win",
+          message: "Subquiz 5: Fluent party",
+        },
+      };
+    }
+
+    // "levelStart": la fel ca "random"/"levelEnd" mai sus — push/pop, NU pozitie
+    // de ruta statica (asa era inainte: activeSubquizIds [SQ5_ID,"base"], sq5
+    // pornea literal PRIMUL pas al rutei). Cerere user, 08.09.2026 — "UN SINGUR
+    // TRASEU": sa nu existe doua mecanisme tehnice diferite (pozitie in ruta +
+    // exit, vs. push+pop) care doar produc acelasi rezultat vizibil. Apelata
+    // direct din beginRoute() (vezi mai jos), nu din baseDefinition().actiuni —
+    // declansatorul trebuie sa actioneze INAINTE de prima intrebare normala a
+    // lui base, nu dupa un raspuns corect (baza nici n-a apucat sa intrebe ceva
+    // inca la acel moment).
+    function maybeEnterSq5LevelStart() {
+      if (sq5Entry !== "levelStart") return null;
+      const A = factorForLevel(level);
+      const facts = facteFluenteDomeniu([A]);
+      if (!facts.length) return null;
+
+      return {
+        action: "push",
+        targetId: SQ5_ID,
+        payload: { facts },
         view: {
           outcome: "step-correct",
           correct: true,
@@ -1647,55 +1683,24 @@
 
     function appendSq5ControlPanel(mount, hooks = {}) {
       if (!mount) return;
-      const quizApi = this;
-      const rerandeaza = () => appendSq5ControlPanel.call(quizApi, mount, hooks);
-      global.MotorOptiuniControlPanel.randeazaSectiune(quizApi.controlPanel, SQ5_ID, mount, { hooks, rerandeaza });
+      global.MotorOptiuniControlPanel.randeazaSectiune(this.controlPanel, SQ5_ID, mount, { hooks });
     }
 
 
     // ---- orchestrare + nivele --------------------------------------------
 
-    // Mod B: unde intra sq5 in lista ordonata a orchestratorului (§3.3).
-    // "random" nu apare in lista — intra prin push/pop din baseDefinition,
-    // ca sq3 (maybeEnterSq5Random). Daca nivelul curent n-are niciun fact
-    // fluent, sq5 nu intra deloc in lista (echivalent cu "nu porneste").
-    function normalActiveIds() {
-      if (sq5Mode !== "B") return ["base"];
-      if (sq5Entry === "random") return ["base"];
-      const A = factorForLevel(level);
-      if (!facteFluenteDomeniu([A]).length) return ["base"];
-      return sq5Entry === "levelEnd" ? ["base", SQ5_ID] : [SQ5_ID, "base"];
-    }
-
-    // Level 0 (mod A): o singura data, inainte de nivelul 1, cu facte din
-    // toate subtablele — vezi beginLevel1AfterLevel0(). Daca n-are niciun
-    // fact fluent (cont nou), se marcheaza direct "facut" si nu se afiseaza
-    // niciun ecran — criteriul 10 din plan.
+    // "base" e singurul subquiz din lista ordonata a orchestratorului — sq5 nu
+    // mai apare NICIODATA acolo, indiferent de sq5Entry. Toate cele 3 intrari
+    // ("random"/"levelEnd"/"levelStart") intra exclusiv prin push/pop, pornite
+    // din baseDefinition (random/levelEnd) sau din beginRoute() (levelStart) —
+    // vezi maybeEnterSq5Random / maybeEnterSq5LevelEndFinale / maybeEnterSq5LevelStart.
+    // UN SINGUR TRASEU (cerere user, 08.09.2026): orice subquiz non-base revine
+    // in base prin acelasi mecanism generic pop, niciodata printr-o pozitie de
+    // ruta statica separata.
     function createOrchestrator() {
-      // Decizia despre level 0 se ia DEFINITIV (inclusiv marcarea level0Done
-      // la domeniu gol) doar cu sursa de fluenta gata (fluentaEsteGata()).
-      // createOrchestrator() se cheama si eager, la construirea quizului
-      // (mai jos), inainte sa se stie daca IndexedDB a raspuns — fara garda
-      // asta, o citire inca nerezolvata s-ar vedea ca "0 facte fluente" si
-      // ar bloca level 0 PERMANENT pentru tot restul sesiunii, chiar si dupa
-      // ce datele reale devin disponibile (bug real, gasit dupa implementare
-      // — vezi nota din plan). Cand sursa nu e gata, nu se decide nimic acum:
-      // inLevel0 ramane fals pt. constructia asta (oricum aruncata — beginRoute()
-      // reconstruieste mereu, iar pickNextRound() nu porneste o runda reala
-      // pana sursa nu e gata), dar level0Done nu se atinge, deci se
-      // re-evalueaza corect la urmatoarea reconstructie.
-      let domeniuLevel0 = [];
-      if (sq5Mode === "A" && !level0Done && fluentaEsteGata()) {
-        domeniuLevel0 = facteFluenteDomeniu(toateSubtabelele());
-        if (domeniuLevel0.length === 0) level0Done = true;
-      }
-      inLevel0 = sq5Mode === "A" && !level0Done && domeniuLevel0.length > 0;
-
-      const activeIds = inLevel0 ? [SQ5_ID] : normalActiveIds();
-
       orchestrator = global.SubquizOrchestrator.create({
         definitions: [baseDefinition(), sq3Definition(), sq2Definition(), sq2SbsDefinition(), sq5Definition()],
-        activeSubquizIds: activeIds,
+        activeSubquizIds: ["base"],
         onRouteComplete: laRutaCompleta,
         context: {
           quizId,
@@ -1724,19 +1729,27 @@
     // quizului, resetLevelState() ruleaza inainte sa se stie daca sursa de
     // fluenta e gata (pickNextRound() garanteaza asta abia mai tarziu), deci
     // orchestratorul construit atunci ar putea decide gresit "level 0 gol".
+    //
+    // "levelStart": base tot trebuie sa fie subquizul activ/punctul de
+    // intoarcere INAINTE de push-ul spre sq5 (regula user: base -> push SQ ->
+    // ruleaza -> pop -> base, identic pt. orice sq non-base) — dar fara sa i
+    // se ceara vreodata prima lui intrebare "reala": `orchestrator.activate()`
+    // face exact atat cat trebuie (creeaza runtime-ul + starea lui base, il
+    // face curent), FARA `begin()` — deci fara nicio intrebare generata si
+    // aruncata, fara niciun reset manual dupa aceea. La `pop` inapoi, tocmai
+    // pt ca runtime-ul asa activat n-a trecut prin begin(), primul lucru care
+    // se intampla e `resume()` -> `baseDefinition().onResume()`, care oricum
+    // isi genereaza singur prima intrebare prin `runtime.nextItem(...)` —
+    // exact acelasi mecanism folosit deja la orice alta revenire in base
+    // (dupa sq2/sq3/sq5-random/sq5-levelEnd). Vezi activate() in
+    // js/subquiz/subquiz-orchestrator.js.
     function beginRoute() {
       createOrchestrator();
-      return orchestrator.startFirst();
-    }
+      const sq5Command = maybeEnterSq5LevelStart();
+      if (!sq5Command) return orchestrator.startFirst();
 
-    // Level 0 s-a terminat -> nivelul 1 normal, FARA sa incrementeze `level`
-    // (spre deosebire de advanceLevel(), care e pt. sfarsitul unui nivel
-    // obisnuit). Daca userul a schimbat manual nivelul cat timp level 0 inca
-    // rula, ramane pe nivelul ales — nu se forteaza inapoi pe nivelul 1.
-    function beginLevel1AfterLevel0() {
-      level0Done = true;
-      resetLevelState();
-      return beginRoute();
+      orchestrator.activate("base", {});
+      return orchestrator.command(sq5Command);
     }
 
     // `advanceLevel` se cheama DOAR din `laRutaCompleta`, adica din interiorul
@@ -1781,18 +1794,6 @@
     // CE urmeaza dupa ce ruta s-a terminat. Orchestratorul o cheama si tot el
     // pune marcajele pe rezultat — quizul nu mai construieste rezultate de top.
     function laRutaCompleta() {
-      if (inLevel0) {
-        return {
-          outcome: "serie-terminata",
-          correct: true,
-          serie_terminata: true,
-          pauza_intre_serii_ms: 0,
-          flash: "win",
-          banner: "Fluent party terminat — Nivel 1",
-          message: `Nivel ${level}`,
-          nextRound: beginLevel1AfterLevel0(),
-        };
-      }
       return advanceLevel();
     }
 
@@ -1806,7 +1807,6 @@
       getMinLevel: () => MIN_LEVEL,
       getLevelLabel: () => {
         const currentId = orchestrator?.getCurrentId?.();
-        if (inLevel0) return "Nivel 0 - Subquiz 5 - Fluent party";
         if (currentId === SQ3_ID) {
           return `Nivel ${level} - Subquiz 3 - grup de factori`;
         }
@@ -1822,11 +1822,6 @@
       switchLevel(nextLevel) {
         level = Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, nextLevel));
         completed = false;
-        // Alegere manuala de nivel = renuntare la level 0, daca nu rulase
-        // deja (nu doar "nu se reia dupa" — R7 din plan — ci nici nu incepe
-        // acum): userul a cerut explicit un nivel anume, nu turul de
-        // deschidere prin toate subtablele.
-        level0Done = true;
         resetLevelState();
         return null;
       },
@@ -1858,10 +1853,8 @@
       // Structura CP declarativă, raportată o singură dată către motorul
       // central (cerere user, 04.09.2026) — doua secțiuni (SQ3 si SQ5), din
       // ACEEASI campurileSq3CP()/campurileSq5CP() folosite de panourile CP
-      // proprii — nu lista paralela. hooks/rerandeaza goale aici: motorul
-      // central nu are DOM de rerandat, doar citeste/aplica valori (vezi
-      // comentariul de la campurileSq5CP mai sus — rerandeaza e strict pt.
-      // vizibilitatea campului "sq5Entry" in panoul deschis, nu pt. config).
+      // proprii — nu lista paralela. hooks gol aici: motorul central nu are
+      // DOM de rerandat, doar citeste/aplica valori.
       get controlPanel() {
         const quizApi = this;
         return {
@@ -1875,7 +1868,7 @@
             {
               id: SQ5_ID,
               creeazaCampuri(context = {}) {
-                return campurileSq5CP(context.hooks ?? {}, context.rerandeaza ?? (() => {}));
+                return campurileSq5CP(context.hooks ?? {});
               },
             },
             {
@@ -1909,7 +1902,7 @@
           const total = sq5State?.facts.length ?? 0;
           return {
             visible: true,
-            mode: inLevel0 ? "Nivel 0: Fluent party" : "Subquiz 5: Fluent party",
+            mode: "Subquiz 5: Fluent party",
             theme: "sq2-eff-vbs",
             wrongFactsText: "-",
             intensivText: `${gata} / ${total} facte gata`,

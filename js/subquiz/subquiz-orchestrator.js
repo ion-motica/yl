@@ -60,6 +60,29 @@
       });
     }
 
+    // Ca `start`, dar FARA `runtime.begin(payload)` — subquizul devine curent
+    // (are stare, prin `createRuntime`, care o construieste eager) fara sa i
+    // se genereze inca prima intrebare. Exista pt. un singur caz: un quiz care
+    // vrea sa faca `command({action:"push",...})` catre alt subquiz INAINTE ca
+    // subquizul de baza sa apuce sa afiseze ceva — `push` are nevoie de un
+    // `currentRuntime`/`currentId` pe care sa-l salveze pe stiva, dar acel
+    // runtime nu trebuie sa fi "inceput" cu adevarat. La `pop` inapoi, runtime-ul
+    // asa activat isi genereaza singur prima intrebare REALA prin `resume()`
+    // (orice `onResume` care apeleaza `runtime.nextItem(...)`, exact ca la o
+    // revenire normala din alt subquiz) — fara nicio intrebare aruncata si fara
+    // niciun reset manual de stare. Motivat de sq5 "levelStart" din
+    // js/quizzes/multiplication-1120-v4-intensiv-multipli-234.js (cerere user,
+    // 08.09.2026): "base" trebuie sa fie punctul de intoarcere INAINTE de
+    // push-ul spre sq5, dar fara ca userul sa vada vreodata prima lui intrebare
+    // "reala" inainte de asta.
+    function activate(id = activeIds[0], payload = {}) {
+      const def = definitions.get(id);
+      if (!def) throw new Error(`Unknown subquiz: ${id}`);
+      currentId = id;
+      currentRuntime = global.SubquizDefinition.createRuntime(def, context, payload);
+      return currentRuntime;
+    }
+
     function startFirst(payload = {}) {
       if (!activeIds.length) {
         return {
@@ -228,6 +251,7 @@
     return {
       start,
       startFirst,
+      activate,
       onAnswer,
       onTimeout,
       command: handle,

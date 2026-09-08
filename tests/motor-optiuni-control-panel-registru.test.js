@@ -207,7 +207,7 @@ test("B (date reale) — multiplication-1120-v4: sectiunile SQ3 si SQ5 coexista,
   const chei = campuri.map((c) => c.cheie);
 
   assert.ok(chei.includes("sq3ShowStack"), "lipseste un camp din sectiunea SQ3");
-  assert.ok(chei.includes("sq5Mode"), "lipseste un camp din sectiunea SQ5");
+  assert.ok(chei.includes("sq5Entry"), "lipseste un camp din sectiunea SQ5");
 });
 
 // "Testeaza doar subquizul" conectat la registrul central (cerere user,
@@ -223,7 +223,7 @@ test("multiplication-1120-v4: sectiunea subquizStart e a treia, langa SQ3/SQ5, f
   const chei = campuri.map((c) => c.cheie);
 
   assert.ok(chei.includes("sq3ShowStack"));
-  assert.ok(chei.includes("sq5Mode"));
+  assert.ok(chei.includes("sq5Entry"));
   assert.ok(chei.includes("subquizStart"));
 });
 
