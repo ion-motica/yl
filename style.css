@@ -1805,7 +1805,10 @@ body {
    (.control-panel-lift-row), subliniat — nu mai repeta titlul quizului
    caruia ii apartine subquizul. */
 .cp-section-heading--subquiz {
-  background: none;
+  /* Aceeasi nuanta ca --title-banner-bg (fundalul "Quiz: ..."), dar mai
+     putin puternica — cerere user, 10.09.2026: ierarhia sa se vada dintr-o
+     privire, DOAR prin intensitatea fundalului (nimic altceva schimbat). */
+  background: rgba(212, 160, 37, 0.25);
   padding: 0 0.5rem;
   font-size: 0.82rem;
   letter-spacing: normal;
