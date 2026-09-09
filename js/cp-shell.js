@@ -124,10 +124,17 @@
     // Regula unificata PC/telefon: la deschiderea CP din butonul dedicat (telefon)
     // sau la schimbarea quizului (PC), sare la sectiunea proprie a quizului activ
     // (daca are una), altfel cade pe "CP - General".
+    //
+    // Tinta e "quizHeader" (cerere user, 11.09.2026), NU primul panou
+    // "quizSpecific": "quizHeader" e deliberat NEmarcat quizSpecific (ca sa
+    // nu-i afecteze pe ceilalti — vezi comentariul de la inregistrarea lui,
+    // js/app.js), deci ramanea in afara acestei cautari — scroll-ul sarea
+    // direct la primul continut de sub el ("subquiz" etc.), lasand headerul
+    // galben "Quiz: ..." deasupra marginii vizibile, netaiat dar nevazut.
     function scrollToActiveQuizSection() {
       const list = Registry.list();
-      const primary = list.find((def) => def.quizSpecific && def.isEnabled());
-      const target = primary || list.find((def) => def.id === "general" && def.isEnabled());
+      const quizHeader = list.find((def) => def.id === "quizHeader" && def.isEnabled());
+      const target = quizHeader || list.find((def) => def.id === "general" && def.isEnabled());
       if (target) scrollToPanel(target.id, true);
     }
 
