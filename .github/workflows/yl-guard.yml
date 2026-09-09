@@ -117,5 +117,7 @@ jobs:
               )
               sys.exit(1)
 
+# YL Guard red test              
+
           print("YL Guard OK — niciun fișier protejat modificat.")
           PY
