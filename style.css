@@ -1800,21 +1800,25 @@ body {
   color: var(--title-banner-color);
 }
 
-/* Titlu de subquiz (NIVEL 2, cerere user 10.09.2026): fara fundalul galben al
-   headerului de quiz (NIVEL 1), marime ca la etichetele bifelor CP
-   (.control-panel-lift-row), subliniat — nu mai repeta titlul quizului
-   caruia ii apartine subquizul. */
+/* Titlul de quiz ("Quiz: <nume>", NIVEL 1) pastreaza capitalizarea originala
+   a numelui — cerere user, 10.09.2026 — scopat STRICT la panoul "quizHeader"
+   (nu la .cp-section-heading in general: "CP - General"/"Tip lift"/etc.
+   raman ALL CAPS, neatinse). */
+[data-cp-id="quizHeader"] .cp-section-heading {
+  text-transform: none;
+}
+
+/* Titlu de subquiz (NIVEL 2) — nu mai repeta titlul quizului caruia ii
+   apartine subquizul. Stil ales manual de user in Firefox DevTools,
+   10.09.2026 — valorile exacte de mai jos, neatinse. */
 .cp-section-heading--subquiz {
-  /* Aceeasi nuanta ca --title-banner-bg (fundalul "Quiz: ..."), dar mai
-     putin puternica — cerere user, 10.09.2026: ierarhia sa se vada dintr-o
-     privire, DOAR prin intensitatea fundalului (nimic altceva schimbat). */
-  background: rgba(212, 160, 37, 0.25);
+  background: rgba(212, 185, 37, 1);
   padding: 0 0.5rem;
-  font-size: 0.82rem;
+  font-size: 1rem;
   letter-spacing: normal;
   text-transform: none;
-  text-decoration: underline;
-  color: #cbd5e1;
+  text-decoration: none;
+  color: #18191a;
 }
 
 .cp-section-body {
