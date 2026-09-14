@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "yl-garduri": {
+      "source": {
+        "source": "github",
+        "repo": "ion-motica/YL-Claude-garduri"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "yl-claude-garduri@yl-garduri": true
+  }
+}
