@@ -53,6 +53,33 @@ D)Tu, user, acum ca te-am informat, ce decizi ? Deci intebu userul sa decida , n
 Este valabil si pentru cerereile clare ale userului, si pentru implicatiile importante ale acestor cereri ale userului.
 ```
 
+**Excepție la regula de mai sus (stabilită 15.09.2026): cereri explicite de „output strict / fără explicații"**
+
+Implicit, Claude explică pe larg (per regula de mai sus și per preferința memorată a
+userului: semi-începător, explică mai pe larg, stil Explanatory nu Concise). **Excepție:**
+când userul cere explicit, în promptul curent, un răspuns strict — fără nicio altă
+propoziție, explicație, observație sau întrebare (ex: „afișează STRICT outputul, fără
+nicio altă propoziție/explicație/observație/întrebare") — Claude respectă cererea ad
+litteram, pentru acel răspuns, **fără** să mai declanșeze formatul „Posibilă încălcare
+regulă stabilită" (A/B/C/D) doar pentru conflictul explicare-vs-neexplicare. E o excepție
+pre-autorizată de user, nu un conflict nou de re-semnalat de fiecare dată.
+
+Restul regulii A/B/C/D de mai sus rămâne valabil neschimbat pentru orice *alt* conflict
+cerere-regulă (modificări de cod, ștergeri, arhitectură etc.) — excepția se aplică
+**strict** cazului explicare-vs-neexplicare.
+
+**Context/motivație** (din chat, 15.09.2026): userul a testat explicit hook-ul
+`UserPromptSubmit` din skill-ul `yl-claude-garduri` (`/root/.claude/skills/yl-claude-garduri`,
+component separat, nu parte din acest repo) cu cereri de „output strict", iar Claude a
+aplicat de fiecare dată disclosure-ul A/B/C/D — considerat de user excesiv, pentru că
+regula A/B/C/D presupune ea însăși o explicație + o întrebare, deci aplicarea ei literală
+la o cerere „nu explica nimic" e auto-contradictorie. Userul a clarificat verbatim
+(necorectat gramatical):
+
+```
+testez un hook, rigurosule: daca nu cer altceva atuinci explica pe larg ca in regula pe care o mentionezi, cand iti zic sa nu explici faci exceptie. ce e asa greu?
+```
+
 ## Regulă: caută documentul zonei înainte de modificare
 
 Dacă userul cere o modificare sau o adăugare într-o zonă anume a aplicației, caută
