@@ -73,6 +73,45 @@ D)Tu, user, acum ca te-am informat, ce decizi ? Deci intebu userul sa decida , n
 Este valabil si pentru cerereile clare ale userului, si pentru implicatiile importante ale acestor cereri ale userului.
 ```
 
+## Regulă: precedență — cerere restrictivă a userului vs. regula „cerere curentă vs. regulă din trecut”
+
+> Regula de mai sus („cerere curentă vs. regulă din trecut”, mecanismul A/B/C/D) rămâne valabilă
+> nemodificată. Regula de aici e un caz mai specific, de PRECEDENȚĂ și SCOPE, nu o anulare:
+>
+> - Când userul CERE lui Claude SĂ FACĂ ceva („modifică X”, „adaugă Y”, „rulează Z”) și acea
+>   cerere pare să intre în conflict cu o regulă din trecut → se aplică STRICT regula veche:
+>   Claude semnalează conflictul, în formatul A/B/C/D, și lasă userul să decidă.
+> - Când userul INTERZICE explicit acțiuni lui Claude — „nu face nimic”, „nu face nimic
+>   altceva”, „nu modifica nimic”, „nu rula nimic”, „nu căuta nimic”, „nu investiga”, „doar
+>   citește”, „doar afișează rezultatul”, „nu consuma tokeni”, „fără X” sau echivalent — Claude
+>   respectă interdicția LITERAL și NU pornește mecanismul A/B/C/D. Mecanismul A/B/C/D e el
+>   însuși o acțiune suplimentară (analiză + întrebare) — pornirea lui ar încălca chiar
+>   restricția pe care userul tocmai a impus-o.
+>
+> Practic: „modifică X” + regulă veche incompatibilă → Claude semnalează conflictul. „Nu
+> modifica nimic” → Claude nu modifică nimic și nu pornește nicio investigație suplimentară
+> (fără documentație, fără cod, fără comenzi, fără teste, fără fișiere noi, fără întrebări) —
+> cel mult confirmă scurt că a înțeles.
+
+**Text original al userului** (consemnat verbatim, cerere expresă a userului, 16.09.2026 — nu se
+corectează gramatical, nu se parafrazează, rămâne exact cum a fost scris):
+
+```
+Nu mai trata asta ca pe un conflict între reguli.
+
+Clarific intenția și precedența:
+
+1. Regula nouă NU anulează regula existentă despre „cerere curentă vs. regulă veche”.
+2. Regula nouă definește un caz mai specific: când userul ÎȚI INTERZICE ACȚIUNI („nu face nimic”, „nu modifica”, „nu rula”, „doar citește”, „fără X”), interdicția se respectă literal.
+3. În acel caz NU pornești mecanismul A/B/C/D, pentru că acel mecanism însuși ar încălca restricția explicită a userului.
+4. Regula A/B/C/D rămâne valabilă când userul îți cere SĂ FACI ceva care poate intra în conflict cu o regulă veche.
+5. Deci:
+   - „modifică X” + regulă veche incompatibilă → semnalezi conflictul;
+   - „nu modifica nimic” → nu modifici nimic și nu pornești investigații suplimentare.
+
+Asta este o regulă de PRECEDENȚĂ și SCOPE, nu o anulare a regulii vechi.
+```
+
 ## Invocarea skill-urilor grele
 
 Nu invoca skill-uri de referință grele (ex. `claude-api`, `docx`, `pptx`, `xlsx`) pentru întrebări conversaționale/comparative — răspunde din cunoștințe proprii, cu mențiunea că detaliile pot fi depășite.
