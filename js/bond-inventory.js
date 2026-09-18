@@ -62,10 +62,19 @@
   // jos), ca sa nu existe doua locuri care decid cum arata un rand. Randul
   // nerezolvat arata "{nivel}=" urmat de nimic — nu gol (cerere user,
   // 30.08.2026: rectificare fata de varianta initiala complet goala).
+  // Reper invizibil (span gol) pt. zborul cifrelor "a+b" din intrebare pana
+  // aici (zboaraCifre, js/bond-illustration.js) — imbricat IN span-ul "="
+  // existent, nu ca frate nou: .inventar-bonduri-rand e flex cu gap, iar un
+  // copil flex in plus ar introduce un gap suplimentar si ar strica
+  // masurile de latime folosite la scalarea fontului (masoaraRand). Ancora
+  // identica din partea de intrebare: currentLineHtml, in quiz.
+  const ANCORA_CIFRE_ZBOR_HTML = `<span class="ancora-cifre-zbor"></span>`;
+
   function continutRand(rand, nivel) {
-    if (!rand.rezolvat) return `<span class="inventar-bonduri-semn">${nivel}=</span>`;
+    if (!rand.rezolvat)
+      return `<span class="inventar-bonduri-semn">${nivel}=${ANCORA_CIFRE_ZBOR_HTML}</span>`;
     return (
-      `<span class="inventar-bonduri-semn">${nivel}=</span>` +
+      `<span class="inventar-bonduri-semn">${nivel}=${ANCORA_CIFRE_ZBOR_HTML}</span>` +
       `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareA}">${rand.a}</span>` +
       `<span class="inventar-bonduri-semn">+</span>` +
       `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareB}">${rand.b}</span>` +

@@ -924,14 +924,20 @@ body {
   animation-name: ilustrare-zbor-cifre;
   animation-timing-function: ease-in-out;
   animation-fill-mode: forwards;
+  /* JS pune `top` = centrul vertical al reperului (ancoraSursaEl), nu
+     coltul de sus al grupului — ridicarea cu jumatate din inaltimea
+     proprie se face aici, la fel ca la .ilustrare-bonduri mai sus. */
+  transform: translateY(-50%);
 }
 
 @keyframes ilustrare-zbor-cifre {
   from {
-    transform: translate(0, 0);
+    transform: translateY(-50%) translate(0, 0);
   }
   to {
-    transform: translate(var(--ilustrare-cifre-dx), var(--ilustrare-cifre-dy));
+    /* Translatiile se aduna indiferent de ordine — centrarea verticala
+       constanta ramane valabila pe tot parcursul zborului. */
+    transform: translateY(-50%) translate(var(--ilustrare-cifre-dx), var(--ilustrare-cifre-dy));
   }
 }
 
