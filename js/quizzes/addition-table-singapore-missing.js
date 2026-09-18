@@ -221,9 +221,16 @@
     // gaseste span-ul marcat si-l revelaza in loc, exact ca la orice alt quiz.
     function currentLineHtml(fact, missingSide = currentMissingSide) {
       const k = knownAddend(fact, missingSide);
+      // Reper invizibil (span gol), plasat imediat dupa "=" — punctul exact
+      // de unde pleaca perechea de cifre in zbor (zboaraCifre, cerere user,
+      // 18.09.2026: pozitia veche, calculata din dreptunghiul intregii linii
+      // "linia-curenta", nu coincidea cu locul real al cifrelor, pentru ca
+      // linia contine si nivelul dinaintea semnului "="). Vezi ancora identica
+      // din bond-inventory.js (continutRand) pt. capatul de sosire.
+      const ancora = `<span class="ancora-cifre-zbor"></span>`;
       return missingSide === "left"
-        ? `${level}=${placeholder.marcaj()}+${k}`
-        : `${level}=${k}+${placeholder.marcaj()}`;
+        ? `${level}=${ancora}${placeholder.marcaj()}+${k}`
+        : `${level}=${ancora}${k}+${placeholder.marcaj()}`;
     }
 
     // Inventarul bv-urilor nivelului curent — live, fara intarziere. Cerere
@@ -666,14 +673,23 @@
                 // cu zborul merelor de mai sus (aceeasi durata din CP).
                 // Cifrele randului DESTINATIE (tocmai scrise mai sus) raman
                 // ascunse pana aterizeaza, ca sa nu apara de doua ori.
+                //
+                // Pozitia de plecare/sosire vine din reperele ".ancora-cifre-zbor"
+                // (span gol imediat dupa "="), NU din dreptunghiul intreg al
+                // liniei/randului — acela include si alte lucruri (nivelul,
+                // spatiul rezervat ilustratiei cu mere), deci nu coincide cu
+                // locul real al cifrelor (bug raportat de user, 18.09.2026:
+                // cifrele porneau/aterizau in alta parte decat dreapta lui "=").
                 if (randEl && getPlutireCifre() && typeof document !== "undefined") {
                   const cifreRand = randEl.querySelectorAll(".inventar-bonduri-numar");
                   const liniaCurentaEl = document.querySelector('[data-element-div-intrebare="linia-curenta"]');
-                  if (cifreRand.length === 2 && liniaCurentaEl) {
+                  const ancoraSursa = liniaCurentaEl?.querySelector(".ancora-cifre-zbor");
+                  const ancoraDestinatie = randEl.querySelector(".ancora-cifre-zbor");
+                  if (cifreRand.length === 2 && ancoraSursa && ancoraDestinatie) {
                     cifreRand.forEach((el) => el.classList.add("e-cifra-in-zbor"));
                     global.IlustrareBonduri.zboaraCifre({
-                      sursaEl: liniaCurentaEl,
-                      destinatieEl: randEl,
+                      ancoraSursaEl: ancoraSursa,
+                      ancoraDestinatieEl: ancoraDestinatie,
                       a,
                       b,
                       culoareA: global.InventarBonduri.culoareNumar(a),

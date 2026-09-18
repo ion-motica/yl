@@ -226,28 +226,39 @@
 
   // Perechea de cifre colorate "a+b" care zboara de la intrebarea
   // propriu-zisa pana la randul ei din tabel — independenta de instanta
-  // ilustratiei (nu are nevoie de elDiv/cosuri, doar de doua elemente deja
+  // ilustratiei (nu are nevoie de elDiv/cosuri, doar de doua repere deja
   // randate: sursa si destinatia), la fel ca zboaraGrupul de mai jos.
-  // Cerere user (01.09.2026): "dupa ce am dat raspunsul vreau ca numerele
-  // colorate 5+2 sa apara exact suprapuse peste numerele 5+2 din intrebarea
-  // propriu zisa si sa pluteasca pana ajung la locul lor pe randul
-  // corespunzator". "Suprapus" (confirmat de user) = pozitionat exact peste
-  // dreptunghiul sursei, nu deasupra ei — de-aia grupul ia latimea/inaltimea
-  // lui sursaEl, nu doar un punct. Apelanta (quiz) e responsabila sa ascunda
-  // cifrele din randul destinatie pana aterizeaza (acelasi tipar ca
-  // indiciSosire/e-in-zbor la discuri) — functia asta doar deseneaza zborul.
-  function zboaraCifre({ sursaEl, destinatieEl, a, b, culoareA, culoareB }) {
-    if (!sursaEl || !destinatieEl) return;
-    const rSursa = sursaEl.getBoundingClientRect();
-    const rDest = destinatieEl.getBoundingClientRect();
+  //
+  // `ancoraSursaEl`/`ancoraDestinatieEl` sunt REPERE PUNCTUALE (span-uri
+  // goale ".ancora-cifre-zbor", plasate imediat dupa "=" — vezi
+  // currentLineHtml din quiz si continutRand din bond-inventory.js), NU
+  // containerele intregi ale liniei/randului. Varianta veche folosea
+  // dreptunghiul intreg al containerului (potrivea latimea/inaltimea
+  // grupului cu sursaEl, translata spre centrul lui destinatieEl) — parea
+  // sa mearga doar pe verticala, intamplator (inaltimea liniei ~ inaltimea
+  // cifrelor); pe orizontala insa containerele includ si alt continut
+  // (nivelul dinaintea lui "=", spatiul rezervat ilustratiei cu mere), deci
+  // pozitia calculata nu coincidea cu locul real al cifrelor (bug raportat
+  // de user, 18.09.2026). Cu un reper punctual, grupul isi ia dimensiunea
+  // naturala (nu mai e fortat la dimensiunea containerului) si se
+  // pozitioneaza cu coltul stanga + centrul vertical exact pe reper.
+  function zboaraCifre({ ancoraSursaEl, ancoraDestinatieEl, a, b, culoareA, culoareB }) {
+    if (!ancoraSursaEl || !ancoraDestinatieEl) return;
+    const rSursa = ancoraSursaEl.getBoundingClientRect();
+    const rDest = ancoraDestinatieEl.getBoundingClientRect();
     const grup = document.createElement("div");
     grup.className = "ilustrare-cifre-zbor";
+    // `top` = centrul vertical al reperului, nu coltul de sus — grupul se
+    // ridica singur cu jumatate din inaltimea proprie prin translateY(-50%)
+    // din CSS (vezi .ilustrare-cifre-zbor), ca sa nu fie nevoie sa-i
+    // masuram inaltimea aici inainte sa-l pozitionam.
     grup.style.left = `${rSursa.left}px`;
-    grup.style.top = `${rSursa.top}px`;
-    grup.style.width = `${rSursa.width}px`;
-    grup.style.height = `${rSursa.height}px`;
-    grup.style.setProperty("--ilustrare-cifre-dx", `${rDest.left + rDest.width / 2 - (rSursa.left + rSursa.width / 2)}px`);
-    grup.style.setProperty("--ilustrare-cifre-dy", `${rDest.top + rDest.height / 2 - (rSursa.top + rSursa.height / 2)}px`);
+    grup.style.top = `${rSursa.top + rSursa.height / 2}px`;
+    grup.style.setProperty("--ilustrare-cifre-dx", `${rDest.left - rSursa.left}px`);
+    grup.style.setProperty(
+      "--ilustrare-cifre-dy",
+      `${rDest.top + rDest.height / 2 - (rSursa.top + rSursa.height / 2)}px`
+    );
     const ms = getDurataTranzitieMs();
     grup.style.animationDuration = `${ms}ms`;
     grup.innerHTML =
