@@ -628,7 +628,23 @@
             let zborDeclansat = false;
             if (!esteRecuperareInFazaPrincipala) {
               const bvLabel = decompositionLabel(currentFact);
-              bvRezolvate.add(bvLabel);
+              // Cand cifrele urmeaza sa zboare (bifa CP pornita + DOM real),
+              // marcarea "rezolvat" (bvRezolvate) se AMANA pana la sosirea
+              // zborului (setTimeout mai jos) — randul ramane in starea lui
+              // naturala "nerezolvat" (continutRand: doar "{nivel}=" + un
+              // container gol .cifre-zbor-continut) cat timp zboara cifrele.
+              // Fara asta, orice rescriere intermediara a tabelului (motorul
+              // comun, la ~160ms dupa click, cand aplica intrebarea urmatoare
+              // — DEFAULT_REVEAL_HOLD_MS, vezi falling-engine.js) l-ar
+              // re-desena cu continutul real, cu mult inainte sa se termine
+              // zborul de cateva secunde (bug raportat de user, 19.09.2026).
+              // Nicio clasa CSS de ascundere pe destinatie: un rand care pur
+              // si simplu inca nu e marcat rezolvat arata gol de la sine —
+              // nu exista nimic de "descoperit" din greseala de vreo alta
+              // randare (cerere user, 19.09.2026: "de ce sa pui clasa de
+              // ascundere? scrie direct dupa ce ai sters divul zburat").
+              const cuAnimatieCifre = getPlutireCifre() && typeof document !== "undefined";
+              if (!cuAnimatieCifre) bvRezolvate.add(bvLabel);
               // Testele de logica pura ale quizului ruleaza fara DOM (Node,
               // fara `document`) — ilustratia are nevoie de DOM real, deci se
               // declanseaza doar in browser, nu schimba deloc fluxul de raspuns.
@@ -664,55 +680,56 @@
                   acumuleaza: getIlustrareLa() === "toate",
                 });
                 zborDeclansat = Boolean(rezultatIlustratie?.zborDeclansat);
-                // Randul propriu (cifrele "a+b") se scrie ACUM, in aceeasi
-                // bucla sincrona ca ilustratia — altfel motorul il rescrie
-                // abia peste ~160ms (DEFAULT_REVEAL_HOLD_MS, vezi
-                // falling-engine.js), iar ilustratia apare langa un rand inca
-                // gol "{nivel}=" (cerere user, 31.08.2026: "trebuie sa apara
-                // simultan tot, instantaneu").
-                const elemRand = global.InventarBonduri.elementeDivIntrebare(inventarCurent()).find(
-                  (elem) => elem.id === `bv-${bvLabel}`
-                );
-                if (randEl && elemRand) randEl.innerHTML = elemRand.html;
 
-                // Perechea de cifre colorate "a+b" zboara de la intrebarea
-                // propriu-zisa pana la randul ei (cerere user, 01.09.2026,
-                // CP "Plutire raspuns numeric spre ilustratie:") — sincron
-                // cu zborul merelor de mai sus (aceeasi durata din CP).
-                //
-                // Sursa SI destinatia isi invelesc fiecare "a+b" (numarul
-                // cunoscut+placeholder-ul la sursa; cifrele+semnul "+" la
-                // destinatie) intr-un singur container ".cifre-zbor-continut"
-                // (currentLineHtml in acest fisier / continutRand in
-                // bond-inventory.js) — un singur element de ascuns/aratat la
-                // fiecare capat, ale carui margini coincid exact cu inceputul/
-                // sfarsitul cifrelor reale. Bug raportat de user (19.09.2026)
-                // dupa testare pe web, cu varianta anterioara (ancora separata
-                // + doar cele 2 spanuri de cifre ascunse individual la
-                // destinatie): semnul "+" dintre cifre nu se ascundea
-                // niciodata, iar ancora, imbricata inaintea gap-ului flex
-                // dintre "=" si prima cifra, aterizeaza cu un gap mai la
-                // stanga decat cifrele reale.
-                if (randEl && getPlutireCifre() && typeof document !== "undefined") {
-                  const liniaCurentaEl = document.querySelector('[data-element-div-intrebare="linia-curenta"]');
-                  const continutSursa = liniaCurentaEl?.querySelector(".cifre-zbor-continut");
-                  const continutDestinatie = randEl.querySelector(".cifre-zbor-continut");
-                  if (continutSursa && continutDestinatie) {
-                    continutSursa.classList.add("e-cifra-in-zbor");
-                    continutDestinatie.classList.add("e-cifra-in-zbor");
-                    global.IlustrareBonduri.zboaraCifre({
-                      tintaSursaEl: continutSursa,
-                      tintaDestinatieEl: continutDestinatie,
-                      a,
-                      b,
-                      culoareA: global.InventarBonduri.culoareNumar(a),
-                      culoareB: global.InventarBonduri.culoareNumar(b),
-                    });
-                    setTimeout(() => {
-                      continutSursa.classList.remove("e-cifra-in-zbor");
-                      continutDestinatie.classList.remove("e-cifra-in-zbor");
-                    }, global.IlustrareBonduri.getDurataTranzitieMs());
-                  }
+                // Sursa isi inveleste "a+b" (numarul cunoscut+placeholder-ul)
+                // intr-un container ".cifre-zbor-continut" (currentLineHtml,
+                // in acest fisier) — ascuns cu o clasa CSS direct la click,
+                // pentru ca linia intrebarii trebuie sa arate INTOTDEAUNA
+                // ceva (nu are o stare naturala "goala" de folosit, spre
+                // deosebire de randul din tabel).
+                const liniaCurentaEl = cuAnimatieCifre
+                  ? document.querySelector('[data-element-div-intrebare="linia-curenta"]')
+                  : null;
+                const continutSursa = liniaCurentaEl?.querySelector(".cifre-zbor-continut");
+                // Destinatia (randul din tabel) ramane INCA nerezolvata —
+                // .cifre-zbor-continut exista deja acolo, gol (vezi
+                // continutRand), si serveste direct ca reper de aterizare:
+                // pozitia lui nu se schimba fata de cand va fi populat.
+                const continutDestinatie = cuAnimatieCifre ? randEl?.querySelector(".cifre-zbor-continut") : null;
+
+                if (cuAnimatieCifre && continutSursa && continutDestinatie) {
+                  continutSursa.classList.add("e-cifra-in-zbor");
+                  global.IlustrareBonduri.zboaraCifre({
+                    tintaSursaEl: continutSursa,
+                    tintaDestinatieEl: continutDestinatie,
+                    a,
+                    b,
+                    culoareA: global.InventarBonduri.culoareNumar(a),
+                    culoareB: global.InventarBonduri.culoareNumar(b),
+                  });
+                  setTimeout(() => {
+                    continutSursa.classList.remove("e-cifra-in-zbor");
+                    // Abia ACUM (dupa ce a disparut divul zburator) bv-ul
+                    // devine rezolvat, iar randul se scrie cu continutul
+                    // final — cautat din nou, nu memorat, ca sa reflecte
+                    // corect orice rescriere intermediara facuta de motor.
+                    bvRezolvate.add(bvLabel);
+                    const elemRandFinal = global.InventarBonduri.elementeDivIntrebare(inventarCurent()).find(
+                      (elem) => elem.id === `bv-${bvLabel}`
+                    );
+                    if (randEl && elemRandFinal) randEl.innerHTML = elemRandFinal.html;
+                  }, global.IlustrareBonduri.getDurataTranzitieMs());
+                } else {
+                  // Fara animatie de cifre (bifa oprita) SAU containerele
+                  // asteptate lipsesc (fallback defensiv, ca randul sa nu
+                  // ramana gol la nesfarsit): rezolva si scrie imediat, ca
+                  // inainte de acest fix — pasul 1 duce direct la pasul 6,
+                  // fara ascundere si fara asteptare (cerere user, 19.09.2026).
+                  if (cuAnimatieCifre) bvRezolvate.add(bvLabel);
+                  const elemRand = global.InventarBonduri.elementeDivIntrebare(inventarCurent()).find(
+                    (elem) => elem.id === `bv-${bvLabel}`
+                  );
+                  if (randEl && elemRand) randEl.innerHTML = elemRand.html;
                 }
               }
             }
