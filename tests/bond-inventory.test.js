@@ -92,7 +92,8 @@ describe("bond-inventory (InventarBonduri)", () => {
     assert.ok(
       html.includes(
         '<div class="inventar-bonduri-rand e-gol" data-element-div-intrebare="bv-1+3">' +
-          '<span class="inventar-bonduri-semn">4=<span class="ancora-cifre-zbor"></span></span></div>'
+          '<span class="inventar-bonduri-semn">4=<span class="ancora-cifre-zbor"></span></span>' +
+          '<span class="cifre-zbor-continut"></span></div>'
       ),
       "randul nerezolvat 1+3 trebuie sa contina textul '4=' in acelasi span mic ca randurile rezolvate, nu un div gol"
     );
@@ -122,7 +123,8 @@ describe("bond-inventory (InventarBonduri)", () => {
     const nerezolvat = elemente.find((el) => el.id === "bv-1+3");
     assert.equal(
       nerezolvat.html,
-      '<span class="inventar-bonduri-semn">4=<span class="ancora-cifre-zbor"></span></span>'
+      '<span class="inventar-bonduri-semn">4=<span class="ancora-cifre-zbor"></span></span>' +
+        '<span class="cifre-zbor-continut"></span>'
     );
 
     const rezolvat = elemente.find((el) => el.id === "bv-2+2");

@@ -71,20 +71,25 @@
   const ANCORA_CIFRE_ZBOR_HTML = `<span class="ancora-cifre-zbor"></span>`;
 
   function continutRand(rand, nivel) {
-    if (!rand.rezolvat)
-      return `<span class="inventar-bonduri-semn">${nivel}=${ANCORA_CIFRE_ZBOR_HTML}</span>`;
-    // "a" + "+" + "b" invelite intr-un singur container (.cifre-zbor-continut,
-    // acelasi nume ca la sursa, in currentLineHtml) — cerere user (19.09.2026,
-    // bug raportat dupa testare pe web): ascunderea si pozitionarea zborului
-    // foloseau doar ancora + cele 2 spanuri de cifre separat, ceea ce (a) uita
-    // sa ascunda semnul "+" dintre ele (ramanea mereu vizibil) si (b) plasa
-    // ancora INAINTE de gap-ul flex dintre "=" si "a", nu chiar unde incepe
-    // cifra — marginea acestui container coincide exact cu inceputul lui "a",
-    // fara alt gap de calculat. Vezi zboaraCifre (js/bond-illustration.js) si
-    // .inventar-bonduri-rand .cifre-zbor-continut (style.css) pt. gap-ul intern
-    // pastrat identic cu cel dinainte de impachetare.
+    const semn = `<span class="inventar-bonduri-semn">${nivel}=${ANCORA_CIFRE_ZBOR_HTML}</span>`;
+    // Containerul .cifre-zbor-continut exista ÎNTOTDEAUNA ca element — gol
+    // cand randul nu e inca rezolvat, populat cu "a"+"+"+"b" cand e rezolvat.
+    // Pozitia lui in flex NU se schimba intre cele doua stari (acelasi loc,
+    // doar continut diferit), deci poate servi ca reper de aterizare pt.
+    // zborul cifrelor (zboaraCifre, js/bond-illustration.js) chiar cat timp
+    // e gol — fara nicio clasa CSS de ascundere pe destinatie. Cerere user
+    // (19.09.2026, dupa 2 incercari anterioare bazate pe o clasa de
+    // ascundere): un rand care pur si simplu NU E INCA marcat rezolvat
+    // (bvRezolvate, in quiz) arata gol de la sine — nu exista nimic de
+    // "ascuns", deci nimic care poate fi "descoperit" din greseala de vreo
+    // alta randare (ex. motorul comun, la ~160ms dupa raspuns, cand rescrie
+    // tot tabelul pt. intrebarea urmatoare — vezi addition-table-singapore-missing.js).
+    if (!rand.rezolvat) return `${semn}<span class="cifre-zbor-continut"></span>`;
+    // "+" ramane INAUNTRU acelasi container ca cele 2 cifre (nu separat) —
+    // bug raportat de user (19.09.2026): semnul "+" nu era niciodata ascuns
+    // in varianta veche, care ascundea doar cele 2 spanuri de cifre.
     return (
-      `<span class="inventar-bonduri-semn">${nivel}=${ANCORA_CIFRE_ZBOR_HTML}</span>` +
+      semn +
       `<span class="cifre-zbor-continut">` +
       `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareA}">${rand.a}</span>` +
       `<span class="inventar-bonduri-semn">+</span>` +
