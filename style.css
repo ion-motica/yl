@@ -961,10 +961,13 @@ body {
   opacity: 0.85;
 }
 
-/* Cifrele randului destinatie stau invizibile cat dureaza zborul perechii
-   de mai sus, ca sa nu apara de doua ori (si sus, in intrebare, si jos, pe
-   rand) — acelasi tipar ca .ilustrare-bonduri-disc.e-in-zbor. */
-.inventar-bonduri-numar.e-cifra-in-zbor {
+/* Ascuns cat dureaza zborul perechii colorate "a+b" (zboaraCifre) — la ambele
+   capete: cifrele randului destinatie SI textul static din intrebare
+   (.cifre-zbor-continut, cerere user 19.09.2026), ca sa nu apara de doua ori
+   (o data static, o data in perechea plutitoare) — acelasi tipar ca
+   .ilustrare-bonduri-disc.e-in-zbor. Generic, nu legat de o singura clasa de
+   element: se aplica si scoate dinamic din JS, la ambele capete deopotriva. */
+.e-cifra-in-zbor {
   visibility: hidden;
 }
 
