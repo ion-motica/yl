@@ -73,11 +73,23 @@
   function continutRand(rand, nivel) {
     if (!rand.rezolvat)
       return `<span class="inventar-bonduri-semn">${nivel}=${ANCORA_CIFRE_ZBOR_HTML}</span>`;
+    // "a" + "+" + "b" invelite intr-un singur container (.cifre-zbor-continut,
+    // acelasi nume ca la sursa, in currentLineHtml) — cerere user (19.09.2026,
+    // bug raportat dupa testare pe web): ascunderea si pozitionarea zborului
+    // foloseau doar ancora + cele 2 spanuri de cifre separat, ceea ce (a) uita
+    // sa ascunda semnul "+" dintre ele (ramanea mereu vizibil) si (b) plasa
+    // ancora INAINTE de gap-ul flex dintre "=" si "a", nu chiar unde incepe
+    // cifra — marginea acestui container coincide exact cu inceputul lui "a",
+    // fara alt gap de calculat. Vezi zboaraCifre (js/bond-illustration.js) si
+    // .inventar-bonduri-rand .cifre-zbor-continut (style.css) pt. gap-ul intern
+    // pastrat identic cu cel dinainte de impachetare.
     return (
       `<span class="inventar-bonduri-semn">${nivel}=${ANCORA_CIFRE_ZBOR_HTML}</span>` +
+      `<span class="cifre-zbor-continut">` +
       `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareA}">${rand.a}</span>` +
       `<span class="inventar-bonduri-semn">+</span>` +
       `<span class="inventar-bonduri-numar" style="background-color:${rand.culoareB}">${rand.b}</span>` +
+      `</span>` +
       LOC_ILUSTRATIE_HTML
     );
   }

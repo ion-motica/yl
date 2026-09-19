@@ -971,6 +971,18 @@ body {
   visibility: hidden;
 }
 
+/* .cifre-zbor-continut la destinatie (in randul din tabel) e flex, ca sa
+   pastreze acelasi gap intre "a", "+" si "b" ca inainte de impachetarea lor
+   intr-un singur container (vezi continutRand, bond-inventory.js). Pe partea
+   de intrebare (.singapore-current), acelasi nume de clasa invelesc text
+   simplu amestecat cu placeholder-ul — ramane inline simplu, fara flex/gap,
+   de-aia regula de-aici e scopata doar la randul din tabel. */
+.inventar-bonduri-rand .cifre-zbor-continut {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .singapore-prompt {
   display: flex;
   flex-direction: column;

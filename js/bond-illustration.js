@@ -229,23 +229,30 @@
   // ilustratiei (nu are nevoie de elDiv/cosuri, doar de doua repere deja
   // randate: sursa si destinatia), la fel ca zboaraGrupul de mai jos.
   //
-  // `ancoraSursaEl`/`ancoraDestinatieEl` sunt REPERE PUNCTUALE (span-uri
-  // goale ".ancora-cifre-zbor", plasate imediat dupa "=" — vezi
-  // currentLineHtml din quiz si continutRand din bond-inventory.js), NU
-  // containerele intregi ale liniei/randului. Varianta veche folosea
-  // dreptunghiul intreg al containerului (potrivea latimea/inaltimea
-  // grupului cu sursaEl, translata spre centrul lui destinatieEl) — parea
-  // sa mearga doar pe verticala, intamplator (inaltimea liniei ~ inaltimea
-  // cifrelor); pe orizontala insa containerele includ si alt continut
-  // (nivelul dinaintea lui "=", spatiul rezervat ilustratiei cu mere), deci
-  // pozitia calculata nu coincidea cu locul real al cifrelor (bug raportat
-  // de user, 18.09.2026). Cu un reper punctual, grupul isi ia dimensiunea
+  // `tintaSursaEl`/`tintaDestinatieEl` sunt elementele ale caror margini dau
+  // punctul de plecare/sosire — colt stanga + centru vertical, NU containerul
+  // intreg al liniei/randului (vezi currentLineHtml din quiz si continutRand
+  // din bond-inventory.js: ambele invelesc "a+b" intr-un `.cifre-zbor-continut`
+  // ale carui margini coincid exact cu inceputul/sfarsitul cifrelor). Nu se
+  // numesc "ancora*" — nu trebuie sa fie neaparat un span punctual gol,
+  // orice element ale carui margini sunt reperul corect functioneaza (de
+  // exemplu, un ancora-cifre-zbor separat, imbricat intr-un alt element, NU
+  // ar fi un reper corect daca intre el si continut mai e un gap flex — bug
+  // raportat de user, 19.09.2026: pozitia de sosire era cu un gap la stanga
+  // fata de cifrele reale, plus semnul "+" dintre ele nu se ascundea).
+  // Varianta si mai veche folosea dreptunghiul intreg al liniei/randului
+  // (potrivea latimea/inaltimea grupului cu sursaEl, translata spre centrul
+  // lui destinatieEl) — parea sa mearga doar pe verticala, intamplator
+  // (inaltimea liniei ~ inaltimea cifrelor); pe orizontala insa containerele
+  // includeau si alt continut (nivelul dinaintea lui "=", spatiul rezervat
+  // ilustratiei cu mere), deci pozitia calculata nu coincidea cu locul real
+  // al cifrelor (bug raportat de user, 18.09.2026). Grupul isi ia dimensiunea
   // naturala (nu mai e fortat la dimensiunea containerului) si se
-  // pozitioneaza cu coltul stanga + centrul vertical exact pe reper.
-  function zboaraCifre({ ancoraSursaEl, ancoraDestinatieEl, a, b, culoareA, culoareB }) {
-    if (!ancoraSursaEl || !ancoraDestinatieEl) return;
-    const rSursa = ancoraSursaEl.getBoundingClientRect();
-    const rDest = ancoraDestinatieEl.getBoundingClientRect();
+  // pozitioneaza cu coltul stanga + centrul vertical exact pe tinta.
+  function zboaraCifre({ tintaSursaEl, tintaDestinatieEl, a, b, culoareA, culoareB }) {
+    if (!tintaSursaEl || !tintaDestinatieEl) return;
+    const rSursa = tintaSursaEl.getBoundingClientRect();
+    const rDest = tintaDestinatieEl.getBoundingClientRect();
     const grup = document.createElement("div");
     grup.className = "ilustrare-cifre-zbor";
     // `top` = centrul vertical al reperului, nu coltul de sus — grupul se

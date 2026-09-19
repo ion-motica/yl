@@ -679,39 +679,38 @@
                 // propriu-zisa pana la randul ei (cerere user, 01.09.2026,
                 // CP "Plutire raspuns numeric spre ilustratie:") — sincron
                 // cu zborul merelor de mai sus (aceeasi durata din CP).
-                // Cifrele randului DESTINATIE (tocmai scrise mai sus) raman
-                // ascunse pana aterizeaza, ca sa nu apara de doua ori.
                 //
-                // Pozitia de plecare/sosire vine din reperele ".ancora-cifre-zbor"
-                // (span gol imediat dupa "="), NU din dreptunghiul intreg al
-                // liniei/randului — acela include si alte lucruri (nivelul,
-                // spatiul rezervat ilustratiei cu mere), deci nu coincide cu
-                // locul real al cifrelor (bug raportat de user, 18.09.2026:
-                // cifrele porneau/aterizau in alta parte decat dreapta lui "=").
+                // Sursa SI destinatia isi invelesc fiecare "a+b" (numarul
+                // cunoscut+placeholder-ul la sursa; cifrele+semnul "+" la
+                // destinatie) intr-un singur container ".cifre-zbor-continut"
+                // (currentLineHtml in acest fisier / continutRand in
+                // bond-inventory.js) — un singur element de ascuns/aratat la
+                // fiecare capat, ale carui margini coincid exact cu inceputul/
+                // sfarsitul cifrelor reale. Bug raportat de user (19.09.2026)
+                // dupa testare pe web, cu varianta anterioara (ancora separata
+                // + doar cele 2 spanuri de cifre ascunse individual la
+                // destinatie): semnul "+" dintre cifre nu se ascundea
+                // niciodata, iar ancora, imbricata inaintea gap-ului flex
+                // dintre "=" si prima cifra, aterizeaza cu un gap mai la
+                // stanga decat cifrele reale.
                 if (randEl && getPlutireCifre() && typeof document !== "undefined") {
-                  const cifreRand = randEl.querySelectorAll(".inventar-bonduri-numar");
                   const liniaCurentaEl = document.querySelector('[data-element-div-intrebare="linia-curenta"]');
-                  const ancoraSursa = liniaCurentaEl?.querySelector(".ancora-cifre-zbor");
-                  const ancoraDestinatie = randEl.querySelector(".ancora-cifre-zbor");
-                  // Textul static din intrebare (numarul cunoscut + placeholder/
-                  // revelat) — ascuns cat timp zboara perechea colorata, la fel
-                  // ca cifrele din tabel mai jos, ca sa nu stea amandoua vizibile
-                  // deodata (cerere user, 19.09.2026).
                   const continutSursa = liniaCurentaEl?.querySelector(".cifre-zbor-continut");
-                  if (cifreRand.length === 2 && ancoraSursa && ancoraDestinatie && continutSursa) {
-                    cifreRand.forEach((el) => el.classList.add("e-cifra-in-zbor"));
+                  const continutDestinatie = randEl.querySelector(".cifre-zbor-continut");
+                  if (continutSursa && continutDestinatie) {
                     continutSursa.classList.add("e-cifra-in-zbor");
+                    continutDestinatie.classList.add("e-cifra-in-zbor");
                     global.IlustrareBonduri.zboaraCifre({
-                      ancoraSursaEl: ancoraSursa,
-                      ancoraDestinatieEl: ancoraDestinatie,
+                      tintaSursaEl: continutSursa,
+                      tintaDestinatieEl: continutDestinatie,
                       a,
                       b,
                       culoareA: global.InventarBonduri.culoareNumar(a),
                       culoareB: global.InventarBonduri.culoareNumar(b),
                     });
                     setTimeout(() => {
-                      cifreRand.forEach((el) => el.classList.remove("e-cifra-in-zbor"));
                       continutSursa.classList.remove("e-cifra-in-zbor");
+                      continutDestinatie.classList.remove("e-cifra-in-zbor");
                     }, global.IlustrareBonduri.getDurataTranzitieMs());
                   }
                 }
