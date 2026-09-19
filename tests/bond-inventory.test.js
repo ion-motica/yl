@@ -129,9 +129,11 @@ describe("bond-inventory (InventarBonduri)", () => {
     assert.equal(
       rezolvat.html,
       `<span class="inventar-bonduri-semn">4=<span class="ancora-cifre-zbor"></span></span>` +
+        `<span class="cifre-zbor-continut">` +
         `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>` +
         `<span class="inventar-bonduri-semn">+</span>` +
         `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>` +
+        `</span>` +
         `<span class="inventar-bonduri-loc-ilustratie"></span>`
     );
   });
@@ -150,6 +152,7 @@ describe("bond-inventory (InventarBonduri)", () => {
     assert.ok(
       html.includes(
         `<span class="inventar-bonduri-numar" style="background-color:${InventarBonduri.culoareNumar(2)}">2</span>` +
+          `</span>` +
           `<span class="inventar-bonduri-loc-ilustratie"></span></div>`
       ),
       "locul rezervat trebuie sa fie ULTIMUL element din rand, imediat dupa al doilea numar"
