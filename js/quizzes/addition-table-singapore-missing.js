@@ -228,9 +228,17 @@
       // linia contine si nivelul dinaintea semnului "="). Vezi ancora identica
       // din bond-inventory.js (continutRand) pt. capatul de sosire.
       const ancora = `<span class="ancora-cifre-zbor"></span>`;
-      return missingSide === "left"
-        ? `${level}=${ancora}${placeholder.marcaj()}+${k}`
-        : `${level}=${ancora}${k}+${placeholder.marcaj()}`;
+      // Partea de dupa ancora (numarul cunoscut + placeholder/raspunsul
+      // revelat) invelita intr-un span propriu — cerere user (19.09.2026):
+      // cat timp zboara perechea colorata "a+b", textul static de-aici
+      // trebuie ascuns (nu doar acoperit vizual), ca sa nu stea suprapus cu
+      // copia ei colorata care tocmai a pornit din acelasi loc. Ascunderea
+      // efectiva se face la locul de apel (dupaRaspunsCorect), simetric cu
+      // .inventar-bonduri-numar de la destinatie — vezi acolo.
+      const continut = missingSide === "left"
+        ? `${placeholder.marcaj()}+${k}`
+        : `${k}+${placeholder.marcaj()}`;
+      return `${level}=${ancora}<span class="cifre-zbor-continut">${continut}</span>`;
     }
 
     // Inventarul bv-urilor nivelului curent — live, fara intarziere. Cerere
@@ -685,8 +693,14 @@
                   const liniaCurentaEl = document.querySelector('[data-element-div-intrebare="linia-curenta"]');
                   const ancoraSursa = liniaCurentaEl?.querySelector(".ancora-cifre-zbor");
                   const ancoraDestinatie = randEl.querySelector(".ancora-cifre-zbor");
-                  if (cifreRand.length === 2 && ancoraSursa && ancoraDestinatie) {
+                  // Textul static din intrebare (numarul cunoscut + placeholder/
+                  // revelat) — ascuns cat timp zboara perechea colorata, la fel
+                  // ca cifrele din tabel mai jos, ca sa nu stea amandoua vizibile
+                  // deodata (cerere user, 19.09.2026).
+                  const continutSursa = liniaCurentaEl?.querySelector(".cifre-zbor-continut");
+                  if (cifreRand.length === 2 && ancoraSursa && ancoraDestinatie && continutSursa) {
                     cifreRand.forEach((el) => el.classList.add("e-cifra-in-zbor"));
+                    continutSursa.classList.add("e-cifra-in-zbor");
                     global.IlustrareBonduri.zboaraCifre({
                       ancoraSursaEl: ancoraSursa,
                       ancoraDestinatieEl: ancoraDestinatie,
@@ -697,6 +711,7 @@
                     });
                     setTimeout(() => {
                       cifreRand.forEach((el) => el.classList.remove("e-cifra-in-zbor"));
+                      continutSursa.classList.remove("e-cifra-in-zbor");
                     }, global.IlustrareBonduri.getDurataTranzitieMs());
                   }
                 }
