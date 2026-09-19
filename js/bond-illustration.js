@@ -1050,6 +1050,29 @@
       reactiveazaTranzitiile();
     }
 
+    // Calculeaza si aplica DIN TIMP latimea/scara fontului tabelului — ACELASI
+    // calcul ca la primul bv rezolvat (pregatesteNivel), dar apelabil INAINTE
+    // de orice bv rezolvat, chiar la afisarea initiala a nivelului (randul gol
+    // "{nivel}="). Diferit de `reaplicaSetari` (mai sus), care cere ca
+    // `pregatesteNivel` sa fi rulat deja o data (garda `!nivelPregatit` de la
+    // inceputul ei) — aici tocmai asta lipseste inca, deliberat.
+    //
+    // Fara asta, containerul `.inventar-bonduri-randuri` n-are latime
+    // explicita cat timp niciun bv nu-i rezolvat -> se comporta ca un block
+    // ingust, centrat de parintele lui (`.singapore-prompt`,
+    // align-items:center) -> la primul raspuns corect, cand pregatesteNivel
+    // ruleaza in sfarsit (din arataBv), latimea corecta se aplica brusc si tot
+    // tabelul "sare" spre stanga (bug raportat de user, 20.09.2026, cu poze).
+    //
+    // Idempotent si ieftin de apelat de mai multe ori: pregatesteNivel insusi
+    // cade pe cache (linia ~444, `if (nivelPregatit === nivel && masuri)
+    // return masuri;`) daca nivelul e deja pregatit, deci apelul de-aici nu
+    // strica nimic daca arataBv ruleaza normal mai tarziu.
+    function pregatesteLatime({ nivel, randEl, containerEl, latimeDisponibila }) {
+      if (!randEl || !containerEl) return false;
+      return Boolean(pregatesteNivel({ nivel, randEl, containerEl, latimeCaseta: latimeDisponibila }));
+    }
+
     // "Spectacol 1" (cerere user, 31.08.2026, camp CP "Spectacol la final de
     // level"): la finalul unui nivel, ilustratia urca la randul 1, apoi se
     // multiplica in cascada — la fiecare pas se creeaza un CLONE EXACT peste
@@ -1334,7 +1357,7 @@
       elSemn = null;
     }
 
-    return { arataBv, reseteaza, joacaSpectacolFinal, reaplicaSetari };
+    return { arataBv, reseteaza, joacaSpectacolFinal, reaplicaSetari, pregatesteLatime };
   }
 
   global.IlustrareBonduri = {
