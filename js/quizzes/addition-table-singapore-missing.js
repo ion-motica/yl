@@ -665,6 +665,23 @@
             let zborDeclansat = false;
             if (!esteRecuperareInFazaPrincipala) {
               const bvLabel = decompositionLabel(currentFact);
+              // Instantaneu al lui `bvRezolvate`/`level` la ACEST bv — NU
+              // variabilele externe (reasignabile), citite mai jos in
+              // interiorul unui setTimeout intarziat cu cateva secunde. Bug
+              // real gasit (20.09.2026, raportat de user: "la restul
+              // nivelelor, la primul raspuns, x+y e deja pe randul
+              // destinatie" — fara zbor deloc): daca acest bv era ULTIMUL
+              // nivelului, avansul de nivel REASIGNEAZA `bvRezolvate = new
+              // Set()` (nivelul nou) SINCRON, in acelasi tur — cu mult
+              // inainte ca timeout-ul de mai jos sa apuce sa se declanseze.
+              // Cand se declansa (citind bare `bvRezolvate`), `.add(bvLabel)`
+              // polua Set-ul NIVELULUI NOU cu eticheta bv-ului VECHI —
+              // nepotrivita cu niciun rand din tabelul nou, dar tot devenea
+              // "ultimul element" citit de gasesteAncoraSursaSz la PRIMUL
+              // raspuns al nivelului nou, stricandu-i cautarea (rand
+              // negasit -> ancoraSursaSz null -> fara zbor deloc).
+              const bvRezolvateSesiune = bvRezolvate;
+              const nivelSesiune = level;
               // Cand cifrele urmeaza sa zboare (bifa CP pornita + DOM real),
               // marcarea "rezolvat" (bvRezolvate) se AMANA pana la sosirea
               // zborului (setTimeout mai jos) — randul ramane in starea lui
@@ -759,10 +776,18 @@
                     // devine rezolvat, iar randul se scrie cu continutul
                     // final — cautat din nou, nu memorat, ca sa reflecte
                     // corect orice rescriere intermediara facuta de motor.
-                    bvRezolvate.add(bvLabel);
-                    const elemRandFinal = global.InventarBonduri.elementeDivIntrebare(inventarCurent()).find(
-                      (elem) => elem.id === `bv-${bvLabel}`
-                    );
+                    // `bvRezolvateSesiune`/`nivelSesiune` (NU `bvRezolvate`/
+                    // `level` bare) — daca intre timp s-a avansat de nivel,
+                    // acestea inca se refera corect la nivelul VECHI, caruia
+                    // ii apartine `bvLabel`; randul lui `randEl` a disparut
+                    // deja din DOM in acel caz, deci scrierea de mai jos
+                    // devine un no-op inofensiv, exact ce trebuie.
+                    bvRezolvateSesiune.add(bvLabel);
+                    const elemRandFinal = global.InventarBonduri
+                      .elementeDivIntrebare(
+                        global.InventarBonduri.construieste({ nivel: nivelSesiune, rezolvate: bvRezolvateSesiune })
+                      )
+                      .find((elem) => elem.id === `bv-${bvLabel}`);
                     if (randEl && elemRandFinal) randEl.innerHTML = elemRandFinal.html;
                   }, global.IlustrareBonduri.getDurataTranzitieMs());
                 } else {
