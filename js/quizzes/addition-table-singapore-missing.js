@@ -416,6 +416,44 @@
       return knownPool.find((fact) => fact.factId === factId) ?? null;
     }
 
+    // Calculeaza din timp latimea/scara fontului tabelului de bv-uri, INAINTE
+    // ca userul sa apuce sa vada randul gol "{nivel}=" centrat (cerere user,
+    // 20.09.2026, cu poze: fara asta, latimea se calculeaza abia la primul
+    // raspuns corect — vezi arataBv — si tot tabelul "sare" spre stanga in
+    // acel moment). Randarea randului nou nu e sincrona cu apelul asta —
+    // la inceput de joc e sincrona (un singur cadru ajunge), dar la o
+    // schimbare de nivel randarea reala se intampla in interiorul pauzelor de
+    // ritm UI ale motorului comun (falling-engine.js — pana la cateva
+    // secunde) — de-aia asteptarea repetata pe requestAnimationFrame, nu un
+    // singur apel. Precedent identic (asteapta un cadru dupa prima asezare in
+    // DOM, ca sa nu "gliseze din colt la pornire"): js/rigle/engine.js,
+    // langa "rigle-lift--ready".
+    function pregatesteLatimeInitiala() {
+      if (typeof document === "undefined") return;
+      const nivelTinta = level;
+      const primulLabel = global.InventarBonduri.bvPentruNivel(nivelTinta)[0]?.label;
+      if (!primulLabel) return;
+      let incercari = 0;
+      const asteapta = () => {
+        if (level !== nivelTinta) return; // nivelul s-a schimbat deja — cererea asta nu mai e relevanta
+        const randEl = document
+          .getElementById("top-number")
+          ?.querySelector(`[data-element-div-intrebare="bv-${primulLabel}"]`);
+        if (randEl) {
+          ilustrareBonduri.pregatesteLatime({
+            nivel: nivelTinta,
+            randEl,
+            containerEl: document.getElementById("arena"),
+            latimeDisponibila: latimeDisponibilaPentruIlustratie(),
+          });
+          return;
+        }
+        incercari += 1;
+        if (incercari < 90) requestAnimationFrame(asteapta); // ~1.5s la 60fps, generos fata de orice pauza CP realista
+      };
+      requestAnimationFrame(asteapta);
+    }
+
     function incepe_serie_de_intrebari() {
       knownPool = selectPoolForLevel(level);
       activeQueue = shuffle(knownPool.map((fact) => queueItem(fact.factId)));
@@ -424,6 +462,7 @@
       a_gresit_in_serie = false;
       bvRezolvate = new Set();
       ilustrareBonduri.reseteaza();
+      pregatesteLatimeInitiala();
       return beginCurrentStep();
     }
 
