@@ -21,7 +21,7 @@ function verificaRezultate(cazuri) {
 describe("numaraTICs", () => {
   it("este disponibilă în index înaintea quizurilor", () => {
     const index = readFileSync(join(rootDir, "index.html"), "utf8");
-    const pozitieResursa = index.indexOf('<script src="js/numara-tics.js"></script>');
+    const pozitieResursa = index.indexOf('<script src="js/numara-tics.js');
     const pozitiePrimQuiz = index.indexOf('<script src="js/quizzes/');
 
     assert.equal(typeof numaraTICs, "function");

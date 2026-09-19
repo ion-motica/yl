@@ -7,6 +7,8 @@
     "check:encoding:strict": "node scripts/check-encoding.mjs --strict",
     "check:docs": "node scripts/check-doc-index.mjs",
     "check:cp-optiuni": "node scripts/check-cp-optiuni-declarative.mjs",
+    "check:cache-busting": "node scripts/sync-cache-busting.mjs",
+    "fix:cache-busting": "node scripts/sync-cache-busting.mjs --fix",
     "test": "node --test tests/*.test.js"
   }
 }
