@@ -272,6 +272,43 @@
       return Math.max(0, Math.floor(rect.width - padX * 2));
     }
 
+    // Ancora de PLECARE pt. zborul cifrelor (zboaraCifre) — randul din tabel
+    // rezolvat la intrebarea ANTERIOARA, nu linia intrebarii (cerere user,
+    // 19.09.2026: "foloseste ca reper pt. punctul de plecare punctul
+    // destinatie de la turnul trecut"). `bvRezolvate` e un Set (ordine de
+    // inserare garantata de spec JS), iar un bv intra in el abia la
+    // ATERIZAREA zborului lui (vezi dupaRaspunsCorect) — deci "ultimul
+    // element" reflecta mereu randul care chiar arata vizual colorat ACUM,
+    // robust si daca userul raspunde mai repede decat dureaza un zbor
+    // anterior (inca neaterizat, deci inca gol, deci nefolosit ca reper).
+    //
+    // La prima intrebare rezolvata dintr-un nivel (bvRezolvate inca gol) nu
+    // exista niciun rand anterior — foloseste ATUNCI aceeasi regula pe care
+    // ilustrarea cu buline o foloseste deja in situatia identica (verificat
+    // in cod, arataBv din js/bond-illustration.js, blocul `if (!ultimulBv)`):
+    // randul EXTREM (primul sau ultimul din tabel), ales prin distanta REALA
+    // masurata (getBoundingClientRect, nu index — corect si daca tabelul se
+    // rearanjeaza pe ecran ingust) fata de randul destinatie.
+    function gasesteAncoraSursaSz(randDestinatieEl) {
+      const randuriEl = randDestinatieEl?.parentElement;
+      if (!randuriEl) return null;
+      const bvAnterior = [...bvRezolvate].pop();
+      if (bvAnterior) {
+        return (
+          randuriEl
+            .querySelector(`[data-element-div-intrebare="bv-${bvAnterior}"]`)
+            ?.querySelector(".cifre-zbor-continut") || null
+        );
+      }
+      if (!randuriEl.children.length) return null;
+      const primul = randuriEl.children[0];
+      const ultimul = randuriEl.children[randuriEl.children.length - 1];
+      const rDest = randDestinatieEl.getBoundingClientRect();
+      const distPrimul = Math.abs(rDest.top - primul.getBoundingClientRect().top);
+      const distUltimul = Math.abs(rDest.top - ultimul.getBoundingClientRect().top);
+      return (distPrimul >= distUltimul ? primul : ultimul).querySelector(".cifre-zbor-continut");
+    }
+
     // `promptHtml` standard, construit de quiz (ca la stack-ul de la T*/
     // 11-20 v4): inventarul colorat al bv-urilor + linia curenta, cu
     // placeholderul marcat prin contractul comun.
@@ -681,26 +718,35 @@
                 });
                 zborDeclansat = Boolean(rezultatIlustratie?.zborDeclansat);
 
-                // Sursa isi inveleste "a+b" (numarul cunoscut+placeholder-ul)
-                // intr-un container ".cifre-zbor-continut" (currentLineHtml,
-                // in acest fisier) — ascuns cu o clasa CSS direct la click,
-                // pentru ca linia intrebarii trebuie sa arate INTOTDEAUNA
-                // ceva (nu are o stare naturala "goala" de folosit, spre
-                // deosebire de randul din tabel).
+                // Linia intrebarii isi inveleste "a+b" (numarul
+                // cunoscut+placeholder-ul) intr-un container
+                // ".cifre-zbor-continut" (currentLineHtml, in acest fisier) —
+                // ascuns cu o clasa CSS direct la click, pentru ca linia
+                // intrebarii trebuie sa arate INTOTDEAUNA ceva (nu are o
+                // stare naturala "goala" de folosit, spre deosebire de randul
+                // din tabel). Ascunderea asta ramane neschimbata — desi
+                // grupul zburator nu mai PLEACA vizual de-aici (cerere user,
+                // 19.09.2026: vezi ancoraSursaSz mai jos), raspunsul revelat
+                // de motorul comun tot ar aparea aici daca n-ar fi ascuns,
+                // dublandu-se vizual cu grupul zburator de deasupra.
                 const liniaCurentaEl = cuAnimatieCifre
                   ? document.querySelector('[data-element-div-intrebare="linia-curenta"]')
                   : null;
-                const continutSursa = liniaCurentaEl?.querySelector(".cifre-zbor-continut");
+                const liniaIntrebareContinut = liniaCurentaEl?.querySelector(".cifre-zbor-continut");
                 // Destinatia (randul din tabel) ramane INCA nerezolvata —
                 // .cifre-zbor-continut exista deja acolo, gol (vezi
                 // continutRand), si serveste direct ca reper de aterizare:
                 // pozitia lui nu se schimba fata de cand va fi populat.
                 const continutDestinatie = cuAnimatieCifre ? randEl?.querySelector(".cifre-zbor-continut") : null;
+                // Sursa REALA a zborului — randul rezolvat la intrebarea
+                // anterioara (sau randul extrem, la prima intrebare din
+                // nivel), NU linia intrebarii — vezi gasesteAncoraSursaSz.
+                const ancoraSursaSz = cuAnimatieCifre ? gasesteAncoraSursaSz(randEl) : null;
 
-                if (cuAnimatieCifre && continutSursa && continutDestinatie) {
-                  continutSursa.classList.add("e-cifra-in-zbor");
+                if (cuAnimatieCifre && liniaIntrebareContinut && continutDestinatie && ancoraSursaSz) {
+                  liniaIntrebareContinut.classList.add("e-cifra-in-zbor");
                   global.IlustrareBonduri.zboaraCifre({
-                    tintaSursaEl: continutSursa,
+                    tintaSursaEl: ancoraSursaSz,
                     tintaDestinatieEl: continutDestinatie,
                     a,
                     b,
@@ -708,7 +754,7 @@
                     culoareB: global.InventarBonduri.culoareNumar(b),
                   });
                   setTimeout(() => {
-                    continutSursa.classList.remove("e-cifra-in-zbor");
+                    liniaIntrebareContinut.classList.remove("e-cifra-in-zbor");
                     // Abia ACUM (dupa ce a disparut divul zburator) bv-ul
                     // devine rezolvat, iar randul se scrie cu continutul
                     // final — cautat din nou, nu memorat, ca sa reflecte
